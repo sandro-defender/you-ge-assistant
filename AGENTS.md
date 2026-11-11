@@ -714,3 +714,53 @@ Paste this into the target project's AI agent and fill in the two placeholders:
 
 Replace `<KIT_PATH>` with the path or repository URL of You.Ge Assistant and
 `<DEPLOYED_URL>` with the target deployment URL.
+
+---
+
+## 17. Agent skills
+
+Project skills are stored in `.agents/skills/` — one folder per skill, each containing a
+`SKILL.md` (discovered by scanning `<project>/.agents/skills/*/SKILL.md`; the folder name
+must match the `name` field in the frontmatter). Skills are read-only guidance: none add
+runtime dependencies, none change application behavior, and none override the PWA toolkit's
+dependency-free core.
+
+| Skill | Source | License | When to invoke |
+| --- | --- | --- | --- |
+| `mobile-native` | https://github.com/emilkowalski/skills (`skills/mobile-native/`) | MIT | Mobile-first and PWA UI work: touch interactions, mobile navigation, safe areas, viewport/keyboard behavior, responsive layouts on the web PWA and the React example. |
+| `break-ui` | https://github.com/emilkowalski/skills (`skills/break-ui/`) | MIT | UI edge-case testing: long labels and content, empty and error states, large datasets, extreme values, overflow, unusual but realistic interactions. The worst-case fixture stays dev-only; it runs through existing fixtures and the Node.js test runner; no new dependencies. |
+| `tdd` | https://github.com/mattpocock/skills (`skills/engineering/tdd/`) | MIT | Implementation and regression tests: red → green → refactor, one vertical slice at a time, tests at public interfaces/seams. Uses the existing `node --test` runner and project conventions; must not assume Vitest or another framework. |
+
+Invocation priorities:
+
+1. `ui-ux-pro-max-skill` remains the mandatory design authority for interface changes (this
+   file §2); it takes priority over any skill for UI decisions.
+2. `mobile-native` takes priority for mobile- and PWA-specific work.
+3. `break-ui` applies before UI changes land, to catch edge cases early.
+4. `tdd` applies to implementation and regression testing.
+5. No skill overrides the dependency-free core toolkit, existing PWA/offline/service-worker
+   behavior, design tokens and theme architecture, or existing React Bits constraints.
+
+Optional skills (evaluated, deliberately not installed):
+
+- `grill-me` (requirements clarification) — no current `SKILL.md` exists in the upstream
+  mattpocock/skills repository (only `docs/productivity/grill-me.md`; retired skills are
+  deleted upstream, not kept), so there is no verifiable source to install from.
+- `to-spec` (implementation specifications) — `disable-model-invocation: true` (cannot be
+  model-invoked) and it publishes specs to a project issue tracker with triage labels, an
+  external tracker integration/side effect this task does not require.
+
+Do not install `to-tickets`, `code-review`, `diagnosing-bugs`, or the entire Matt Pocock
+collection unless a concrete task justifies them.
+
+Future options (install only when a concrete task justifies them): Emil animate,
+review-animations, improve-animations, prototype; better-interface;
+vercel-react-best-practices; stageshow. Do not add `animate-expo` to this web PWA project;
+do not use Stageshow as a replacement for production UI engineering.
+
+Suggested workflow: clarify requirements → prepare a specification for larger changes → read
+the design foundation (`DESIGN_FOUNDATION.md`, `WIDGET.md`, `design-system/you-ge-assistant/MASTER.md`) → apply `ui-ux-pro-max-skill` for UI work → apply `mobile-native` for mobile/PWA work → apply `break-ui` for edge-case testing → apply `tdd` for implementation → verify build, tests and lint. Avoid making every skill mandatory for every task.
+
+Testing tools: `npm test` (`node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs`) and `npm run check` (static checks plus the same tests). No Vitest, Playwright or other test framework may be added to the core toolkit or the React example without a separate decision.
+
+Each installed skill's license and upstream source are recorded in `.agents/skills/README.md`; upstream LICENSE texts are copied into each skill folder.
