@@ -213,7 +213,9 @@ test('React notice actions reuse the toolkit hooks instead of being inert', () =
 
 const exampleCss = readFileSync(new URL('../example/example.css', import.meta.url), 'utf8');
 const widgetCss = readFileSync(new URL('../assistant-widget.css', import.meta.url), 'utf8');
+const pwaCss = readFileSync(new URL('../pwa.css', import.meta.url), 'utf8');
 const widgetSource = readFileSync(new URL('../example/src/main.jsx', import.meta.url), 'utf8');
+const exampleHtml = readFileSync(new URL('../example/index.html', import.meta.url), 'utf8');
 
 function actionableTones(css, selector) {
   return [...new Set([...css.matchAll(new RegExp(`\\.${selector}\\[data-tone="([a-z]+)"\\]`, 'g'))].map((match) => match[1]))].sort();
@@ -333,4 +335,67 @@ test('the React example demonstrates the Chrome handoff without forced redirects
   assert.match(exampleCss, /\.chrome-handoff \{/, 'the example styles its offer');
   assert.match(exampleCss, /\.chrome-handoff-url \{/, 'the preserved URL is shown, selectable');
   assert.match(exampleCss, /\.chrome-handoff-actions button \{[^}]*min-height: 40px/s, 'touch targets stay comfortable');
+});
+
+/* ------------------------------------------------------------------ *
+ * Mobile Native regression: the panel must track the visible viewport
+ * (dvh) so the URL bar cannot cover its bottom on mobile.
+ * ------------------------------------------------------------------ */
+
+test('the assistant panel uses 100dvh, not 100vh, on mobile', () => {
+  assert.ok(
+    !exampleCss.includes('100vh'),
+    'no 100vh rule remains in the example stylesheet (100vh overflows under the URL bar)'
+  );
+  assert.ok(
+    exampleCss.includes('100dvh'),
+    '100dvh is used so the panel resizes as the URL bar shows and hides'
+  );
+});
+
+/* ------------------------------------------------------------------ *
+ * Mobile Native regression: touch targets meet the 44px floor so taps
+ * land on the intended control on real devices.
+ * ------------------------------------------------------------------ */
+
+test('the install banner close button is a 44px touch target', () => {
+  assert.match(
+    pwaCss,
+    /\.progressier-install-banner-close\s*\{\s*[\s\S]*?width:\s*44px[\s\S]*?height:\s*44px/s,
+    'the install banner close button is 44x44px'
+  );
+});
+
+test('the install banner action buttons are 44px touch targets', () => {
+  assert.match(
+    pwaCss,
+    /\.progressier-install-banner-btns button\s*\{\s*[\s\S]*?height:\s*44px\s*!important/s,
+    'the install banner action buttons are at least 44px tall'
+  );
+});
+
+/* ------------------------------------------------------------------ *
+ * Mobile Native baseline: the software keyboard must resize the layout
+ * viewport on Android Chrome instead of overlaying the page.
+ * ------------------------------------------------------------------ */
+
+test('the viewport resizes with the on-screen keyboard', () => {
+  assert.ok(
+    exampleHtml.includes('interactive-widget=resizes-content'),
+    'the viewport meta declares interactive-widget=resizes-content'
+  );
+});
+
+/* ------------------------------------------------------------------ *
+ * Break UI regression: long endpoint URLs and DNS classifications in
+ * the widget status grid must wrap or truncate instead of overflowing
+ * the panel on narrow screens.
+ * ------------------------------------------------------------------ */
+
+test('the widget status grid value cell wraps long unbreakable values', () => {
+  assert.match(
+    widgetCss,
+    /\.youge-status-value\s*\{\s*[\s\S]*?min-width:\s*0[\s\S]*?overflow-wrap:\s*anywhere/s,
+    'the status value cell can shrink and wrap long URLs/classifications'
+  );
 });

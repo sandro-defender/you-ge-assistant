@@ -100,7 +100,7 @@ a { color: inherit; }
 
 .assistant-panel {
   width: min(330px, calc(100vw - 32px));
-  max-height: min(60vh, calc(100vh - 104px));
+  max-height: min(60dvh, calc(100dvh - 104px));
   overflow-y: auto;
   padding: 17px;
   /* Panels and controls read the same `--youge-*` tokens the embedded widget

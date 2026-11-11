@@ -577,7 +577,7 @@
 }
 .youge-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; font-size: 12.5px; }
 .youge-status-label { color: var(--youge-muted); }
-.youge-status-value { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; text-transform: capitalize; }
+.youge-status-value { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; font-weight: 650; text-transform: capitalize; }
 .youge-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--youge-muted); flex: none; }
 .youge-status-dot[data-tone="critical"] { background: var(--youge-critical); }
 .youge-status-dot[data-tone="ok"] { background: var(--youge-success); }

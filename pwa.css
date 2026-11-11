@@ -258,8 +258,8 @@ body.force-fixed {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   cursor: pointer;
   border-radius: 50%;
   flex: none;
@@ -341,7 +341,7 @@ body.force-fixed {
   margin: 0 5px !important;
   outline: 0 !important;
   border: 0 !important;
-  height: 40px !important;
+  height: 44px !important;
   border-radius: 30px !important;
   cursor: pointer !important;
   white-space: nowrap !important;
@@ -402,7 +402,7 @@ body.force-fixed {
   }
   .progressier-install-banner-btns button {
     width: 100% !important;
-    height: 40px !important;
+    height: 44px !important;
     max-width: 120px !important;
   }
   .progressier-install-banner-close {
