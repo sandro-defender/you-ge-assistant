@@ -1,9 +1,10 @@
 /*!
  * pwa.css — Progressier-compatible components
  * -------------------------------------------
- * Dimensions and breakpoints mirror the original Progressier UI:
+ * Dimensions and breakpoints follow the original Progressier UI, except for
+ * the install-banner touch targets enlarged here for accessibility:
  *   toolbox icon     65px (52px under 350px) / bottom 17px / z 2147483643
- *   install banner   100vw / 45px icon / 40px buttons / z 2147483644
+ *   install banner   100vw / 45px icon / 44px close + action targets / z 2147483644
  *   push banner      510px -> 450px -> 95vw / 70px icon / z 2147483645
  *   modal            500x500 max / 30px radius / 40px close / 17px title
  *   offline alert    470x150 -> calc(100vw - 20px) / 170px / z 2147483647
@@ -258,8 +259,8 @@ body.force-fixed {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   cursor: pointer;
   border-radius: 50%;
   flex: none;
@@ -341,7 +342,7 @@ body.force-fixed {
   margin: 0 5px !important;
   outline: 0 !important;
   border: 0 !important;
-  height: 40px !important;
+  height: 44px !important;
   border-radius: 30px !important;
   cursor: pointer !important;
   white-space: nowrap !important;
@@ -402,7 +403,7 @@ body.force-fixed {
   }
   .progressier-install-banner-btns button {
     width: 100% !important;
-    height: 40px !important;
+    height: 44px !important;
     max-width: 120px !important;
   }
   .progressier-install-banner-close {
