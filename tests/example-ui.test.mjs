@@ -215,6 +215,7 @@ const exampleCss = readFileSync(new URL('../example/example.css', import.meta.ur
 const widgetCss = readFileSync(new URL('../assistant-widget.css', import.meta.url), 'utf8');
 const pwaCss = readFileSync(new URL('../pwa.css', import.meta.url), 'utf8');
 const widgetSource = readFileSync(new URL('../example/src/main.jsx', import.meta.url), 'utf8');
+const assistantWidgetSource = readFileSync(new URL('../assistant-widget.js', import.meta.url), 'utf8');
 const exampleHtml = readFileSync(new URL('../example/index.html', import.meta.url), 'utf8');
 
 function actionableTones(css, selector) {
@@ -338,64 +339,178 @@ test('the React example demonstrates the Chrome handoff without forced redirects
 });
 
 /* ------------------------------------------------------------------ *
- * Mobile Native regression: the panel must track the visible viewport
- * (dvh) so the URL bar cannot cover its bottom on mobile.
+ * These are source-structure contracts, not browser layout tests: the
+ * dependency-free Node suite has no CSS layout engine. Inspect rule blocks
+ * and responsive/cascade structure rather than matching a property anywhere
+ * in a stylesheet.
  * ------------------------------------------------------------------ */
 
-test('the assistant panel uses 100dvh, not 100vh, on mobile', () => {
-  assert.ok(
-    !exampleCss.includes('100vh'),
-    'no 100vh rule remains in the example stylesheet (100vh overflows under the URL bar)'
+function cssRuleBodies(css, selector) {
+  const escapedSelector = selector.replaceAll('.', '\\.');
+  const pattern = new RegExp(`(?:^|[\\n}])\\s*${escapedSelector}\\s*\\{([^{}]*)\\}`, 'g');
+  return [...css.matchAll(pattern)].map((match) => match[1]);
+}
+
+function cssDeclarationValues(ruleBody, property) {
+  const pattern = new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`, 'gi');
+  return [...ruleBody.matchAll(pattern)].map((match) => match[1].trim());
+}
+
+function cssMediaBody(css, query) {
+  const marker = `@media ${query} {`;
+  const start = css.indexOf(marker);
+  assert.ok(start >= 0, `${marker} responsive rule exists`);
+  const bodyStart = start + marker.length;
+  let depth = 1;
+  for (let index = bodyStart; index < css.length; index += 1) {
+    if (css[index] === '{') depth += 1;
+    if (css[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return css.slice(bodyStart, index);
+    }
+  }
+  assert.fail(`${marker} responsive rule is closed`);
+}
+
+/* ------------------------------------------------------------------ *
+ * Mobile Native regression: the effective panel rule must preserve a usable
+ * legacy viewport cap, then enhance it with dynamic viewport units.
+ * ------------------------------------------------------------------ */
+
+test('the effective assistant-panel rule has a vh fallback and a dvh enhancement', () => {
+  const panelRules = cssRuleBodies(exampleCss, '.assistant-panel');
+  const maxHeightRules = panelRules
+    .map((body) => cssDeclarationValues(body, 'max-height'))
+    .filter((values) => values.length);
+
+  assert.deepEqual(
+    maxHeightRules,
+    [
+      [
+        'min(60vh, calc(100vh - 104px))',
+        'min(60dvh, calc(100dvh - 104px))',
+      ],
+      [
+        'min(72vh, calc(100vh - 104px))',
+        'min(72dvh, calc(100dvh - 104px))',
+      ],
+    ],
+    'the later React rule is the active cap; older browsers keep the preceding vh value'
   );
-  assert.ok(
-    exampleCss.includes('100dvh'),
-    '100dvh is used so the panel resizes as the URL bar shows and hides'
+  assert.deepEqual(
+    cssDeclarationValues(panelRules[0], 'overflow-y'),
+    ['auto'],
+    'panel content remains vertically scrollable when capped'
   );
 });
 
 /* ------------------------------------------------------------------ *
- * Mobile Native regression: touch targets meet the 44px floor so taps
- * land on the intended control on real devices.
+ * Mobile Native regression: close and action hit areas remain >=44px at
+ * base and mobile breakpoints. Check every matching rule to catch overrides.
  * ------------------------------------------------------------------ */
 
-test('the install banner close button is a 44px touch target', () => {
-  assert.match(
-    pwaCss,
-    /\.progressier-install-banner-close\s*\{\s*[\s\S]*?width:\s*44px[\s\S]*?height:\s*44px/s,
-    'the install banner close button is 44x44px'
+test('the install banner close button stays 44x44px across responsive rules', () => {
+  const closeRules = cssRuleBodies(pwaCss, '.progressier-install-banner-close');
+  const sizeRules = closeRules.filter((body) =>
+    cssDeclarationValues(body, 'width').length || cssDeclarationValues(body, 'height').length
   );
+  assert.equal(sizeRules.length, 1, 'only the base close rule sets its dimensions');
+  assert.deepEqual(cssDeclarationValues(sizeRules[0], 'width'), ['44px']);
+  assert.deepEqual(cssDeclarationValues(sizeRules[0], 'height'), ['44px']);
+
+  const mobileCloseRules = cssRuleBodies(
+    cssMediaBody(pwaCss, '(max-width: 800px)'),
+    '.progressier-install-banner-close'
+  );
+  assert.equal(mobileCloseRules.length, 1, 'the mobile override only repositions the close control');
+  assert.deepEqual(cssDeclarationValues(mobileCloseRules[0], 'width'), []);
+  assert.deepEqual(cssDeclarationValues(mobileCloseRules[0], 'height'), []);
 });
 
-test('the install banner action buttons are 44px touch targets', () => {
-  assert.match(
-    pwaCss,
-    /\.progressier-install-banner-btns button\s*\{\s*[\s\S]*?height:\s*44px\s*!important/s,
-    'the install banner action buttons are at least 44px tall'
+test('the install banner action buttons stay 44px tall at base and mobile sizes', () => {
+  const selector = '.progressier-install-banner-btns button';
+  const buttonRules = cssRuleBodies(pwaCss, selector);
+  assert.equal(buttonRules.length, 2, 'there is one base rule and one <=800px override');
+  assert.deepEqual(
+    buttonRules.map((body) => cssDeclarationValues(body, 'height')),
+    [['44px !important'], ['44px !important']],
+    'the scoped important height wins consistently at both breakpoints'
   );
+
+  const mobileButtonRules = cssRuleBodies(cssMediaBody(pwaCss, '(max-width: 800px)'), selector);
+  assert.equal(mobileButtonRules.length, 1);
+  assert.deepEqual(cssDeclarationValues(mobileButtonRules[0], 'height'), ['44px !important']);
 });
 
 /* ------------------------------------------------------------------ *
- * Mobile Native baseline: the software keyboard must resize the layout
- * viewport on Android Chrome instead of overlaying the page.
+ * Mobile Native baseline: preserve the standard viewport directives while
+ * asking supporting browsers to resize the layout viewport for the keyboard.
  * ------------------------------------------------------------------ */
 
-test('the viewport resizes with the on-screen keyboard', () => {
+test('the viewport meta keeps existing settings and opts into content resize', () => {
+  const viewportTags = [...exampleHtml.matchAll(/<meta[^>]*>/gi)]
+    .map((match) => match[0])
+    .filter((tag) => /name="viewport"/i.test(tag));
+  assert.equal(viewportTags.length, 1, 'there is a single viewport declaration');
+
+  const content = /content="([^"]*)"/i.exec(viewportTags[0]);
+  assert.ok(content, 'the viewport declaration has a content attribute');
+  const settings = Object.fromEntries(content[1].split(',').map((part) => {
+    const [name, ...values] = part.trim().split('=');
+    return [name.toLowerCase(), values.join('=').trim().toLowerCase()];
+  }));
+  assert.equal(settings.width, 'device-width');
+  assert.equal(settings['initial-scale'], '1');
+  assert.equal(settings['viewport-fit'], 'cover');
+  assert.equal(settings['interactive-widget'], 'resizes-content');
+});
+
+/* ------------------------------------------------------------------ *
+ * Break UI regression: long endpoint URLs and DNS classifications wrap in
+ * the actual status-value cell, preserving the grid/row layout and vertical
+ * scrolling without introducing a horizontal scroller.
+ * ------------------------------------------------------------------ */
+
+test('the widget status value cell can shrink and wrap without horizontal scrolling', () => {
+  const gridRules = cssRuleBodies(widgetCss, '.youge-status-grid');
+  const rowRules = cssRuleBodies(widgetCss, '.youge-status-row');
+  const valueRules = cssRuleBodies(widgetCss, '.youge-status-value');
+  const panelBodyRules = cssRuleBodies(widgetCss, '.youge-panel-body');
+  assert.equal(gridRules.length, 1);
+  assert.equal(rowRules.length, 1);
+  assert.equal(valueRules.length, 1);
+  assert.equal(panelBodyRules.length, 2, 'the base rule and mobile padding override are both present');
+
+  assert.deepEqual(cssDeclarationValues(gridRules[0], 'display'), ['grid']);
+  assert.deepEqual(cssDeclarationValues(rowRules[0], 'display'), ['flex']);
+  assert.deepEqual(cssDeclarationValues(valueRules[0], 'display'), ['inline-flex']);
+  assert.deepEqual(cssDeclarationValues(valueRules[0], 'min-width'), ['0']);
+  assert.deepEqual(cssDeclarationValues(valueRules[0], 'overflow-wrap'), ['anywhere']);
+  assert.deepEqual(
+    panelBodyRules.flatMap((body) => cssDeclarationValues(body, 'overflow-y')),
+    ['auto'],
+    'the responsive padding rule does not replace vertical-only scrolling'
+  );
+  for (const [label, body] of [
+    ['status grid', gridRules[0]],
+    ['status row', rowRules[0]],
+    ['status value', valueRules[0]],
+    ...panelBodyRules.map((body) => ['panel body', body]),
+  ]) {
+    assert.ok(
+      cssDeclarationValues(body, 'overflow-x').every((value) => !/(?:auto|scroll)/i.test(value)),
+      `${label} does not gain horizontal scrolling`
+    );
+  }
+
+  const statusRowStart = assistantWidgetSource.indexOf('function statusRow(label, value, tone) {');
+  assert.ok(statusRowStart >= 0, 'the actual widget renderer builds status rows');
+  const statusRowEnd = assistantWidgetSource.indexOf(String.fromCharCode(10) + '  }', statusRowStart);
+  assert.ok(statusRowEnd > statusRowStart, 'the status row renderer has a closing block');
+  const statusRowBody = assistantWidgetSource.slice(statusRowStart, statusRowEnd);
+  assert.ok(statusRowBody.includes("el('span', 'youge-status-value')"));
   assert.ok(
-    exampleHtml.includes('interactive-widget=resizes-content'),
-    'the viewport meta declares interactive-widget=resizes-content'
-  );
-});
-
-/* ------------------------------------------------------------------ *
- * Break UI regression: long endpoint URLs and DNS classifications in
- * the widget status grid must wrap or truncate instead of overflowing
- * the panel on narrow screens.
- * ------------------------------------------------------------------ */
-
-test('the widget status grid value cell wraps long unbreakable values', () => {
-  assert.match(
-    widgetCss,
-    /\.youge-status-value\s*\{\s*[\s\S]*?min-width:\s*0[\s\S]*?overflow-wrap:\s*anywhere/s,
-    'the status value cell can shrink and wrap long URLs/classifications'
+    statusRowBody.includes("valueWrap.appendChild(el('span', '', value))"),
+    'the text value is a child of the wrapping cell'
   );
 });

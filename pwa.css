@@ -1,9 +1,10 @@
 /*!
  * pwa.css — Progressier-compatible components
  * -------------------------------------------
- * Dimensions and breakpoints mirror the original Progressier UI:
+ * Dimensions and breakpoints follow the original Progressier UI, except for
+ * the install-banner touch targets enlarged here for accessibility:
  *   toolbox icon     65px (52px under 350px) / bottom 17px / z 2147483643
- *   install banner   100vw / 45px icon / 40px buttons / z 2147483644
+ *   install banner   100vw / 45px icon / 44px close + action targets / z 2147483644
  *   push banner      510px -> 450px -> 95vw / 70px icon / z 2147483645
  *   modal            500x500 max / 30px radius / 40px close / 17px title
  *   offline alert    470x150 -> calc(100vw - 20px) / 170px / z 2147483647

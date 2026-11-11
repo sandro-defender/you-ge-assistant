@@ -100,6 +100,7 @@ a { color: inherit; }
 
 .assistant-panel {
   width: min(330px, calc(100vw - 32px));
+  max-height: min(60vh, calc(100vh - 104px));
   max-height: min(60dvh, calc(100dvh - 104px));
   overflow-y: auto;
   padding: 17px;
@@ -714,7 +715,10 @@ article.foundation-card {
 }
 .assistant-fab-glare .assistant-fab { width: 100%; height: 100%; }
 
-.assistant-panel { max-height: min(72vh, calc(100dvh - 104px)); }
+.assistant-panel {
+  max-height: min(72vh, calc(100vh - 104px));
+  max-height: min(72dvh, calc(100dvh - 104px));
+}
 /* Same rule as the shipped widget's .youge-brand-image: a true circle, sized
    up, and fitted so the circular mark is never cropped into a rounded square. */
 .assistant-panel-brand {
