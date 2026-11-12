@@ -202,6 +202,59 @@ console.log(assistant.getConfig().meta);
 - **No secrets in SDK config:** Keys matching credential patterns (`apiKey`, `secret`, `privateKey`, `password`, `accessToken`, `bearerToken`, `vapidPrivateKey`, etc.) are rejected in `publishedConfig` and stripped from local config so secrets never enter state snapshots or `localStorage`.
 - **Same-origin branding icons:** Cross-origin icon URLs are rejected in favor of safe same-origin fallback icons.
 
+### Domain resolution and project identity
+
+The SDK detects its runtime hostname from browser-like locations or full URLs,
+normalizes case/trailing dots/ports, and supports custom hostnames, nested
+subdomains, `localhost`, IPv4 and IPv6 development URLs. Registry precedence is
+exact host + matching path, exact host, most-specific wildcard + path, then the
+most-specific wildcard host; longer matching paths and a stable key tie-break
+make resolution deterministic. Unknown hosts get safe defaults.
+
+Use the typed `project` option for a stable app identity. Registry entries can
+map multiple custom-domain aliases to the same ID; `projectId` remains supported
+for existing callers. The order is `project.id` → `projectId` → matched registry
+`project.id` → normalized host + application base path. This only controls the
+SDK's logical project identity and project-scoped keys—it does not share browser
+storage, authentication, cookies, installations or service workers across origins.
+Hostname matching is not a trust or authorization decision.
+
+```js
+import { YouGeAssistant } from '@youge/assistant-sdk';
+
+const domains = {
+  'app.example.com': {
+    project: { id: 'example-app' },
+    identity: { name: 'Example App', shortName: 'Example' },
+  },
+  'app.customer-brand.test': {
+    project: { id: 'example-app' },
+    identity: { name: 'Example App', shortName: 'Example' },
+  },
+  '*.workspace.example.net': {
+    project: { id: 'workspace' },
+    identity: { name: 'Workspace', shortName: 'Workspace' },
+  },
+};
+
+const assistant = YouGeAssistant.create({ domainRegistry: domains });
+console.log(assistant.getState().project.projectIdSource); // 'domainRegistry', unless explicitly overridden
+
+const checked = YouGeAssistant.validateDomainRegistry(domains);
+if (!checked.valid) console.warn(checked.issues); // code, path and message per issue
+
+const local = YouGeAssistant.resolveDomain('http://127.0.0.1:5173/app/', {
+  '127.0.0.1/app/': { project: { id: 'local-app' } },
+});
+console.log(local.domain.origin, local.project?.id); // http://127.0.0.1:5173, local-app
+```
+
+`validateDomainConfig()` keeps its backward-compatible normalized-config return
+value. `validateDomainConfigDetailed()` and `validateDomainRegistry()` add safe
+normalized outputs plus actionable `valid`/`issues` results. See
+[`MULTI_DOMAIN.md`](../../MULTI_DOMAIN.md) for classic-script and deployment
+examples, wildcard/apex behavior and origin/storage boundaries.
+
 ---
 
 ## Android in-app browser → Chrome handoff (0.1.1)

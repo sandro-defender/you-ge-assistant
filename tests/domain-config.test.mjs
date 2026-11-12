@@ -48,6 +48,81 @@ test('root-domain derivation is conservative for compound public suffix examples
   assert.equal(domain.resolve(location('localhost'), {}).domain.rootDomain, 'localhost');
 });
 
+test('classic resolver normalizes URL, port, localhost and IP development host inputs', () => {
+  assert.equal(domain.normalizeHost('HTTPS://Portal.Example.COM.:8443/app'), 'portal.example.com');
+  assert.equal(domain.normalizeHost('localhost:5173'), 'localhost');
+  assert.equal(domain.normalizeHost('[::1]:8080'), '[::1]');
+  assert.equal(domain.detectRuntimeHostname({ href: 'http://127.0.0.1:4173/preview/' }), '127.0.0.1');
+
+  const local = domain.resolve('http://127.0.0.1:5173/portal/tasks', {
+    '127.0.0.1/portal/': {
+      identity: { name: 'Local Portal' },
+      pwa: { basePath: '/portal/' },
+    },
+  });
+  assert.equal(local.domain.hostname, '127.0.0.1');
+  assert.equal(local.domain.origin, 'http://127.0.0.1:5173');
+  assert.equal(local.domain.pathname, '/portal/tasks');
+  assert.equal(local.domain.basePath, '/portal/');
+  assert.equal(local.identity.name, 'Local Portal');
+});
+
+test('classic resolver provides structured validation and normalized registry results', () => {
+  const invalid = domain.validateConfigDetailed({
+    branding: { themeColor: 'not-a-color' },
+    pwa: { basePath: '/../escape/', startUrl: 'javascript:alert(1)' },
+  });
+  assert.equal(invalid.valid, false);
+  assert.equal(invalid.config.branding.themeColor, '#155eef');
+  assert.ok(invalid.issues.some((issue) => issue.code === 'unsafe_start_url' && issue.path === 'pwa.startUrl'));
+
+  const registry = domain.validateRegistry({
+    'PORTAL.Example.COM.': { project: { id: 'shared-project' } },
+    'portal.example.com:443': { identity: { name: 'duplicate' } },
+    'bad host': { identity: { name: 'invalid' } },
+  });
+  assert.equal(registry.valid, false);
+  assert.deepEqual(Object.keys(registry.registry), ['portal.example.com']);
+  assert.equal(registry.registry['portal.example.com'].project.id, 'shared-project');
+  assert.ok(registry.issues.some((issue) => issue.code === 'duplicate_registry_key'));
+  assert.ok(registry.issues.some((issue) => issue.code === 'invalid_registry_key'));
+
+  const longProject = domain.validateConfigDetailed({ project: { id: 'x'.repeat(81) } });
+  assert.equal(longProject.valid, false);
+  assert.ok(longProject.issues.some((issue) => issue.code === 'invalid_project_id'));
+  assert.equal(longProject.config.project.id.length, 80);
+});
+
+test('classic registry matching is stable and malformed access falls back safely', () => {
+  const first = {
+    '*.EXAMPLE.COM.': { identity: { name: 'Upper alias' } },
+    '*.example.com': { identity: { name: 'Lower alias' } },
+  };
+  const second = {
+    '*.example.com': { identity: { name: 'Lower alias' } },
+    '*.EXAMPLE.COM.': { identity: { name: 'Upper alias' } },
+  };
+  assert.equal(domain.resolve('https://team.example.com/', first).identity.name, 'Upper alias');
+  assert.equal(domain.resolve('https://team.example.com/', second).identity.name, 'Upper alias');
+
+  const brokenEntry = Object.defineProperty({}, 'portal.example.com', {
+    enumerable: true,
+    get() { throw new Error('unreadable registry entry'); },
+  });
+  assert.doesNotThrow(() => domain.resolve('https://portal.example.com/', brokenEntry));
+  assert.equal(domain.resolve('https://portal.example.com/', brokenEntry).domain.configured, false);
+  assert.equal(domain.validateRegistry(brokenEntry).valid, false);
+
+  const brokenKeys = new Proxy({}, { ownKeys() { throw new Error('unreadable registry'); } });
+  assert.doesNotThrow(() => domain.resolve('https://portal.example.com/', brokenKeys));
+  assert.equal(domain.validateRegistry(brokenKeys).valid, false);
+
+  const brokenLocation = new Proxy({}, { get() { throw new Error('unreadable location'); } });
+  assert.equal(domain.detectRuntimeHostname(brokenLocation), '');
+  assert.doesNotThrow(() => domain.resolve(brokenLocation, {}));
+  assert.equal(domain.resolve(brokenLocation, {}).domain.hostname, 'localhost');
+});
+
 test('captures HTTPS origin, protocol, pathname, installation origin, and configured base path', () => {
   const result = domain.resolve(location('portal.example.com', { pathname: '/app/reports', port: '8443' }), registry);
   assert.equal(result.domain.origin, 'https://portal.example.com:8443');

@@ -28,6 +28,7 @@ import { normalizeTheme } from '../theme/index.js';
 
 export const BUNDLED_DEFAULTS = {
   enabled: true,
+  project: null,
   projectId: '',
   domain: '',
   position: 'bottom-right',
@@ -105,6 +106,15 @@ export function normalizeFeatures(raw) {
   }).filter(Boolean);
 }
 
+function normalizeProjectConfig(raw) {
+  if (raw === null) return null;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const rawId = raw.id;
+  if (typeof rawId !== 'string') return null;
+  const id = safeText(rawId, 80).trim();
+  return id && rawId.length <= 80 && id === rawId.trim() ? { id: id } : null;
+}
+
 function parseSchemaMajor(version) {
   if (version === undefined || version === null) return SCHEMA_VERSION;
   if (typeof version === 'number') {
@@ -122,6 +132,7 @@ function extractLayerOverrides(raw) {
   const out = {};
 
   if (source.enabled !== undefined) out.enabled = source.enabled !== false;
+  if (source.project !== undefined) out.project = normalizeProjectConfig(source.project);
   if (source.projectId !== undefined) out.projectId = safeText(source.projectId, 80);
   if (typeof source.domain === 'string') out.domain = safeText(source.domain, 253);
   if (source.position !== undefined && POSITIONS.indexOf(source.position) !== -1) {
@@ -196,6 +207,7 @@ function extractLayerOverrides(raw) {
 function applyLayer(base, layer) {
   if (!layer || typeof layer !== 'object') return base;
   if (layer.enabled !== undefined) base.enabled = layer.enabled;
+  if (layer.project !== undefined) base.project = clone(layer.project);
   if (layer.projectId) base.projectId = layer.projectId;
   if (layer.domain) base.domain = layer.domain;
   if (layer.position) base.position = layer.position;
@@ -266,12 +278,23 @@ export function validatePublishedConfig(rawInput, options) {
 
   const expectedProjectId = safeText(opts.expectedProjectId || '', 80);
   const declaredProjectId = safeText(parsed.projectId || '', 80);
-  if (expectedProjectId && declaredProjectId && expectedProjectId !== declaredProjectId) {
+  const nestedConfig = parsed.config && typeof parsed.config === 'object' && !Array.isArray(parsed.config)
+    ? parsed.config
+    : null;
+  const topProject = normalizeProjectConfig(parsed.project);
+  const nestedProject = normalizeProjectConfig(nestedConfig && nestedConfig.project);
+  const projectIds = [declaredProjectId, topProject && topProject.id, nestedProject && nestedProject.id].filter(Boolean);
+  if ((expectedProjectId && projectIds.some(function (id) { return id !== expectedProjectId; })) ||
+      projectIds.some(function (id) { return id !== projectIds[0]; })) {
     return { valid: false, reason: 'project_id_mismatch', warnings: ['project_id_mismatch'] };
   }
+  const hasInvalidProject = (parsed.project !== undefined && parsed.project !== null && !topProject) ||
+    Boolean(nestedConfig && nestedConfig.project !== undefined && nestedConfig.project !== null && !nestedProject);
 
-  const payload = parsed.config && typeof parsed.config === 'object' && !Array.isArray(parsed.config)
-    ? Object.assign({}, parsed.config, declaredProjectId ? { projectId: declaredProjectId } : {})
+  const payload = nestedConfig
+    ? Object.assign({}, nestedConfig,
+      !nestedConfig.project && topProject ? { project: topProject } : {},
+      declaredProjectId ? { projectId: declaredProjectId } : {})
     : parsed;
 
   return {
@@ -279,9 +302,9 @@ export function validatePublishedConfig(rawInput, options) {
     schemaVersion: SCHEMA_VERSION,
     revision: safeText(parsed.revision || '', 60),
     publishedAt: safeText(parsed.publishedAt || '', 60),
-    projectId: declaredProjectId || expectedProjectId,
+    projectId: declaredProjectId || (nestedProject && nestedProject.id) || (topProject && topProject.id) || expectedProjectId,
     config: extractLayerOverrides(payload),
-    warnings: [],
+    warnings: hasInvalidProject ? ['invalid_project_config'] : [],
   };
 }
 
@@ -356,7 +379,11 @@ export function resolveAssistantConfig(rawInput, context) {
   const base = clone(BUNDLED_DEFAULTS);
   base.domainRegistry = null;
 
-  const explicitProjectId = safeText(input.projectId || '', 80);
+  const typedProject = normalizeProjectConfig(input.project);
+  const legacyProjectId = safeText(input.projectId || '', 80).trim();
+  const explicitProjectId = (typedProject && typedProject.id) || legacyProjectId;
+  if (input.project !== undefined && input.project !== null && !typedProject) warnings.push('invalid_project_config');
+  if (typedProject && legacyProjectId && typedProject.id !== legacyProjectId) warnings.push('project_id_conflict');
   let source = 'defaults';
   let revision = '';
   let publishedAt = '';
