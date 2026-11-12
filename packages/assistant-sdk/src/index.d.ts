@@ -19,6 +19,9 @@ import type {
 } from './config/index.js';
 import type {
   DomainBranding,
+  DomainConfigIssue,
+  DomainConfigValidationResult,
+  DomainConfigValidationSummary,
   DomainContext,
   DomainFeatures,
   DomainIdentity,
@@ -26,10 +29,12 @@ import type {
   DomainPwaSettings,
   DomainRegistry,
   DomainRegistryEntry,
+  DomainRegistryValidationResult,
   DomainResolver,
   DomainShortcut,
   GeneratedWebManifest,
   LocationInput,
+  ProjectConfig,
   ResolvedDomainConfig,
 } from './domain/index.js';
 import type {
@@ -88,6 +93,9 @@ export type {
   DiagnosticsIntegrationOptions,
   DnsDiagnosticSnapshot,
   DomainBranding,
+  DomainConfigIssue,
+  DomainConfigValidationResult,
+  DomainConfigValidationSummary,
   DomainContext,
   DomainFeatures,
   DomainIdentity,
@@ -95,12 +103,14 @@ export type {
   DomainPwaSettings,
   DomainRegistry,
   DomainRegistryEntry,
+  DomainRegistryValidationResult,
   DomainResolver,
   DomainShortcut,
   GeneratedWebManifest,
   InstallationStatus,
   InstallationSupport,
   LocationInput,
+  ProjectConfig,
   PublishedAssistantConfig,
   PublishedValidationResult,
   PwaRuntimeLike,
@@ -133,10 +143,16 @@ export interface AssistantProjectInfo {
   shortName: string;
   icon: string;
   themeColor: string;
+  /** Host after resolving the legacy explicit `domain` option. */
   hostname: string;
+  /** Host detected from the actual runtime location before any explicit override. */
+  detectedHostname: string;
   origin: string;
   basePath: string;
   configured: boolean;
+  matchedRegistryKey: string | null;
+  projectIdSource: 'project' | 'projectId' | 'domainRegistry' | 'derived';
+  domainValidation: DomainConfigValidationSummary;
 }
 
 export interface AssistantEndpointsState {
@@ -208,7 +224,7 @@ export interface AssistantEnvironment {
   root?: Record<string, unknown>;
   window?: Record<string, unknown>;
   document?: Document | Record<string, unknown> | null;
-  location?: LocationInput;
+  location?: LocationInput | string;
   navigator?: { onLine?: boolean } | null;
   storage?: StorageLike | null;
   pwa?: PwaRuntimeLike | null;
@@ -222,7 +238,7 @@ export interface AssistantEnvironment {
 
 export interface CreateAssistantOptions extends AssistantConfigInput {
   env?: AssistantEnvironment;
-  location?: LocationInput;
+  location?: LocationInput | string;
   storage?: StorageLike | null;
   pwa?: PwaRuntimeLike | null;
   dns?: AssistantEnvironment['dns'];
@@ -233,6 +249,9 @@ export interface CreateAssistantOptions extends AssistantConfigInput {
 
 export interface AssistantConfigSummary {
   enabled: boolean;
+  /** Preferred typed project identity, when explicitly configured. */
+  project: ProjectConfig | null;
+  /** Backward-compatible flat project ID. */
   projectId: string;
   domain: string;
   position: AssistantPosition;
@@ -291,7 +310,11 @@ export interface YouGeAssistantStatic {
   attach(options?: CreateAssistantOptions, envOverrides?: AssistantEnvironment): AssistantInstance;
   getGlobal(targetRoot?: Record<string, unknown>): AssistantInstance | null;
   resolveDomain(locationLike?: LocationInput | string, optionalRegistry?: DomainRegistry): ResolvedDomainConfig;
+  detectRuntimeHostname(locationLike?: LocationInput | string): string;
   buildManifest(config?: ResolvedDomainConfig): GeneratedWebManifest;
+  validateDomainConfig(raw?: DomainRegistryEntry | null): Omit<ResolvedDomainConfig, 'domain'>;
+  validateDomainConfigDetailed(raw?: unknown): DomainConfigValidationResult;
+  validateDomainRegistry(raw?: unknown): DomainRegistryValidationResult;
   validatePublishedConfig(rawInput: unknown, options?: { expectedProjectId?: string }): PublishedValidationResult;
   detectInAppBrowser(userAgent?: string): InAppBrowserDetection;
   buildChromeIntentUrl(url: string, options?: { packageName?: string }): string | null;
@@ -315,7 +338,6 @@ export declare const PRIORITY: Readonly<{ critical: 1; auth: 2; backup: 3; insta
 export declare const TONE: Readonly<{ 1: 'critical'; 2: 'auth'; 3: 'backup'; 4: 'install'; 5: 'info' }>;
 export declare const POSITIONS: readonly AssistantPosition[];
 export declare const THEMES: readonly AssistantTheme[];
-export declare const THEME_MODES: readonly import('./theme/index.js').ThemeMode[];
 export declare const ICONS: readonly AssistantActionIcon[];
 export declare const EVENT_NAMES: Readonly<Record<string, string>>;
 export declare const STORAGE_PREFIXES: Readonly<{ notices: string; lastKnownGood: string }>;
@@ -336,6 +358,7 @@ export {
   DOMAIN_DEFAULTS,
   buildManifest,
   createDomainResolver,
+  detectRuntimeHostname,
   isIpAddress,
   normalizeHost,
   normalizePath,
@@ -343,6 +366,8 @@ export {
   rootDomain,
   safeNavigationUrl,
   validateDomainConfig,
+  validateDomainConfigDetailed,
+  validateDomainRegistry,
 } from './domain/index.js';
 
 export {

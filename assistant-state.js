@@ -1014,6 +1014,7 @@
     },
     instructions: {},
     metadata: {},
+    project: null,
   };
 
   const KNOWN_COMPOUND_SUFFIXES = {
@@ -1024,24 +1025,95 @@
   };
 
   const VALID_HOST = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/i;
-  const VALID_COLOR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\)|hsla?\([\d\s.,%]+\)|[a-z]{3,20})$/i;
+  const VALID_COLOR_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+  const VALID_COLOR_FUNCTION = /^(?:rgba?|hsla?)\([\d\s.,%]+\)$/i;
+  const CSS_COLOR_NAMES = new Set(('aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgrey darkgreen darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray grey green greenyellow honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgrey lightgreen lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen transparent currentcolor').split(/\s+/));
   const META_KEYS = {
     'og:title': true, 'og:description': true, 'og:image': true, 'og:type': true,
     'og:site_name': true, 'og:url': true, 'twitter:card': true, 'twitter:title': true,
     'twitter:description': true, 'twitter:image': true,
   };
+
+  function isValidIpv4(hostname) {
+    if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname)) return false;
+    return hostname.split('.').every(function (part) {
+      const octet = Number(part);
+      return octet >= 0 && octet <= 255;
+    });
+  }
+
+  function isValidIpv6(hostname) {
+    if (!/^\[[0-9a-f:.]+\]$/i.test(hostname)) return false;
+    try {
+      return new URL('http://' + hostname).hostname.toLowerCase() === hostname.toLowerCase();
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Normalize a runtime host, host:port value or absolute URL to a hostname.
+   * URL parsing also canonicalizes IDNs and IPv6; ports, paths, case and a final
+   * DNS dot are not part of the returned host. Unsupported protocols and invalid
+   * host syntax produce an empty string rather than a misleading match.
+   */
   function normalizeHost(value) {
-    const hostname = String(value || '').trim().toLowerCase().replace(/\.$/, '');
-    if (hostname.charAt(0) === '[' && hostname.charAt(hostname.length - 1) === ']') return hostname;
-    return hostname;
+    const raw = String(value == null ? '' : value).trim();
+    if (!raw || /[\u0000-\u0020\u007f\\]/.test(raw)) return '';
+
+    let candidate = raw;
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) {
+      // Keep explicit protocols so ftp:, file: and other schemes are rejected.
+    } else if (candidate.slice(0, 2) === '//') {
+      candidate = 'https:' + candidate;
+    } else {
+      // A bare IPv6 address must be bracketed before URL can distinguish it from
+      // a hostname and port. Bracketed IPv6 with a port already parses directly.
+      if (candidate.indexOf(':') !== -1 && candidate.charAt(0) !== '[' &&
+          /^[0-9a-f:.]+$/i.test(candidate) && !/^[^:]+:\d{1,5}$/.test(candidate)) {
+        candidate = '[' + candidate + ']';
+      }
+      candidate = 'http://' + candidate;
+    }
+
+    try {
+      const url = new URL(candidate);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+      if (url.username || url.password) return '';
+      const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
+      if (!hostname) return '';
+      if (hostname.charAt(0) === '[') return isValidIpv6(hostname) ? hostname : '';
+      if (isValidIpv4(hostname) || VALID_HOST.test(hostname)) return hostname;
+      return '';
+    } catch (error) {
+      return '';
+    }
+  }
+  function detectRuntimeHostname(locationLike) {
+    let location = locationLike;
+    if (!location) {
+      try { location = typeof globalThis !== 'undefined' ? globalThis.location : null; }
+      catch (error) { location = null; }
+    }
+    if (typeof location === 'string') return normalizeHost(location);
+    if (!location || typeof location !== 'object') return '';
+    for (const key of ['hostname', 'host', 'href', 'origin']) {
+      let value;
+      try { value = location[key]; }
+      catch (error) { continue; }
+      const hostname = normalizeHost(value);
+      if (hostname) return hostname;
+    }
+    return '';
   }
   function isIpAddress(hostname) {
-    if (hostname.indexOf(':') !== -1) return true;
-    return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+    const host = normalizeHost(hostname);
+    return Boolean(host && (host.charAt(0) === '[' ? isValidIpv6(host) : isValidIpv4(host)));
   }
   function rootDomain(hostname) {
     const host = normalizeHost(hostname);
     if (!host || host === 'localhost' || isIpAddress(host) || host.indexOf('.') === -1) return host;
+    if (host.endsWith('.localhost')) return 'localhost';
     const labels = host.split('.');
     const lastTwo = labels.slice(-2).join('.');
     const count = KNOWN_COMPOUND_SUFFIXES[lastTwo] ? 3 : 2;
@@ -1089,8 +1161,17 @@
     if (raw.charAt(0) === '/' && raw.charAt(1) === '/') return safeFallback;
     return raw;
   }
+
+  function isRecord(value) {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+  }
+
+  function isValidColor(value) {
+    const color = String(value == null ? '' : value).trim().toLowerCase();
+    return VALID_COLOR_HEX.test(color) || VALID_COLOR_FUNCTION.test(color) || CSS_COLOR_NAMES.has(color);
+  }
   function validateDomainConfig(raw) {
-    const safeInput = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const safeInput = isRecord(raw) ? raw : {};
     const config = merge(clone(DOMAIN_DEFAULTS), {
       identity: safeInput.identity,
       branding: safeInput.branding,
@@ -1100,7 +1181,19 @@
       metadata: safeInput.metadata,
       shortcuts: safeInput.shortcuts,
       diagnostics: safeInput.diagnostics,
+      project: safeInput.project,
     });
+
+    ['identity', 'branding', 'pwa', 'features', 'instructions', 'metadata', 'diagnostics'].forEach(function (key) {
+      if (!isRecord(config[key])) config[key] = clone(DOMAIN_DEFAULTS[key] || {});
+    });
+
+    if (safeInput.project && typeof safeInput.project === 'object' && !Array.isArray(safeInput.project)) {
+      const projectId = safeText(safeInput.project.id, 80).trim();
+      config.project = projectId ? { id: projectId } : null;
+    } else {
+      config.project = null;
+    }
 
     if (typeof config.identity.name !== 'string' || !config.identity.name.trim()) {
       config.identity.name = DOMAIN_DEFAULTS.identity.name;
@@ -1124,8 +1217,8 @@
     config.metadata = safeMetadata;
 
     if (config.pwa.basePath != null) config.pwa.basePath = normalizePath(config.pwa.basePath, '/') || null;
-    if (!VALID_COLOR.test(String(config.branding.themeColor))) config.branding.themeColor = DOMAIN_DEFAULTS.branding.themeColor;
-    if (!VALID_COLOR.test(String(config.branding.backgroundColor))) config.branding.backgroundColor = DOMAIN_DEFAULTS.branding.backgroundColor;
+    if (!isValidColor(config.branding.themeColor)) config.branding.themeColor = DOMAIN_DEFAULTS.branding.themeColor;
+    if (!isValidColor(config.branding.backgroundColor)) config.branding.backgroundColor = DOMAIN_DEFAULTS.branding.backgroundColor;
 
     config.pwa.scope = String(config.pwa.scope || './');
     if (config.pwa.scope.charAt(0) === '/') config.pwa.scope = normalizePath(config.pwa.scope, '/') || './';
@@ -1178,60 +1271,349 @@
     return config;
   }
 
+  function domainIssue(code, path, message) {
+    return { code: code, path: path, message: message };
+  }
+  function validateDomainConfigDetailed(raw) {
+    const issues = [];
+    const add = function (code, path, message) {
+      if (!issues.some(function (issue) { return issue.code === code && issue.path === path; })) {
+        issues.push(domainIssue(code, path, message));
+      }
+    };
+
+    try {
+      if (raw !== undefined && raw !== null && !isRecord(raw)) {
+        add('invalid_domain_config', 'config', 'Domain configuration must be a plain object.');
+      }
+      const source = isRecord(raw) ? raw : {};
+      if (source.project !== undefined && source.project !== null) {
+        const projectId = isRecord(source.project) ? source.project.id : undefined;
+        const normalizedProjectId = typeof projectId === 'string' ? safeText(projectId, 80).trim() : '';
+        if (typeof projectId !== 'string' || !normalizedProjectId || projectId.length > 80 || normalizedProjectId !== projectId.trim()) {
+          add('invalid_project_id', 'project.id', 'Project configuration requires a non-empty, safe string id of at most 80 characters.');
+        }
+      }
+
+      if (source.identity !== undefined && !isRecord(source.identity)) {
+        add('invalid_identity', 'identity', 'Identity configuration must be an object.');
+      } else if (isRecord(source.identity)) {
+        ['name', 'shortName'].forEach(function (key) {
+          if (source.identity[key] !== undefined && (typeof source.identity[key] !== 'string' || !source.identity[key].trim())) {
+            add('invalid_identity_field', 'identity.' + key, 'Identity labels must be non-empty strings.');
+          }
+        });
+        if (source.identity.description !== undefined && typeof source.identity.description !== 'string') {
+          add('invalid_identity_field', 'identity.description', 'Identity description must be a string.');
+        }
+      }
+
+      if (source.branding !== undefined && !isRecord(source.branding)) {
+        add('invalid_branding', 'branding', 'Branding configuration must be an object.');
+      } else if (isRecord(source.branding)) {
+        ['themeColor', 'backgroundColor'].forEach(function (key) {
+          if (source.branding[key] !== undefined && !isValidColor(source.branding[key])) {
+            add(key === 'themeColor' ? 'invalid_theme_color' : 'invalid_background_color', 'branding.' + key,
+              'Color must be a supported CSS color token.');
+          }
+        });
+        ['icon', 'appleTouchIcon', 'splashIcon', 'favicon'].forEach(function (key) {
+          const value = source.branding[key];
+          if (value !== undefined && (typeof value !== 'string' || !safeRelativeUrl(value) || /^\s*(?:javascript|data|blob):/i.test(value))) {
+            add('unsafe_icon_url', 'branding.' + key, 'Icon URLs must be safe same-origin relative paths.');
+          }
+        });
+      }
+
+      if (source.pwa !== undefined && !isRecord(source.pwa)) {
+        add('invalid_pwa_config', 'pwa', 'PWA configuration must be an object.');
+      } else if (isRecord(source.pwa)) {
+        if (source.pwa.basePath !== undefined && source.pwa.basePath !== null && !normalizePath(source.pwa.basePath, '/')) {
+          add('invalid_base_path', 'pwa.basePath', 'Base path must be an absolute path without traversal segments.');
+        }
+        if (source.pwa.scope !== undefined) {
+          const scope = typeof source.pwa.scope === 'string' ? source.pwa.scope : '';
+          const validScope = scope.charAt(0) === '/'
+            ? Boolean(normalizePath(scope, '/'))
+            : /^\.{1,2}\/?$/.test(scope) && scope.indexOf('..') === -1;
+          if (!validScope) add('invalid_scope', 'pwa.scope', 'Scope must be ./ or a safe absolute application path.');
+        }
+        ['startUrl', 'id'].forEach(function (key) {
+          const value = source.pwa[key];
+          if (value !== undefined && (typeof value !== 'string' || !safeRelativeUrl(value))) {
+            add(key === 'startUrl' ? 'unsafe_start_url' : 'unsafe_manifest_id', 'pwa.' + key,
+              'Manifest URL values must be safe relative paths and cannot escape the application scope.');
+          }
+        });
+        if (source.pwa.display !== undefined && !/^(standalone|fullscreen|minimal-ui|browser)$/.test(String(source.pwa.display))) {
+          add('invalid_display_mode', 'pwa.display', 'Display mode must be standalone, fullscreen, minimal-ui or browser.');
+        }
+      }
+
+      if (source.features !== undefined && !isRecord(source.features)) {
+        add('invalid_features', 'features', 'Feature flags must be an object of booleans.');
+      } else if (isRecord(source.features)) {
+        Object.keys(source.features).sort().forEach(function (key) {
+          if (typeof source.features[key] !== 'boolean') {
+            add('invalid_feature_flag', 'features.' + key, 'Feature flags must use boolean values.');
+          }
+        });
+      }
+    } catch (error) {
+      add('invalid_domain_config', 'config', 'Domain configuration could not be read safely.');
+    }
+
+    let config;
+    try {
+      config = validateDomainConfig(raw);
+    } catch (error) {
+      add('invalid_domain_config', 'config', 'Domain configuration could not be normalized safely.');
+      config = validateDomainConfig(null);
+    }
+    return { valid: issues.length === 0, config: config, issues: issues };
+  }
+
+  function isRegistryHostname(hostname) {
+    const host = normalizeHost(hostname);
+    return Boolean(host && (isIpAddress(host) || VALID_HOST.test(host)));
+  }
+
+  function normalizeRegistryKey(key) {
+    if (typeof key !== 'string') return { valid: false, code: 'invalid_registry_key' };
+    const raw = key.trim();
+    if (!raw || /[\u0000-\u0020\u007f\\?#]/.test(raw)) return { valid: false, code: 'invalid_registry_key' };
+
+    const slash = raw.indexOf('/');
+    const rawPattern = slash === -1 ? raw : raw.slice(0, slash);
+    const hasPath = slash !== -1;
+    const wildcard = rawPattern.slice(0, 2) === '*.';
+    const host = normalizeHost(wildcard ? rawPattern.slice(2) : rawPattern);
+    if (!host || !isRegistryHostname(host) || (wildcard && isIpAddress(host))) {
+      return { valid: false, code: 'invalid_registry_key' };
+    }
+
+    let path = null;
+    if (hasPath) {
+      path = normalizePath(raw.slice(slash), null);
+      if (!path) return { valid: false, code: 'invalid_registry_path' };
+    }
+
+    const hostPattern = (wildcard ? '*.' : '') + host;
+    return {
+      valid: true,
+      key: hostPattern + (path || ''),
+      hostPattern: hostPattern,
+      path: path,
+    };
+  }
+  function validateDomainRegistry(raw) {
+    const registry = {};
+    const issues = [];
+    const add = function (code, path, message) {
+      issues.push(domainIssue(code, path, message));
+    };
+
+    if (raw !== undefined && raw !== null && !isRecord(raw)) {
+      add('invalid_registry', 'registry', 'Domain registry must be an object keyed by host patterns and optional paths.');
+      return { valid: false, registry: registry, issues: issues };
+    }
+    const source = isRecord(raw) ? raw : {};
+    let keys;
+    try {
+      keys = Object.keys(source).sort();
+    } catch (error) {
+      add('invalid_registry', 'registry', 'Domain registry keys could not be read safely.');
+      return { valid: false, registry: registry, issues: issues };
+    }
+
+    keys.forEach(function (key) {
+      const normalized = normalizeRegistryKey(key);
+      if (!normalized.valid) {
+        const code = normalized.code;
+        add(code, 'registry.' + key, code === 'invalid_registry_path'
+          ? 'Registry path must be absolute and cannot contain traversal or encoded separators.'
+          : 'Registry key must be a valid hostname, IP literal or leading-wildcard hostname, optionally followed by a safe path.');
+        return;
+      }
+      if (Object.prototype.hasOwnProperty.call(registry, normalized.key)) {
+        add('duplicate_registry_key', 'registry.' + key,
+          'This key normalizes to an entry already declared as ' + normalized.key + '.');
+        return;
+      }
+
+      let rawEntry;
+      try {
+        rawEntry = source[key];
+      } catch (error) {
+        add('invalid_domain_config', 'registry.' + normalized.key, 'Registry entry could not be read safely.');
+        return;
+      }
+      const checked = validateDomainConfigDetailed(rawEntry);
+      registry[normalized.key] = checked.config;
+      checked.issues.forEach(function (issue) {
+        add(issue.code, 'registry.' + normalized.key + (issue.path ? '.' + issue.path : ''), issue.message);
+      });
+    });
+
+    return { valid: issues.length === 0, registry: registry, issues: issues };
+  }
+
   function hostPatternMatches(pattern, hostname) {
-    if (VALID_HOST.test(pattern)) return pattern === hostname ? { exact: true, specificity: pattern.length } : null;
-    if (pattern.slice(0, 2) !== '*.') return null;
+    const host = normalizeHost(hostname);
+    if (pattern.slice(0, 2) !== '*.') {
+      return pattern === host && isRegistryHostname(pattern)
+        ? { exact: true, specificity: pattern.length }
+        : null;
+    }
     const suffix = pattern.slice(2);
-    if (!VALID_HOST.test(suffix) || hostname === suffix || hostname.slice(-(suffix.length + 1)) !== '.' + suffix) return null;
+    if (!isRegistryHostname(suffix) || isIpAddress(suffix) || host === suffix ||
+        host.slice(-(suffix.length + 1)) !== '.' + suffix) return null;
     return { exact: false, specificity: suffix.length };
   }
 
+  function compareRegistryEntries(a, b) {
+    if (a.pathLength !== b.pathLength) return b.pathLength - a.pathLength;
+    if (a.specificity !== b.specificity) return b.specificity - a.specificity;
+    if (a.normalizedKey !== b.normalizedKey) return a.normalizedKey < b.normalizedKey ? -1 : 1;
+    if (a.key !== b.key) return a.key < b.key ? -1 : 1;
+    return 0;
+  }
+
   function registryEntry(hostname, pathname, source) {
-    if (!source || typeof source !== 'object') return null;
-    const pathEntries = Object.keys(source).map(function (key) {
-      const slash = key.indexOf('/');
-      if (slash === -1) return null;
-      const hostPattern = key.slice(0, slash).toLowerCase();
-      const path = normalizePath('/' + key.slice(slash + 1), null);
-      const hostMatch = hostPatternMatches(hostPattern, hostname);
-      const currentPath = String(pathname || '/');
-      if (!path || !hostMatch || (currentPath !== path.slice(0, -1) && !currentPath.startsWith(path))) return null;
-      return { key: key, value: source[key], exact: hostMatch.exact, specificity: hostMatch.specificity, pathLength: path.length };
-    }).filter(Boolean).sort(function (a, b) {
-      return Number(b.exact) - Number(a.exact) || b.pathLength - a.pathLength || b.specificity - a.specificity;
-    });
-    const exactPathEntries = pathEntries.filter(function (entry) { return entry.exact; });
-    if (exactPathEntries.length) return exactPathEntries[0];
-    if (Object.prototype.hasOwnProperty.call(source, hostname) && VALID_HOST.test(hostname)) {
-      return { key: hostname, value: source[hostname] };
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
+    let keys;
+    try {
+      keys = Object.keys(source);
+    } catch (error) {
+      return null;
     }
-    const wildcardPathEntries = pathEntries.filter(function (entry) { return !entry.exact; });
-    if (wildcardPathEntries.length) return wildcardPathEntries[0];
-    const keys = Object.keys(source).filter(function (key) {
-      if (key.indexOf('/') !== -1) return false;
-      return Boolean(hostPatternMatches(key, hostname));
-    }).sort(function (a, b) { return b.length - a.length; });
-    return keys.length ? { key: keys[0], value: source[keys[0]] } : null;
+    const currentPath = String(pathname || '/');
+    const candidates = [];
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      const normalized = normalizeRegistryKey(key);
+      if (!normalized.valid) continue;
+      const hostMatch = hostPatternMatches(normalized.hostPattern, hostname);
+      if (!hostMatch) continue;
+      if (normalized.path && currentPath !== normalized.path.slice(0, -1) && !currentPath.startsWith(normalized.path)) continue;
+      let value;
+      try {
+        value = source[key];
+      } catch (error) {
+        continue;
+      }
+      candidates.push({
+        key: key,
+        normalizedKey: normalized.key,
+        value: value,
+        exact: hostMatch.exact,
+        specificity: hostMatch.specificity,
+        pathLength: normalized.path ? normalized.path.length : 0,
+      });
+    }
+
+    function best(entries) {
+      entries.sort(compareRegistryEntries);
+      return entries.length ? entries[0] : null;
+    }
+
+    return best(candidates.filter(function (entry) { return entry.exact && entry.pathLength > 0; })) ||
+      best(candidates.filter(function (entry) { return entry.exact && entry.pathLength === 0; })) ||
+      best(candidates.filter(function (entry) { return !entry.exact && entry.pathLength > 0; })) ||
+      best(candidates.filter(function (entry) { return !entry.exact && entry.pathLength === 0; }));
+  }
+
+  function isDevelopmentHost(hostname) {
+    const host = normalizeHost(hostname);
+    return Boolean(host && (host === 'localhost' || host.endsWith('.localhost') || isIpAddress(host)));
+  }
+
+  function parseLocationString(value) {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw) return {};
+    const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw);
+    const isNetworkPath = raw.slice(0, 2) === '//';
+    let candidate = raw;
+    if (isNetworkPath) {
+      candidate = 'https:' + raw;
+    } else if (!hasScheme) {
+      let authority = raw;
+      const normalized = normalizeHost(raw);
+      if (normalized.charAt(0) === '[' && raw.charAt(0) !== '[' && !/[/?#]/.test(raw)) authority = normalized;
+      candidate = 'https://' + authority;
+    }
+
+    try {
+      const url = new URL(candidate);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return { hostname: '' };
+      const hostname = normalizeHost(url.hostname);
+      if (!hostname) return { hostname: '' };
+      let protocol = url.protocol;
+      if (!hasScheme && !isNetworkPath && isDevelopmentHost(hostname)) protocol = 'http:';
+      const origin = new URL(protocol + '//' + url.host).origin;
+      return {
+        hostname: hostname,
+        origin: origin,
+        protocol: protocol,
+        pathname: url.pathname || '/',
+        port: url.port,
+        href: origin + (url.pathname || '/') + url.search + url.hash,
+      };
+    } catch (error) {
+      return { hostname: normalizeHost(raw) };
+    }
+  }
+
+  function normalizedLocation(locationLike) {
+    if (typeof locationLike === 'string') return parseLocationString(locationLike);
+    let fallback = {};
+    try {
+      fallback = typeof globalThis !== 'undefined' && globalThis.location ? globalThis.location : {};
+    } catch (error) { /* use an empty location */ }
+    const location = locationLike || fallback;
+    if (!location || typeof location !== 'object') return {};
+    let parsed = {};
+    try {
+      if (typeof location.href === 'string' && location.href) parsed = parseLocationString(location.href);
+      else if (typeof location.origin === 'string' && location.origin && location.origin !== 'null') parsed = parseLocationString(location.origin);
+      else if (!location.hostname && typeof location.host === 'string') parsed = parseLocationString(location.host);
+    } catch (error) { /* fall back to any safely-readable properties */ }
+    try { return Object.assign({}, parsed, location); }
+    catch (error) { return parsed; }
+  }
+
+  function normalizedPort(value) {
+    const port = String(value == null ? '' : value).replace(/^:/, '');
+    if (!port) return '';
+    if (!/^\d{1,5}$/.test(port) || Number(port) > 65535) return '';
+    return port;
   }
   function resolveDomain(locationLike, optionalRegistry) {
-    const defaultLocation = typeof globalThis !== 'undefined' && globalThis.location ? globalThis.location : {};
-    const location = typeof locationLike === 'string'
-      ? { hostname: locationLike }
-      : (locationLike || defaultLocation);
-
-    const hostname = normalizeHost(location.hostname || 'localhost');
+    const location = normalizedLocation(locationLike);
+    const hostname = detectRuntimeHostname(location) || 'localhost';
     let protocol = String(location.protocol || 'https:').toLowerCase();
     let origin;
     try {
-      origin = location.origin || new URL(protocol + '//' + hostname).origin;
+      const port = normalizedPort(location.port);
+      const hostAndPort = hostname + (port ? ':' + port : '');
+      origin = location.origin && location.origin !== 'null'
+        ? location.origin
+        : new URL(protocol + '//' + hostAndPort).origin;
       const parsedOrigin = new URL(origin);
       if (parsedOrigin.protocol !== 'https:' && parsedOrigin.protocol !== 'http:') throw new Error('unsupported protocol');
       if (normalizeHost(parsedOrigin.hostname) !== hostname) throw new Error('origin hostname mismatch');
       origin = parsedOrigin.origin;
       protocol = parsedOrigin.protocol;
     } catch (error) {
-      protocol = 'https:';
-      origin = protocol + '//' + (VALID_HOST.test(hostname) ? hostname : 'localhost');
+      protocol = protocol === 'http:' || protocol === 'https:' ? protocol : 'https:';
+      const safeHost = normalizeHost(hostname) || 'localhost';
+      const port = normalizedPort(location.port);
+      try {
+        origin = new URL(protocol + '//' + safeHost + (port ? ':' + port : '')).origin;
+      } catch (fallbackError) {
+        protocol = 'https:';
+        origin = 'https://localhost';
+      }
     }
 
     let pathname = String(location.pathname || '/');
@@ -1241,7 +1623,8 @@
       : {};
     const source = optionalRegistry || fallbackRegistry;
     const entry = registryEntry(hostname, pathname, source);
-    const config = validateDomainConfig(entry ? entry.value : null);
+    const validation = validateDomainConfigDetailed(entry ? entry.value : null);
+    const config = validation.config;
     let basePath = normalizePath(config.pwa.basePath || location.basePath || '/', '/');
     if (!basePath) basePath = '/';
     const domain = rootDomain(hostname);
@@ -1258,6 +1641,8 @@
       installOrigin: origin,
       matchedRegistryKey: entry ? entry.key : null,
       configured: Boolean(entry),
+      projectId: config.project ? config.project.id : null,
+      validation: { valid: validation.valid, issues: clone(validation.issues) },
     };
     return config;
   }
@@ -1305,8 +1690,17 @@
     if (resolved.features.sharing === false) delete output.share_target;
     return output;
   }
+
+  function cloneRegistry(raw) {
+    if (!isRecord(raw)) return {};
+    try {
+      return clone(raw);
+    } catch (error) {
+      return {};
+    }
+  }
   function createDomainResolver(initialRegistry) {
-    let registry = initialRegistry && typeof initialRegistry === 'object' ? clone(initialRegistry) : {};
+    let registry = cloneRegistry(initialRegistry);
     return {
       defaults: clone(DOMAIN_DEFAULTS),
       resolve: function (locationLike, overrideRegistry) {
@@ -1316,15 +1710,18 @@
         return buildManifest(config || resolveDomain(undefined, registry));
       },
       normalizeHost: normalizeHost,
+      detectRuntimeHostname: detectRuntimeHostname,
       normalizePath: normalizePath,
       rootDomain: rootDomain,
       safeNavigationUrl: safeNavigationUrl,
       validateConfig: validateDomainConfig,
+      validateConfigDetailed: validateDomainConfigDetailed,
+      validateRegistry: validateDomainRegistry,
       setRegistry: function (nextRegistry) {
-        registry = nextRegistry && typeof nextRegistry === 'object' ? clone(nextRegistry) : {};
+        registry = cloneRegistry(nextRegistry);
       },
       getRegistry: function () {
-        return clone(registry);
+        return cloneRegistry(registry);
       },
     };
   }
@@ -1333,6 +1730,7 @@
 
   const BUNDLED_DEFAULTS = {
     enabled: true,
+    project: null,
     projectId: '',
     domain: '',
     position: 'bottom-right',
@@ -1408,6 +1806,15 @@
     }).filter(Boolean);
   }
 
+  function normalizeProjectConfig(raw) {
+    if (raw === null) return null;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const rawId = raw.id;
+    if (typeof rawId !== 'string') return null;
+    const id = safeText(rawId, 80).trim();
+    return id && rawId.length <= 80 && id === rawId.trim() ? { id: id } : null;
+  }
+
   function parseSchemaMajor(version) {
     if (version === undefined || version === null) return SCHEMA_VERSION;
     if (typeof version === 'number') {
@@ -1425,6 +1832,7 @@
     const out = {};
 
     if (source.enabled !== undefined) out.enabled = source.enabled !== false;
+    if (source.project !== undefined) out.project = normalizeProjectConfig(source.project);
     if (source.projectId !== undefined) out.projectId = safeText(source.projectId, 80);
     if (typeof source.domain === 'string') out.domain = safeText(source.domain, 253);
     if (source.position !== undefined && POSITIONS.indexOf(source.position) !== -1) {
@@ -1499,6 +1907,7 @@
   function applyLayer(base, layer) {
     if (!layer || typeof layer !== 'object') return base;
     if (layer.enabled !== undefined) base.enabled = layer.enabled;
+    if (layer.project !== undefined) base.project = clone(layer.project);
     if (layer.projectId) base.projectId = layer.projectId;
     if (layer.domain) base.domain = layer.domain;
     if (layer.position) base.position = layer.position;
@@ -1568,12 +1977,23 @@
 
     const expectedProjectId = safeText(opts.expectedProjectId || '', 80);
     const declaredProjectId = safeText(parsed.projectId || '', 80);
-    if (expectedProjectId && declaredProjectId && expectedProjectId !== declaredProjectId) {
+    const nestedConfig = parsed.config && typeof parsed.config === 'object' && !Array.isArray(parsed.config)
+      ? parsed.config
+      : null;
+    const topProject = normalizeProjectConfig(parsed.project);
+    const nestedProject = normalizeProjectConfig(nestedConfig && nestedConfig.project);
+    const projectIds = [declaredProjectId, topProject && topProject.id, nestedProject && nestedProject.id].filter(Boolean);
+    if ((expectedProjectId && projectIds.some(function (id) { return id !== expectedProjectId; })) ||
+        projectIds.some(function (id) { return id !== projectIds[0]; })) {
       return { valid: false, reason: 'project_id_mismatch', warnings: ['project_id_mismatch'] };
     }
+    const hasInvalidProject = (parsed.project !== undefined && parsed.project !== null && !topProject) ||
+      Boolean(nestedConfig && nestedConfig.project !== undefined && nestedConfig.project !== null && !nestedProject);
 
-    const payload = parsed.config && typeof parsed.config === 'object' && !Array.isArray(parsed.config)
-      ? Object.assign({}, parsed.config, declaredProjectId ? { projectId: declaredProjectId } : {})
+    const payload = nestedConfig
+      ? Object.assign({}, nestedConfig,
+        !nestedConfig.project && topProject ? { project: topProject } : {},
+        declaredProjectId ? { projectId: declaredProjectId } : {})
       : parsed;
 
     return {
@@ -1581,9 +2001,9 @@
       schemaVersion: SCHEMA_VERSION,
       revision: safeText(parsed.revision || '', 60),
       publishedAt: safeText(parsed.publishedAt || '', 60),
-      projectId: declaredProjectId || expectedProjectId,
+      projectId: declaredProjectId || (nestedProject && nestedProject.id) || (topProject && topProject.id) || expectedProjectId,
       config: extractLayerOverrides(payload),
-      warnings: [],
+      warnings: hasInvalidProject ? ['invalid_project_config'] : [],
     };
   }
   function lkgStorageKey(projectId) {
@@ -1653,7 +2073,11 @@
     const base = clone(BUNDLED_DEFAULTS);
     base.domainRegistry = null;
 
-    const explicitProjectId = safeText(input.projectId || '', 80);
+    const typedProject = normalizeProjectConfig(input.project);
+    const legacyProjectId = safeText(input.projectId || '', 80).trim();
+    const explicitProjectId = (typedProject && typedProject.id) || legacyProjectId;
+    if (input.project !== undefined && input.project !== null && !typedProject) warnings.push('invalid_project_config');
+    if (typedProject && legacyProjectId && typedProject.id !== legacyProjectId) warnings.push('project_id_conflict');
     let source = 'defaults';
     let revision = '';
     let publishedAt = '';
@@ -2301,6 +2725,25 @@
     });
     let config = resolvedBundle.config;
     let configMeta = resolvedBundle.meta;
+    const rejectedPublishedConfig = Array.isArray(configMeta.warnings) && configMeta.warnings.some(function (warning) {
+      return typeof warning === 'string' && warning.indexOf('published_config_rejected:') === 0;
+    });
+    const shouldResolveInitialLkg = configMeta.source !== 'last-known-good' && (
+      (rejectedPublishedConfig && rawOptionsState.useLastKnownGood !== false) ||
+      (rawOptionsState.useLastKnownGood === true && !rawOptionsState.publishedConfig)
+    );
+    if (shouldResolveInitialLkg) {
+      const fallbackProjectId = projectInfo().id;
+      const recovered = resolveAssistantConfig(rawOptionsState, {
+        storage: getStorage(),
+        fallbackProjectId: fallbackProjectId,
+      });
+      if (recovered.meta.source === 'last-known-good') {
+        resolvedBundle = recovered;
+        config = recovered.config;
+        configMeta = recovered.meta;
+      }
+    }
     let services = config.services;
 
     const listeners = new Set();
@@ -2323,7 +2766,19 @@
     };
 
     function effectiveLocation() {
-      const loc = getLocation() || {};
+      const rawLocation = getLocation() || {};
+      let loc = rawLocation;
+      if (typeof rawLocation === 'string') {
+        const detected = resolveDomain(rawLocation, {}).domain;
+        loc = {
+          hostname: detected.hostname,
+          origin: detected.origin,
+          protocol: detected.protocol,
+          pathname: detected.pathname,
+          basePath: detected.pathname || '/',
+          href: detected.origin + detected.pathname,
+        };
+      }
       if (config.domain) {
         const explicitHost = String(config.domain).trim();
         const locHost = String(loc.hostname || '').trim().toLowerCase();
@@ -2351,6 +2806,7 @@
         identity: { name: 'You.Ge Assistant', shortName: 'You.Ge', description: '' },
         branding: { themeColor: '#155eef', icon: 'icons/icon-192.png' },
         pwa: { basePath: '/' },
+        project: null,
         domain: {
           hostname: loc.hostname || 'localhost',
           origin: loc.origin || 'https://localhost',
@@ -2358,6 +2814,12 @@
           pathname: loc.pathname || '/',
           basePath: '/',
           configured: false,
+          matchedRegistryKey: null,
+          projectId: null,
+          validation: {
+            valid: false,
+            issues: [{ code: 'domain_resolution_failed', path: 'domain', message: 'Domain configuration could not be resolved safely.' }],
+          },
         },
         features: { installation: true, diagnostics: true },
       };
@@ -2397,8 +2859,17 @@
       const basePath = domain.pwa && domain.pwa.basePath ? domain.pwa.basePath : (host.basePath || '/');
       const identity = domain.identity || {};
       const branding = domain.branding || {};
-      const id = config.projectId || String(host.hostname || 'localhost') + String(basePath);
+      const typedProjectId = config.project && config.project.id ? config.project.id : '';
+      const legacyProjectId = config.projectId || '';
+      const registryProjectId = (domain.project && domain.project.id) || host.projectId || '';
+      const projectIdSource = typedProjectId
+        ? 'project'
+        : (legacyProjectId ? 'projectId' : (registryProjectId ? 'domainRegistry' : 'derived'));
+      const id = typedProjectId || legacyProjectId || registryProjectId || String(host.hostname || 'localhost') + String(basePath);
       const loc = getLocation() || {};
+      const validation = host.validation && typeof host.validation === 'object'
+        ? { valid: host.validation.valid !== false, issues: Array.isArray(host.validation.issues) ? clone(host.validation.issues) : [] }
+        : { valid: true, issues: [] };
       const baseHref = config.domain
         ? String(host.origin || 'https://localhost') + String(basePath)
         : (loc.href || String(host.origin || 'https://localhost') + '/');
@@ -2409,14 +2880,18 @@
         icon: safeSameOriginIcon(config.branding.icon || branding.icon, 'icons/icon-192.png', baseHref, UrlCtor),
         themeColor: config.branding.themeColor || branding.themeColor || '#155eef',
         hostname: String(host.hostname || 'localhost'),
+        detectedHostname: detectRuntimeHostname(getLocation()) || String(host.hostname || 'localhost'),
         origin: String(host.origin || 'https://localhost'),
         basePath: String(basePath),
         configured: Boolean(host.configured),
+        matchedRegistryKey: host.matchedRegistryKey || null,
+        projectIdSource: projectIdSource,
+        domainValidation: validation,
       };
     }
 
     function persistPublishedLkgIfDerivedProject() {
-      if (configMeta.source === 'published' && !config.projectId && rawOptionsState.publishedConfig) {
+      if (configMeta.source === 'published' && !config.projectId && !(config.project && config.project.id) && rawOptionsState.publishedConfig) {
         const storage = getStorage();
         if (!storage) return;
         const derivedId = projectInfo().id;
@@ -2784,6 +3259,7 @@
     function getConfig() {
       return {
         enabled: config.enabled,
+        project: clone(config.project),
         projectId: config.projectId,
         domain: config.domain,
         position: config.position,
@@ -3062,7 +3538,11 @@
     attach: attachAssistant,
     getGlobal: getGlobalAssistant,
     resolveDomain: resolveDomain,
+    detectRuntimeHostname: detectRuntimeHostname,
     buildManifest: buildManifest,
+    validateDomainConfig: validateDomainConfig,
+    validateDomainConfigDetailed: validateDomainConfigDetailed,
+    validateDomainRegistry: validateDomainRegistry,
     domain: createDomainResolver(root.YOU_GE_DOMAIN_REGISTRY || {}),
     validatePublishedConfig: validatePublishedConfig,
     // Adaptive theming — same validation/resolution in classic and ESM pages.

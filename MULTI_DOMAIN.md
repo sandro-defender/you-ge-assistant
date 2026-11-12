@@ -68,6 +68,56 @@ globalThis.YOU_GE_DOMAIN_REGISTRY['example.com/portal/'] = {
 };
 ```
 
+## Custom-domain aliases and project identity
+
+A custom domain can identify the same SDK project as another hostname by declaring the same typed `project.id` in each matched registry entry. The ID is a stable application/project identity for Assistant state and project-scoped notice/configuration keys; it does not connect origins, cookies, authentication, service workers, Cache Storage, or browser storage.
+
+```js
+import { YouGeAssistant } from '@youge/assistant-sdk';
+
+const domainRegistry = {
+  'portal.customer.example': {
+    project: { id: 'customer-portal' },
+    identity: { name: 'Customer Portal', shortName: 'Portal' },
+    pwa: { basePath: '/', scope: './', startUrl: './', id: './' },
+  },
+  'portal.customer-brand.test': {
+    project: { id: 'customer-portal' },
+    identity: { name: 'Customer Portal', shortName: 'Portal' },
+    pwa: { basePath: '/', scope: './', startUrl: './', id: './' },
+  },
+};
+
+const assistant = YouGeAssistant.create({
+  domainRegistry,
+  // Optional explicit project identity wins over projectId and registry mapping.
+  // project: { id: 'customer-portal' },
+});
+```
+
+Project ID precedence is `project.id` → legacy `projectId` → matched registry `project.id` → a normalized host plus application base path. Keep the legacy `projectId` option for existing integrations; new integrations should prefer the typed `project: { id }` form. A shared ID is only a logical configuration identity: browser storage and user sessions remain origin-scoped, and hostname matching is not authentication or authorization.
+
+## Multi-subdomain configuration
+
+A leading wildcard matches one or more subdomain labels, including nested subdomains, but not the apex hostname. Declare the apex separately if it should use the same project identity:
+
+```js
+const domainRegistry = {
+  'workspace.example.com': {
+    project: { id: 'workspace' },
+    identity: { name: 'Workspace', shortName: 'Workspace' },
+    pwa: { basePath: '/', scope: './', startUrl: './', id: './' },
+  },
+  '*.workspace.example.com': {
+    project: { id: 'workspace' },
+    identity: { name: 'Workspace', shortName: 'Workspace' },
+    pwa: { basePath: '/', scope: './', startUrl: './', id: './' },
+  },
+};
+```
+
+The wildcard entry matches hosts such as `team.workspace.example.com` and `eu.team.workspace.example.com`, but not `workspace.example.com`. Exact-host configuration takes precedence over a wildcard match; path-scoped entries take precedence within their host class, then longer matching paths and host suffixes win, with a stable key tie-break for equivalent aliases.
+
 The derived `rootDomain` is informational only; this module uses a small compound-suffix list, not a full Public Suffix List. Never use it for cookies, authorization, tenant boundaries or other security decisions. The registry is public client configuration: **never put secrets, credentials, authorization decisions, or private API tokens in it**. Unknown hosts receive safe You.Ge Assistant defaults and remain usable.
 
 `domain-config.js` validates host keys, same-origin manifest URLs, scope/base paths, colors, icons, shortcuts and the supported `og:*`/`twitter:*` metadata keys. Only add domains you intend to serve; matching a host is never authentication or authorization.

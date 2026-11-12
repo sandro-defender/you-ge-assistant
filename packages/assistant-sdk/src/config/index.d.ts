@@ -1,4 +1,4 @@
-import type { DomainRegistry } from '../domain/index.js';
+import type { DomainRegistry, ProjectConfig } from '../domain/index.js';
 import type { AssistantThemeConfig, NormalizedTheme } from '../theme/index.js';
 
 export type AssistantPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
@@ -75,6 +75,7 @@ export interface PublishedAssistantConfig {
   revision?: string;
   publishedAt?: string;
   projectId?: string;
+  project?: ProjectConfig | null;
   enabled?: boolean;
   domain?: string;
   position?: AssistantPosition;
@@ -96,6 +97,8 @@ export interface AssistantConfigInput {
   /** Adaptive theme: object form (`{ mode, inheritHost, tokens }`) or the
    * original string form (`'auto' | 'light' | 'dark'`). */
   theme?: AssistantThemeConfig;
+  /** Explicit stable project identity; `projectId` remains a compatibility alias. */
+  project?: ProjectConfig | null;
   projectId?: string;
   domain?: string;
   position?: AssistantPosition;
@@ -119,6 +122,7 @@ export interface ResolvedAssistantConfig {
   theme: NormalizedTheme;
   /** Backward-compatible flat mode, mirrors `theme.mode`. */
   themeMode: AssistantTheme;
+  project: ProjectConfig | null;
   projectId: string;
   domain: string;
   position: AssistantPosition;

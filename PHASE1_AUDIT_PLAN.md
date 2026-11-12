@@ -8,7 +8,7 @@
 ## Skills disclosure
 
 - **Found, read:** `.agents/skills/tdd/`, `.agents/skills/mobile-native/`, and `.agents/skills/break-ui/` (including their relevant test/mocking and catalog guidance).
-- **Actually applied so far:** none to implementation; this commit contains only the completed audit and plan. TDD will be applied test-first to the implementation. The two UI skills are not applicable unless UI work becomes necessary.
+- **Actually applied so far:** TDD's test-first/red-green guidance was used for the URL-string `Assistant.location` regression and registry-derived Last-Known-Good recovery: each new behavior test failed against the old integration, then passed after its fix. The broader implementation was not completed as one strict red-green sequence; the remaining targeted tests were added alongside implementation and are recorded transparently here. The two UI skills were read but not applied because no UI change was needed.
 - **`ui-ux-pro-max-skill`:** referenced by repository guidance but absent from the installed skill inventory. It was not downloaded or installed. The audit found no need for a UI change, so no UI design work is planned.
 
 ## Audit findings
@@ -37,11 +37,11 @@
 
 - [x] Complete repository audit and run baseline quality gates.
 - [x] Record audit, compatibility boundaries, and implementation plan before source changes.
-- [ ] Add behavior tests first for normalized detection (URLs, ports, custom/nested hosts, localhost and IPv4/IPv6), registry precedence/ties, validation results and failures.
-- [ ] Implement additive type-safe project configuration and project-ID precedence; test project changes, subscriptions, persistence isolation and legacy `projectId`/`domain` compatibility.
-- [ ] Keep SDK and classic resolver parity; test PWA/worker, manifest, install and cache-scope regressions.
-- [ ] Update SDK/API and multi-domain documentation with custom-domain and multi-subdomain examples.
-- [ ] Run all repository and SDK tests, typechecks, available lint/build checks, package validation/dry-run, PWA/service-worker regression checks and `git diff --check`; report unavailable gates and limitations.
+- [x] Add behavior tests for normalized detection (URLs, ports, custom/nested hosts, localhost and IPv4/IPv6), registry precedence/ties, validation results/failures, state updates/isolation and backward compatibility. URL-string Assistant-location and registry-derived Last-Known-Good regressions used explicit red/green TDD cycles; other cases were added alongside implementation rather than all being strictly test-first.
+- [x] Implement additive typed project configuration and deterministic project-ID precedence; targeted tests cover project changes, subscription snapshots, persistence isolation and legacy `projectId`/`domain` behavior.
+- [x] Mirror SDK/classic resolver behavior and regenerate `assistant-state.js` through the sync script. Full classic/ESM parity, manifest, PWA and service-worker checks pass.
+- [x] Update SDK/API and multi-domain documentation with custom-domain aliases and multi-subdomain examples.
+- [x] Run all repository and SDK tests, typechecks, available lint/build checks, package validation/dry-run, PWA/service-worker regression checks and `git diff --check`; report unavailable gates and limitations below.
 
 ## Baseline quality gates (before implementation)
 
@@ -51,3 +51,13 @@
 - `git diff --check` — **passed** on the clean baseline.
 - **Lint:** unavailable; no lint script or ESLint/Prettier/Biome configuration is present.
 - Recent `main` CI check and Pages workflow — **success**. No live multi-host deployment integration environment is configured; verify runtime behavior through the repository’s deterministic tests and build gates.
+
+## Phase 1 implementation verification
+
+- `npm run check` — **passed** after implementation; static/deployment checks and all **338** repository + SDK tests passed, including classic/ESM parity and PWA/service-worker contract coverage.
+- `cd packages/assistant-sdk && npm test && npm run validate && npm pack --dry-run` — **passed**; **93** SDK tests, package validation and a 23-file dry-run tarball. No package was published and the version was not changed.
+- `cd example && npm ci && npm run typecheck && npm run build` — **passed**; strict example typecheck and production build completed. Vite emitted the expected existing warnings for intentional classic-script runtime files.
+- Direct TypeScript declaration and usage checks — **passed** with `skipLibCheck: false`, including `project: { id }`, URL-string `location`, root/domain validation exports and registry typing. A duplicate `THEME_MODES` declaration conflict uncovered by the stricter check was removed.
+- `node scripts/sync-sdk-browser.mjs --check` and `git diff --check` — **passed** after regenerating `assistant-state.js` from SDK sources.
+- Lint — **unavailable**; the repository has no lint script or ESLint/Prettier/Biome configuration.
+- `npm run verify` — requires a deployed URL argument; the command was attempted but no deployment URL/environment is configured, so live deployment verification was not run. No real multi-host deployment was available; deterministic runtime/integration tests and the production build are the available coverage.

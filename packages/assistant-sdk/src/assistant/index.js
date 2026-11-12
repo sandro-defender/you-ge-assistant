@@ -17,7 +17,7 @@ import {
   safeSameOriginIcon,
   safeText,
 } from '../core/sanitize.js';
-import { resolveDomain } from '../domain/index.js';
+import { detectRuntimeHostname, resolveDomain } from '../domain/index.js';
 import {
   resolveAssistantConfig,
   saveLastKnownGood,
@@ -145,6 +145,25 @@ export function createAssistant(initialOptions, envOverrides) {
   });
   let config = resolvedBundle.config;
   let configMeta = resolvedBundle.meta;
+  const rejectedPublishedConfig = Array.isArray(configMeta.warnings) && configMeta.warnings.some(function (warning) {
+    return typeof warning === 'string' && warning.indexOf('published_config_rejected:') === 0;
+  });
+  const shouldResolveInitialLkg = configMeta.source !== 'last-known-good' && (
+    (rejectedPublishedConfig && rawOptionsState.useLastKnownGood !== false) ||
+    (rawOptionsState.useLastKnownGood === true && !rawOptionsState.publishedConfig)
+  );
+  if (shouldResolveInitialLkg) {
+    const fallbackProjectId = projectInfo().id;
+    const recovered = resolveAssistantConfig(rawOptionsState, {
+      storage: getStorage(),
+      fallbackProjectId: fallbackProjectId,
+    });
+    if (recovered.meta.source === 'last-known-good') {
+      resolvedBundle = recovered;
+      config = recovered.config;
+      configMeta = recovered.meta;
+    }
+  }
   let services = config.services;
 
   const listeners = new Set();
@@ -167,7 +186,19 @@ export function createAssistant(initialOptions, envOverrides) {
   };
 
   function effectiveLocation() {
-    const loc = getLocation() || {};
+    const rawLocation = getLocation() || {};
+    let loc = rawLocation;
+    if (typeof rawLocation === 'string') {
+      const detected = resolveDomain(rawLocation, {}).domain;
+      loc = {
+        hostname: detected.hostname,
+        origin: detected.origin,
+        protocol: detected.protocol,
+        pathname: detected.pathname,
+        basePath: detected.pathname || '/',
+        href: detected.origin + detected.pathname,
+      };
+    }
     if (config.domain) {
       const explicitHost = String(config.domain).trim();
       const locHost = String(loc.hostname || '').trim().toLowerCase();
@@ -195,6 +226,7 @@ export function createAssistant(initialOptions, envOverrides) {
       identity: { name: 'You.Ge Assistant', shortName: 'You.Ge', description: '' },
       branding: { themeColor: '#155eef', icon: 'icons/icon-192.png' },
       pwa: { basePath: '/' },
+      project: null,
       domain: {
         hostname: loc.hostname || 'localhost',
         origin: loc.origin || 'https://localhost',
@@ -202,6 +234,12 @@ export function createAssistant(initialOptions, envOverrides) {
         pathname: loc.pathname || '/',
         basePath: '/',
         configured: false,
+        matchedRegistryKey: null,
+        projectId: null,
+        validation: {
+          valid: false,
+          issues: [{ code: 'domain_resolution_failed', path: 'domain', message: 'Domain configuration could not be resolved safely.' }],
+        },
       },
       features: { installation: true, diagnostics: true },
     };
@@ -241,8 +279,17 @@ export function createAssistant(initialOptions, envOverrides) {
     const basePath = domain.pwa && domain.pwa.basePath ? domain.pwa.basePath : (host.basePath || '/');
     const identity = domain.identity || {};
     const branding = domain.branding || {};
-    const id = config.projectId || String(host.hostname || 'localhost') + String(basePath);
+    const typedProjectId = config.project && config.project.id ? config.project.id : '';
+    const legacyProjectId = config.projectId || '';
+    const registryProjectId = (domain.project && domain.project.id) || host.projectId || '';
+    const projectIdSource = typedProjectId
+      ? 'project'
+      : (legacyProjectId ? 'projectId' : (registryProjectId ? 'domainRegistry' : 'derived'));
+    const id = typedProjectId || legacyProjectId || registryProjectId || String(host.hostname || 'localhost') + String(basePath);
     const loc = getLocation() || {};
+    const validation = host.validation && typeof host.validation === 'object'
+      ? { valid: host.validation.valid !== false, issues: Array.isArray(host.validation.issues) ? clone(host.validation.issues) : [] }
+      : { valid: true, issues: [] };
     const baseHref = config.domain
       ? String(host.origin || 'https://localhost') + String(basePath)
       : (loc.href || String(host.origin || 'https://localhost') + '/');
@@ -253,14 +300,18 @@ export function createAssistant(initialOptions, envOverrides) {
       icon: safeSameOriginIcon(config.branding.icon || branding.icon, 'icons/icon-192.png', baseHref, UrlCtor),
       themeColor: config.branding.themeColor || branding.themeColor || '#155eef',
       hostname: String(host.hostname || 'localhost'),
+      detectedHostname: detectRuntimeHostname(getLocation()) || String(host.hostname || 'localhost'),
       origin: String(host.origin || 'https://localhost'),
       basePath: String(basePath),
       configured: Boolean(host.configured),
+      matchedRegistryKey: host.matchedRegistryKey || null,
+      projectIdSource: projectIdSource,
+      domainValidation: validation,
     };
   }
 
   function persistPublishedLkgIfDerivedProject() {
-    if (configMeta.source === 'published' && !config.projectId && rawOptionsState.publishedConfig) {
+    if (configMeta.source === 'published' && !config.projectId && !(config.project && config.project.id) && rawOptionsState.publishedConfig) {
       const storage = getStorage();
       if (!storage) return;
       const derivedId = projectInfo().id;
@@ -628,6 +679,7 @@ export function createAssistant(initialOptions, envOverrides) {
   function getConfig() {
     return {
       enabled: config.enabled,
+      project: clone(config.project),
       projectId: config.projectId,
       domain: config.domain,
       position: config.position,

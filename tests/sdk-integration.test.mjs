@@ -16,7 +16,10 @@ import {
   YouGeAssistant,
   attachAssistant,
   bridgePwaGlobals,
+  detectRuntimeHostname,
   resolveDomain,
+  validateDomainConfigDetailed,
+  validateDomainRegistry,
 } from '../packages/assistant-sdk/src/index.js';
 import { buildBrowserStateScript } from '../scripts/sync-sdk-browser.mjs';
 
@@ -142,6 +145,27 @@ test('assistant-state.js stays deterministically synchronized with @youge/assist
   assert.equal(current, expected, 'assistant-state.js matches canonical SDK build');
 });
 
+test('ESM and classic SDK expose Phase 1 hostname detection and validation APIs', () => {
+  assert.equal(detectRuntimeHostname('http://127.0.0.1:5173/preview'), '127.0.0.1');
+  const detailed = validateDomainConfigDetailed({ project: { id: 'x'.repeat(81) } });
+  assert.equal(detailed.valid, false);
+  assert.ok(detailed.issues.some((issue) => issue.code === 'invalid_project_id'));
+  const registry = validateDomainRegistry({ 'bad host': {} });
+  assert.equal(registry.valid, false);
+  assert.ok(registry.issues.some((issue) => issue.code === 'invalid_registry_key'));
+
+  const { win } = makeSandboxWindow('https://portal.example.com/');
+  vm.runInContext(readRepo('assistant-state.js'), win, { filename: 'assistant-state.js' });
+  const classic = win.YouGeAssistantSDK;
+  assert.equal(classic.detectRuntimeHostname('http://localhost:5173/app'), 'localhost');
+  const classicConfig = classic.validateDomainConfigDetailed({ project: { id: 'x'.repeat(81) } });
+  assert.equal(classicConfig.valid, false);
+  assert.ok(classicConfig.issues.some((issue) => issue.code === 'invalid_project_id'));
+  const classicRegistry = classic.validateDomainRegistry({ 'bad host': {} });
+  assert.equal(classicRegistry.valid, false);
+  assert.ok(classicRegistry.issues.some((issue) => issue.code === 'invalid_registry_key'));
+});
+
 test('classic assistant-state.js and ESM @youge/assistant-sdk share one singleton in either load order', () => {
   // Order 1: classic assistant-state.js loads first, then ESM attachAssistant runs
   const envA = makeSandboxWindow('https://alpha.example.com/');
@@ -176,11 +200,13 @@ test('SDK domain resolver matches domain-config.js across exact, wildcard, subpa
 
   const registry = {
     'portal.example.com': {
+      project: { id: 'portal-project' },
       identity: { name: 'Portal', shortName: 'Portal' },
       branding: { themeColor: '#1d4ed8', icon: 'icons/icon-192.png' },
       pwa: { basePath: '/', scope: '/', startUrl: '/?home=1', id: '/portal' },
     },
     '*.workspace.example.org/app/': {
+      project: { id: 'workspace-project' },
       identity: { name: 'Workspace Subpath', shortName: 'Work' },
       branding: { themeColor: '#0f766e', icon: 'icons/icon-192.png' },
       pwa: { basePath: '/app/', scope: './', startUrl: './?launch=1', id: './' },
@@ -197,10 +223,26 @@ test('SDK domain resolver matches domain-config.js across exact, wildcard, subpa
     const fromClassic = JSON.parse(JSON.stringify(win.YouGeDomain.resolve(loc, registry)));
     const fromSdk = JSON.parse(JSON.stringify(resolveDomain(loc, registry)));
     assert.deepEqual(fromSdk.identity, fromClassic.identity);
+    assert.deepEqual(fromSdk.project, fromClassic.project);
     assert.deepEqual(fromSdk.domain, fromClassic.domain);
     assert.deepEqual(fromSdk.pwa, fromClassic.pwa);
     assert.deepEqual(fromSdk.features, fromClassic.features);
   }
+
+  const invalidRegistry = {
+    'portal.example.com': {
+      project: { id: 'x'.repeat(81) },
+      branding: { themeColor: 'not-a-color' },
+      pwa: { startUrl: 'javascript:alert(1)' },
+    },
+  };
+  const invalidLocation = { hostname: 'portal.example.com', origin: 'https://portal.example.com', pathname: '/' };
+  const invalidClassic = JSON.parse(JSON.stringify(win.YouGeDomain.resolve(invalidLocation, invalidRegistry)));
+  const invalidSdk = JSON.parse(JSON.stringify(resolveDomain(invalidLocation, invalidRegistry)));
+  assert.deepEqual(invalidSdk.project, invalidClassic.project);
+  assert.deepEqual(invalidSdk.domain, invalidClassic.domain);
+  assert.deepEqual(invalidSdk.branding, invalidClassic.branding);
+  assert.deepEqual(invalidSdk.pwa, invalidClassic.pwa);
 });
 
 test('SDK integrates with real dns-diagnostics.js on-demand without background network requests', async () => {

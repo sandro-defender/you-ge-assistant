@@ -97,7 +97,11 @@ ${sections.join('\n\n')}
     attach: attachAssistant,
     getGlobal: getGlobalAssistant,
     resolveDomain: resolveDomain,
+    detectRuntimeHostname: detectRuntimeHostname,
     buildManifest: buildManifest,
+    validateDomainConfig: validateDomainConfig,
+    validateDomainConfigDetailed: validateDomainConfigDetailed,
+    validateDomainRegistry: validateDomainRegistry,
     domain: createDomainResolver(root.YOU_GE_DOMAIN_REGISTRY || {}),
     validatePublishedConfig: validatePublishedConfig,
     // Adaptive theming — same validation/resolution in classic and ESM pages.

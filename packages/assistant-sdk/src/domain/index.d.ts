@@ -50,6 +50,33 @@ export interface DomainShortcut {
   icons?: DomainManifestIcon[];
 }
 
+/** Stable, public project identity shared by one or more configured host aliases. */
+export interface ProjectConfig {
+  id: string;
+}
+
+export interface DomainConfigIssue {
+  code: string;
+  path: string;
+  message: string;
+}
+
+export interface DomainConfigValidationSummary {
+  valid: boolean;
+  issues: DomainConfigIssue[];
+}
+
+export interface DomainConfigValidationResult extends DomainConfigValidationSummary {
+  config: Omit<ResolvedDomainConfig, 'domain'>;
+}
+
+export interface DomainRegistryValidationResult {
+  valid: boolean;
+  /** Safe, normalized registry entries. Invalid host keys are omitted. */
+  registry: DomainRegistry;
+  issues: DomainConfigIssue[];
+}
+
 export interface DomainContext {
   hostname: string;
   origin: string;
@@ -61,9 +88,12 @@ export interface DomainContext {
   installOrigin: string;
   matchedRegistryKey: string | null;
   configured: boolean;
+  projectId: string | null;
+  validation: DomainConfigValidationSummary;
 }
 
 export interface DomainRegistryEntry {
+  project?: ProjectConfig | null;
   identity?: Partial<DomainIdentity>;
   branding?: Partial<DomainBranding>;
   pwa?: Partial<DomainPwaSettings>;
@@ -81,6 +111,8 @@ export type DomainRegistry = Record<string, DomainRegistryEntry>;
 
 export interface LocationInput {
   hostname?: string;
+  host?: string;
+  href?: string;
   origin?: string;
   protocol?: string;
   pathname?: string;
@@ -90,6 +122,7 @@ export interface LocationInput {
 
 export interface ResolvedDomainConfig {
   identity: DomainIdentity;
+  project: ProjectConfig | null;
   branding: DomainBranding;
   pwa: DomainPwaSettings;
   features: DomainFeatures;
@@ -127,16 +160,20 @@ export interface DomainResolver {
   resolve(locationLike?: LocationInput | string, overrideRegistry?: DomainRegistry): ResolvedDomainConfig;
   manifest(config?: ResolvedDomainConfig): GeneratedWebManifest;
   normalizeHost(value: string): string;
+  detectRuntimeHostname(locationLike?: LocationInput | string): string;
   normalizePath(value?: string, fallback?: string): string | null;
   rootDomain(hostname: string): string;
   safeNavigationUrl(value?: string, fallback?: string): string;
   validateConfig(raw?: DomainRegistryEntry | null): Omit<ResolvedDomainConfig, 'domain'>;
+  validateConfigDetailed(raw?: unknown): DomainConfigValidationResult;
+  validateRegistry(raw?: unknown): DomainRegistryValidationResult;
   setRegistry(nextRegistry: DomainRegistry): void;
   getRegistry(): DomainRegistry;
 }
 
 export declare const DOMAIN_DEFAULTS: Omit<ResolvedDomainConfig, 'domain' | 'shortcuts'>;
 export declare function normalizeHost(value?: string): string;
+export declare function detectRuntimeHostname(locationLike?: LocationInput | string): string;
 export declare function isIpAddress(hostname: string): boolean;
 export declare function rootDomain(hostname: string): string;
 export declare function normalizePath(value?: string, fallback?: string): string | null;
@@ -148,6 +185,8 @@ export declare function normalizePath(value?: string, fallback?: string): string
  */
 export declare function safeNavigationUrl(value?: string, fallback?: string): string;
 export declare function validateDomainConfig(raw?: DomainRegistryEntry | null): Omit<ResolvedDomainConfig, 'domain'>;
+export declare function validateDomainConfigDetailed(raw?: unknown): DomainConfigValidationResult;
+export declare function validateDomainRegistry(raw?: unknown): DomainRegistryValidationResult;
 export declare function resolveDomain(locationLike?: LocationInput | string, optionalRegistry?: DomainRegistry): ResolvedDomainConfig;
 export declare function buildManifest(config?: ResolvedDomainConfig): GeneratedWebManifest;
 export declare function createDomainResolver(initialRegistry?: DomainRegistry): DomainResolver;
