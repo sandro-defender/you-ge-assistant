@@ -4,8 +4,8 @@
 **Repository:** `sandro-defender/you-ge-assistant`
 **Base:** `main` at `86d8ae30ac3816a1bb098ed4750ad313c03a6135` (PR #35 merged)
 **Branch:** `arena/a56adc21-you-ge-assistant` (active)
-**PR:** opened from this branch; query `gh pr list --head arena/a56adc21-you-ge-assistant --json number,url,state`.
-**Working tree:** clean. This pass changes only `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` (plus a follow-up handoff commit recording the PR number). No runtime, test, script or version file was touched.
+**PR:** [#36](https://github.com/sandro-defender/you-ge-assistant/pull/36) — this documentation pass; open, not merged. Query live head/checks with `gh pr view 36 --json headRefOid,state` and `gh pr checks 36`.
+**Working tree:** clean. This pass changes only `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md`. No runtime, test, script or version file was touched.
 
 Permanent contributor rules live in [`AGENTS.md`](AGENTS.md) (Repository Development Rules); they are not duplicated here. `AGENTS.md` was reviewed in this pass and already agrees with the merged state (kit `1.1.1`, SDK `0.2.0`, identity rule); it is unchanged.
 
