@@ -424,3 +424,106 @@ test('without a caller signal the engine keeps its existing signature and behavi
   assert.equal(result.classification, 'normal_connectivity');
   assert.equal(result.status, undefined, 'no cancellation status leaks into ordinary results');
 });
+
+/* ------------------------------------------------------------------ *
+ * Stage 5.3 / D3 — host classification: local vs private vs public IP
+ * ------------------------------------------------------------------ */
+
+test('classifies hosts as localhost, loopback, private or public instead of treating every IP literal as local (D3)', async () => {
+  const cases = [
+    // Local hostnames.
+    { host: 'localhost', origin: 'http://localhost:5173', kind: 'localhost', message: /local development host/i },
+    { host: 'team.localhost', origin: 'http://team.localhost:5173', kind: 'localhost', message: /local development host/i },
+    // Loopback addresses (IPv4 and bracketed IPv6).
+    { host: '127.0.0.1', origin: 'http://127.0.0.1:5173', kind: 'loopback', message: /local development host/i },
+    { host: '127.255.255.254', origin: 'http://127.255.255.254:5173', kind: 'loopback', message: /local development host/i },
+    { host: '[::1]', origin: 'http://[::1]:4173', kind: 'loopback', message: /local development host/i },
+    { host: '[::ffff:7f00:1]', origin: 'http://[::ffff:7f00:1]:4173', kind: 'loopback', message: /local development host/i },
+    // Private, link-local and carrier-grade NAT ranges are local-only, but they
+    // are a different thing from loopback and are described as such.
+    { host: '10.1.2.3', origin: 'http://10.1.2.3:8080', kind: 'private', message: /private|local-only/i },
+    { host: '172.16.5.5', origin: 'http://172.16.5.5:8080', kind: 'private', message: /private|local-only/i },
+    { host: '172.31.255.1', origin: 'http://172.31.255.1:8080', kind: 'private', message: /private|local-only/i },
+    { host: '192.168.1.10', origin: 'http://192.168.1.10:8080', kind: 'private', message: /private|local-only/i },
+    { host: '169.254.10.10', origin: 'http://169.254.10.10:8080', kind: 'private', message: /private|local-only/i },
+    { host: '100.64.0.7', origin: 'http://100.64.0.7:8080', kind: 'private', message: /private|local-only/i },
+    { host: '[fd00::1]', origin: 'http://[fd00::1]:8080', kind: 'private', message: /private|local-only/i },
+    { host: '[fe80::1]', origin: 'http://[fe80::1]:8080', kind: 'private', message: /private|local-only/i },
+    // Public IP literals are production-style targets: public DNS name
+    // resolution does not apply, but they are not development hosts.
+    { host: '8.8.8.8', origin: 'http://8.8.8.8', kind: 'public-ip', message: /IP address/i },
+    { host: '1.1.1.1', origin: 'http://1.1.1.1', kind: 'public-ip', message: /IP address/i },
+    { host: '203.0.113.10', origin: 'http://203.0.113.10', kind: 'public-ip', message: /IP address/i },
+    { host: '93.184.216.34', origin: 'https://93.184.216.34', kind: 'public-ip', message: /IP address/i },
+    { host: '[2001:db8::12]', origin: 'http://[2001:db8::12]', kind: 'public-ip', message: /IP address/i },
+    { host: '[2606:4700:4700::1111]', origin: 'http://[2606:4700:4700::1111]', kind: 'public-ip', message: /IP address/i },
+    // Ordinary hostnames keep querying public DoH.
+    { host: 'portal.example.test', origin: 'https://portal.example.test', kind: 'hostname', message: /Cloudflare DNS resolved/i },
+  ];
+
+  for (const testCase of cases) {
+    const calls = [];
+    const fetch = async (input, init) => {
+      const url = new URL(input);
+      calls.push({ href: url.href, doh: url.href.startsWith(endpoint) });
+      if (url.href.startsWith(endpoint)) return response(dnsAnswer(url));
+      return response({});
+    };
+    const result = await create({ fetch, retries: 0 }).check(browserContext({ hostname: testCase.host, origin: testCase.origin }));
+    const dohCalls = calls.filter((call) => call.doh).length;
+    const label = testCase.host;
+
+    assert.equal(result.hostname, testCase.host, label);
+    assert.equal(result.hostKind, testCase.kind, `${label} is classified as ${testCase.kind}`);
+    assert.equal(result.classification, 'normal_connectivity', label);
+    assert.equal(result.dohSkipped, testCase.kind !== 'hostname', `${label} DoH skip flag matches the host kind`);
+    assert.equal(dohCalls, testCase.kind === 'hostname' ? 2 : 0, `${label} DoH query count`);
+    assert.equal(result.possibleDnsInterference, false, label);
+    assert.match(result.message, testCase.message, `${label} message`);
+
+    if (testCase.kind === 'public-ip') {
+      assert.doesNotMatch(result.message, /local development host/i, `${label} must not be described as a local development host`);
+      assert.ok(result.message.includes(testCase.host), `${label} message names the IP address it is talking about`);
+      assert.equal(calls.length, 1, `${label} still probes the application host`);
+    }
+    if (testCase.kind === 'hostname') {
+      assert.equal(result.dohAvailable, true, label);
+      assert.ok(result.dns.length === 2, `${label} DoH evidence is reported`);
+    }
+  }
+});
+
+test('reports a failing public IP literal without local-development wording or DNS interference', async () => {
+  const result = await create({ fetch: async () => response({}, 503), retries: 0 })
+    .check(browserContext({ hostname: '8.8.8.8', origin: 'http://8.8.8.8' }));
+
+  assert.equal(result.classification, 'application_host_unavailable');
+  assert.equal(result.hostKind, 'public-ip');
+  assert.equal(result.dohSkipped, true);
+  assert.equal(result.possibleDnsInterference, false);
+  assert.match(result.message, /IP address/i);
+  assert.doesNotMatch(result.message, /local development host/i);
+});
+
+test('classifies private development addresses distinctly from loopback', async () => {
+  const loopback = await create({ fetch: async () => response({}), retries: 0 })
+    .check(browserContext({ hostname: '127.0.0.1', origin: 'http://127.0.0.1:5173' }));
+  const privateHost = await create({ fetch: async () => response({}), retries: 0 })
+    .check(browserContext({ hostname: '192.168.1.10', origin: 'http://192.168.1.10:8080' }));
+
+  assert.notEqual(loopback.hostKind, privateHost.hostKind, 'private ranges are not reported as loopback');
+  assert.notEqual(loopback.message, privateHost.message, 'the user-facing explanation distinguishes them');
+  assert.equal(loopback.dohSkipped, true);
+  assert.equal(privateHost.dohSkipped, true);
+});
+
+test('rejects malformed host values without issuing any probe', async () => {
+  const malformed = ['', ' ', 'exa mple.com', 'exa_mple.com', '-bad.example', 'a..b', 'http://example.com', 'example.com/path', 42, null];
+  for (const hostname of malformed) {
+    let requests = 0;
+    const result = await create({ fetch: async () => { requests += 1; return response({}); }, retries: 0 })
+      .check(browserContext({ hostname, origin: 'https://portal.example.test' }));
+    assert.equal(result.classification, 'unknown', `${String(hostname)} is rejected`);
+    assert.equal(requests, 0, `${String(hostname)} issues no request`);
+  }
+});

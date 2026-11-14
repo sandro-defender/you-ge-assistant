@@ -476,3 +476,173 @@ test('end-to-end pwa.js and YouGeAssistant stay synchronized across updatefound,
 
   assistant.destroy();
 });
+
+/* ------------------------------------------------------------------ *
+ * Stage 5.3 / D6 — the DNS verdict belongs to the effective probe identity
+ * ------------------------------------------------------------------ */
+
+// The registry entry is what changes the effective app/backend probe targets,
+// because the diagnostics context is built from the resolved domain config.
+function probeRegistry(basePath, diagnostics) {
+  return {
+    'app.example.com/portal/': {
+      project: { id: 'dns-identity-project' },
+      pwa: { basePath },
+      diagnostics,
+    },
+  };
+}
+
+function identityAssistant(extra) {
+  return YouGeAssistant.create(Object.assign({
+    location: 'https://app.example.com/portal/',
+    domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }),
+    bindEvents: false,
+  }, extra || {}));
+}
+
+function setVerdict(assistant, classification) {
+  assistant.setDnsResult({
+    status: 'complete',
+    classification: classification || 'normal_connectivity',
+    message: 'Healthy DNS and app probe.',
+    checkedAt: '2026-11-14T00:00:00.000Z',
+  });
+  return assistant.getState().network.dns;
+}
+
+test('a base-path change on the same host and project invalidates the DNS verdict (D6)', () => {
+  const assistant = identityAssistant();
+  assert.equal(assistant.getState().project.basePath, '/portal/');
+  setVerdict(assistant);
+  assert.equal(assistant.getState().network.dns.classification, 'normal_connectivity');
+
+  assistant.configure({ domainRegistry: probeRegistry('/other/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }) });
+
+  const state = assistant.getState();
+  assert.equal(state.project.basePath, '/other/', 'the effective base path moved');
+  assert.equal(state.project.id, 'dns-identity-project', 'the project identity is unchanged');
+  assert.equal(state.network.dns.status, 'idle', 'a verdict from another base path is stale');
+  assert.equal(state.network.dns.classification, 'unknown');
+  assert.equal(state.network.dns.checkedAt, null, 'the previous check timestamp is discarded');
+  assert.equal(state.notifications.some((n) => n.id === 'dns:failure'), false);
+
+  assistant.destroy();
+});
+
+test('changed app or backend probe paths invalidate the DNS verdict (D6)', () => {
+  const cases = [
+    { label: 'app probe path', diagnostics: { appProbePath: 'probe.json', backendProbePath: '/health' } },
+    { label: 'backend probe path', diagnostics: { appProbePath: 'manifest.webmanifest', backendProbePath: '/healthz' } },
+    { label: 'backend probe removed', diagnostics: { appProbePath: 'manifest.webmanifest' } },
+  ];
+
+  for (const testCase of cases) {
+    const assistant = identityAssistant();
+    setVerdict(assistant, 'dns_records_missing');
+    assert.ok(assistant.getState().notifications.some((n) => n.id === 'dns:failure'), `${testCase.label} precondition`);
+
+    assistant.configure({ domainRegistry: probeRegistry('/portal/', testCase.diagnostics) });
+
+    const state = assistant.getState();
+    assert.equal(state.project.id, 'dns-identity-project', testCase.label);
+    assert.equal(state.network.dns.status, 'idle', `${testCase.label} change invalidates the verdict`);
+    assert.equal(state.network.dns.classification, 'unknown', testCase.label);
+    assert.equal(state.notifications.some((n) => n.id === 'dns:failure'), false, `${testCase.label} clears the notice`);
+    assistant.destroy();
+  }
+});
+
+test('unrelated configuration changes and repeated identical configuration keep the DNS verdict (D6)', () => {
+  const assistant = identityAssistant();
+  setVerdict(assistant);
+
+  assistant.configure({ branding: { name: 'Renamed' } });
+  assistant.configure({ theme: 'dark' });
+  assistant.configure({ modules: { recovery: false } });
+  let state = assistant.getState();
+  assert.equal(state.network.dns.classification, 'normal_connectivity', 'unrelated changes keep the verdict');
+  assert.equal(state.network.dns.checkedAt, '2026-11-14T00:00:00.000Z');
+
+  // Repeating the very same identity is not a change.
+  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }) });
+  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }) });
+  state = assistant.getState();
+  assert.equal(state.network.dns.classification, 'normal_connectivity', 'an unchanged identity does not reset state');
+  assert.equal(state.network.dns.status, 'complete');
+
+  // A path-equivalent probe declaration is also the same identity.
+  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: './manifest.webmanifest', backendProbePath: '/health' }) });
+  assert.equal(assistant.getState().network.dns.classification, 'normal_connectivity', 'equivalent probe paths are not a change');
+
+  assistant.destroy();
+});
+
+test('a stale in-flight diagnostics run cannot publish after the diagnostic identity changes (D6)', async () => {
+  let releaseRun;
+  let rejectRun;
+  let runnerSignal = null;
+  const assistant = identityAssistant({
+    services: {
+      diagnostics: (options) => {
+        runnerSignal = options && options.signal;
+        return new Promise((resolve, reject) => {
+          releaseRun = resolve;
+          rejectRun = reject;
+          if (options && options.signal) {
+            options.signal.addEventListener('abort', () => {
+              reject(Object.assign(new Error('Diagnostics were cancelled.'), { kind: 'cancelled' }));
+            }, { once: true });
+          }
+        });
+      },
+    },
+  });
+
+  const running = assistant.runDiagnostics();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(assistant.getState().network.dns.status, 'running');
+  assert.ok(runnerSignal && runnerSignal.aborted === false);
+
+  // Same host, same project id, different base path: a different app target.
+  assistant.configure({ domainRegistry: probeRegistry('/other/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }) });
+
+  assert.equal(runnerSignal.aborted, true, 'obsolete in-flight work is cancelled');
+  assert.equal(assistant.getState().network.dns.status, 'idle', 'the stale run no longer owns published state');
+
+  // Whatever the abandoned run does afterwards must not reach the state.
+  releaseRun({ classification: 'normal_connectivity', message: 'stale result' });
+  const settled = await running;
+  assert.equal(settled.status, 'cancelled', 'the abandoned run settles as cancelled');
+
+  const state = assistant.getState();
+  assert.equal(state.network.dns.status, 'idle', 'a late result from the old target never lands');
+  assert.equal(state.network.dns.classification, 'unknown');
+  assert.equal(state.notifications.some((n) => n.id === 'dns:failure'), false);
+
+  assistant.destroy();
+  void rejectRun;
+});
+
+test('a public IP-literal host reaches the real engine as an IP target, never as a development host (D3 end to end)', async () => {
+  const { win } = makeSandboxWindow('https://93.184.216.34/');
+  const probed = [];
+  win.AbortController = AbortController;
+  win.fetch = async (input) => {
+    probed.push(String(input));
+    return { ok: true, status: 200, async json() { return {}; } };
+  };
+  vm.runInContext(readRepo('dns-diagnostics.js'), win, { filename: 'dns-diagnostics.js' });
+
+  const assistant = YouGeAssistant.create({ projectId: 'ip-literal', domain: '93.184.216.34' }, { root: win });
+  const result = await assistant.runDiagnostics();
+
+  assert.equal(probed.filter((url) => url.includes('cloudflare-dns.com')).length, 0, 'public DoH is never queried for an IP literal');
+  assert.equal(result.hostKind, 'public-ip');
+  assert.equal(result.classification, 'normal_connectivity');
+  assert.doesNotMatch(result.message, /local development host/i);
+  assert.match(result.message, /IP address 93\.184\.216\.34/);
+  assert.equal(assistant.getState().network.dns.classification, 'normal_connectivity');
+
+  assistant.destroy();
+});

@@ -700,3 +700,41 @@ test('dispatchAssistantAction and React adapter route update actions through Ass
   });
   assert.equal(pwaDirectCalls, 1, 'falls back when AssistantInstance.applyUpdate is absent');
 });
+
+test('the diagnostics adapter forwards app and backend probe paths so the probe target matches the DNS identity (D6)', async () => {
+  const contexts = [];
+  const controller = createDiagnosticsIntegration({
+    AbortController,
+    getDns: () => ({
+      check(context) {
+        contexts.push(context);
+        return Promise.resolve({ classification: 'normal_connectivity', message: 'ok' });
+      },
+    }),
+    getContext: () => ({
+      hostname: 'app.example.com',
+      origin: 'https://app.example.com',
+      basePath: '/portal/',
+      online: true,
+      appProbePath: 'probe.json',
+      backendProbePath: '/health',
+    }),
+  });
+
+  await controller.run();
+  assert.equal(contexts.length, 1);
+  assert.equal(contexts[0].appProbePath, 'probe.json');
+  assert.equal(contexts[0].backendProbePath, '/health');
+  assert.equal(contexts[0].basePath, '/portal/', 'existing context fields are unchanged');
+
+  // An absent probe path is omitted rather than sent as an empty string, so a
+  // runner that defaults internally keeps its existing behavior.
+  const bare = createDiagnosticsIntegration({
+    AbortController,
+    getDns: () => ({ check: (context) => { contexts.push(context); return Promise.resolve({}); } }),
+    getContext: () => ({ hostname: 'app.example.com', origin: 'https://app.example.com', appProbePath: '', backendProbePath: undefined }),
+  });
+  await bare.run();
+  assert.equal(Object.prototype.hasOwnProperty.call(contexts[1], 'appProbePath'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(contexts[1], 'backendProbePath'), false);
+});

@@ -26,6 +26,10 @@ export interface DiagnosticsContext {
   origin?: string;
   basePath?: string;
   online?: boolean;
+  /** Same-origin app probe path; part of the effective diagnostic target. */
+  appProbePath?: string;
+  /** Optional same-origin backend probe path; part of the diagnostic target. */
+  backendProbePath?: string;
 }
 
 export interface DiagnosticsIntegrationOptions {

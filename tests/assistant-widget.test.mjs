@@ -1419,3 +1419,74 @@ test('update notice and rendered action follow the updates module across reconfi
   widget.destroy();
   ctx.api.destroy();
 });
+
+/* ------------------------------------------------------------------ *
+ * Stage 5.3 / D3 + D6 — classic bundle parity
+ * ------------------------------------------------------------------ */
+
+function useRegistry(ctx, basePath, diagnostics) {
+  // Removing the stub resolver makes the classic bundle resolve through the
+  // public registry the host configured — the same seam a real page uses.
+  delete ctx.win.YouGeDomain;
+  ctx.api.configure({
+    domainRegistry: {
+      'example.test': {
+        project: { id: 'dns-parity-project' },
+        pwa: { basePath },
+        diagnostics,
+      },
+    },
+  });
+}
+
+test('the classic bundle invalidates a DNS verdict when the effective probe identity changes (D6 parity)', () => {
+  const ctx = createContext({ config: { projectId: 'dns-parity-project' } });
+  useRegistry(ctx, '/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' });
+  assert.equal(ctx.api.getState().project.basePath, '/portal/');
+
+  const setVerdict = () => ctx.api.setDnsResult({
+    status: 'complete',
+    classification: 'dns_resolution_missing',
+    message: 'stale verdict',
+    checkedAt: '2026-11-14T00:00:00.000Z',
+  });
+  const assertKept = (label) => {
+    const state = ctx.api.getState();
+    assert.equal(state.network.dns.status, 'complete', label);
+    assert.equal(state.network.dns.classification, 'dns_resolution_missing', label);
+    assert.equal(state.network.dns.checkedAt, '2026-11-14T00:00:00.000Z', label);
+  };
+  const assertReset = (label) => {
+    const state = ctx.api.getState();
+    assert.equal(state.network.dns.status, 'idle', `${label} clears the stale verdict`);
+    assert.equal(state.network.dns.classification, 'unknown', label);
+    assert.equal(state.network.dns.checkedAt, null, label);
+  };
+
+  setVerdict();
+  ctx.api.configure({ branding: { name: 'Renamed' } });
+  assertKept('an unrelated change keeps the verdict');
+
+  ctx.api.configure({});
+  assertKept('repeating an unchanged identity keeps the verdict');
+
+  useRegistry(ctx, '/portal/', { appProbePath: './manifest.webmanifest', backendProbePath: '/health' });
+  assertKept('an equivalent probe path spelling keeps the verdict');
+
+  useRegistry(ctx, '/portal/', { appProbePath: 'probe.json', backendProbePath: '/health' });
+  assertReset('changing the app probe path');
+
+  setVerdict();
+  useRegistry(ctx, '/portal/', { appProbePath: 'probe.json', backendProbePath: '/healthz' });
+  assertReset('changing the backend probe path');
+
+  setVerdict();
+  useRegistry(ctx, '/portal/', { appProbePath: 'probe.json' });
+  assertReset('removing the backend probe');
+
+  setVerdict();
+  useRegistry(ctx, '/other/', { appProbePath: 'probe.json' });
+  assertReset('changing the base path');
+
+  ctx.api.destroy();
+});

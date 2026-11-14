@@ -2281,12 +2281,17 @@
     if (dns && typeof dns.check === 'function') {
       return function (runOptions) {
         const ctx = typeof opts.getContext === 'function' ? opts.getContext() : (opts.context || {});
-        return dns.check({
+        const context = {
           hostname: ctx.hostname,
           origin: ctx.origin,
           basePath: ctx.basePath || '/',
           online: ctx.online !== false,
-        }, runOptions);
+        };
+        // Probe paths change the effective app/backend diagnostic target, so the
+        // engine must receive the same ones the assistant's DNS identity uses.
+        if (typeof ctx.appProbePath === 'string' && ctx.appProbePath) context.appProbePath = ctx.appProbePath;
+        if (typeof ctx.backendProbePath === 'string' && ctx.backendProbePath) context.backendProbePath = ctx.backendProbePath;
+        return dns.check(context, runOptions);
       };
     }
     return null;
@@ -3448,12 +3453,12 @@
       getDns: getDns,
       getContext: function () {
         const project = projectInfo();
-        return {
+        return Object.assign({
           hostname: project.hostname,
           origin: project.origin,
           basePath: project.basePath,
           online: conditions.online,
-        };
+        }, diagnosticsProbeContext());
       },
       onStart: function () {
         conditions.dns.status = 'running';
@@ -3464,13 +3469,51 @@
       },
     });
 
+    // The probe paths come from the resolved domain registry entry, which is the
+    // same source `pwa.js` uses for `runNetworkDiagnostics()`. They are read from
+    // the resolution that produced the current host so the diagnostics context
+    // and the identity can never disagree.
+    function diagnosticsProbeContext(domain) {
+      const resolved = domain === null || domain === undefined ? domainContext() : domain;
+      const diagnostics = resolved.diagnostics && typeof resolved.diagnostics === 'object' ? resolved.diagnostics : {};
+      return {
+        appProbePath: typeof diagnostics.appProbePath === 'string' ? diagnostics.appProbePath : '',
+        backendProbePath: typeof diagnostics.backendProbePath === 'string' ? diagnostics.backendProbePath : '',
+      };
+    }
+
+    // `./health` and `health` resolve to the same URL, so they describe the same
+    // diagnostic target and must not invalidate a published verdict. Root-relative
+    // `/health` is deliberately *not* folded into `health`: on a subpath the two
+    // resolve to different URLs.
+    function normalizeProbeIdentity(value) {
+      return typeof value === 'string' ? value.replace(/^(?:\.\/)+/, '') : '';
+    }
+
+    // A DNS verdict belongs to one effective diagnostic target: the project, the
+    // host, the origin, the base path and the app/backend probe paths. Changing
+    // any of them makes a published result stale.
     function dnsIdentity() {
       const project = projectInfo();
-      return { id: project.id, hostname: project.hostname, origin: project.origin };
+      const probes = diagnosticsProbeContext();
+      return {
+        id: project.id,
+        hostname: project.hostname,
+        origin: project.origin,
+        basePath: project.basePath,
+        appProbePath: normalizeProbeIdentity(probes.appProbePath),
+        backendProbePath: normalizeProbeIdentity(probes.backendProbePath),
+      };
     }
 
     function sameDnsIdentity(a, b) {
-      return Boolean(a && b) && a.id === b.id && a.hostname === b.hostname && a.origin === b.origin;
+      return Boolean(a && b) &&
+        a.id === b.id &&
+        a.hostname === b.hostname &&
+        a.origin === b.origin &&
+        a.basePath === b.basePath &&
+        a.appProbePath === b.appProbePath &&
+        a.backendProbePath === b.backendProbePath;
     }
 
     function configure(nextOptions) {

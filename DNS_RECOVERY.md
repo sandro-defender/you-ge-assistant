@@ -110,8 +110,59 @@ Never configure a cross-origin or arbitrary user-provided probe URL. The impleme
 
 Relative probe paths follow the resolved domain `basePath` (for example `health` under `/app/` probes `/app/health`), while root-relative paths such as `/health` resolve against the origin. `validateDomainConfigDetailed()` / `YouGeDomain.validateConfigDetailed()` reject unsafe probe paths (cross-origin URLs, `//host` network paths, `javascript:`/`data:` schemes, backslashes, whitespace padding and `..` traversal) with an `invalid_diagnostics_probe` issue, and the normalized config drops them so the runtime falls back to `manifest.webmanifest` and no backend probe.
 
-Local development hosts (`localhost`, `*.localhost`, IPv4 literals such as `127.0.0.1` and bracketed IPv6 such as `[::1]`) are never sent to public DoH, because public DNS does not resolve them. The same-origin app and backend probes still run, the result carries `dohSkipped: true`, and the classification is `normal_connectivity` or `application_host_unavailable` instead of a misleading NXDOMAIN `inconclusive` result.
+### Host classification
+
+Every result carries a `hostKind` field, and the wording, the DoH skip and the
+recovery guidance all follow it:
+
+| `hostKind` | Examples | Public DoH | Reported as |
+| --- | --- | --- | --- |
+| `hostname` | `portal.example.com` | queried (A + AAAA) | a normal DNS name |
+| `localhost` | `localhost`, `team.localhost` | skipped | a local development host |
+| `loopback` | `127.0.0.1`, `127.255.255.254`, `[::1]`, `[::ffff:127.0.0.1]` | skipped | a local development host |
+| `private` | `10.1.2.3`, `172.16.5.5`, `192.168.1.10`, `169.254.10.10`, `100.64.0.7`, `[fd00::1]`, `[fe80::1]` | skipped | a private/local-only address |
+| `public-ip` | `8.8.8.8`, `1.1.1.1`, `203.0.113.10`, `[2001:db8::12]` | skipped | the IP address the app is served from |
+
+Public DoH cannot resolve `localhost`, loopback, private or IP-literal hosts, so
+those hosts never query it: the same-origin app and backend probes still run,
+the result carries `dohSkipped: true` and `dohAvailable: false`, and the
+classification stays `normal_connectivity` or `application_host_unavailable`
+instead of a misleading NXDOMAIN `inconclusive` result.
+
+The kinds are deliberately separate. Loopback (`127.0.0.0/8`, `::1`) is the only
+address class a browser can serve a development app from without a network
+interface, so it keeps the "local development host" wording. RFC1918, link-local
+and carrier-grade NAT ranges are local-only but are reached over a network
+interface, so they are described as private rather than as loopback. A public IP
+literal is a production-style target that simply is not a DNS name: it is never
+described as a development host, and its message names the address. IPv6 literal
+handling, including bracketed parsing and compressed-vs-expanded spellings, is
+unchanged; malformed host values still classify as `unknown` without any request.
+
+### Diagnostic identity
+
+A DNS verdict belongs to one effective diagnostic target, not just to one
+hostname. `YouGeAssistant` clears the published verdict (`network.dns` returns
+to `idle` / `unknown`, a stale `dns:failure` notice disappears) and aborts an
+in-flight run that has not reported yet whenever `configure()` changes any part
+of that target:
+
+- the project id;
+- the resolved hostname;
+- the origin;
+- the resolved base path (`/portal/` and `/other/` on the same host are
+  different apps);
+- the configured `diagnostics.appProbePath` or `diagnostics.backendProbePath`,
+  which change what the app and backend probes actually request.
+
+Unrelated configuration (branding, theme, module toggles, positions) and a
+repeated `configure()` with an identical target keep the current verdict.
+`./health` and `health` describe the same probe target and are treated as equal;
+root-relative `/health` is not equivalent, because on a subpath it resolves to a
+different URL. Any run that was in flight when the target changed is cancelled
+and cannot publish a result afterwards, including after its own identity has
+moved on.
 
 ## Testing
 
-`npm test` uses mocked fetch/AbortController responses to cover A/AAAA success, missing AAAA, NXDOMAIN, empty records, invalid responses, request and stalled-body timeouts, retry/deduplication, CORS/network errors, app-host failure, offline state, backend failure, subpath backend probe resolution, loopback/IP-literal hosts, invalid host/origin input, and rejected diagnostics probe paths. These tests do not contact Cloudflare and do not simulate ISP blocking. Verify CORS and actual resolver behavior manually in a controlled network; do not claim real-world ISP interference testing unless it was observed on an affected network.
+`npm test` uses mocked fetch/AbortController responses to cover A/AAAA success, missing AAAA, NXDOMAIN, empty records, invalid responses, request and stalled-body timeouts, retry/deduplication, CORS/network errors, app-host failure, offline state, backend failure, subpath backend probe resolution, the full host-classification table (localhost, loopback, private, public IP literal, hostname, malformed values), invalid host/origin input, and rejected diagnostics probe paths. A separate table-driven suite covers the diagnostic identity: base-path changes, probe-path changes, unrelated configuration that must keep a verdict, repeated identical configuration, and a stale in-flight run that must not publish after the identity changes. These tests do not contact Cloudflare and do not simulate ISP blocking. Verify CORS and actual resolver behavior manually in a controlled network; do not claim real-world ISP interference testing unless it was observed on an affected network.
