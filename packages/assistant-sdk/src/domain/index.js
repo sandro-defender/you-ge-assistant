@@ -203,6 +203,33 @@ function isRecord(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+const DIAGNOSTICS_PROBE_KEYS = ['appProbePath', 'backendProbePath'];
+
+/**
+ * Diagnostics probes run same-origin without credentials, so a configured path
+ * must stay a plain relative or root-relative path: cross-origin URLs, network
+ * paths (`//host`), script schemes, backslashes and `..` traversal are rejected.
+ */
+function safeDiagnosticsProbePath(value) {
+  if (typeof value !== 'string') return false;
+  const probe = value.trim();
+  if (!probe || probe !== value) return false;
+  if (probe.charAt(0) === '?' || probe.charAt(0) === '#') return false;
+  return safeRelativeUrl(probe);
+}
+
+function sanitizeDiagnosticsConfig(value) {
+  const safe = {};
+  if (!isRecord(value)) return safe;
+  Object.keys(value).forEach(function (key) {
+    if (DIAGNOSTICS_PROBE_KEYS.indexOf(key) === -1) safe[key] = clone(value[key]);
+  });
+  DIAGNOSTICS_PROBE_KEYS.forEach(function (key) {
+    if (safeDiagnosticsProbePath(value[key])) safe[key] = value[key];
+  });
+  return safe;
+}
+
 function isValidColor(value) {
   const color = String(value == null ? '' : value).trim().toLowerCase();
   return VALID_COLOR_HEX.test(color) || VALID_COLOR_FUNCTION.test(color) || CSS_COLOR_NAMES.has(color);
@@ -301,6 +328,8 @@ export function validateDomainConfig(raw) {
     return safe;
   }) : [];
 
+  config.diagnostics = sanitizeDiagnosticsConfig(config.diagnostics);
+
   config.features = merge(clone(DOMAIN_DEFAULTS.features), config.features || {});
   Object.keys(DOMAIN_DEFAULTS.features).forEach(function (key) {
     config.features[key] = config.features[key] !== false;
@@ -395,6 +424,18 @@ export function validateDomainConfigDetailed(raw) {
       Object.keys(source.features).sort().forEach(function (key) {
         if (typeof source.features[key] !== 'boolean') {
           add('invalid_feature_flag', 'features.' + key, 'Feature flags must use boolean values.');
+        }
+      });
+    }
+
+    if (source.diagnostics !== undefined && !isRecord(source.diagnostics)) {
+      add('invalid_diagnostics', 'diagnostics', 'Diagnostics configuration must be an object of safe probe paths.');
+    } else if (isRecord(source.diagnostics)) {
+      DIAGNOSTICS_PROBE_KEYS.forEach(function (key) {
+        const value = source.diagnostics[key];
+        if (value !== undefined && !safeDiagnosticsProbePath(value)) {
+          add('invalid_diagnostics_probe', 'diagnostics.' + key,
+            'Diagnostics probe paths must be safe same-origin relative or root-relative paths.');
         }
       });
     }

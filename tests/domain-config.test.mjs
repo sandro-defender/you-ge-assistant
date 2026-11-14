@@ -270,3 +270,20 @@ test('safeNavigationUrl treats blank and non-string input as "no target"', () =>
   // Called with no fallback at all, the guard still yields a usable in-app URL.
   assert.equal(domain.safeNavigationUrl('javascript:alert(1)'), '/');
 });
+
+test('classic resolver validates registry diagnostics probe paths safely', () => {
+  const safe = domain.validateConfigDetailed({
+    diagnostics: { appProbePath: 'manifest.webmanifest', backendProbePath: 'health' },
+  });
+  assert.equal(safe.valid, true);
+  assert.equal(safe.config.diagnostics.backendProbePath, 'health');
+
+  ['https://evil.example/health', '//evil.example/health', 'javascript:alert(1)', '..\\admin', '../admin', 7].forEach((value) => {
+    const result = domain.validateConfigDetailed({ diagnostics: { backendProbePath: value } });
+    assert.equal(result.valid, false, `${String(value)} must be rejected`);
+    assert.ok(result.issues.some((issue) => issue.code === 'invalid_diagnostics_probe' && issue.path === 'diagnostics.backendProbePath'));
+    assert.equal(result.config.diagnostics.backendProbePath, undefined);
+  });
+
+  assert.equal(domain.validateConfigDetailed({ diagnostics: [] }).valid, false);
+});

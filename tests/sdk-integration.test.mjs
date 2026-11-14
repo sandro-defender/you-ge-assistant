@@ -320,3 +320,32 @@ test('bridgePwaGlobals + pwa.js preserves single /progressier.js registration an
 
   bridged.assistant.destroy();
 });
+
+test('classic and SDK domain validation agree on diagnostics probe path safety', () => {
+  const { win } = makeSandboxWindow('https://portal.example.com/');
+  vm.runInContext(readRepo('domain-config.js'), win, { filename: 'domain-config.js' });
+
+  const config = {
+    diagnostics: { appProbePath: 'javascript:alert(1)', backendProbePath: 'health' },
+  };
+  const classic = JSON.parse(JSON.stringify(win.YouGeDomain.validateConfigDetailed(config)));
+  const sdk = JSON.parse(JSON.stringify(validateDomainConfigDetailed(config)));
+  assert.equal(classic.valid, false);
+  assert.equal(sdk.valid, false);
+  assert.deepEqual(sdk.issues.map((issue) => [issue.code, issue.path]), classic.issues.map((issue) => [issue.code, issue.path]));
+  assert.deepEqual(sdk.config.diagnostics, classic.config.diagnostics);
+  assert.deepEqual(sdk.config.diagnostics, { backendProbePath: 'health' });
+
+  const registry = {
+    'portal.example.com': { diagnostics: { appProbePath: 'https://evil.example/manifest.webmanifest' } },
+  };
+  const classicRegistry = JSON.parse(JSON.stringify(win.YouGeDomain.validateRegistry(registry)));
+  const sdkRegistry = validateDomainRegistry(registry);
+  assert.equal(classicRegistry.valid, false);
+  assert.equal(sdkRegistry.valid, false);
+  assert.deepEqual(
+    sdkRegistry.issues.map((issue) => [issue.code, issue.path]),
+    classicRegistry.issues.map((issue) => [issue.code, issue.path]),
+  );
+  assert.deepEqual(sdkRegistry.registry, classicRegistry.registry);
+});
