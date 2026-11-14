@@ -23,6 +23,7 @@ import type {
   DomainConfigValidationResult,
   DomainConfigValidationSummary,
   DomainContext,
+  DomainDiagnosticsConfig,
   DomainFeatures,
   DomainIdentity,
   DomainManifestIcon,
@@ -97,6 +98,7 @@ export type {
   DomainConfigValidationResult,
   DomainConfigValidationSummary,
   DomainContext,
+  DomainDiagnosticsConfig,
   DomainFeatures,
   DomainIdentity,
   DomainManifestIcon,
@@ -262,6 +264,7 @@ export interface AssistantConfigSummary {
   actions: AssistantAction[];
   features: AssistantFeature[];
   theme: AssistantTheme;
+  themeConfig: import('./theme/index.js').NormalizedTheme;
   meta: AssistantConfigMeta;
 }
 
@@ -319,6 +322,13 @@ export interface YouGeAssistantStatic {
   detectInAppBrowser(userAgent?: string): InAppBrowserDetection;
   buildChromeIntentUrl(url: string, options?: { packageName?: string }): string | null;
   createChromeHandoff(options?: import('./browser/index.js').ChromeHandoffEnvironment): ChromeHandoffController;
+  normalizeTheme(raw?: import('./theme/index.js').AssistantThemeConfig | null): import('./theme/index.js').NormalizedTheme;
+  resolveTheme(
+    themeInput?: import('./theme/index.js').AssistantThemeConfig | import('./theme/index.js').NormalizedTheme | null,
+    context?: import('./theme/index.js').ThemeResolutionContext
+  ): import('./theme/index.js').ResolvedTheme;
+  readonly THEME_MODES: readonly import('./theme/index.js').ThemeMode[];
+  readonly THEME_TOKEN_KEYS: readonly import('./theme/index.js').ThemeToken[];
 }
 
 export interface ToolkitSummary {
@@ -388,6 +398,11 @@ export {
   ASSISTANT_FONT_STACK,
   ASSISTANT_PALETTES,
   COLOR_TOKEN_KEYS,
+  NOTIFICATION_LEVELS,
+  NOTIFICATION_LEVEL_ICONS,
+  NOTIFICATION_LEVEL_LABELS,
+  NOTIFICATION_LEVEL_SHAPES,
+  NOTIFICATION_LEVEL_SVG_ATTRIBUTES,
   PROTECTED_VARIABLES,
   THEME_DEFAULTS,
   THEME_MODES,
@@ -398,8 +413,10 @@ export {
   detectHostScheme,
   detectHostTypography,
   isSafeCssValue,
+  normalizeNotificationLevel,
   normalizeToken,
   normalizeTheme,
+  notificationLevelMarkup,
   relativeLuminance,
   resolveTheme,
   themeToCssVariables,
@@ -414,6 +431,9 @@ export {
   detectInAppBrowser,
   isChromeHandoffCandidate,
 } from './browser/index.js';
+
+export declare const NOTIFICATION_LEVEL_MAP: Readonly<Record<string, NotificationLevel>>;
+export declare function notificationLevel(id?: string, priority?: number): NotificationLevel;
 
 export declare function createAssistant(
   initialOptions?: CreateAssistantOptions,

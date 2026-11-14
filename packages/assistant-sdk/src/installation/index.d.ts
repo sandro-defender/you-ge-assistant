@@ -12,6 +12,7 @@ export interface PwaRuntimeLike {
     installed?: boolean;
     standalone?: boolean;
     canInstall?: boolean;
+    hasUpdate?: boolean;
     ios?: boolean;
     safari?: boolean;
     hostname?: string;
@@ -26,7 +27,7 @@ export interface PwaRuntimeLike {
   promptInstall?: (options?: Record<string, unknown>) => Promise<{ outcome: string }> | { outcome: string };
   runNetworkDiagnostics?: (options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   showNetworkDiagnostics?: () => unknown;
-  applyUpdate?: () => void;
+  applyUpdate?: () => Promise<boolean> | boolean | void;
 }
 
 export interface AssistantInstallationState {

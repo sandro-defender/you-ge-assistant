@@ -92,6 +92,11 @@ export interface DomainContext {
   validation: DomainConfigValidationSummary;
 }
 
+export interface DomainDiagnosticsConfig {
+  appProbePath?: string;
+  backendProbePath?: string;
+}
+
 export interface DomainRegistryEntry {
   project?: ProjectConfig | null;
   identity?: Partial<DomainIdentity>;
@@ -101,10 +106,7 @@ export interface DomainRegistryEntry {
   instructions?: Record<string, unknown>;
   metadata?: Record<string, string>;
   shortcuts?: DomainShortcut[];
-  diagnostics?: {
-    appProbePath?: string;
-    backendProbePath?: string;
-  };
+  diagnostics?: DomainDiagnosticsConfig;
 }
 
 export type DomainRegistry = Record<string, DomainRegistryEntry>;
@@ -129,6 +131,7 @@ export interface ResolvedDomainConfig {
   instructions: Record<string, unknown>;
   metadata: Record<string, string>;
   shortcuts: DomainShortcut[];
+  diagnostics?: DomainDiagnosticsConfig;
   domain: DomainContext;
 }
 

@@ -1,82 +1,58 @@
-# Next Agent Prompt — Audit Existing Diagnostics & Author `PHASE2_IMPLEMENTATION_PLAN.md`
+# Next Agent Prompt — Phase 2, Stage 2: Diagnostics Probe Path Safety, Subpath Resolution & Localhost/IP Hardening
 
 **Repository:** `sandro-defender/you-ge-assistant` (`/home/user/you-ge-assistant`)
-**Branch:** `arena/8f493271-you-ge-assistant` (base: `main` @ `829449057bc63d2b09aa4470da44df03482b3c57`)
+**Plan reference:** `PHASE2_IMPLEMENTATION_PLAN.md` (§3, Stage 2)
 
 ---
 
 ## Objective
 
-Complete **one small, documentation-only task**: audit the repository's existing diagnostics, recovery, and update/type contracts and author `PHASE2_IMPLEMENTATION_PLAN.md` at the repository root.
+Complete **one small, independently verifiable task** — **Phase 2, Stage 2**: harden `dns-diagnostics.js` and domain validation for subpath `backendProbePath` resolution, bounded `response.json()` timeouts, localhost/IP-literal dev hosts, and `diagnostics` probe-path validation in `packages/assistant-sdk/src/domain/index.js` + `domain-config.js`.
 
-**Do not implement Phase 2 features, delete `reference/`/`PARITY.md`, edit source code, modify tests, bump versions, or touch CI/release workflows.**
+**Do not implement Phase 2 Stages 3–4, modify `pwa.js` or `progressier.js` behavior, bump package versions, touch CI/release workflows, or delete `reference/`/`PARITY.md`.**
 
 ---
 
 ## Startup & State Verification
 
-1. Read `AGENTS.md` (including **Repository Development Rules** and the **Permanent You.Ge Assistant Identity Rule**), `AGENT_HANDOFF.md`, and `PHASE1_AUDIT_PLAN.md` first.
-2. Verify live Git state before acting:
-   - `git status --short --branch`
-   - `git rev-parse HEAD`
-   - `gh pr list --state open`
-3. Stay strictly on branch `arena/8f493271-you-ge-assistant`. Preserve all uncommitted edits already on the branch. Never switch branches, force-push, merge, tag, release, or publish.
+1. Read `AGENTS.md`, `AGENT_HANDOFF.md`, and `PHASE2_IMPLEMENTATION_PLAN.md` (§3 Stage 2) first.
+2. Verify live Git state before acting (`git status --short --branch`, `git rev-parse HEAD`, `gh pr list --state open`), stay strictly on the session's active branch, and preserve all existing uncommitted work.
 
 ---
 
 ## Exact Scope
 
-Perform targeted inspection of only the relevant files:
-- `ASSISTANT_ARCHITECTURE.md` (§5, §9, §12)
-- `DNS_RECOVERY.md`
+Inspect only the relevant files:
 - `dns-diagnostics.js`
-- `pwa.js` (`runNetworkDiagnostics`, `applyUpdate`, `getState`, `isUpdateAvailable`)
-- `packages/assistant-sdk/src/diagnostics/index.{js,d.ts}`
-- `packages/assistant-sdk/src/assistant/index.js`
-- `packages/assistant-sdk/src/installation/index.{js,d.ts}`
-- `packages/assistant-sdk/src/index.{js,d.ts}` and `packages/assistant-sdk/README.md`
-- `packages/assistant-sdk/tests/sdk-integrations.test.mjs`, `tests/dns-diagnostics.test.mjs`, `tests/assistant-widget.test.mjs` (targeted inspection of diagnostics/update coverage only)
+- `packages/assistant-sdk/src/domain/index.js`
+- `domain-config.js`
+- `tests/dns-diagnostics.test.mjs`, `packages/assistant-sdk/tests/sdk-domain.test.mjs`, `tests/domain-config.test.mjs`, `tests/sdk-integration.test.mjs`
 
-Author `PHASE2_IMPLEMENTATION_PLAN.md` covering:
-1. **Audit baseline:** date, branch, base commit SHA, and verified baseline check state.
-2. **Already implemented & tested (do not duplicate):**
-   - Single-flight diagnostics deduplication (`src/diagnostics/index.js` + `dns-diagnostics.js`).
-   - Waiting Service Worker `hasUpdate` snapshot seeding and `applyUpdate` integration (`pwa.js` + `src/assistant/index.js`).
-   - Android in-app Chrome handoff (`src/browser/index.js` — distinct from browser diagnostics).
-   - Classic on-demand Cloudflare DoH + same-origin probe engine (`dns-diagnostics.js`).
-3. **Verified gaps & small staged deliverables for Phase 2:** break Phase 2 into small, independently verifiable stages (one focused PR/task per stage), covering any remaining diagnostics/recovery gaps in `@youge/assistant-sdk` and verified `.d.ts`/README drift (`PwaRuntimeLike.getState().hasUpdate`, `YouGeAssistantStatic` / `AssistantConfigSummary` theme typings, `./theme` in `packages/assistant-sdk/README.md`).
-4. **Compatibility & security boundaries:**
-   - Zero runtime dependencies, no `fetch`, no `serviceWorker.register`, and no `setInterval` in SDK core unless an explicit architecture boundary changes.
-   - No hardcoded `staff.you.ge` or `workers.dev` URLs; no secrets; Cloudflare DoH caveats preserved.
-   - Preserve `window.PWA`, `window.progressier`, `/progressier.js`, and `assistant-state.js` sync via `npm run sync:sdk`.
-5. **Explicit non-goals:** Phase 3 dashboard, Phase 4 automatic API failover / write replay, Phase 5 `staff.you.ge` pilot, UI redesigns, Stage 2 `reference/`/`PARITY.md` removal, or `@youge/assistant-sdk` release/publish.
-
-After authoring `PHASE2_IMPLEMENTATION_PLAN.md`, update `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` to reflect completion of the Phase 2 plan and point `NEXT_AGENT_PROMPT.md` to **Phase 2 — Stage 1** (pending owner approval).
+Implement with TDD (focused tests first, red → green):
+1. `dns-diagnostics.js`:
+   - Resolve relative `backendProbePath` against `new URL(basePath, origin)` (consistent with `appProbePath`, while leading-`/` root-relative paths continue resolving against `origin`), keeping strict same-origin enforcement.
+   - Keep `response.json()` inside the active `timeoutMs` timer/`AbortController` scope so hung JSON streams reject with `'timeout'`.
+   - Detect local loopback / IP-literal hostnames (`localhost`, `*.localhost`, IPv4, bracketed IPv6): skip public Cloudflare DoH queries for non-public/literal addresses, run the same-origin app/backend probes normally, and return a clear classification/message without false `NXDOMAIN` `'inconclusive'` noise.
+2. `packages/assistant-sdk/src/domain/index.js` & `domain-config.js`:
+   - Validate and sanitize `diagnostics.appProbePath` and `diagnostics.backendProbePath` (must be safe relative or root-relative strings; reject cross-origin URLs, script schemes, backslashes, or `..` traversal), emitting `invalid_diagnostics_probe` issues in `validateDomainConfigDetailed()` and safe fallback in `validateDomainConfig()`.
+3. Regenerate `assistant-state.js` via `npm run sync:sdk` if `packages/assistant-sdk/src/domain/index.js` changes.
+4. Update `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` (pointing to **Phase 2 — Stage 3** in `PHASE2_IMPLEMENTATION_PLAN.md`).
 
 ---
 
-## Acceptance Criteria & Focused Checks
+## Verification
 
-- `PHASE2_IMPLEMENTATION_PLAN.md` exists at the repository root and matches verified symbols/paths on disk.
-- `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` are updated and consistent with live Git state.
-- Zero changes to `.js`, `.ts`, `.css`, `.html`, `.json`, or `.yml` files.
-- Run and summarize only focused checks:
-  - `git status --short --branch`
-  - `git diff --check`
-  - `node scripts/check.mjs`
-  - `node packages/assistant-sdk/scripts/validate-package.mjs`
-
----
-
-## Token-Efficiency & Skill Rules
-
-- Read only relevant files/sections; never dump full files or passing logs.
-- For this documentation-only task, UI skills (`mobile-native`, `break-ui`) do not apply and `tdd` does not apply until Stage 1 implementation; do not install new skills or claim unused skills were applied.
-- Report unrun checks honestly (`example/` build without `node_modules`, `npm run verify`, lint).
+Run and report only actually executed checks:
+- `git diff --check`
+- `node --test tests/dns-diagnostics.test.mjs tests/domain-config.test.mjs tests/sdk-integration.test.mjs`
+- `npm run test:sdk`
+- `node scripts/sync-sdk-browser.mjs --check`
+- `node packages/assistant-sdk/scripts/validate-package.mjs`
+- `npm run check`
 
 ---
 
 ## Stop Conditions
 
-- Stop immediately once `PHASE2_IMPLEMENTATION_PLAN.md`, `AGENT_HANDOFF.md`, and `NEXT_AGENT_PROMPT.md` are written and verified.
-- Do **not** begin implementing Stage 1 of Phase 2, commit/push unless explicitly instructed, open a PR unless requested, or merge/publish/release.
+- Stop after Stage 2 changes, tests, `assistant-state.js` sync (if needed), and handoff updates are verified.
+- Do **not** start Stage 3 or Stage 4, commit/push unless instructed, merge PRs, bump versions, or publish to npm.
