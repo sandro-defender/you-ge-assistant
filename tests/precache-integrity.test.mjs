@@ -19,9 +19,10 @@ const PRECACHED = [
   'icons/icon-192.png', 'icons/icon-512.png',
   'offline.css', 'offline.html', 'offline.js', 'pwa.css', 'qrcode.js',
 ];
-const KIT_VERSION_FILES = ['progressier.js', 'pwa.js', 'package.json'];
+const KIT_VERSION_FILES = ['you-ge-sw.js', 'pwa.js', 'package.json'];
+const WORKER_FILES = ['you-ge-sw.js', 'progressier.js'];
 const SDK_CONSTANTS = 'packages/assistant-sdk/src/core/constants.js';
-/** One line of the worker's precache manifest, as written in progressier.js. */
+/** One line of the worker's precache manifest, as written in you-ge-sw.js. */
 const QR_ENTRY = "  { url: new URL('qrcode.js', SCOPE_URL).href, required: false },\n";
 
 /** A throw-away git repository holding the real kit runtime on `main`. */
@@ -57,13 +58,13 @@ function createKitRepo(t) {
     },
     /** Bump the kit version in the given declarations (all three by default). */
     bump(version, files = KIT_VERSION_FILES) {
-      if (files.includes('progressier.js')) repo.replace('progressier.js', /const VERSION = '[^']+'/.exec(repo.read('progressier.js'))[0], `const VERSION = '${version}'`);
+      if (files.includes('you-ge-sw.js')) repo.replace('you-ge-sw.js', /const VERSION = '[^']+'/.exec(repo.read('you-ge-sw.js'))[0], `const VERSION = '${version}'`);
       if (files.includes('pwa.js')) repo.replace('pwa.js', /version: '[^']+'/.exec(repo.read('pwa.js'))[0], `version: '${version}'`);
       if (files.includes('package.json')) repo.replace('package.json', /"version": "[^"]+"/.exec(repo.read('package.json'))[0], `"version": "${version}"`);
     },
     check: (options = {}) => runPrecacheIntegrity({ root: dir, baseRef: 'main', ...options }),
   };
-  for (const path of [...PRECACHED, ...KIT_VERSION_FILES, 'manifest-handler.js']) {
+  for (const path of [...PRECACHED, ...KIT_VERSION_FILES, ...WORKER_FILES, 'manifest-handler.js']) {
     cpSync(join(root, path), join(dir, path), { recursive: true });
   }
   repo.write('README.md', '# Fixture\n');
@@ -74,11 +75,11 @@ function createKitRepo(t) {
   return repo;
 }
 
-const kitVersion = /const VERSION = '([^']+)'/.exec(readFileSync(join(root, 'progressier.js'), 'utf8'))[1];
+const kitVersion = /const VERSION = '([^']+)'/.exec(readFileSync(join(root, 'you-ge-sw.js'), 'utf8'))[1];
 const nextPatch = kitVersion.replace(/\d+$/, (patch) => String(Number(patch) + 1));
 
 test('the precache manifest is read from the worker\'s real install behaviour', async () => {
-  const manifest = await extractPrecacheManifest(readFileSync(join(root, 'progressier.js'), 'utf8'));
+  const manifest = await extractPrecacheManifest(readFileSync(join(root, 'you-ge-sw.js'), 'utf8'));
   assert.deepEqual(manifest.precache, PRECACHED);
   assert.deepEqual(manifest.imports, ['domain-config.js', 'domain-registry.js']);
 });
@@ -93,7 +94,7 @@ test('a changed precached asset without a kit-version change is rejected with th
   assert.equal(result.status, 'fail');
   assert.deepEqual(result.changes.map((change) => [change.path, change.kind]), [['pwa.css', 'modified']]);
   assert.match(result.report, /pwa\.css/);
-  assert.match(result.report, new RegExp(`progressier\\.js.*VERSION.*${kitVersion.replaceAll('.', '\\.')}`));
+  assert.match(result.report, new RegExp(`you-ge-sw\\.js.*VERSION.*${kitVersion.replaceAll('.', '\\.')}`));
   assert.match(result.report, /pwa\.js.*PWA\.version/);
   assert.match(result.report, /owner authori[sz]ation/i);
 });
@@ -128,7 +129,7 @@ test('documentation, tests and files outside the precache list never require a v
 
 test('a worker change that leaves the precache list alone passes without a bump', async (t) => {
   const repo = createKitRepo(t);
-  repo.append('progressier.js', '\n// worker-only change: browsers reinstall the worker by byte comparison\n');
+  repo.append('you-ge-sw.js', '\n// worker-only change: browsers reinstall the worker by byte comparison\n');
   repo.commit('worker comment');
 
   const result = await repo.check();
@@ -140,7 +141,7 @@ test('a worker change that leaves the precache list alone passes without a bump'
 test('adding an asset to the precache list requires a bump', async (t) => {
   const repo = createKitRepo(t);
   repo.write('extra-shell.js', '// new shell asset\n');
-  repo.replace('progressier.js', QR_ENTRY, `${QR_ENTRY}  { url: new URL('extra-shell.js', SCOPE_URL).href, required: false },\n`);
+  repo.replace('you-ge-sw.js', QR_ENTRY, `${QR_ENTRY}  { url: new URL('extra-shell.js', SCOPE_URL).href, required: false },\n`);
   repo.commit('precache one more asset');
 
   const result = await repo.check();
@@ -156,7 +157,7 @@ test('adding an asset to the precache list requires a bump', async (t) => {
 
 test('removing an asset from the precache list requires a bump', async (t) => {
   const repo = createKitRepo(t);
-  repo.replace('progressier.js', QR_ENTRY, '');
+  repo.replace('you-ge-sw.js', QR_ENTRY, '');
   repo.commit('stop precaching the QR library');
 
   const result = await repo.check();
@@ -169,7 +170,7 @@ test('removing an asset from the precache list requires a bump', async (t) => {
 test('a renamed precached asset is reported as a rename', async (t) => {
   const repo = createKitRepo(t);
   renameSync(join(repo.dir, 'offline.css'), join(repo.dir, 'offline-page.css'));
-  repo.replace('progressier.js', "new URL('offline.css', SCOPE_URL)", "new URL('offline-page.css', SCOPE_URL)");
+  repo.replace('you-ge-sw.js', "new URL('offline.css', SCOPE_URL)", "new URL('offline-page.css', SCOPE_URL)");
   repo.commit('rename the offline stylesheet');
 
   const result = await repo.check();
@@ -208,13 +209,13 @@ test('a regenerated Assistant bundle is identified as generated and requires a b
 test('unsynchronized kit-version declarations are rejected', async (t) => {
   const repo = createKitRepo(t);
   repo.append('pwa.css', '\n.changed {}\n');
-  repo.bump(nextPatch, ['progressier.js']);
+  repo.bump(nextPatch, ['you-ge-sw.js']);
   repo.commit('bump only the worker');
 
   const workerOnly = await repo.check();
   assert.equal(workerOnly.status, 'fail');
   assert.match(workerOnly.report, /not synchronized/);
-  assert.match(workerOnly.report, new RegExp(`progressier\\.js.*${nextPatch.replaceAll('.', '\\.')}`));
+  assert.match(workerOnly.report, new RegExp(`you-ge-sw\\.js.*${nextPatch.replaceAll('.', '\\.')}`));
   assert.match(workerOnly.report, new RegExp(`pwa\\.js.*${kitVersion.replaceAll('.', '\\.')}`));
 
   repo.bump(nextPatch, ['pwa.js']);
@@ -243,7 +244,7 @@ test('the SDK kit-compatibility version is part of the synchronized set when the
   assert.equal(forgotten.status, 'fail');
   assert.match(forgotten.report, /not synchronized/);
   assert.match(forgotten.report, new RegExp(`constants\\.js.*KIT_COMPAT_VERSION.*${kitVersion.replaceAll('.', '\\.')}`));
-  assert.match(forgotten.report, new RegExp(`progressier\\.js.*${nextPatch.replaceAll('.', '\\.')}`));
+  assert.match(forgotten.report, new RegExp(`you-ge-sw\\.js.*${nextPatch.replaceAll('.', '\\.')}`));
 
   repo.replace(SDK_CONSTANTS, `KIT_COMPAT_VERSION = '${kitVersion}'`, `KIT_COMPAT_VERSION = '${nextPatch}'`);
   repo.commit('bump KIT_COMPAT_VERSION');
@@ -271,7 +272,7 @@ test('the SDK package version is not a kit-version declaration', async (t) => {
 test('every kit-version declaration in this repository agrees, and the SDK package version stays separate', () => {
   const read = (path) => readFileSync(join(root, path), 'utf8');
   const declarations = {
-    'progressier.js VERSION': /const VERSION = '([^']+)'/.exec(read('progressier.js'))[1],
+    'you-ge-sw.js VERSION': /const VERSION = '([^']+)'/.exec(read('you-ge-sw.js'))[1],
     'pwa.js PWA.version': /^\s*version:\s*'([^']+)'/m.exec(read('pwa.js'))[1],
     'package.json version': JSON.parse(read('package.json')).version,
     'SDK KIT_COMPAT_VERSION': /export const KIT_COMPAT_VERSION = '([^']+)'/.exec(read(SDK_CONSTANTS))[1],
@@ -360,7 +361,7 @@ test('without an explicit base the default branch is used, and an unresolvable r
 test('outside a git checkout the diff is skipped but version synchronization is still enforced', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'youge-precache-nogit-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  for (const path of [...PRECACHED, ...KIT_VERSION_FILES]) cpSync(join(root, path), join(dir, path), { recursive: true });
+  for (const path of [...PRECACHED, ...KIT_VERSION_FILES, ...WORKER_FILES]) cpSync(join(root, path), join(dir, path), { recursive: true });
   const env = { GIT_CEILING_DIRECTORIES: dirname(dir) };
 
   const skipped = await runPrecacheIntegrity({ root: dir, env });
