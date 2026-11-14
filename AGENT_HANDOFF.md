@@ -4,69 +4,73 @@
 **Repository:** `sandro-defender/you-ge-assistant`
 **Base:** `main` at `8b8e95eff16731527586b281a256b66e38972288` (PR #36 merged)
 **Branch:** `arena/ff5bf457-you-ge-assistant` (active)
-**PR:** none opened for this audit-only pass (audit report delivered directly; only `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` updated).
-**Working tree:** clean apart from `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md`. No runtime, SDK, test, script, workflow or version file was modified.
+**PR:** [#37](https://github.com/sandro-defender/you-ge-assistant/pull/37) — `feat(identity): migrate technical surfaces to canonical You.Ge Assistant contracts (1.2.0)` (`arena/ff5bf457-you-ge-assistant` → `main`).
+**Working tree:** clean.
 
-Permanent contributor rules live in [`AGENTS.md`](AGENTS.md) (Repository Development Rules); they are not duplicated here. `AGENTS.md` was not modified in this pass; minor stale notes inside `AGENTS.md` are recorded under **Documentation inconsistencies** below for owner review.
+Permanent contributor rules live in [`AGENTS.md`](AGENTS.md); canonical vs. temporary compatibility contracts and the staged `2.0.0` removal schedule live in [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md).
 
-## Verified post-PR #36 baseline (queried live on 2026-11-14)
+## Completed on PR #37 — Canonical Technical Identity Migration (`1.2.0`)
 
-- **PR #36 is MERGED into `main`.** Title: "Post-PR #35 handoff finalization and repository-identity follow-up" (`arena/a56adc21-you-ge-assistant` → `main`). Merged **2026-11-14T18:22:14Z**; merge commit **`8b8e95eff16731527586b281a256b66e38972288`**, which is the verified `main` tip. Open PRs: **0**.
-- **Post-merge CI on `8b8e95e` passed:** [`check` run 43626223204](https://github.com/sandro-defender/you-ge-assistant/actions/runs/43626223204) — `completed` / `success`; [`pages` run 43626223189](https://github.com/sandro-defender/you-ge-assistant/actions/runs/43626223189) — `completed` / `success`.
-- **GitHub Pages deployment completed:** deployment `7791834293` (environment `github-pages`, sha `8b8e95e`) reached state `success` at **2026-11-14T18:22:44Z**. Site: <https://sandro-defender.github.io/you-ge-assistant/> (example at `/example/`).
-- **CI green and a successful Pages deployment do not prove live browser behavior.** No real-browser verification has been performed. Live worker installation at `1.1.1`, replacement of `1.1.0` caches, offline fallback, real Cloudflare DoH/CSP behavior and Android `intent://` handoff remain **unverified** outside Node VM/mocked-DOM tests.
-- **No tag, no release, no new SDK publication occurred.** GitHub tags: none. GitHub releases: none. npm `@youge/assistant-sdk` latest remains `0.2.0` (published `2026-11-07T11:36:56.359Z`).
+Owner-authorized parameters executed across Phases 1–4:
+- **Kit version bump:** `1.1.1 → 1.2.0` synchronized across `you-ge-sw.js` (`VERSION`), `pwa.js` (`PWA.version`), root `package.json`, `packages/assistant-sdk/src/core/constants.js` (`KIT_COMPAT_VERSION`), and regenerated `assistant-state.js` (`@youge/assistant-sdk` package version unchanged at **`0.2.0`**).
+- **Service worker cutover (`preserve_active_legacy_url`):**
+  - Added canonical **`you-ge-sw.js`** (`VERSION = '1.2.0'`), excluding both `you-ge-sw.js` and `progressier.js` from caching/precaching.
+  - Replaced **`progressier.js`** with a subpath-safe compatibility shim (`importScripts(new URL('you-ge-sw.js', self.location.href).href)`).
+  - Updated `pwa.js` to default to `you-ge-sw.js` on fresh installs while inspecting `navigator.serviceWorker.getRegistration(scope)` when `data-sw` is omitted so existing active `/progressier.js` registrations update in place (`swMigrationMode: 'legacy-preserved'`, zero duplicate SW registrations).
+- **Client globals, SDK bridge, storage, events, URL parameters & manifest (`canonical_fallback_preserve_staff`):**
+  - Canonical **`window.YouGePWA`** (`__youGePwaKit: true`) aliased to `window.PWA` alongside the temporary `window.progressier` shim; `@youge/assistant-sdk` (`adapters/pwa-kit.js`, `assistant/index.js`) and `assistant-widget.js` prefer `root.YouGePWA || root.PWA`.
+  - Canonical IndexedDB databases (`you-ge-shared-files`, `you-ge-notifications`, `you-ge-pwa-meta`) with idempotent, non-destructive service-worker copy-on-upgrade from `progressiersharedfiles` and `progressierSavedPushNotifications` (legacy DBs retained intact for rollback).
+  - Canonical banner cookies (`youge_install_banner_`, `youge_push_banner_`) and `youge-pwa:welcome` `localStorage` with read promotion + dual-write mirroring.
+  - Canonical `youge:pwa:*` events (with deduplicated `pwa:*` listeners in SDK), `YOUGE_CONFIG` worker messages, `[data-youge-*]` DOM hooks, and `?youge-install=1` / `?youge-protocol-redirect=` / `?youge-redirect=` query parameters.
+  - `manifest.webmanifest` updated to `"id": "/"` and `web+youge` / `web+pwa` protocol handlers while preserving `staff.you.ge`'s `/HIPSBNVemXtM8VMwRfWs` ID in `domain-registry.js`.
+- **CSS variables, selectors, first-party templates, CI & verification:**
+  - Defined 15 canonical `--youge-pwa-*` custom properties in `pwa.css` chaining `var(--progressier*, <default>)`, paired `.youge-*` selectors + `body[data-youge-pwa-forced-theme="light"]`, and dual-set theme variables in `PWA.applyTheme()`.
+  - Migrated `demo/index.html`, `example/index.html`, `example/example.css`, `example/vite.config.js`, `snippet.html`, `.github/workflows/{check,pages}.yml`, `scripts/check.mjs`, `scripts/precache-integrity.mjs`, and `scripts/verify-deployment.mjs` to canonical You.Ge Assistant surfaces while still copying/checking `progressier.js`.
+- **Governance, documentation & staged removal policy:**
+  - Updated `COMPATIBILITY_CONTRACTS.md` (all 7 technical surfaces, retained non-contract references, **12-month / `>= 2027-11-14` / `2.0.0`** 4-stage removal policy, audit grep commands), `AGENTS.md`, `README.md`, `INTEGRATION.md`, `PRECACHE_INTEGRITY.md`, `MULTI_DOMAIN.md`, `WIDGET.md`, `examples/push-server/README.md`, `packages/assistant-sdk/{README,MIGRATION,RELEASE}.md`, and `CHANGELOG.md`.
+  - Added dedicated contract suite `tests/identity-migration.test.mjs` (13 end-to-end tests covering all 4 phases).
 
 ## Versions
 
 | Version | Value | Status |
 | --- | --- | --- |
-| Kit (`progressier.js` `VERSION`, `pwa.js` `PWA.version`, root `package.json`, SDK `KIT_COMPAT_VERSION`, generated `assistant-state.js`) | **`1.1.1`** | Synchronized across all declarations (PR #35). |
-| SDK package (`packages/assistant-sdk/package.json`, `SDK_VERSION`) | **`0.2.0`** | In-repo source includes 15 modified files under `src/` plus `README.md` from PRs #30–#35 since the 2026-11-07 npm `0.2.0` tarball (`applyUpdate`, `requestPwaUpdate`, `AbortSignal` diagnostics cancellation + `cancelled`, `modules.updates: false`, `dnsIdentity` basePath/probe invalidation, `KIT_COMPAT_VERSION = '1.1.1'`). Any future npm release requires an owner-authorized semver bump. |
+| Kit (`you-ge-sw.js` `VERSION`, `pwa.js` `PWA.version`, root `package.json`, SDK `KIT_COMPAT_VERSION`, generated `assistant-state.js`) | **`1.2.0`** | Synchronized across all declarations on PR #37 (`1.1.1` on `main` until PR #37 merges). |
+| SDK package (`packages/assistant-sdk/package.json`, `SDK_VERSION`) | **`0.2.0`** | In-repo source includes post-`0.2.0` changes from PRs #30–#37 (`KIT_COMPAT_VERSION = '1.2.0'`, `window.YouGePWA`, `youge:pwa:*`). Any future npm release requires an owner-authorized semver bump. |
 
 Further kit, package or SDK version changes require explicit owner authorization (`AGENTS.md`).
 
-## Post-PR #36 architecture & product-quality audit summary
-
-Full evidence, line numbers and reproduction traces were delivered in the post-PR #36 audit report. Summary of active backlog items on `main` (`8b8e95e`):
+## Active backlog after PR #37 (from post-PR #36 audit)
 
 ### Confirmed defects
 
 1. **`CD-2` (High — SDK React adapter & `.d.ts` contracts, non-precached):**
-   - `createUseAssistant` (`packages/assistant-sdk/src/adapters/react.js:141-156`) passes `selector = null` to `getExternalStoreBindings` and runs `selector(state)` *after* `useSyncExternalStore`, so React compares full `AssistantState` references and re-renders every `useAssistant(selector)` consumer on unrelated state transitions (contradicting `packages/assistant-sdk/README.md:148-150`).
-   - `FALLBACK_ASSISTANT_STATE.project` (`react.js:20-31`) omits four non-optional `AssistantProjectInfo` fields (`detectedHostname`, `matchedRegistryKey`, `projectIdSource`, `domainValidation` — `src/index.d.ts:154-169`), crashing SSR callers that read `state.project.domainValidation`.
-   - `createReactAdapter` (`react.js:264-268, 285`) does not check `isDestroyed()` on its cached instance, `ReactAdapterOptions` (`react.d.ts:30-37`) omits `createElement?`, and `ThemeResolutionContext` (`src/theme/index.d.ts:104-111`) omits `seedPrimary?`.
+   - `createUseAssistant` (`packages/assistant-sdk/src/adapters/react.js`) passes `selector = null` to `getExternalStoreBindings` and runs `selector(state)` *after* `useSyncExternalStore`, causing re-renders on unrelated state transitions.
+   - `FALLBACK_ASSISTANT_STATE.project` omits four non-optional `AssistantProjectInfo` fields (`detectedHostname`, `matchedRegistryKey`, `projectIdSource`, `domainValidation`), breaking SSR callers reading `state.project.domainValidation`.
+   - `createReactAdapter` does not check `isDestroyed()` on its cached instance; `ReactAdapterOptions` (`react.d.ts`) omits `createElement?`; `ThemeResolutionContext` (`src/theme/index.d.ts`) omits `seedPrimary?`.
 2. **`CD-3` (High — `bridgePwaGlobals` SDK global parity, non-precached):**
-   - `bridgePwaGlobals()` (`packages/assistant-sdk/src/adapters/pwa-kit.js:34-40`) exposes only `{ version, domain, attach }` on `window.YouGeAssistantSDK`, omitting `resolveTheme`, `normalizeTheme`, `NOTIFICATION_LEVEL_ICONS`, `createChromeHandoff`, `detectInAppBrowser`, etc. When paired with `assistant-widget.js` (`:293, 715`), adaptive theming (`0.2.0`) and Android Chrome handoff (`0.1.1`) silently turn off — and loading `assistant-state.js` afterward cannot populate them because `assistant-state.js:14-17` exits early once `YouGeAssistant.__state` exists.
+   - `bridgePwaGlobals()` (`packages/assistant-sdk/src/adapters/pwa-kit.js`) exposes only `{ version, domain, attach }` on `window.YouGeAssistantSDK`, omitting `resolveTheme`, `normalizeTheme`, `NOTIFICATION_LEVEL_ICONS`, `createChromeHandoff`, `detectInAppBrowser`, etc., disabling adaptive theming and Android Chrome handoff when `assistant-widget.js` loads after `bridgePwaGlobals()`.
 3. **`CD-1` (High — Module capability gating across SDK state + widget, touches precached files):**
-   - `modules.diagnostics: false`, `modules.recovery: false`, `modules.failover: false` and `modules.help: false` do not gate the `"Diagnostics & recovery"` section, `"Run network diagnostics"` button (`[data-pwa-diagnostics]`), or `"Recovery guidance"` `<details>` in `assistant-widget.js:589-612` (or `example/src/main.jsx:369-378`), nor notice `actionId` attachment/rendering in `packages/assistant-sdk/src/assistant/index.js:413-467` and `assistant-widget.js:493-507`.
-4. **`CD-4` (Medium — `Escape` collision & focus stranding with `[data-pwa-help]`, touches precached files):**
-   - `toolkitDialogOpen()` (`assistant-widget.js:882-891`) checks `.pwa-flow` only, missing `[data-pwa-help]` mounted by `pwa.js:905-1021` (`showHelp`). Pressing `Escape` while manual install instructions are open closes both surfaces and restores focus onto a button inside the closing `[hidden]` panel (`example/src/main.jsx:218-235` also lacks a toolkit-dialog guard).
+   - `modules.diagnostics: false`, `modules.recovery: false`, `modules.failover: false` and `modules.help: false` do not gate `"Diagnostics & recovery"` UI or notice `actionId` rendering in `assistant-widget.js`, `example/src/main.jsx`, and `packages/assistant-sdk/src/assistant/index.js`.
+4. **`CD-4` (Medium — `Escape` collision & focus stranding with `[data-youge-help]` / `[data-pwa-help]`, touches precached files):**
+   - `toolkitDialogOpen()` (`assistant-widget.js`) checks `.pwa-flow` only, missing `[data-youge-help]` / `[data-pwa-help]` mounted by `pwa.js` (`showHelp`).
 5. **`CD-5` (Medium — `offline.html` hardcoded Assistant branding, touches precached files):**
-   - `offline.html:46-54` sets `YOU_GE_ASSISTANT_CONFIG.branding` to `'You.Ge Assistant'` / `'icons/icon-192.png'`, overriding custom `domain-registry.js` branding in `src/assistant/index.js:308-311` while `offline.js:17-50` displays the custom domain's brand on the same page.
+   - `offline.html` sets `YOU_GE_ASSISTANT_CONFIG.branding` to `'You.Ge Assistant'` / `'icons/icon-192.png'`, overriding custom `domain-registry.js` branding.
 6. **`CD-6` (Medium — `dns-diagnostics.js` mixed RCODE / `possible_dns_interference` edge cases, touches precached files):**
-   - Mixed DoH RCODEs `[0, 3]` fall through to `classification: 'unknown'` even when `answers.length > 0 && app.ok` (`dns-diagnostics.js:443-473`); `[0, 2]` with `!app.ok` classifies as `'cloudflare_doh_unavailable'`; and `[validDns=1, dnsErrors=1]` with `!app.ok` (`:467-469, 485`) emits `classification: 'possible_dns_interference'` with `possibleDnsInterference: false` and `"not enough evidence"` copy while triggering critical DNS failure notices in the SDK/widget.
+   - Mixed DoH RCODEs `[0, 3]`, `[0, 2]`, and `[validDns=1, dnsErrors=1]` edge cases in `dns-diagnostics.js`.
 7. **`CD-7` (Low — Widget `destroy()` media listener cleanup, touches precached files):**
-   - `watchScheme()` (`assistant-widget.js:343-355`) registers a `matchMedia('(prefers-color-scheme: dark)')` listener that `destroy()` (`:1002-1017`) never removes.
+   - `watchScheme()` (`assistant-widget.js`) registers a `matchMedia('(prefers-color-scheme: dark)')` listener that `destroy()` never removes.
 
-> **Precache gate constraint (`PRECACHE_INTEGRITY.md`):** `CD-2` and `CD-3` live entirely in non-precached SDK adapter/type files and can land on kit `1.1.1` with zero version bump. `CD-1`, `CD-4`, `CD-5`, `CD-6` and `CD-7` modify precached files (`assistant-state.js`, `assistant-widget.js`, `offline.html`, `dns-diagnostics.js`) and must be batched only when the owner authorizes a synchronized kit-version bump (`1.1.1 → 1.1.2`).
+> **Precache gate constraint (`PRECACHE_INTEGRITY.md`):** `CD-2` and `CD-3` live entirely in non-precached SDK adapter/type files and can land on kit `1.2.0` with zero version bump. `CD-1`, `CD-4`, `CD-5`, `CD-6` and `CD-7` modify precached files and must be batched only when the owner authorizes a synchronized kit-version bump (`1.2.0 → 1.2.1`) — or added before PR #37 merges if explicitly requested by the owner.
 
-### Architectural risks, documentation drift & improvement opportunities
+### Architectural risks & minor debt
 
-- **`AR-1` (High):** npm `@youge/assistant-sdk@0.2.0` predates PRs #30–#35 while `package.json` still reads `0.2.0`; `README.md` documents post-`0.2.0` APIs alongside `npm install @youge/assistant-sdk`, and `sdk-release-prep.yml` will block on version uniqueness until an authorized bump.
-- **`AR-2` (Medium):** Classic `domain-config.js` (~720 lines) and `packages/assistant-sdk/src/domain/index.js` (~812 lines) are maintained separately (aligned today via `tests/sdk-integration.test.mjs`, unlike generated `assistant-state.js`).
-- **`AR-3` / `IMP-1` / `IMP-2` (Low–Medium):** `scripts/verify-deployment.mjs:105-115` requires leading-slash `/pwa.js` in HTML and fails on relative-path pages such as `demo/index.html` (`src="pwa.js"`); `scripts/check.mjs:96-109` omits `assistant-state.js`, `assistant-widget.js`, `functions/manifest.webmanifest.js` and `example/vite.config.js` from its standalone `node --check` list (covered in `.github/workflows/check.yml:34`).
-- **`DOC-3` (Low):** Stale status lines in `packages/assistant-sdk/MIGRATION.md:16,67-75,91`, `packages/assistant-sdk/RELEASE.md:55,60`, `WIDGET.md:57,328,363,386`, and `THEMING.md:62,72`.
-- **`DOC-4` (Low — `AGENTS.md` owner-attention notes, untouched):** `AGENTS.md:200` still says SDK publishing is *"not yet executed"*; `AGENTS.md:95,860-861` call `ui-ux-pro-max-skill` mandatory and reference a removed `§2` while `:32` notes it is not installed in `.agents/skills/`; `:203` says `46` widget tests (actual: `47`).
+- **`AR-1` (High):** npm `@youge/assistant-sdk@0.2.0` predates PRs #30–#37 while `package.json` still reads `0.2.0`; `sdk-release-prep.yml` will block on version uniqueness until an authorized bump.
+- **`AR-2` (Medium):** Classic `domain-config.js` and `packages/assistant-sdk/src/domain/index.js` are maintained separately (aligned via `tests/sdk-integration.test.mjs`).
+- **`AR-3` / `IMP-1` / `IMP-2` (Low–Medium):** `scripts/verify-deployment.mjs` expects root-absolute `/pwa.js` in HTML; `scripts/check.mjs` standalone `node --check` list omits a few files already covered by `.github/workflows/check.yml`.
 
 ## GitHub repository identity — owner action required (blocked by GitHub App permissions)
 
-Verified live via `gh api repos/sandro-defender/you-ge-assistant` on 2026-11-14 — unchanged because the Arena GitHub App token lacks `administration:write` (`HTTP 403`):
-
-- Description: `"Self-hosted, Progressier-compatible PWA kit: manifest, service worker, install UI, QR, offline, share target, push and badge. No build step, no dependencies."`
-- Topics: `install-prompt`, `javascript`, `offline-first`, `progressier`, `pwa`, `service-worker`, `web-manifest`, `web-push`.
-
-Owner command to apply the authorized change (or edit Settings → General manually):
+The Arena GitHub App token lacks `administration:write` (`HTTP 403`), so repository description/topics must be updated by the owner:
 
 ```sh
 gh repo edit sandro-defender/you-ge-assistant \
@@ -74,27 +78,22 @@ gh repo edit sandro-defender/you-ge-assistant \
   --remove-topic progressier --add-topic you-ge-assistant
 ```
 
-## Remaining Progressier references in tracked files
-
-Verified via full tracked-file grep scan (`COMPATIBILITY_CONTRACTS.md` §1–§4). Zero unexplained Progressier product-branding references exist in tracked files; all remaining occurrences are preserved technical compatibility contracts (`/progressier.js`, `window.progressier`, `.progressier-*` selectors, 15 `--progressier*` CSS variables, banner cookies, IndexedDB stores, manifest `id`, migration host checks) or preserved historical/reference records (`reference/`, `PARITY.md`, dated audit docs).
-
 ## Remaining owner-level work
 
-1. **Live browser & deployment verification:** Run the real-browser acceptance checklist in `AGENTS.md` §15 on <https://sandro-defender.github.io/you-ge-assistant/> and `/example/` (`1.1.1` worker activation, `1.1.0 → 1.1.1` cache replacement, install/relaunch, offline reload). Note: `scripts/verify-deployment.mjs` currently expects root-absolute `/pwa.js` in HTML (`IMP-1`).
-2. **Repository metadata:** Run the `gh repo edit` command above to remove obsolete Progressier wording/topic on GitHub.
-3. **Future kit `1.1.2` bump authorization:** Required when scheduling precached-runtime fixes (`CD-1`, `CD-4`, `CD-5`, `CD-6`, `CD-7`).
+1. **Review & merge PR #37 (`1.2.0` canonical technical identity migration)** when ready, then run the real-browser acceptance checklist (`AGENTS.md` §15) on <https://sandro-defender.github.io/you-ge-assistant/> and `/example/` (fresh `/you-ge-sw.js` install, `/progressier.js` shim in-place upgrade, `1.2.0` cache replacement, offline reload, install/relaunch).
+2. **Repository metadata:** Run the `gh repo edit` command above.
+3. **Future kit `1.2.1` bump authorization:** Required when scheduling precached-runtime fixes (`CD-1`, `CD-4`, `CD-5`, `CD-6`, `CD-7`).
 4. **SDK semver bump & release decision:** Decide whether/when to bump `@youge/assistant-sdk` (`0.2.1` / `0.3.0`) after landing `CD-2` + `CD-3` so npm matches `main`.
-5. **`reference/` and `PARITY.md`** retirement/restructuring and `AGENTS.md` doc-drift cleanup (`DOC-4`), if desired.
 
-## Validation (this audit pass)
+## Validation (PR #37)
 
-- `node scripts/check.mjs`: **passed** (all static contracts, manifest/icon dimensions, version sync `1.1.1`, precache integrity gate — 13 precached assets unchanged since `8b8e95e`).
-- `node packages/assistant-sdk/scripts/validate-package.mjs`: **passed** (`@youge/assistant-sdk@0.2.0`, `KIT_COMPAT_VERSION = 1.1.1`, 23 packed files, 27/27 release-workflow gates).
-- Read-only npm tarball diff (`npm pack @youge/assistant-sdk@0.2.0` into temporary `/tmp` dir vs `packages/assistant-sdk`): verified 15 `src/` files + `README.md` changed since the 2026-11-07 `0.2.0` release.
-- Tracked-file Progressier branding scan: clean (compatibility contracts and historical records only).
-- `git diff --check`: clean.
-- Full `npm test` not re-run (no code/test files changed; post-merge `check` run `43626223204` on `8b8e95e` is green). Real-browser testing was **not** performed.
+- `npm run check` (`scripts/check.mjs` + full Node test suite including `tests/identity-migration.test.mjs`): **passed**.
+- `npm run test:sdk` & `node packages/assistant-sdk/scripts/validate-package.mjs`: **passed** (`@youge/assistant-sdk@0.2.0`, `KIT_COMPAT_VERSION = 1.2.0`, 27/27 release-workflow gates).
+- `node scripts/sync-sdk-browser.mjs --check` & `node scripts/precache-integrity.mjs`: **passed**.
+- `cd example && npm run typecheck && npm run build`: **passed** (bundle includes both `dist/you-ge-sw.js` and `dist/progressier.js`).
+- `COMPATIBILITY_CONTRACTS.md` §5 legacy-token grep audit & `git diff --check`: **clean** (zero unmapped legacy identifiers).
+- Real-browser testing was **not** performed (Node VM / mocked-DOM verification only).
 
 ## Next action
 
-Execute [`NEXT_AGENT_PROMPT.md`](NEXT_AGENT_PROMPT.md): harden `@youge/assistant-sdk` React and PWA-kit adapter contracts (`CD-2` + `CD-3`) — a small, self-contained, non-precached SDK slice requiring no kit or SDK version bump.
+After PR #37 is reviewed/merged, execute [`NEXT_AGENT_PROMPT.md`](NEXT_AGENT_PROMPT.md): harden `@youge/assistant-sdk` React and PWA-kit adapter contracts (`CD-2` + `CD-3`) — a self-contained, non-precached SDK slice requiring no kit or SDK version bump.

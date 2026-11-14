@@ -1,10 +1,10 @@
 # Next Agent Prompt — harden `@youge/assistant-sdk` React & PWA-kit adapter contracts (`CD-2` + `CD-3`)
 
-`main` is at `8b8e95eff16731527586b281a256b66e38972288` (PR #36 merged; post-merge `check` and `pages` green). Kit is `1.1.1`; `@youge/assistant-sdk` is `0.2.0`. Read `AGENTS.md` and `AGENT_HANDOFF.md` first.
+Read `AGENTS.md`, `COMPATIBILITY_CONTRACTS.md`, and `AGENT_HANDOFF.md` first. Kit is **`1.2.0`** (canonical You.Ge Assistant technical identity migration on PR #37); `@youge/assistant-sdk` is **`0.2.0`**.
 
 ## Objective
 
-Fix the two High-severity confirmed defects in `@youge/assistant-sdk`'s non-precached adapter and TypeScript declaration layer (`CD-2` and `CD-3` from the post-PR #36 audit) without modifying any precached runtime asset or bumping kit/SDK versions:
+Fix the two High-severity confirmed defects in `@youge/assistant-sdk`'s non-precached adapter and TypeScript declaration layer (`CD-2` and `CD-3` from `AGENT_HANDOFF.md`) without modifying any precached runtime asset or bumping kit/SDK versions:
 
 1. **React external-store selector memoization, SSR fallback shape & lifecycle (`CD-2`):**
    - Update `createUseAssistant` in `packages/assistant-sdk/src/adapters/react.js` so selector-based subscriptions memoize selected snapshots (`Object.is`) before `useSyncExternalStore` compares them — ensuring components calling `useAssistant(selector)` do not re-render when unrelated `AssistantState` fields change and derived selector outputs remain tear-free and referentially stable while unchanged.
@@ -12,7 +12,7 @@ Fix the two High-severity confirmed defects in `@youge/assistant-sdk`'s non-prec
    - Update `createReactAdapter` (`packages/assistant-sdk/src/adapters/react.js`) so `resolveAssistant()` re-resolves when a cached instance reports `isDestroyed() === true` (matching `getExternalStoreBindings`).
    - Align paired TypeScript declarations: add optional `createElement` to `ReactAdapterOptions` (`packages/assistant-sdk/src/adapters/react.d.ts`) and optional `seedPrimary?: string | null` to `ThemeResolutionContext` (`packages/assistant-sdk/src/theme/index.d.ts`).
 2. **`bridgePwaGlobals()` SDK global parity for `assistant-widget.js` (`CD-3`):**
-   - Update `bridgePwaGlobals()` in `packages/assistant-sdk/src/adapters/pwa-kit.js` so `root.YouGeAssistantSDK` exposes (or merges onto an existing partial object without clobbering active `domain`/`YouGeAssistant` instances) the same theme, notification-level and Android Chrome-handoff helpers that `assistant-widget.js` reads (`resolveTheme`, `normalizeTheme`, `detectHostScheme`, `contrastRatio`, `THEME_MODES`, `THEME_TOKEN_KEYS`, `NOTIFICATION_LEVELS`, `NOTIFICATION_LEVEL_ICONS`, `NOTIFICATION_LEVEL_SHAPES`, `NOTIFICATION_LEVEL_SVG_ATTRIBUTES`, `NOTIFICATION_LEVEL_LABELS`, `notificationLevelMarkup`, `normalizeNotificationLevel`, `detectInAppBrowser`, `isChromeHandoffCandidate`, `buildChromeIntentUrl`, `chromeHandoffInstructions`, `createChromeHandoff`).
+   - Update `bridgePwaGlobals()` in `packages/assistant-sdk/src/adapters/pwa-kit.js` so `root.YouGeAssistantSDK` exposes (or merges onto an existing partial object without clobbering active `domain`/`YouGeAssistant` instances) the same theme, notification-level and Android Chrome-handoff helpers that `assistant-widget.js` reads (`resolveTheme`, `normalizeTheme`, `detectHostScheme`, `contrastRatio`, `THEME_MODES`, `THEME_TOKEN_KEYS`, `NOTIFICATION_LEVELS`, `NOTIFICATION_LEVEL_ICONS`, `NOTIFICATION_LEVEL_SHAPES`, `NOTIFICATION_LEVEL_SVG_ATTRIBUTES`, `NOTIFICATION_LEVEL_LABELS`, `notificationLevelMarkup`, `normalizeNotificationLevel`, `detectInAppBrowser`, `isChromeHandoffCandidate`, `buildChromeIntentUrl`, `chromeHandoffInstructions`, `createChromeHandoff`), while preserving `root.YouGePWA || root.PWA` resolution.
 
 ## Acceptance Criteria & Verification
 
@@ -27,6 +27,6 @@ Fix the two High-severity confirmed defects in `@youge/assistant-sdk`'s non-prec
 ## Boundaries
 
 - Keep `@youge/assistant-sdk` zero-dependency, ESM-only, with zero `fetch()`, `serviceWorker.register()`, `setInterval()`, or runtime `react` imports.
-- Preserve all compatibility contracts in `COMPATIBILITY_CONTRACTS.md`; do not modify `reference/` or `PARITY.md`.
-- Do not bump kit (`1.1.1`) or SDK (`0.2.0`) versions, tag, release, publish, deploy, or merge without explicit authorization.
+- Use canonical You.Ge Assistant surfaces (`window.YouGePWA`, `you-ge-sw.js`, `--youge-pwa-*`, `.youge-*`, `[data-youge-*]`, `youge:pwa:*`) in new code/docs while preserving all compatibility contracts in `COMPATIBILITY_CONTRACTS.md`; do not modify `reference/` or `PARITY.md`.
+- Do not bump kit (`1.2.0`) or SDK (`0.2.0`) versions, tag, release, publish, deploy, or merge without explicit authorization.
 - Update `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` when complete.

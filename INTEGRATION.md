@@ -1,9 +1,10 @@
 # You.Ge Assistant integration and migration guide
 
 This checklist applies to any host or subdomain. Use examples such as
-`app.example.com` or `/portal/`; no domain is assumed by the runtime. Existing
-installations remain compatible with the `/progressier.js` worker URL and
-legacy storage keys.
+`app.example.com` or `/portal/`; no domain is assumed by the runtime. Fresh
+installations register canonical `/you-ge-sw.js`; existing installations remain
+compatible via the `/progressier.js` shim and automatic non-destructive storage
+migration (`COMPATIBILITY_CONTRACTS.md`).
 
 ## 1. Upload files
 
@@ -11,7 +12,7 @@ Copy the runtime files into the application root (or the app's scoped public
 folder):
 
 ```text
-pwa.js pwa.css progressier.js manifest.webmanifest qrcode.js
+pwa.js pwa.css you-ge-sw.js progressier.js manifest.webmanifest qrcode.js
 domain-config.js domain-registry.js dns-diagnostics.js manifest-handler.js
 offline.html offline.css offline.js browserconfig.xml favicon.ico icons/
 ```
@@ -54,7 +55,7 @@ configured.
   localhost).
 - `manifest.webmanifest`: `Content-Type: application/manifest+json`.
 - Host-aware manifest responses: `Cache-Control: private, no-store`, `Vary: Host`.
-- `/progressier.js`: `Content-Type: application/javascript`,
+- `/you-ge-sw.js` (and `/progressier.js` compatibility shim): `Content-Type: application/javascript`,
   `Cache-Control: no-cache`. If it must control above its own directory, use the
   narrowest applicable `Service-Worker-Allowed` header.
 - Set CSP `worker-src 'self'`; allow `https://cloudflare-dns.com` in `connect-src`
@@ -113,22 +114,27 @@ routes with your existing session middleware. Use your own contact address for
 
 ## 7. Updating and rollback
 
-- Keep `/progressier.js` at the same URL for the legacy worker to update in
-  place. Keep legacy IndexedDB store names; saved share/notification data is
-  not cleared by this upgrade.
-- Worker caches now include host, registered app scope and version. The worker
+- Deploy canonical `/you-ge-sw.js` alongside `/progressier.js`. When `data-sw`
+  is omitted, `pwa.js` preserves active `/progressier.js` registrations in place
+  while `/progressier.js` delegates to `you-ge-sw.js` via `importScripts`.
+  Saved share and notification records in legacy IndexedDB stores are copied
+  non-destructively into canonical `you-ge-shared-files` and `you-ge-notifications`
+  stores while leaving legacy databases intact for rollback.
+- Worker caches include host, registered app scope and version. The worker
   copies same-origin, in-scope static assets from the last known shared legacy
   cache names and migrates legacy HTML only when it explicitly declares
   `Cache-Control: public`. Old shared-name caches are retained because older
   versions did not identify ownership safely. It prunes only its own newer
   namespace; new navigation HTML is also cached only when explicitly public.
-- Keep the legacy manifest ID on its original installation. Changing `id` can
+- Keep the existing manifest ID on an already-installed host (`staff.you.ge`
+  keeps `/HIPSBNVemXtM8VMwRfWs` in `domain-registry.js`; generic fallback
+  `manifest.webmanifest` uses `"/"`). Changing `id` on an installed host can
   create a second installed app. Unrelated origins remain separate installs and
   cannot transfer browser data automatically.
-- Roll back by restoring the previous runtime files while keeping the worker
-  URL. Do not manually clear all Cache Storage or IndexedDB; this may erase
-  user-visible history and shared payloads.
-- Bump `VERSION` in `progressier.js`, `PWA.version` in `pwa.js`, `version`
+- Roll back by restoring the previous runtime files while keeping both worker
+  URLs deployed. Do not manually clear all Cache Storage or IndexedDB; this may
+  erase user-visible history and shared payloads.
+- Bump `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version`
   in `package.json` and the SDK's `KIT_COMPAT_VERSION` together for
   cache-affecting releases. `npm run check` rejects a changed precached file
   without that bump ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md)).

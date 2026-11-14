@@ -21,7 +21,7 @@
 > or `0.1.1` pin keeps working unchanged.
 
 Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.md)),
-**kit compatibility `1.1.1`** (`KIT_COMPAT_VERSION` in the repository; the published `0.2.0` reports `1.1.0`), **config schema `1`**.
+**kit compatibility `1.2.0`** (`KIT_COMPAT_VERSION` in the repository; the published `0.2.0` reports `1.1.0`), **config schema `1`**.
 
 ---
 
@@ -112,7 +112,7 @@ Rules:
       `vite build` / Cloudflare build).
 - [ ] Behavior unchanged vs the vendor pin:
       - single centralized state instance (`attach` shares `window` singleton);
-      - exactly one `/progressier.js` service worker registration;
+      - single service worker registration (`/you-ge-sw.js` on fresh installs, or preserved `/progressier.js` shim on upgraded legacy installs);
       - notification priority ladder `1 critical → 2 auth → 3 backup → 4 install
         → 5 info` unchanged;
       - config pipeline `defaults → published → overrides → last-known-good`

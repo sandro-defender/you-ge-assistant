@@ -183,11 +183,11 @@ For a new domain, use a stable `id` such as `./` or an application-specific path
 The worker cache namespace includes the current hostname, worker scope path and runtime version, for example:
 
 ```text
-you-ge-assistant:app.example.com:%2Fportal%2F:static:v1.1.1
-you-ge-assistant:app.example.com:%2Fportal%2F:pages:v1.1.1
+you-ge-assistant:app.example.com:%2Fportal%2F:static:v1.2.0
+you-ge-assistant:app.example.com:%2Fportal%2F:pages:v1.2.0
 ```
 
-Cache Storage is already origin-partitioned by the browser; the namespace also prevents collisions between apps/scopes on a shared origin. The worker only handles same-origin requests inside its scope and prunes only its own new namespace. It copies same-origin, in-scope static assets from the last legacy cache names and migrates legacy HTML only when its response explicitly declares `Cache-Control: public`; old shared-name caches are retained because older releases did not namespace them safely. New navigation HTML is cached only when explicitly public. Mark authenticated/personalized HTML `Cache-Control: private, no-store`. IndexedDB names for saved shares and notification history remain unchanged for compatibility.
+Cache Storage is already origin-partitioned by the browser; the namespace also prevents collisions between apps/scopes on a shared origin. The worker only handles same-origin requests inside its scope and prunes only its own new namespace. It copies same-origin, in-scope static assets from the last legacy cache names and migrates legacy HTML only when its response explicitly declares `Cache-Control: public`; old shared-name caches are retained because older releases did not namespace them safely. New navigation HTML is cached only when explicitly public. Mark authenticated/personalized HTML `Cache-Control: private, no-store`. Legacy IndexedDB records for saved shares and notification history are copied non-destructively into canonical `you-ge-shared-files` and `you-ge-notifications` stores while keeping the legacy databases intact for rollback.
 
 ## Example deployments
 

@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.2.0 (kit) — 2026-11-14 · canonical You.Ge Assistant technical identity migration
+
+Kit `1.1.1 → 1.2.0` (`you-ge-sw.js` `VERSION`, `PWA.version`, root
+`package.json`, SDK `KIT_COMPAT_VERSION` and regenerated `assistant-state.js`).
+**SDK package unchanged at `0.2.0`**; nothing is tagged, released, published or
+deployed without separate approval. Details & compatibility schedule:
+[`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md).
+
+- **Service worker & script cutover:** Added canonical `you-ge-sw.js` (`1.2.0`)
+  and converted `progressier.js` into a subpath-safe
+  `importScripts(new URL('you-ge-sw.js', self.location.href).href)` shim.
+  `pwa.js` registers `/you-ge-sw.js` on fresh installs and automatically
+  preserves active `/progressier.js` registrations in place when `data-sw` is
+  omitted (`swMigrationMode: 'legacy-preserved'`).
+- **Globals & SDK bridge:** Exposed canonical `window.YouGePWA`
+  (`__youGePwaKit: true`) aliased to `window.PWA` alongside the temporary
+  `window.progressier` shim; `@youge/assistant-sdk` (`adapters/pwa-kit.js`,
+  `assistant/index.js`) and `assistant-widget.js` resolve `root.YouGePWA || root.PWA`.
+- **CSS custom properties & selectors:** Defined 15 canonical `--youge-pwa-*`
+  variables on `:root` with `var(--progressier*, <default>)` fallback and paired
+  canonical `.youge-*` selectors + `body[data-youge-pwa-forced-theme="light"]`
+  across `pwa.css`, `pwa.js`, `demo/`, and `example/`.
+- **Storage migration & rollback safety:** Added canonical IndexedDB databases
+  (`you-ge-shared-files`, `you-ge-notifications`, `you-ge-pwa-meta`) with
+  idempotent non-destructive worker copy-on-upgrade from legacy stores,
+  canonical banner cookies (`youge_install_banner_`, `youge_push_banner_`) and
+  `youge-pwa:welcome` `localStorage` with read promotion + dual-write mirroring.
+- **Events, URL parameters, hooks & manifest:** Added `youge:pwa:*` events
+  (deduplicated against bridged `pwa:*`), `YOUGE_CONFIG` worker messages,
+  `[data-youge-*]` hooks, `?youge-install=1`, `?youge-protocol-redirect=`,
+  `?youge-redirect=`, and canonical `manifest.webmanifest` `"id": "/"` +
+  `web+youge` / `web+pwa` protocol handlers (`staff.you.ge` retains its pinned
+  `/HIPSBNVemXtM8VMwRfWs` ID in `domain-registry.js`).
+
 ## 1.1.1 (kit) — 2026-11-14 · precache integrity and cache refresh
 
 Kit `1.1.0 → 1.1.1` (`progressier.js` `VERSION`, `PWA.version`, root

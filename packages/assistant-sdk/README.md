@@ -20,7 +20,7 @@ installation integration.
 | Layer | Responsibility | Dependencies |
 | --- | --- | --- |
 | **SDK core** (`@youge/assistant-sdk`) | Public initialization (`create`, `attach`), data-only config & LKG validation, multi-domain resolution & manifest generation, centralized assistant state & subscriptions, connectivity/endpoint/session updates, explicit diagnostics & install delegation, `.d.ts` TypeScript contracts | **Zero** runtime dependencies (no React, Vue, Angular, or bundler runtime) |
-| **PWA toolkit** (`pwa.js`, `/progressier.js`, `dns-diagnostics.js`) | `window.PWA` APIs, `beforeinstallprompt` / iOS / QR install UI, single `/progressier.js` service worker, host+scope+version cache isolation, offline fallback, Cloudflare DoH A/AAAA checks | Dependency-free classic browser scripts |
+| **PWA toolkit** (`pwa.js`, `/you-ge-sw.js`, `dns-diagnostics.js`) | `window.YouGePWA` / `window.PWA` APIs, `beforeinstallprompt` / iOS / QR install UI, single `/you-ge-sw.js` service worker (plus `/progressier.js` migration shim), host+scope+version cache isolation, offline fallback, Cloudflare DoH A/AAAA checks | Dependency-free classic browser scripts |
 | **UI / Widget layer** (`assistant-widget.js`, `example/`) | Floating assistant DOM renderer — auto-scaling launcher, manual size/position adjustment, Android Chrome handoff offer — plus the optional React external-store adapter (`@youge/assistant-sdk/react` + `example/`) | SDK works independently of any widget or UI framework |
 
 ---
@@ -443,7 +443,7 @@ Also reachable from the root entry, the frozen `YouGeAssistant` static and
 
 Below is an illustrative integration showing how any independent web application
 (for example, `https://portal.example.com`) wires its own API health and session
-events into `@youge/assistant-sdk` while keeping `pwa.js` and `/progressier.js`
+events into `@youge/assistant-sdk` while keeping `pwa.js` and `/you-ge-sw.js`
 responsible for installation and offline caching:
 
 ```js

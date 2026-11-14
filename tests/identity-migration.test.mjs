@@ -990,3 +990,35 @@ test('Phase 3: demo, example, snippet, Vite config, CI workflows, and verificati
   assert.match(read('scripts/check.mjs'), /'you-ge-sw\.js'/);
   assert.match(read('scripts/verify-deployment.mjs'), /\/you-ge-sw\.js/);
 });
+
+/* ------------------------------------------------------------------ *
+ * Phase 4: Governance, compatibility window & removal policy docs
+ * ------------------------------------------------------------------ */
+
+test('Phase 4: COMPATIBILITY_CONTRACTS.md and AGENTS.md establish canonical You.Ge Assistant identifiers and a concrete legacy removal policy', () => {
+  const contracts = read('COMPATIBILITY_CONTRACTS.md');
+  for (const token of [
+    'you-ge-sw.js',
+    'window.YouGePWA',
+    '--youge-pwa-',
+    '.youge-install-button',
+    'you-ge-shared-files',
+    'you-ge-notifications',
+    'you-ge-pwa-meta',
+    'youge_install_banner_',
+    'youge:pwa:',
+    'web+youge',
+    'Compatibility Period',
+    'Removal Policy',
+    '2027-11-14',
+    '2.0.0',
+  ]) {
+    assert.ok(contracts.includes(token), `COMPATIBILITY_CONTRACTS.md documents ${token}`);
+  }
+
+  const agents = read('AGENTS.md');
+  assert.match(agents, /Current runtime version:\s*\*\*1\.2\.0\*\*/);
+  assert.match(agents, /you-ge-sw\.js/);
+  assert.match(agents, /window\.YouGePWA/);
+  assert.match(agents, /temporary migration compatibility only/i);
+});
