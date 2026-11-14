@@ -7,7 +7,7 @@
 > `Progressier*` names below are class identifiers inside that reference bundle and
 > are kept verbatim as parity evidence. The Progressier-named identifiers that
 > You.Ge Assistant still honours at runtime are listed in
-> [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md). Retiring or
+> [`docs/reference/COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md). Retiring or
 > restructuring this report or `reference/` requires separate owner approval.
 
 Compared artifacts:
@@ -257,13 +257,13 @@ analytics calls use configured application endpoints.
 
 | File | Purpose |
 | --- | --- |
-| `snippet.html` | Copy-paste `<head>` block replacing the two legacy hosted-client tags |
+| `docs/guides/snippet.html` | Copy-paste `<head>` block replacing the two legacy hosted-client tags |
 | `domain-config.js`, `domain-registry.js` | Validated host/path resolution, branding and feature flags |
 | `manifest-handler.js`, `functions/manifest.webmanifest.js` | Host-aware manifest response and Cloudflare Pages adapter |
-| `dns-diagnostics.js`, `DNS_RECOVERY.md` | On-demand current-host DoH diagnostics, limitations and recovery guide |
-| `MULTI_DOMAIN.md` | Multi-host, wildcard, path-scoped and subpath deployment guide |
+| `dns-diagnostics.js`, `docs/guides/DNS_RECOVERY.md` | On-demand current-host DoH diagnostics, limitations and recovery guide |
+| `docs/guides/MULTI_DOMAIN.md` | Multi-host, wildcard, path-scoped and subpath deployment guide |
 | `tests/` | Mocked DNS, domain-config and manifest-handler behavior |
-| `INTEGRATION.md` | Upload order, headers, CSP, update and rollback steps |
+| `docs/guides/INTEGRATION.md` | Upload order, headers, CSP, update and rollback steps |
 | `scripts/verify-deployment.mjs` | Checks live HTML, manifest MIME, icon dimensions, SW headers, offline assets |
 | `scripts/generate-vapid-keys.mjs` | Creates a P-256 VAPID pair for Web Push |
 | `examples/push-server/` | Runnable Node sender with subscribe/send/delete endpoints |

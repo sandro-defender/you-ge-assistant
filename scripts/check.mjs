@@ -102,7 +102,7 @@ for (const file of [
   'dns-diagnostics.js',
   'manifest-handler.js',
   'qrcode.js',
-  'example/example.js',
+  'examples/example/example.js',
   'reference/Script.js',
   'reference/Script.decompiled.js',
 ]) {
@@ -355,7 +355,7 @@ section('Precache integrity');
 
 // The precache list is read from the worker's own install handler, and the
 // diff-aware gate compares it with the merge base (PRECACHE_INTEGRITY_BASE in
-// CI, the default branch locally). See PRECACHE_INTEGRITY.md.
+// CI, the default branch locally). See docs/operations/PRECACHE_INTEGRITY.md.
 const precacheIntegrity = await runPrecacheIntegrity({
   root,
   baseRef: process.env.PRECACHE_INTEGRITY_BASE || '',
@@ -427,26 +427,26 @@ const pagesBasePath = pagesRoot.pathname;
 const examplePages = [
   {
     label: 'feature-test playground',
-    html: 'demo/index.html',
-    manifest: 'demo/manifest.webmanifest',
+    html: 'examples/demo/index.html',
+    manifest: 'examples/demo/manifest.webmanifest',
     publishedHtml: 'index.html',
     publishedManifest: 'manifest.webmanifest',
   },
   {
     label: 'user-facing example',
-    html: 'example/index.html',
-    manifest: 'example/manifest.webmanifest',
+    html: 'examples/example/index.html',
+    manifest: 'examples/example/manifest.webmanifest',
     publishedHtml: 'example/index.html',
     publishedManifest: 'example/manifest.webmanifest',
     viteBase: './',
   },
 ];
 const seenExampleIds = new Map();
-const exampleViteConfig = existsSync(at('example/vite.config.js'))
-  ? readFileSync(at('example/vite.config.js'), 'utf8')
+const exampleViteConfig = existsSync(at('examples/example/vite.config.js'))
+  ? readFileSync(at('examples/example/vite.config.js'), 'utf8')
   : '';
-const exampleManifest = at('example/manifest.webmanifest');
-const publicExampleManifest = at('example/public/manifest.webmanifest');
+const exampleManifest = at('examples/example/manifest.webmanifest');
+const publicExampleManifest = at('examples/example/public/manifest.webmanifest');
 if (existsSync(exampleManifest) && existsSync(publicExampleManifest)
   && readFileSync(exampleManifest, 'utf8') === readFileSync(publicExampleManifest, 'utf8')) {
   pass('example public manifest matches its route-local manifest');
@@ -487,6 +487,9 @@ function pagesFile(url, label) {
     if (sharedRuntimeFiles.has(exampleAsset) || exampleAsset.startsWith('icons/')) {
       return at(exampleAsset);
     }
+    // Example-only files are assembled from the independent app source tree;
+    // the published URL remains /example/<asset>.
+    return at(join('examples/example', exampleAsset));
   }
   return at(deployedPath);
 }
@@ -545,12 +548,12 @@ for (const page of examplePages) {
     if (page.label === 'user-facing example') {
       const floatingRoot = /id="assistant-floating-root"/.test(html);
       const assistantModule = scriptTags.some((tag) => /src="\.\/src\/main\.jsx"/.test(tag));
-      const assistantSource = existsSync(at('example/src/main.jsx'))
-        ? readFileSync(at('example/src/main.jsx'), 'utf8')
+      const assistantSource = existsSync(at('examples/example/src/main.jsx'))
+        ? readFileSync(at('examples/example/src/main.jsx'), 'utf8')
         : '';
-      const assistantMarkPath = at('example/src/assistant-mark.png');
+      const assistantMarkPath = at('examples/example/src/assistant-mark.png');
       const assistantMarkSize = existsSync(assistantMarkPath) ? pngSize(assistantMarkPath) : null;
-      const floatingStyles = readFileSync(at('example/example.css'), 'utf8');
+      const floatingStyles = readFileSync(at('examples/example/example.css'), 'utf8');
       if (floatingRoot && assistantModule && !/ElectricLogo|electric-logo/.test(assistantSource)
         && /assistantMark/.test(assistantSource) && /<img className="assistant-mark-image"/.test(assistantSource)
         && assistantMarkSize?.width === 192 && assistantMarkSize?.height === 192
@@ -663,7 +666,7 @@ for (const page of examplePages) {
   }
 }
 
-for (const file of ['example/example.css', 'example/example.js']) {
+for (const file of ['examples/example/example.css', 'examples/example/example.js']) {
   if (existsSync(at(file))) pass(`${file} exists`);
   else fail(`${file} is missing`);
 }
@@ -680,27 +683,27 @@ function contract(condition, message) {
 }
 
 const foundationDocs = [
-  'FOUNDATION_AUDIT.md',
-  'ASSISTANT_ARCHITECTURE.md',
-  'INSTALLATION_EXPERIENCE.md',
-  'DESIGN_FOUNDATION.md',
-  'WIDGET.md',
-  'design-system/you-ge-assistant/MASTER.md',
+  'docs/architecture/FOUNDATION_AUDIT.md',
+  'docs/architecture/ASSISTANT_ARCHITECTURE.md',
+  'docs/guides/INSTALLATION_EXPERIENCE.md',
+  'docs/guides/DESIGN_FOUNDATION.md',
+  'docs/guides/WIDGET.md',
+  'docs/design-system/you-ge-assistant/MASTER.md',
 ];
 for (const file of foundationDocs) {
   contract(existsSync(at(file)), `${file} is present`);
 }
 
-const architectureSource = existsSync(at('ASSISTANT_ARCHITECTURE.md'))
-  ? readFileSync(at('ASSISTANT_ARCHITECTURE.md'), 'utf8') : '';
+const architectureSource = existsSync(at('docs/architecture/ASSISTANT_ARCHITECTURE.md'))
+  ? readFileSync(at('docs/architecture/ASSISTANT_ARCHITECTURE.md'), 'utf8') : '';
 contract(/```mermaid[\s\S]*flowchart TB/.test(architectureSource), 'architecture includes a Mermaid diagram');
 contract(/## 12\. Implementation roadmap/.test(architectureSource), 'architecture includes a phased roadmap');
 contract(architectureSource.includes('https://staff-you-ge.sandro-1990.workers.dev')
   && architectureSource.includes('Example only'), 'backup URL is documented as a project-specific example only');
 contract(architectureSource.includes('Preview Worker URL') && architectureSource.includes('never'), 'Preview Worker is explicitly ruled out as production backup');
 
-const installDoc = existsSync(at('INSTALLATION_EXPERIENCE.md'))
-  ? readFileSync(at('INSTALLATION_EXPERIENCE.md'), 'utf8') : '';
+const installDoc = existsSync(at('docs/guides/INSTALLATION_EXPERIENCE.md'))
+  ? readFileSync(at('docs/guides/INSTALLATION_EXPERIENCE.md'), 'utf8') : '';
 for (const token of ['beforeinstallprompt', 'event.prompt()', 'appinstalled', 'showHelp(\'ios\')', 'showHelp(\'generic\')', 'pwa.js']) {
   contract(installDoc.includes(token), `installation record documents ${token}`);
 }
@@ -719,23 +722,23 @@ contract(
   'install banner restores a visible keyboard focus ring for canonical and compatibility selectors'
 );
 
-const designSource = existsSync(at('DESIGN_FOUNDATION.md'))
-  ? readFileSync(at('DESIGN_FOUNDATION.md'), 'utf8') : '';
+const designSource = existsSync(at('docs/guides/DESIGN_FOUNDATION.md'))
+  ? readFileSync(at('docs/guides/DESIGN_FOUNDATION.md'), 'utf8') : '';
 contract(designSource.includes('SKILL.md') && designSource.includes('search.py'), 'design skill usage is reported with exact instructions and commands');
 contract(designSource.includes('SpotlightCard') && designSource.includes('GlareHover') && designSource.includes('LatticeLoader'), 'React Bits adoption report names adopted components');
-const masterSource = existsSync(at('design-system/you-ge-assistant/MASTER.md'))
-  ? readFileSync(at('design-system/you-ge-assistant/MASTER.md'), 'utf8') : '';
+const masterSource = existsSync(at('docs/design-system/you-ge-assistant/MASTER.md'))
+  ? readFileSync(at('docs/design-system/you-ge-assistant/MASTER.md'), 'utf8') : '';
 contract(masterSource.includes('SaaS (General)') && !masterSource.includes('Luxury/Premium Brand'), 'design system uses the verified-fit SaaS match, not the rejected luxury match');
 
 const reactBitsFiles = [
-  'example/src/react-bits/SpotlightCard.tsx',
-  'example/src/react-bits/SpotlightCard.css',
-  'example/src/react-bits/GlareHover.tsx',
-  'example/src/react-bits/GlareHover.css',
-  'example/src/react-bits/LatticeLoader.tsx',
-  'example/src/react-bits/LatticeLoader.css',
-  'example/src/FoundationPreview.tsx',
-  'example/tsconfig.json',
+  'examples/example/src/react-bits/SpotlightCard.tsx',
+  'examples/example/src/react-bits/SpotlightCard.css',
+  'examples/example/src/react-bits/GlareHover.tsx',
+  'examples/example/src/react-bits/GlareHover.css',
+  'examples/example/src/react-bits/LatticeLoader.tsx',
+  'examples/example/src/react-bits/LatticeLoader.css',
+  'examples/example/src/FoundationPreview.tsx',
+  'examples/example/tsconfig.json',
 ];
 for (const file of reactBitsFiles) {
   contract(existsSync(at(file)), `${file} is vendored into the example`);
@@ -749,21 +752,21 @@ const reactBitsStyles = reactBitsFiles
   .filter((file) => file.endsWith('.css'))
   .map((file) => readFileSync(at(file), 'utf8'));
 contract(reactBitsStyles.every((text) => text.includes('prefers-reduced-motion')), 'every adopted React Bits stylesheet has a reduced-motion override');
-const examplePackage = JSON.parse(readFileSync(at('example/package.json'), 'utf8'));
+const examplePackage = JSON.parse(readFileSync(at('examples/example/package.json'), 'utf8'));
 contract(Boolean(examplePackage.scripts && examplePackage.scripts.typecheck), 'React example exposes a typecheck script');
-const noticeSource = readFileSync(at('example/THIRD_PARTY_NOTICES.md'), 'utf8');
+const noticeSource = readFileSync(at('examples/example/THIRD_PARTY_NOTICES.md'), 'utf8');
 for (const name of ['SpotlightCard', 'GlareHover', 'LatticeLoader']) {
   contract(noticeSource.includes(name), `third-party notices list ${name}`);
 }
 
-const exampleHtmlSource = readFileSync(at('example/index.html'), 'utf8');
+const exampleHtmlSource = readFileSync(at('examples/example/index.html'), 'utf8');
 contract(exampleHtmlSource.includes('id="assistant-foundation-root"') && exampleHtmlSource.includes('<article class="foundation-card">'), 'foundation preview has a no-JS static fallback');
-const mainSource = readFileSync(at('example/src/main.jsx'), 'utf8');
+const mainSource = readFileSync(at('examples/example/src/main.jsx'), 'utf8');
 contract(mainSource.includes('<FoundationPreview />'), 'React example mounts the foundation preview');
 
 const runtimeFiles = [
   'pwa.js', 'you-ge-sw.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',
-  'dns-diagnostics.js', 'manifest-handler.js', 'offline.js', 'example/example.js',
+  'dns-diagnostics.js', 'manifest-handler.js', 'offline.js', 'examples/example/example.js',
 ];
 const runtimeText = runtimeFiles.map((file) => readFileSync(at(file), 'utf8')).join('\n');
 contract(!runtimeText.includes('staff-you-ge.sandro-1990.workers.dev'), 'example backup URL is absent from runtime code');
@@ -785,18 +788,18 @@ const assistantStyles = readFileSync(at('assistant-widget.css'), 'utf8');
 const themeSource = readFileSync(at('packages/assistant-sdk/src/theme/index.js'), 'utf8');
 const sdkConfigSource = readFileSync(at('packages/assistant-sdk/src/config/index.js'), 'utf8');
 const sdkAssistantSource = readFileSync(at('packages/assistant-sdk/src/assistant/index.js'), 'utf8');
-const demoHtmlSource = readFileSync(at('demo/index.html'), 'utf8');
-const exampleHtmlSource2 = readFileSync(at('example/index.html'), 'utf8');
+const demoHtmlSource = readFileSync(at('examples/demo/index.html'), 'utf8');
+const exampleHtmlSource2 = readFileSync(at('examples/example/index.html'), 'utf8');
 const offlineHtmlSource = readFileSync(at('offline.html'), 'utf8');
-const snippetHtmlSource = readFileSync(at('snippet.html'), 'utf8');
-const mainJsxSource = readFileSync(at('example/src/main.jsx'), 'utf8');
-const themeStudioSource = readFileSync(at('example/src/ThemeStudio.jsx'), 'utf8');
-const exampleCssSource = readFileSync(at('example/example.css'), 'utf8');
+const snippetHtmlSource = readFileSync(at('docs/guides/snippet.html'), 'utf8');
+const mainJsxSource = readFileSync(at('examples/example/src/main.jsx'), 'utf8');
+const themeStudioSource = readFileSync(at('examples/example/src/ThemeStudio.jsx'), 'utf8');
+const exampleCssSource = readFileSync(at('examples/example/example.css'), 'utf8');
 const sdkReactSource = readFileSync(at('packages/assistant-sdk/src/adapters/react.js'), 'utf8');
 const pagesWorkflowSource = readFileSync(at('.github/workflows/pages.yml'), 'utf8');
-const viteConfigSource = readFileSync(at('example/vite.config.js'), 'utf8');
+const viteConfigSource = readFileSync(at('examples/example/vite.config.js'), 'utf8');
 const offlineJsSource = readFileSync(at('offline.js'), 'utf8');
-const widgetDocSource = readFileSync(at('WIDGET.md'), 'utf8');
+const widgetDocSource = readFileSync(at('docs/guides/WIDGET.md'), 'utf8');
 
 function withoutBlockComments(text) {
   return text.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -1265,7 +1268,7 @@ const optional = [
   ['icons/apple-touch-icon.png', 'iOS home-screen icon'],
   ['icons/favicon-32.png', 'PNG favicon'],
   ['browserconfig.xml', 'Windows tiles'],
-  ['snippet.html', 'copy-paste head block'],
+  ['docs/guides/snippet.html', 'copy-paste head block'],
   ['LICENSE', 'license file'],
 ];
 

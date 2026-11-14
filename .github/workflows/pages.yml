@@ -24,11 +24,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: example/package-lock.json
+          cache-dependency-path: examples/example/package-lock.json
 
       - name: Build ReactBits example
         run: npm ci && npm run build
-        working-directory: example
+        working-directory: examples/example
 
       - name: Assemble GitHub Pages site
         run: |
@@ -36,8 +36,8 @@ jobs:
           mkdir -p _site/example
 
           # The root page is the full feature-test playground.
-          cp demo/index.html _site/index.html
-          cp demo/manifest.webmanifest _site/manifest.webmanifest
+          cp examples/demo/index.html _site/index.html
+          cp examples/demo/manifest.webmanifest _site/manifest.webmanifest
 
           # Put the shared runtime at the Pages root for the playground.
           cp pwa.js pwa.css you-ge-sw.js progressier.js qrcode.js \
@@ -55,8 +55,8 @@ jobs:
              offline.html offline.css offline.js \
              browserconfig.xml favicon.ico _site/example/
           cp -r icons _site/example/icons
-          cp -r example/dist/. _site/example/
-          cp example/example.js example/manifest.webmanifest example/THIRD_PARTY_NOTICES.md _site/example/
+          cp -r examples/example/dist/. _site/example/
+          cp examples/example/example.js examples/example/manifest.webmanifest examples/example/THIRD_PARTY_NOTICES.md _site/example/
 
           # GitHub Pages project sites are served from /<repo>/. Browserconfig
           # still uses absolute tile paths; rewrite each file for its own scope.

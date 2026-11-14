@@ -21,7 +21,7 @@ installation integration.
 | --- | --- | --- |
 | **SDK core** (`@youge/assistant-sdk`) | Public initialization (`create`, `attach`), data-only config & LKG validation, multi-domain resolution & manifest generation, centralized assistant state & subscriptions, connectivity/endpoint/session updates, explicit diagnostics & install delegation, `.d.ts` TypeScript contracts | **Zero** runtime dependencies (no React, Vue, Angular, or bundler runtime) |
 | **PWA toolkit** (`pwa.js`, `/you-ge-sw.js`, `dns-diagnostics.js`) | `window.YouGePWA` / `window.PWA` APIs, `beforeinstallprompt` / iOS / QR install UI, single `/you-ge-sw.js` service worker (plus `/progressier.js` migration shim), host+scope+version cache isolation, offline fallback, Cloudflare DoH A/AAAA checks | Dependency-free classic browser scripts |
-| **UI / Widget layer** (`assistant-widget.js`, `example/`) | Floating assistant DOM renderer — auto-scaling launcher, manual size/position adjustment, Android Chrome handoff offer — plus the optional React external-store adapter (`@youge/assistant-sdk/react` + `example/`) | SDK works independently of any widget or UI framework |
+| **UI / Widget layer** (`assistant-widget.js`, `examples/example/`) | Floating assistant DOM renderer — auto-scaling launcher, manual size/position adjustment, Android Chrome handoff offer — plus the optional React external-store adapter (`@youge/assistant-sdk/react` + `examples/example/`) | SDK works independently of any widget or UI framework |
 
 ---
 
@@ -245,7 +245,7 @@ console.log(local.domain.origin, local.project?.id); // http://127.0.0.1:5173, l
 `validateDomainConfig()` keeps its backward-compatible normalized-config return
 value. `validateDomainConfigDetailed()` and `validateDomainRegistry()` add safe
 normalized outputs plus actionable `valid`/`issues` results. See
-[`MULTI_DOMAIN.md`](../../MULTI_DOMAIN.md) for classic-script and deployment
+[`MULTI_DOMAIN.md`](../../docs/guides/MULTI_DOMAIN.md) for classic-script and deployment
 examples, wildcard/apex behavior and origin/storage boundaries.
 
 ---
@@ -303,7 +303,7 @@ handoff.destroy(); // clears the pending fallback timer
   offer everywhere.
 - The shipped widget (`assistant-widget.js`) and the React example both
   render this offer (with per-origin dismissal
-  `youge-assistant:chrome-offer-dismissed`); see [`WIDGET.md`](../../WIDGET.md).
+  `youge-assistant:chrome-offer-dismissed`); see [`WIDGET.md`](../../docs/guides/WIDGET.md).
 
 ---
 
@@ -350,7 +350,7 @@ React renderers use `resolveAppearanceTheme(state.appearance)` and
 `notificationLevelElement(level, createElement)` from
 `@youge/assistant-sdk/react`, so an app never re-implements theming and never
 injects markup. The library ships no CSS of its own; the embedded widget's
-isolation layers are described in [`../../THEMING.md`](../../THEMING.md).
+isolation layers are described in [`../../THEMING.md`](../../docs/guides/THEMING.md).
 
 ## Update lifecycle and state ownership
 

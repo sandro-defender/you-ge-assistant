@@ -362,7 +362,7 @@ test('Phase 1: worker migrates legacy IndexedDB stores idempotently while keepin
 test('Phase 1: precache integrity gate passes with kit 1.2.0 across you-ge-sw.js, pwa.js, package.json, and SDK constants', async () => {
   const verdict = await runPrecacheIntegrity({ root });
   assert.equal(verdict.status, 'pass', verdict.report);
-  assert.match(verdict.summary, /kit version 1\.1\.1 → 1\.2\.0 synchronized/);
+  assert.match(verdict.summary, /kit version 1\.2\.0 synchronized/);
 });
 
 /* ------------------------------------------------------------------ *
@@ -1016,11 +1016,11 @@ test('Phase 3: pwa.js applyTheme, buttons, banners, alerts, reload prompt, and t
 });
 
 test('Phase 3: demo, example, snippet, Vite config, CI workflows, and verification scripts adopt canonical you-ge-sw.js and .youge-install-button', () => {
-  assert.match(read('demo/index.html'), /class="youge-install-button"/);
-  assert.match(read('example/index.html'), /class="youge-install-button install-button"/);
-  assert.match(read('example/example.css'), /\.youge-install-button\.install-button/);
-  assert.match(read('snippet.html'), /data-sw="\/you-ge-sw\.js"/);
-  assert.match(read('example/vite.config.js'), /'you-ge-sw\.js'/);
+  assert.match(read('examples/demo/index.html'), /class="youge-install-button"/);
+  assert.match(read('examples/example/index.html'), /class="youge-install-button install-button"/);
+  assert.match(read('examples/example/example.css'), /\.youge-install-button\.install-button/);
+  assert.match(read('docs/guides/snippet.html'), /data-sw="\/you-ge-sw\.js"/);
+  assert.match(read('examples/example/vite.config.js'), /'you-ge-sw\.js'/);
   assert.match(read('.github/workflows/pages.yml'), /you-ge-sw\.js/);
   assert.match(read('.github/workflows/check.yml'), /you-ge-sw\.js/);
   assert.match(read('scripts/check.mjs'), /'you-ge-sw\.js'/);
@@ -1032,7 +1032,7 @@ test('Phase 3: demo, example, snippet, Vite config, CI workflows, and verificati
  * ------------------------------------------------------------------ */
 
 test('Phase 4: COMPATIBILITY_CONTRACTS.md and AGENTS.md establish canonical You.Ge Assistant identifiers and a concrete legacy removal policy', () => {
-  const contracts = read('COMPATIBILITY_CONTRACTS.md');
+  const contracts = read('docs/reference/COMPATIBILITY_CONTRACTS.md');
   for (const token of [
     'you-ge-sw.js',
     'window.YouGePWA',

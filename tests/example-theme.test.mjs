@@ -11,11 +11,11 @@ import test from 'node:test';
  * its own palette".
  */
 
-const studioSource = readFileSync(new URL('../example/src/ThemeStudio.jsx', import.meta.url), 'utf8');
-const widgetSource = readFileSync(new URL('../example/src/main.jsx', import.meta.url), 'utf8');
-const exampleCss = readFileSync(new URL('../example/example.css', import.meta.url), 'utf8');
-const exampleHtml = readFileSync(new URL('../example/index.html', import.meta.url), 'utf8');
-const examplePkg = JSON.parse(readFileSync(new URL('../example/package.json', import.meta.url), 'utf8'));
+const studioSource = readFileSync(new URL('../examples/example/src/ThemeStudio.jsx', import.meta.url), 'utf8');
+const widgetSource = readFileSync(new URL('../examples/example/src/main.jsx', import.meta.url), 'utf8');
+const exampleCss = readFileSync(new URL('../examples/example/example.css', import.meta.url), 'utf8');
+const exampleHtml = readFileSync(new URL('../examples/example/index.html', import.meta.url), 'utf8');
+const examplePkg = JSON.parse(readFileSync(new URL('../examples/example/package.json', import.meta.url), 'utf8'));
 const rootPkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const exampleSources = `${studioSource}\n${widgetSource}`;

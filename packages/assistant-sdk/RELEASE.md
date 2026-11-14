@@ -934,7 +934,7 @@ and the standing restrictions.
 | Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync |
 | Package & version validation | `node packages/assistant-sdk/scripts/validate-package.mjs` | ✅ all sections pass |
 | Pack contents | `npm pack --dry-run` | ✅ 19 files, 32.4 kB packed / 129.7 kB unpacked |
-| Consumer build | `npm ci && npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
+| Consumer build | `npm ci && npm run typecheck && npm run build` (in `examples/example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
 | Release workflow | `.github/workflows/sdk-release-prep.yml` | ✅ created; publish job disabled (locks above) |
 | Registry state (post-rename) | `registry.npmjs.org` lookups | `@youge/assistant-sdk` unpublished (404); `@youge/*` empty (no conflict); org/scope `youge` exists |
 | Name consistency | repo-wide `@you-ge` grep | ✅ only intentional rename-history mentions remain (CHANGELOG rename entry, this file §2) |
@@ -989,7 +989,7 @@ npmjs.com) as the source of truth:
 | Standalone SDK tests | `npm test` (in `packages/assistant-sdk`) | ✅ 29/29 pass |
 | Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync |
 | Pack contents | `npm pack --dry-run` | ✅ 19 files, 33.5 kB packed / 132.4 kB unpacked |
-| Consumer build | `npm ci && npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
+| Consumer build | `npm ci && npm run typecheck && npm run build` (in `examples/example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
 | Registry identity unchanged | `npm view @youge/assistant-sdk version` | ✅ HTTP 404 — still unpublished; **not published by this task** |
 
 ### Staged-bootstrap audit (2026-11-07)
@@ -1047,7 +1047,7 @@ GitHub documentation (not assumed):
 | Standalone SDK tests | `npm test` (in `packages/assistant-sdk`) | ✅ 29/29 pass |
 | Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync |
 | Pack contents | `npm pack --dry-run` | ✅ 19 files |
-| Consumer build | `npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
+| Consumer build | `npm run typecheck && npm run build` (in `examples/example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
 | Workflow YAML parse | `npx js-yaml .github/workflows/sdk-release-prep.yml` | ✅ parses |
 | Shell syntax of run blocks | `bash -n` on every `run:` block (5 block + 9 single-line) | ✅ all OK |
 | Trusted publisher registration | owner action | ⚠️ **not done at that pass** — completed later on 2026-11-07; validation outcome recorded in §7 (non-mutating verification pass) and §8 item 6 (staged-counts-as-first-publish moot for this connection — the staged+approved publish landed inside the 48-hour window) |
@@ -1065,7 +1065,7 @@ GitHub documentation (not assumed):
 | Package & version validation | `node packages/assistant-sdk/scripts/validate-package.mjs` | ✅ `@youge/assistant-sdk@0.1.1` ready; exports↔types↔files↔pack gates pass |
 | Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync (`browser/index.js` added to `SOURCE_MODULES`) |
 | Pack contents | `npm pack --dry-run` | ✅ 21 files (38.0 kB tarball / 147.4 kB unpacked) |
-| Consumer build | `npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK; lockfile refreshed to `0.1.1` |
+| Consumer build | `npm run typecheck && npm run build` (in `examples/example/`) | ✅ `tsc --noEmit` clean, `vite build` OK; lockfile refreshed to `0.1.1` |
 | Workflows / tokens / OIDC gates | `git diff --stat .github/` + token grep | ✅ **untouched** — no workflow, secret, environment, permission or gate change; no token reference added |
 | Stage / approve / publish / dispatch / release | — | **none executed** — `0.1.1` is prepared only; the owner runs `verify` → `stage` → approve → publish manually after merge |
 
@@ -1078,7 +1078,7 @@ GitHub documentation (not assumed):
 | New theming suites | `node --test packages/assistant-sdk/tests/sdk-theme.test.mjs tests/widget-theming.test.mjs tests/example-theme.test.mjs` | ✅ 35 + 27 + 11 |
 | Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync (`theme/index.js` + level helpers) |
 | Pack contents | `npm pack --dry-run` | ✅ 23 files (54.9 kB tarball / 203.3 kB unpacked) — includes `src/theme/` |
-| Consumer build | `npm run typecheck && npm run build` (in `example/`) | ✅ clean; lockfile refreshed to `0.2.0` |
+| Consumer build | `npm run typecheck && npm run build` (in `examples/example/`) | ✅ clean; lockfile refreshed to `0.2.0` |
 | Workflows / tokens / OIDC gates | `git diff .github/` + token grep | ✅ only a comment refreshed; no gate, permission, secret or environment change; still no npm token anywhere |
 | Stage / approve / publish / dispatch / release | — | **none executed** — `0.2.0` is prepared in-repo only; the owner runs `verify` → `stage` → approve manually after merge |
 
@@ -1171,5 +1171,5 @@ infrastructure/DevOps only, so its design-system search workflow was not run
 (no UI surface changed and none may change). Its documentation guidance
 (status first, scannable tables, atomic runbook steps with explicit
 guard/failure states) was used to structure the staging procedure above.
-Skill record: [`../../DESIGN_FOUNDATION.md`](../../DESIGN_FOUNDATION.md) §10,
+Skill record: [`../../DESIGN_FOUNDATION.md`](../../docs/guides/DESIGN_FOUNDATION.md) §10,
 §13 and §14.*

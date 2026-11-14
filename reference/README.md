@@ -4,7 +4,7 @@
 > These are unmodified artifacts of the hosted client (Progressier) that
 > `staff.you.ge` used before migrating to You.Ge Assistant. They are kept only to
 > prove parity for the legacy contracts listed in
-> [`COMPATIBILITY_CONTRACTS.md`](../COMPATIBILITY_CONTRACTS.md) and are never
+> [`../docs/reference/COMPATIBILITY_CONTRACTS.md`](../docs/reference/COMPATIBILITY_CONTRACTS.md) and are never
 > deployed. Their file names and contents are preserved verbatim; retiring or
 > restructuring this folder requires separate owner approval.
 

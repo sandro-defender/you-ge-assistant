@@ -19,11 +19,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: example/package-lock.json
+          cache-dependency-path: examples/example/package-lock.json
 
       - name: Install, type-check SDK public subpaths and build ReactBits example
         run: npm ci && npm run typecheck && npm run build
-        working-directory: example
+        working-directory: examples/example
 
       - name: Static checks and precache integrity gate
         run: node scripts/check.mjs
@@ -33,7 +33,7 @@ jobs:
 
       - name: Syntax check every script
         run: |
-          for file in pwa.js you-ge-sw.js progressier.js offline.js domain-config.js domain-registry.js dns-diagnostics.js assistant-state.js assistant-widget.js manifest-handler.js functions/manifest.webmanifest.js qrcode.js example/example.js example/vite.config.js; do
+          for file in pwa.js you-ge-sw.js progressier.js offline.js domain-config.js domain-registry.js dns-diagnostics.js assistant-state.js assistant-widget.js manifest-handler.js functions/manifest.webmanifest.js qrcode.js examples/example/example.js examples/example/vite.config.js; do
             node --check "$file"
           done
 

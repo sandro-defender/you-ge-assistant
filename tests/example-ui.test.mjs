@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const source = readFileSync(new URL('../example/example.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../examples/example/example.js', import.meta.url), 'utf8');
 
 class FakeClassList {
   constructor() {
@@ -187,7 +187,7 @@ test('storage failures are reported instead of claiming sample changes were save
 });
 
 test('React notice actions reuse the toolkit hooks instead of being inert', () => {
-  const jsx = readFileSync(new URL('../example/src/main.jsx', import.meta.url), 'utf8');
+  const jsx = readFileSync(new URL('../examples/example/src/main.jsx', import.meta.url), 'utf8');
   const controls = /<div className="assistant-notice-controls">[\s\S]*?<\/div>/.exec(jsx);
   assert.ok(controls, 'the notice controls still render');
   assert.match(
@@ -211,12 +211,12 @@ test('React notice actions reuse the toolkit hooks instead of being inert', () =
  * actionable-tone rule as the shipped widget.
  * ------------------------------------------------------------------ */
 
-const exampleCss = readFileSync(new URL('../example/example.css', import.meta.url), 'utf8');
+const exampleCss = readFileSync(new URL('../examples/example/example.css', import.meta.url), 'utf8');
 const widgetCss = readFileSync(new URL('../assistant-widget.css', import.meta.url), 'utf8');
 const pwaCss = readFileSync(new URL('../pwa.css', import.meta.url), 'utf8');
-const widgetSource = readFileSync(new URL('../example/src/main.jsx', import.meta.url), 'utf8');
+const widgetSource = readFileSync(new URL('../examples/example/src/main.jsx', import.meta.url), 'utf8');
 const assistantWidgetSource = readFileSync(new URL('../assistant-widget.js', import.meta.url), 'utf8');
-const exampleHtml = readFileSync(new URL('../example/index.html', import.meta.url), 'utf8');
+const exampleHtml = readFileSync(new URL('../examples/example/index.html', import.meta.url), 'utf8');
 
 function actionableTones(css, selector) {
   return [...new Set([...css.matchAll(new RegExp(`\\.${selector}\\[data-tone="([a-z]+)"\\]`, 'g'))].map((match) => match[1]))].sort();
