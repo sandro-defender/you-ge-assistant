@@ -1,42 +1,42 @@
-# Next Agent Prompt — Phase 2, Stage 3: Diagnostics State Sync, Online-Failure Classification & Cancellation Hygiene
+# Next Agent Prompt — Phase 2, Stage 4: Unified Service Worker Update Lifecycle & Behavioral Tests
 
 **Repository:** `sandro-defender/you-ge-assistant` (`/home/user/you-ge-assistant`)
-**Plan reference:** `PHASE2_IMPLEMENTATION_PLAN.md` (§3, Stage 3)
-**Prerequisite:** PR #26 (Stage 2) merged by the owner into `main`; start from the then-current `main`.
+**Plan reference:** `PHASE2_IMPLEMENTATION_PLAN.md` (§3, Stage 4)
+**Prerequisite:** PR #27 (Stage 3) merged by the owner into `main`; start from the then-current `main`.
 
 ---
 
 ## Objective
 
-Complete **one small, independently verifiable task** — **Phase 2, Stage 3**: keep `YouGeAssistant` state synchronized with `pwa.js` diagnostics modal runs, classify total online failure (`online && !validDns.length && !app.ok`), reset stale DNS conditions on project/domain reconfiguration, and support an optional caller-supplied `AbortSignal` without poisoning single-flight deduplication.
+Complete **one small, independently verifiable task** — **Phase 2, Stage 4**: unify the service-worker update lifecycle so `@youge/assistant-sdk` and the classic runtime agree on one update path, plus deterministic `pwa.js` behavioral tests.
 
-**Do not implement Stage 4, add `applyUpdate()`/`requestPwaUpdate()`, redesign diagnostics UI, modify `/progressier.js` precache policy, bump versions, publish packages, or retire `reference/`/`PARITY.md`.**
+**Do not merge PR #27, publish packages, bump versions, create releases, retire `reference/`/`PARITY.md`, or start Phase 3/4/5 work.**
 
 ---
 
 ## Startup & State Verification
 
-1. Read `AGENTS.md`, `AGENT_HANDOFF.md`, and `PHASE2_IMPLEMENTATION_PLAN.md` (§3 Stage 3) first.
-2. Verify live Git state before acting (`git status --short --branch`, `git rev-parse HEAD`, `gh pr list --state open`), stay strictly on the session's active branch, and confirm PR #26 is merged (otherwise stop and report).
-3. Re-check Stage 2 behavior in `dns-diagnostics.js` (local-host `dohSkipped`, bounded JSON parsing, base-path probe resolution) before changing classification logic.
+1. Read `AGENTS.md`, `AGENT_HANDOFF.md`, and `PHASE2_IMPLEMENTATION_PLAN.md` (§3 Stage 4) first.
+2. Verify live Git state before acting (`git status --short --branch`, `git rev-parse HEAD`, `gh pr list --state open`), stay strictly on the session's active branch, and confirm PR #27 is merged (otherwise stop and report).
+3. Re-check Stage 3 baseline in `packages/assistant-sdk/src/diagnostics/index.js` and `packages/assistant-sdk/src/assistant/index.js` before changing the update path.
 
 ---
 
 ## Exact Scope
 
 Inspect only the relevant files:
-- `pwa.js` (only `showNetworkDiagnostics()` event dispatch — no UI changes)
-- `dns-diagnostics.js`
-- `packages/assistant-sdk/src/diagnostics/index.{js,d.ts}`
-- `packages/assistant-sdk/src/assistant/index.js`
+- `packages/assistant-sdk/src/installation/index.{js,d.ts}` (add `requestPwaUpdate`)
+- `packages/assistant-sdk/src/assistant/index.js` (add `applyUpdate()`; clear `conditions.updateAvailable`)
+- `packages/assistant-sdk/src/adapters/react.js` and `assistant-widget.js` (`dispatchAssistantAction` update path)
 - `assistant-state.js` (regenerated via `npm run sync:sdk`)
-- `tests/assistant-widget.test.mjs`, `tests/sdk-integration.test.mjs`, `packages/assistant-sdk/tests/sdk-integrations.test.mjs`, `tests/dns-diagnostics.test.mjs`
+- `pwa.js` (only read/verify the existing update flow — no `/progressier.js` precache change)
+- tests: `tests/assistant-widget.test.mjs`, `tests/install-experience.test.mjs`, `packages/assistant-sdk/tests/sdk-integrations.test.mjs`, `packages/assistant-sdk/tests/sdk-core.test.mjs`
 
 Implement with TDD (focused tests first, red → green):
-1. `pwa.js` `showNetworkDiagnostics()`: dispatch `pwa:diagnostics` on rejection as well as resolution (matching `offline.js`), without changing dialog markup or behavior.
-2. `dns-diagnostics.js` / `diagnostics/index.js`: evaluate `online && !validDns.length && !app.ok` as a real connectivity failure (`failed: true` or `application_host_unavailable`) so `connectivityFailure()` raises the critical `network:unreachable` notice instead of a silent `'unknown'`. Keep local/dev-host behavior from Stage 2 intact.
-3. `assistant/index.js`: reset `conditions.dns` to `'idle'`/`'unknown'` when `configure()` changes `project.id` or the resolved hostname, and clear `diagnosticsController` on `destroy()`.
-4. `dns-diagnostics.js`: accept an optional `signal` (`AbortSignal`) in `options`; a caller-aborted run must reject/classify cleanly and must not poison the shared `inflight` entry for later uncancelled checks.
+1. `requestPwaUpdate(options)` in `installation/index.js` and `assistant.applyUpdate()` guarded by `config.modules.updates !== false`, delegating to `PWA.applyUpdate()`, returning `{ applied: boolean, outcome: 'applied' | 'no-waiting-worker' | 'unsupported' | 'disabled' | 'error' }`.
+2. If `PWA.applyUpdate()` resolves `false` and `readPwaSnapshot(pwa).hasUpdate` is `false`, clear `conditions.updateAvailable` and emit, so stale `app:update` notices disappear.
+3. `assistant-widget.js` and `adapters/react.js` call `assistant.applyUpdate()` when available, falling back to `PWA.applyUpdate()` with only a bare `PWA` mock.
+4. Deterministic VM/mocked ServiceWorker tests for `pwa.js`: `reg.waiting` detection, `updatefound` → `installed` → `pwa:update`, `applyUpdate()` posting `{ type: 'SKIP_WAITING' }` to the waiting worker, `controllerchange` reload trigger, and `showNetworkDiagnostics()` dialog lifecycle.
 
 ---
 
@@ -44,7 +44,7 @@ Implement with TDD (focused tests first, red → green):
 
 Run and report only actually executed checks:
 - `git diff --check`
-- `node --test tests/dns-diagnostics.test.mjs tests/assistant-widget.test.mjs tests/sdk-integration.test.mjs`
+- `node --test tests/install-experience.test.mjs tests/assistant-widget.test.mjs tests/sdk-integration.test.mjs`
 - `npm run test:sdk`
 - `node scripts/sync-sdk-browser.mjs --check`
 - `node packages/assistant-sdk/scripts/validate-package.mjs`
@@ -54,6 +54,12 @@ Run and report only actually executed checks:
 
 ## Stop Conditions
 
-- Stop after Stage 3 changes, tests, `assistant-state.js` sync (if needed), one PR against `main`, and handoff updates are verified.
-- Do **not** merge the PR, start Stage 4, bump versions, publish to npm, or claim checks that did not run.
-- Update `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` with the real branch, commit, PR, CI state and the next planned task (Phase 2 — Stage 4).
+- Stop after Stage 4 changes, tests, `assistant-state.js` sync (if needed), one PR against `main`, and handoff updates are verified.
+- Do **not** merge the PR, start Phase 3 work, bump versions, or publish to npm. Do not claim checks that did not run.
+- Update `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` with the real branch, commit, PR, CI state and the next planned task.
+
+---
+
+## Stage 3 result (for reference)
+
+Stage 3 shipped in PR #27 (`fix(diagnostics): synchronize state and support cancellation`): `pwa:diagnostics` dispatch on rejection, online-failure classification (`application_host_unavailable` instead of `unknown`), `configure()` DNS state reset keyed on `{ id, hostname, origin }`, and optional caller `AbortSignal` support with `classification`/`status` `'cancelled'` that never raises a DNS or connectivity notice. 17 new regression tests; `npm run check` green at 365/365. Preserve all of it.
