@@ -2,21 +2,22 @@
 
 **Last updated:** 2026-11-14
 **Repository:** `sandro-defender/you-ge-assistant`
-**Verified base:** `main` / PR #39 merge `2e19830db8d93d0194fdf059195b4fb058679e24`
+**Base:** `main` @ `2e19830` (PR #39 merge)
 **Branch:** `arena/bc1478a5-you-ge-assistant` (active)
-**PR:** #40 — CD-1 Module Capability Enforcement (draft; **do not merge** — owner review)
-**Working tree:** clean at the branch tip; changes pushed.
-**Versions:** kit `1.2.0`; `@youge/assistant-sdk` `0.2.0` — **both unchanged** (no bump authorized).
+**PR:** #40 — "CD-1 — Module capability enforcement" (open, **draft**, awaiting
+owner review; **do not merge**)
+**Working tree:** clean at the branch tip; everything pushed.
+**Versions:** kit **`1.2.1`**; `@youge/assistant-sdk` **`0.2.0`** (unchanged).
 
-Permanent development and layout rules live in [`AGENTS.md`](AGENTS.md). The CD-1
-audit, enforcement architecture, activation-path inventory, test matrix and
+Permanent development and layout rules live in [`AGENTS.md`](AGENTS.md). The
+CD-1 audit, enforcement architecture, activation-path inventory, test matrix and
 verification evidence are in
 [`docs/architecture/CAPABILITY_ENFORCEMENT.md`](docs/architecture/CAPABILITY_ENFORCEMENT.md).
 
-## CD-1 — Module capability enforcement (this PR)
+## CD-1 status: implemented and complete
 
 `modules.diagnostics`, `modules.recovery`, `modules.failover` and `modules.help`
-are now enforced capabilities rather than advisory UI flags.
+are enforced capabilities rather than advisory UI flags.
 
 **Enforcement architecture**
 
@@ -41,80 +42,81 @@ are now enforced capabilities rather than advisory UI flags.
   `window.YouGeAssistant.isCapabilityEnabled('diagnostics')` and make **no**
   request while disabled; they fail open when no Assistant is present.
 
-**Activation paths audited:** public SDK API, generated + project actions,
+**Activation paths audited (13):** public SDK API, generated + project actions,
 notifications and their action links, DOM/React renderers, delegated toolkit
 hooks, `youge:action` / `pwa:diagnostics` / session / endpoint events, toolkits,
-DoH engine, offline shell, reconfiguration and in-flight async runs. The full
-table (13 paths, pre-CD-1 behavior) is in the architecture document §3.
+DoH engine, offline shell, reconfiguration and in-flight async runs.
 
-**Generated runtime:** `src/assistant/assistant-state.js` regenerated only via
+**Generated bundle:** `src/assistant/assistant-state.js` is produced only by
 `npm run sync:sdk`; `--check` reports in sync.
 
-**Tests (behavioral):**
+## Kit version bump (owner-authorized) — applied
 
-| Suite | Result |
+CD-1 changes four precached assets, so the diff-aware precache gate required a
+synchronized kit bump. The owner authorized `1.2.0 → 1.2.1`, kit only:
+
+| Location | Value |
 | --- | --- |
-| `packages/assistant-sdk/tests/*.test.mjs` | 128 pass / 0 fail (incl. 20 new `sdk-capabilities`) |
-| `tests/*.test.mjs` | 407 pass / 2 fail (both the precache gate, see below) |
-| Full suite | 535 pass / 2 fail |
-| New CD-1 suites (`sdk-capabilities`, `capability-enforcement`, widget CD-1 block) | 90 pass / 0 fail |
+| `src/runtime/you-ge-sw.js` | `const VERSION = '1.2.1'` |
+| `src/runtime/pwa.js` | `PWA.version: '1.2.1'` |
+| `package.json` | `"version": "1.2.1"` |
+| `packages/assistant-sdk/src/core/constants.js` | `KIT_COMPAT_VERSION = '1.2.1'` |
+| `src/assistant/assistant-state.js` | regenerated (`npm run sync:sdk`) |
+| `packages/assistant-sdk/package.json` | **`0.2.0` — unchanged** |
 
-`node scripts/check.mjs`, `sync --check`, `build`, `validate-package`,
-`examples/example` typecheck+build and `git diff --check` were run (see
-architecture doc §6.1). `npm run verify` needs a deployed URL and was not run.
-
-## ⚠ Owner decision required — kit version bump
-
-CD-1 changes four precached files (`assistant-state.js` generated,
-`assistant-widget.js`, `dns-diagnostics.js`, `offline.js`). `npm run check:precache`
-therefore **fails by design** and names the owner action; nothing was bumped or
-bypassed. Proposed, pending explicit authorization:
+Gate result:
 
 ```
-kit 1.2.0 → 1.2.1, synchronized in:
-  src/runtime/you-ge-sw.js                      const VERSION
-  src/runtime/pwa.js                            PWA.version
-  package.json                                  version
-  packages/assistant-sdk/src/core/constants.js  KIT_COMPAT_VERSION
-  src/assistant/assistant-state.js              regenerated (npm run sync:sdk)
-@youge/assistant-sdk stays 0.2.0.
+precache integrity: 4 of 13 precached assets changed (assistant-state.js,
+assistant-widget.js, dns-diagnostics.js, offline.js) since 2e19830;
+kit version 1.2.0 → 1.2.1 synchronized
 ```
 
-Until that bump, installed PWAs would keep serving the cached pre-CD-1 runtime
-(the reason the gate exists), and the two gate tests
-(`tests/identity-migration.test.mjs` "Phase 1", `tests/precache-integrity.test.mjs`
-"this repository itself passes the gate…") fail as expected.
+Current-version references updated: `AGENTS.md` (runtime version line, also
+asserted by `tests/identity-migration.test.mjs`), worker version + cache names +
+gate summary in that same file, kit pin in `tests/example-theme.test.mjs`,
+`KIT_COMPAT_VERSION` in `packages/assistant-sdk/tests/sdk-core.test.mjs`, plus
+the current-state lines in `PRECACHE_INTEGRITY.md` (§1, §9),
+`MULTI_DOMAIN.md`, `COMPATIBILITY_CONTRACTS.md`, `REPOSITORY_STRUCTURE.md`,
+SDK `MIGRATION.md`/`RELEASE.md`, and a new `CHANGELOG.md` `1.2.1 (kit)` section.
+Historical `1.2.0` records were left intact, and no gate rule was weakened,
+skipped or bypassed.
 
-**Precache gate fix included:** the gate read base-commit paths as public paths,
-but since the source/output split they live under `src/`. Every base lookup
-returned null, so the gate degraded to `diff skipped` and silently stopped
-enforcing the version rule. It now resolves base paths through
-`scripts/source-paths.mjs` (flat-path fallback for pre-split commits), with two
-regression tests. No rule was weakened; this is what makes the required bump
-visible.
+## Verification (2026-11-14, local)
+
+| Check | Result |
+| --- | --- |
+| `npm test` | **537 pass / 0 fail** |
+| `npm run test:sdk` | 128 pass / 0 fail |
+| CD-1 suites (`sdk-capabilities`, `capability-enforcement`, `assistant-widget`) | 90 pass / 0 fail |
+| `npm run check` | passed (static contracts + package validation + 537 tests) |
+| `npm run check:precache` | passed (see gate result above) |
+| `npm run sync:sdk -- --check` | in sync |
+| `npm run build` | 18 runtime/public files + `icons/` |
+| `validate-package.mjs`, `npm pack --dry-run` | passed (`0.2.0`, 24 files, publishing disabled) |
+| `examples/example` typecheck + build | passed |
+| `git diff --check` | clean |
+| `npm run verify` | not run — requires a deployed URL; nothing was deployed |
 
 ## Compatibility notes
 
 - Defaults unchanged: omitted/partial/null `modules` → every capability enabled.
-- `state.capabilities` shape unchanged; no public API removed or renamed
-  (`isCapabilityEnabled`, `capabilityForAction`, `isAllowed`, `gateActions`,
-  `gateNotifications`, `capabilitiesRecord`, `disabledDiagnosticsResult` are
-  additive).
+- `state.capabilities` shape unchanged; additive API only.
 - Opt-out configs only: with an Assistant present and `modules.diagnostics:
   false`, the *toolkit's* on-demand diagnostics also refuse to run
-  (`classification: 'disabled'`). Documented in README, WIDGET.md and the SDK
-  README.
+  (`classification: 'disabled'`). Documented in README, WIDGET.md, SDK README.
+- Installed apps move to `…:static:v1.2.1` / `…:pages:v1.2.1`; `1.2.0` caches
+  retire on activation.
 
-## Not done / deferred
+## Not done / deliberately untouched
 
-- No npm publish, tag, GitHub release, deployment or merge.
-- No kit/SDK version change (see above).
-- `npm run verify` (live deployment verification) not performed — no deployment.
-- SDK publishing remains deferred.
-- Other audit items (outside CD-1) are not started.
+- No npm publish, no tag, no GitHub release, no deployment, no merge.
+- `@youge/assistant-sdk` stays `0.2.0`; publishing remains deferred.
+- `npm run verify` (live deployment verification) not performed.
+- No other audit item was started.
 
 ## Next action
 
-Owner review of PR #40 (`arena/bc1478a5-you-ge-assistant`). Either authorize the
-synchronized kit `1.2.1` bump (then the gate and the two gate tests pass), or
-request changes. Do not merge, release, tag, deploy or publish.
+Owner review of PR #40. The implementation is complete and every local gate is
+green; the only open items are the owner's merge decision and the separate
+SDK release line.

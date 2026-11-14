@@ -1,9 +1,9 @@
 # Module capability enforcement (CD-1) — audit, design and evidence
 
-Status: implemented on `arena/bc1478a5-you-ge-assistant` (PR open for owner
-review). Kit `1.2.0` and `@youge/assistant-sdk` `0.2.0` are unchanged; the
-precache gate requires an owner-authorized kit bump before this can ship
-(§7).
+Status: **implemented and complete** on `arena/bc1478a5-you-ge-assistant`
+(PR #40 open for owner review). Kit is now `1.2.1` (owner-authorized bump that
+satisfies the precache integrity gate, §7); `@youge/assistant-sdk` remains
+`0.2.0`. Nothing is tagged, published, released, deployed or merged.
 
 ## 1. Objective
 
@@ -144,14 +144,14 @@ Files and counts:
 
 | Check | Result |
 | --- | --- |
-| `node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs` | **535 pass / 2 fail** — both failures are the precache gate demanding the unauthorized kit bump (§7) |
-| `node --test packages/assistant-sdk/tests/*.test.mjs` | 128 pass / 0 fail |
-| `node --test tests/*.test.mjs` | 407 pass / 2 fail (the same two gate tests) |
+| `npm test` (537 tests) | **537 pass / 0 fail** |
+| `npm run test:sdk` | 128 pass / 0 fail |
 | CD-1 capability suites (`sdk-capabilities`, `capability-enforcement`, `assistant-widget`) | 90 pass / 0 fail |
-| `node scripts/sync-sdk-browser.mjs --check` | in sync |
-| `node scripts/build.mjs` | 18 runtime/public files + `icons/` assembled |
-| `node packages/assistant-sdk/scripts/validate-package.mjs` | passed (`@youge/assistant-sdk@0.2.0`, publishing disabled) |
-| `node scripts/check.mjs` | 1 failing check: the precache integrity gate (expected, §7) |
+| `npm run check` (static contracts + package validation + full suite) | passed |
+| `npm run check:precache` | pass — `4 of 13 precached assets changed … kit version 1.2.0 → 1.2.1 synchronized` |
+| `npm run sync:sdk -- --check` | in sync |
+| `npm run build` | 18 runtime/public files + `icons/` assembled |
+| `validate-package.mjs` / `npm pack --dry-run` | passed (`@youge/assistant-sdk@0.2.0`, 24 files, publishing disabled) |
 | `cd examples/example && npm run typecheck && npm run build` | passed |
 | `git diff --check` | clean |
 | `npm run verify` | not run: it requires a deployed URL and no deployment was made |
@@ -159,26 +159,39 @@ Files and counts:
 No browser or production deployment was exercised; all runtime evidence is
 VM-level execution of the real classic sources.
 
-## 7. Precache integrity and the required owner decision
+## 7. Precache integrity and the owner-authorized kit bump
 
 `assistant-state.js`, `assistant-widget.js`, `dns-diagnostics.js` and
 `offline.js` are precached. CD-1 changes all four, so the diff-aware gate
 requires a **synchronized kit-version bump** or installed apps keep serving the
 old capability checks from cache.
 
-The owner has not authorized a kit bump, so no version was changed. The gate
-now correctly reports the failure (see
-`docs/operations/PRECACHE_INTEGRITY.md` §6); the exact proposed change for
-approval is:
+The owner authorized the kit-only bump, and it is applied on this PR:
 
 ```
 kit 1.2.0 → 1.2.1, synchronized in:
-  src/runtime/you-ge-sw.js            const VERSION
-  src/runtime/pwa.js                  PWA.version
-  package.json                        version
-  packages/assistant-sdk/src/core/constants.js  KIT_COMPAT_VERSION
+  src/runtime/you-ge-sw.js            const VERSION = '1.2.1'
+  src/runtime/pwa.js                  PWA.version = '1.2.1'
+  package.json                        version = 1.2.1
+  packages/assistant-sdk/src/core/constants.js  KIT_COMPAT_VERSION = '1.2.1'
   src/assistant/assistant-state.js     regenerated bundle (npm run sync:sdk)
 @youge/assistant-sdk stays 0.2.0 (separate release line, unchanged).
 ```
+
+Gate result on this change:
+
+```
+precache integrity: 4 of 13 precached assets changed (assistant-state.js,
+assistant-widget.js, dns-diagnostics.js, offline.js) since 2e19830;
+kit version 1.2.0 → 1.2.1 synchronized
+```
+
+Current-version assertions were updated to `1.2.1` (worker version, cache
+names, gate summary and `AGENTS.md` sync in `tests/identity-migration.test.mjs`;
+the kit pin in `tests/example-theme.test.mjs`; `KIT_COMPAT_VERSION` in
+`packages/assistant-sdk/tests/sdk-core.test.mjs`). The historical `1.2.0`
+records — `CHANGELOG.md`, `PRECACHE_INTEGRITY.md` §7/§8, the compatibility
+stage definitions — are untouched, no rule was weakened or skipped, and no test
+was deleted. `PRECACHE_INTEGRITY.md` §9 records the bump.
 
 No npm publish, tag, release, deployment or merge is part of CD-1.

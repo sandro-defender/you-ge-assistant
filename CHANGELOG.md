@@ -1,13 +1,16 @@
 # Changelog
 
-## Unreleased (branch) — CD-1 module capability enforcement · **not released**
+## 1.2.1 (kit) — 2026-11-14 · CD-1 module capability enforcement
 
-No version was changed: kit stays `1.2.0`, `@youge/assistant-sdk` stays `0.2.0`.
-CD-1 modifies precached runtime files, so the diff-aware precache gate requires
-an owner-authorized synchronized kit bump (`1.2.0 → 1.2.1`) before this can
-ship; see [`docs/architecture/CAPABILITY_ENFORCEMENT.md`](docs/architecture/CAPABILITY_ENFORCEMENT.md) §7 and
-[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §6.
-Nothing is tagged, released, published, deployed or merged.
+Kit `1.2.0 → 1.2.1` (`you-ge-sw.js` `VERSION`, `PWA.version`, root
+`package.json`, SDK `KIT_COMPAT_VERSION`, and the regenerated
+`assistant-state.js`) — a **patch release of the kit only**, authorized by the
+owner to ship the runtime enforcement change below: the four changed precached
+assets need a new cache generation or installed apps would keep running the
+cached pre-CD-1 runtime. `@youge/assistant-sdk` remains `0.2.0`; no SDK release,
+tag, publish or deployment is part of this entry. See
+[`docs/architecture/CAPABILITY_ENFORCEMENT.md`](docs/architecture/CAPABILITY_ENFORCEMENT.md) and
+[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §9.
 
 - **One capability policy:** `packages/assistant-sdk/src/core/capabilities.js`
   defines the four gated capabilities (`diagnostics`, `recovery`, `failover`,
@@ -31,9 +34,13 @@ Nothing is tagged, released, published, deployed or merged.
 - **Precache gate fix:** base-commit paths are resolved through
   `scripts/source-paths.mjs`, so the diff-aware version rule keeps its base
   after the source/output split instead of silently reporting "diff skipped".
+- **Cache generation:** precached assets changed in this kit version are
+  `assistant-state.js`, `assistant-widget.js`, `dns-diagnostics.js` and
+  `offline.js`; they roll forward into fresh `…:static:v1.2.1` /
+  `…:pages:v1.2.1` caches while `1.2.0` caches are retired on activation.
 - **Tests:** 20 SDK capability tests + 12 runtime capability tests + 4 renderer
-  capability tests; full suite 535 passing, 2 expected precache-gate failures
-  that require the owner-authorized kit bump.
+  capability tests; full suite 537 passing with the precache gate and the
+  version pins updated to `1.2.1`.
 
 ## 1.2.0 (kit) — 2026-11-14 · canonical You.Ge Assistant technical identity migration
 
