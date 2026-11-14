@@ -9,30 +9,49 @@
  *   node scripts/assemble-pages.mjs [--out <dir>] [--base <basePath>]
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, parse, resolve, sep } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, parse, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDist } from './build.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+function resolveCanonicalPath(targetPath) {
+  const resolved = resolve(targetPath);
+  let current = resolved;
+  while (!existsSync(current)) {
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  const canonicalBase = existsSync(current) ? realpathSync(current) : current;
+  const suffix = relative(current, resolved);
+  return suffix ? join(canonicalBase, suffix) : canonicalBase;
+}
 
 export function validateOutputDir(outputDir) {
   if (typeof outputDir !== 'string' || !outputDir.trim()) {
     throw new Error('Unsafe output directory: outputDir must be a non-empty path.');
   }
   const resolved = resolve(outputDir);
-  const fsRoot = parse(resolved).root;
-  if (resolved === fsRoot) {
-    throw new Error(`Unsafe output directory: cannot use filesystem root (${resolved}).`);
-  }
-  if (resolved === rootDir) {
-    throw new Error(`Unsafe output directory: cannot use repository root (${resolved}).`);
-  }
-  if (resolved === resolve(process.cwd())) {
-    throw new Error(`Unsafe output directory: cannot use current working directory (${resolved}).`);
-  }
-  if (rootDir.startsWith(resolved + sep)) {
-    throw new Error(`Unsafe output directory: cannot use a parent directory of the repository (${resolved}).`);
+  const canonical = resolveCanonicalPath(resolved);
+  const canonicalRoot = resolveCanonicalPath(rootDir);
+  const canonicalCwd = resolveCanonicalPath(process.cwd());
+
+  for (const candidate of new Set([resolved, canonical])) {
+    const fsRoot = parse(candidate).root;
+    if (candidate === fsRoot) {
+      throw new Error(`Unsafe output directory: cannot use filesystem root (${candidate}).`);
+    }
+    if (candidate === canonicalRoot || candidate === rootDir) {
+      throw new Error(`Unsafe output directory: cannot use repository root (${candidate}).`);
+    }
+    if (candidate === canonicalCwd || candidate === resolve(process.cwd())) {
+      throw new Error(`Unsafe output directory: cannot use current working directory (${candidate}).`);
+    }
+    if (canonicalRoot.startsWith(candidate + sep) || rootDir.startsWith(candidate + sep)) {
+      throw new Error(`Unsafe output directory: cannot use a parent directory of the repository (${candidate}).`);
+    }
   }
   return resolved;
 }

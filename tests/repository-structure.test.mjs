@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { assemblePages, validateOutputDir } from '../scripts/assemble-pages.mjs';
@@ -184,5 +184,45 @@ test('assemblePages rejects dangerous output paths before deleting anything', ()
       /Unsafe output directory/,
       `assemblePages must reject "${unsafe}"`,
     );
+  }
+});
+
+test('assemblePages rejects symlinked paths pointing to repository root or protected parent', (t) => {
+  const repoRoot = resolve(dirname(new URL('..', import.meta.url).pathname));
+  const parentDir = dirname(repoRoot);
+  const tempBase = mkdtempSync(join(tmpdir(), 'youge-symlink-test-'));
+
+  try {
+    const repoLink = join(tempBase, 'repo-link');
+    const parentLink = join(tempBase, 'parent-link');
+    try {
+      symlinkSync(repoRoot, repoLink, 'dir');
+      symlinkSync(parentDir, parentLink, 'dir');
+    } catch (error) {
+      if (error && (error.code === 'EPERM' || error.code === 'EACCES' || error.code === 'ENOTSUP')) {
+        t.skip(`Symlink creation unsupported in this environment: ${error.code}`);
+        return;
+      }
+      throw error;
+    }
+
+    for (const unsafeLink of [repoLink, join(repoLink, '.'), parentLink]) {
+      assert.throws(
+        () => validateOutputDir(unsafeLink),
+        /Unsafe output directory/,
+        `validateOutputDir must reject symlinked protected path "${unsafeLink}"`,
+      );
+      assert.throws(
+        () => assemblePages({ outputDir: unsafeLink }),
+        /Unsafe output directory/,
+        `assemblePages must reject symlinked protected path "${unsafeLink}"`,
+      );
+    }
+
+    // Valid nested nonexistent directory under tempBase must still be allowed
+    const validNested = join(tempBase, 'nested', 'site-out');
+    assert.equal(validateOutputDir(validNested), resolve(validNested));
+  } finally {
+    rmSync(tempBase, { recursive: true, force: true });
   }
 });
