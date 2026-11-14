@@ -38,7 +38,7 @@ No tag, release, publication, deployment or merge was performed. Further version
 
 ## Remaining Progressier references (tracked files)
 
-Method and commands: `COMPATIBILITY_CONTRACTS.md` §4. 49 of 157 tracked files contain the string.
+Method and commands: `COMPATIBILITY_CONTRACTS.md` §4. 49 of 158 tracked files contain the string.
 
 - **Required technical compatibility contracts** (kept, not renamed): `/progressier.js` worker path; `window.progressier` shim; `.progressier-*` selectors and generated classes; `body[data-progressier-forced-theme]`; 15 `--progressier*` CSS variables; cookies `progressierinstallbanner` / `progressierpushbanner`; IndexedDB `progressiersharedfiles` / `progressierSavedPushNotifications`; `progressier.app` / `progressier.com` strings used only to detect and remove leftover tags. Purpose, reason and migration status for each: `COMPATIBILITY_CONTRACTS.md` §1.
 - **Historical / reference artifacts intentionally preserved:** `reference/` (third-party bundles, JSON, provenance note in `reference/README.md`), `PARITY.md` (class identifiers of that bundle), `POST_PHASE2_ARCHITECTURE_REVIEW.md` §6–§7 (point-in-time record with a superseded note), and text that discusses the cleanup itself (`AGENTS.md` identity rule, `COMPATIBILITY_CONTRACTS.md`, `CHANGELOG.md`, this file).
