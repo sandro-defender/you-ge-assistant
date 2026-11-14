@@ -8,6 +8,7 @@ import {
   bridgePwaGlobals,
   readToolkitSummary,
   requestPwaUpdate,
+  createDiagnosticsIntegration,
 } from '../src/index.js';
 import { requestPwaUpdate as requestPwaUpdateSubpath } from '../src/installation/index.js';
 import {
@@ -358,6 +359,101 @@ test('destroying the assistant while diagnostics are in flight aborts them and t
   assert.equal(result.failed, false);
   assert.equal(result.status, 'cancelled');
   assert.equal(assistant.getState().network.dns.status, 'running', 'a destroyed instance never publishes a late result');
+});
+
+test('a cleared diagnostics run never detaches or aborts a newer run (D1)', async () => {
+  // Controlled runners settle only when explicitly released, so the
+  // interleaving is deterministic: no timeouts or sleeps.
+  let releaseA;
+  let rejectA;
+  let rejectB;
+  const runAPromise = new Promise((resolve, reject) => { releaseA = resolve; rejectA = reject; });
+  const runBPromise = new Promise((resolve, reject) => { rejectB = reject; });
+  let runnerOrder = 0;
+  let runnerSignalA = null;
+  let runnerSignalB = null;
+  const onResultCalls = [];
+
+  const controller = createDiagnosticsIntegration({
+    AbortController,
+    services: {
+      diagnostics: (options) => {
+        const index = ++runnerOrder;
+        const signal = options && options.signal;
+        if (index === 1) runnerSignalA = signal;
+        if (index === 2) runnerSignalB = signal;
+        const runner = index === 1 ? runAPromise : index === 2 ? runBPromise : Promise.resolve({ classification: 'normal_connectivity' });
+        // A real runner honors its signal: an abort rejects with kind
+        // 'cancelled', and the runner never settles late on its own.
+        if (signal && typeof signal.addEventListener === 'function') {
+          const abortRunner = index === 1 ? rejectA : rejectB;
+          signal.addEventListener('abort', function () {
+            abortRunner(Object.assign(new Error('Diagnostics were cancelled.'), { kind: 'cancelled' }));
+          }, { once: true });
+        }
+        return runner;
+      },
+    },
+    onResult: (result) => { onResultCalls.push(result); },
+  });
+
+  // 1. Run A starts with an external caller signal.
+  const signalA = manualSignal();
+  const promiseA = controller.run({ signal: signalA });
+  await Promise.resolve();
+  assert.equal(runnerOrder, 1, 'run A starts its own runner');
+  assert.ok(runnerSignalA && typeof runnerSignalA.addEventListener === 'function', 'the runner receives an abortable signal');
+  assert.equal(runnerSignalA.aborted, false, 'run A is not aborted when it starts');
+  assert.equal(signalA.listenerCount, 1, 'the adapter attaches its caller abort listener to run A');
+  assert.equal(controller.isRunning(), true);
+
+  // 2. clear() invalidates run A: it aborts run A and releases its listener.
+  controller.clear();
+  assert.equal(controller.isRunning(), false, 'the cleared run is no longer running');
+  assert.equal(runnerSignalA.aborted, true, 'clear aborts the run it owns');
+  assert.equal(signalA.listenerCount, 0, 'clear releases the caller listener of the cleared run');
+
+  // 3. Run B starts — a fresh runner, not the retired run A.
+  const signalB = manualSignal();
+  const promiseB = controller.run({ signal: signalB });
+  await Promise.resolve();
+  assert.equal(runnerOrder, 2, 'run B starts a fresh runner');
+  assert.ok(runnerSignalB && typeof runnerSignalB.addEventListener === 'function', 'run B receives an abortable signal');
+  assert.equal(runnerSignalB.aborted, false, 'run B is not aborted when it starts');
+  assert.equal(signalB.listenerCount, 1, 'the adapter attaches its caller abort listener to run B');
+  assert.equal(controller.isRunning(), true);
+  assert.equal(onResultCalls.length, 0, 'no result is published while run A is cleared');
+
+  // 4. Run A settles late, after run B has started.
+  releaseA({ classification: 'normal_connectivity', message: 'run A late result' });
+  const resultA = await promiseA;
+  assert.equal(resultA.status, 'cancelled', 'run A resolves as cancelled');
+  assert.equal(resultA.cancelled, true);
+  assert.equal(resultA.failed, false);
+  assert.equal(onResultCalls.length, 0, "run A's late result is never published");
+  assert.equal(runnerSignalB.aborted, false, "run A's late settle does not abort run B");
+  assert.equal(signalB.listenerCount, 1, "run A's late settle does not detach run B's caller listener");
+  assert.equal(controller.isRunning(), true, 'run B is still running after run A settles');
+
+  // 5. destroy() (via clear()) aborts the currently owned run — run B — and
+  // removes run B's caller abort listener.
+  controller.clear();
+  assert.equal(runnerSignalB.aborted, true, 'destroy aborts the run it owns');
+  assert.equal(signalB.listenerCount, 0, 'destroy removes run B\'s caller abort listener');
+  assert.equal(controller.isRunning(), false, 'the destroyed run is no longer running');
+
+  const resultB = await promiseB;
+  assert.equal(resultB.status, 'cancelled', 'run B resolves as cancelled');
+  assert.equal(resultB.cancelled, true);
+  assert.equal(resultB.failed, false, 'a cancellation is not a failure');
+  assert.equal(onResultCalls.length, 0, 'no late result from run A or run B is ever published');
+
+  // 6. A subsequent run after clear() starts a fresh runner rather than
+  // joining a retired one.
+  const again = await controller.run();
+  assert.equal(runnerOrder, 3, 'a later run starts its own runner');
+  assert.equal(again.classification, 'normal_connectivity', 'the later run completes normally');
+  assert.equal(controller.isRunning(), false, 'the later run leaves the controller idle');
 });
 
 test('the adapter forwards a caller signal to real runners and cleans the run up on abort', async () => {
