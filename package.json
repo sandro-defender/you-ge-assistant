@@ -14,7 +14,7 @@
     "web-push",
     "install-prompt",
     "offline",
-    "progressier"
+    "assistant"
   ],
   "engines": {
     "node": ">=18"

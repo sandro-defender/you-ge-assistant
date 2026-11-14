@@ -138,8 +138,7 @@
 
       button.primary:hover, .button.primary:hover { opacity: 0.9; background: var(--accent); }
 
-      /* The kit adds .initialized and .captured to Progressier buttons; this
-         only makes the demo button look like the primary action. */
+      /* Style the compatibility install button like the primary demo action. */
       .progressier-install-button {
         background: var(--accent) !important;
         color: var(--accent-text) !important;
@@ -240,7 +239,6 @@
         <a href="https://github.com/sandro-defender/you-ge-assistant">Repository</a>
         <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/AGENTS.md">AGENTS.md</a>
         <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/README.md">README</a>
-        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/PARITY.md">Parity</a>
         <a href="example/">User-facing example</a>
       </nav>
 
@@ -446,7 +444,7 @@
           PWA.showWelcome({
             title: 'Welcome',
             text: 'This modal, the banners and the install flows all come from pwa.js and pwa.css.',
-            items: ['No dependencies', 'Works from a subpath', 'Progressier-compatible markup'],
+            items: ['No dependencies', 'Works from a subpath', 'Declarative install and legacy compatibility markup'],
           });
         });
 

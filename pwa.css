@@ -1,8 +1,9 @@
 /*!
- * pwa.css — Progressier-compatible components
- * -------------------------------------------
- * Dimensions and breakpoints follow the original Progressier UI, except for
- * the install-banner touch targets enlarged here for accessibility:
+ * pwa.css — You.Ge Assistant PWA UI components
+ * ------------------------------------------------------------------------
+ * Layout dimensions, selectors, and CSS variables maintain backward
+ * compatibility with existing integrations, with enlarged touch targets for
+ * accessibility:
  *   toolbox icon     65px (52px under 350px) / bottom 17px / z 2147483643
  *   install banner   100vw / 45px icon / 44px close + action targets / z 2147483644
  *   push banner      510px -> 450px -> 95vw / 70px icon / z 2147483645
