@@ -1335,3 +1335,48 @@ test('a stale DNS verdict is dropped when the resolved hostname changes even if 
   assert.equal(state.network.dns.status, 'idle');
   assert.equal(state.network.dns.classification, 'unknown');
 });
+
+test('DOM widget routes update actions through AssistantInstance.applyUpdate and falls back to bare PWA mocks', async () => {
+  // 1. Standard path: widget delegates through AssistantInstance.applyUpdate()
+  const ctx = createContext({ richDocument: true, pwaState: { hasUpdate: true, installed: true, standalone: true } });
+  let assistantApplyCalls = 0;
+  const originalApply = ctx.api.applyUpdate;
+  ctx.api.applyUpdate = () => {
+    assistantApplyCalls += 1;
+    return typeof originalApply === 'function' ? originalApply() : Promise.resolve({ applied: true, outcome: 'applied' });
+  };
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+
+  const actions = [];
+  ctx.document.addEventListener('youge:action', (event) => actions.push(event.detail));
+  const updateButton = root.querySelector('[data-action="update"]');
+  assert.ok(updateButton, 'update button is rendered for app:update');
+  fire(ctx.document, updateButton, 'click');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(assistantApplyCalls, 1, 'widget calls AssistantInstance.applyUpdate()');
+  assert.equal(ctx.pwa.calls.applyUpdate, 1, 'AssistantInstance delegates to PWA.applyUpdate()');
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].id, 'update');
+  widget.destroy();
+
+  // 2. Fallback path: host replaces window.YouGeAssistant with a bare state object lacking applyUpdate()
+  const fallbackCtx = createContext({ richDocument: true, pwaState: { hasUpdate: true } });
+  const stateSnapshot = fallbackCtx.api.getState();
+  fallbackCtx.api.destroy();
+  fallbackCtx.win.YouGeAssistant = {
+    getState: () => stateSnapshot,
+    subscribe: (fn) => { fn(stateSnapshot); return () => {}; },
+    dismiss: () => false,
+    acknowledge: () => false,
+    runDiagnostics: () => Promise.resolve({}),
+  };
+  const fallbackWidget = loadWidget(fallbackCtx);
+  const fallbackRoot = fallbackWidget.getRoot();
+  fire(fallbackCtx.document, fallbackRoot.querySelector('[data-role="toggle"]'), 'click');
+  fire(fallbackCtx.document, fallbackRoot.querySelector('[data-action="update"]'), 'click');
+  assert.equal(fallbackCtx.pwa.calls.applyUpdate, 1, 'falls back to PWA.applyUpdate when Assistant API lacks applyUpdate');
+  fallbackWidget.destroy();
+});

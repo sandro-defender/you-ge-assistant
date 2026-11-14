@@ -383,3 +383,96 @@ test('classic and SDK domain validation agree on diagnostics probe path safety',
   );
   assert.deepEqual(sdkRegistry.registry, classicRegistry.registry);
 });
+
+test('end-to-end pwa.js and YouGeAssistant stay synchronized across updatefound, applyUpdate, controllerchange and stale-worker clearing', async () => {
+  const { win } = makeSandboxWindow('https://app.example.com/');
+  let reloadCalls = 0;
+  win.location.reload = () => { reloadCalls += 1; };
+  win.matchMedia = () => ({ matches: false, addEventListener() {} });
+  win.MutationObserver = class { observe() {} disconnect() {} };
+
+  const swListeners = new Map();
+  const makeWorker = (state) => {
+    const workerListeners = new Map();
+    return {
+      state,
+      messages: [],
+      postMessage(msg) { this.messages.push(msg); },
+      addEventListener(type, fn) {
+        if (!workerListeners.has(type)) workerListeners.set(type, []);
+        workerListeners.get(type).push(fn);
+      },
+      setState(next) {
+        this.state = next;
+        (workerListeners.get('statechange') || []).forEach((fn) => fn({ target: this }));
+      },
+    };
+  };
+
+  const regListeners = new Map();
+  const initialWaiting = makeWorker('installed');
+  const reg = {
+    scope: 'https://app.example.com/',
+    waiting: initialWaiting,
+    installing: null,
+    addEventListener(type, fn) {
+      if (!regListeners.has(type)) regListeners.set(type, []);
+      regListeners.get(type).push(fn);
+    },
+    dispatch(type, ev = {}) {
+      (regListeners.get(type) || []).forEach((fn) => fn(ev));
+    },
+    update() { return Promise.resolve(reg); },
+  };
+
+  win.navigator.serviceWorker = {
+    controller: { state: 'activated' },
+    ready: Promise.resolve(reg),
+    register() { return Promise.resolve(reg); },
+    addEventListener(type, fn) {
+      if (!swListeners.has(type)) swListeners.set(type, []);
+      swListeners.get(type).push(fn);
+    },
+    dispatch(type, ev = {}) {
+      (swListeners.get(type) || []).forEach((fn) => fn(ev));
+    },
+  };
+
+  vm.runInContext(readRepo('pwa.js'), win, { filename: 'pwa.js' });
+  await win.PWA.ready;
+
+  const assistant = YouGeAssistant.create({ projectId: 'sw-e2e', domain: 'app.example.com' }, { root: win });
+  assert.equal(assistant.getState().network.updateAvailable, true);
+  assert.ok(assistant.getState().notifications.some((n) => n.id === 'app:update'));
+
+  // Apply waiting update via Assistant API -> SKIP_WAITING -> controllerchange -> reload + clear state
+  const applyResult = await assistant.applyUpdate();
+  assert.deepEqual(applyResult, { applied: true, outcome: 'applied' });
+  assert.equal(initialWaiting.messages.length, 1);
+  assert.equal(initialWaiting.messages[0].type, 'SKIP_WAITING');
+
+  reg.waiting = null;
+  win.navigator.serviceWorker.controller = initialWaiting;
+  win.navigator.serviceWorker.dispatch('controllerchange');
+  assert.equal(reloadCalls, 1);
+  assert.equal(win.PWA.getState().hasUpdate, false);
+  assert.equal(assistant.getState().network.updateAvailable, false);
+  assert.equal(assistant.getState().notifications.some((n) => n.id === 'app:update'), false);
+
+  // Second update arrives via updatefound -> installed, then disappears externally before apply
+  const nextWorker = makeWorker('installing');
+  reg.installing = nextWorker;
+  reg.dispatch('updatefound');
+  reg.waiting = nextWorker;
+  nextWorker.setState('installed');
+  assert.equal(assistant.getState().network.updateAvailable, true);
+
+  reg.waiting = null;
+  const staleResult = await assistant.applyUpdate();
+  assert.deepEqual(staleResult, { applied: false, outcome: 'no-waiting-worker' });
+  assert.equal(reloadCalls, 1, 'disappeared waiting worker does not reload');
+  assert.equal(win.PWA.getState().hasUpdate, false);
+  assert.equal(assistant.getState().network.updateAvailable, false);
+
+  assistant.destroy();
+});

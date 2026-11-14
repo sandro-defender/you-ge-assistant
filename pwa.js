@@ -203,15 +203,53 @@
   var listeners = new Set();
   var installPromptEvent = null;
   var updateAvailable = false;
+  var updateWorker = null;
+  var sawWaitingWorker = false;
+  var watchedWorkers = [];
   var registration = null;
   var reloading = false;
+  var reloadFallbackTimer = null;
+  var swListenersBound = false;
   var installed = isStandalone();
   var launchSource = getParam('launchedfrom') || 'browser';
 
   if (launchSource === 'homescreen') installed = true;
 
+  function isWaitingWorker(worker) {
+    return Boolean(worker && worker.state !== 'redundant' && worker.state !== 'activated');
+  }
+
+  function clearUpdateState(notify) {
+    var changed = updateAvailable || updateWorker !== null || sawWaitingWorker;
+    updateAvailable = false;
+    updateWorker = null;
+    sawWaitingWorker = false;
+    if (notify && changed) refreshState();
+  }
+
+  function watchWorkerLifecycle(reg, worker) {
+    if (!worker || watchedWorkers.indexOf(worker) !== -1 || typeof worker.addEventListener !== 'function') return;
+    watchedWorkers.push(worker);
+    worker.addEventListener('statechange', function () {
+      var redundantOrGone = worker.state === 'redundant' || worker.state === 'activated' ||
+        (worker.state === 'activating' && !reloading);
+      if (!redundantOrGone) return;
+      if (isWaitingWorker(reg.waiting) && reg.waiting !== worker) return;
+      clearUpdateState(true);
+    });
+  }
+
   function isUpdateAvailable() {
-    return updateAvailable || Boolean(registration && registration.waiting);
+    var waiting = registration && registration.waiting;
+    if (isWaitingWorker(waiting)) {
+      sawWaitingWorker = true;
+      updateWorker = waiting;
+      return true;
+    }
+    if (sawWaitingWorker) {
+      clearUpdateState(false);
+    }
+    return updateAvailable;
   }
 
   function getState() {
@@ -661,8 +699,11 @@
         renderToolbox();
         log('service worker registered', reg.scope);
 
-        if (reg.waiting && navigator.serviceWorker.controller) {
+        if (isWaitingWorker(reg.waiting) && navigator.serviceWorker.controller) {
           updateAvailable = true;
+          updateWorker = reg.waiting;
+          sawWaitingWorker = true;
+          watchWorkerLifecycle(reg, reg.waiting);
           refreshState();
           dispatch('update', { registration: reg });
           if (config.autoUpdate) applyUpdate();
@@ -671,10 +712,14 @@
         reg.addEventListener('updatefound', function () {
           var worker = reg.installing;
           if (!worker) return;
+          watchWorkerLifecycle(reg, worker);
           worker.addEventListener('statechange', function () {
             if (worker.state !== 'installed') return;
             if (!navigator.serviceWorker.controller) return; // first install
             updateAvailable = true;
+            updateWorker = reg.waiting || worker;
+            sawWaitingWorker = Boolean(reg.waiting);
+            if (reg.waiting && reg.waiting !== worker) watchWorkerLifecycle(reg, reg.waiting);
             refreshState();
             dispatch('update', { registration: reg });
             if (config.autoUpdate) applyUpdate();
@@ -686,29 +731,68 @@
         readyResolve(null);
       });
 
-    navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (reloading) window.location.reload();
-    });
+    if (!swListenersBound) {
+      swListenersBound = true;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        var wasReloading = reloading;
+        reloading = false;
+        if (reloadFallbackTimer) {
+          clearTimeout(reloadFallbackTimer);
+          reloadFallbackTimer = null;
+        }
+        var nextWaiting = registration && registration.waiting;
+        if (isWaitingWorker(nextWaiting)) {
+          updateAvailable = true;
+          updateWorker = nextWaiting;
+          sawWaitingWorker = true;
+          watchWorkerLifecycle(registration, nextWaiting);
+        } else {
+          clearUpdateState(false);
+        }
+        refreshState();
+        if (wasReloading) window.location.reload();
+      });
 
-    document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState !== 'visible' || !registration) return;
-      var now = Date.now();
-      if (now - lastUpdateCheck < 60 * 60 * 1000) return;
-      lastUpdateCheck = now;
-      registration.update().catch(function () {});
-    });
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState !== 'visible' || !registration) return;
+        var now = Date.now();
+        if (now - lastUpdateCheck < 60 * 60 * 1000) return;
+        lastUpdateCheck = now;
+        registration.update().then(function () {
+          if (reloading) return;
+          var waiting = registration && registration.waiting;
+          if (isWaitingWorker(waiting)) {
+            if (!updateAvailable) {
+              updateAvailable = true;
+              updateWorker = waiting;
+              sawWaitingWorker = true;
+              watchWorkerLifecycle(registration, waiting);
+              refreshState();
+            }
+          } else if (updateAvailable) {
+            clearUpdateState(true);
+          }
+        }).catch(function () {});
+      });
+    }
   }
 
   var lastUpdateCheck = Date.now();
 
   function applyUpdate() {
-    if (!registration) return Promise.resolve(false);
-
-    var waiting = registration.waiting;
-    if (!waiting) {
-      if (updateAvailable) window.location.reload();
+    if (!registration) {
+      clearUpdateState(true);
       return Promise.resolve(false);
     }
+
+    var waiting = registration.waiting;
+    if (!isWaitingWorker(waiting)) {
+      if (reloading) return Promise.resolve(true);
+      clearUpdateState(true);
+      return Promise.resolve(false);
+    }
+
+    if (reloading) return Promise.resolve(true);
 
     reloading = true;
     try {
@@ -720,8 +804,13 @@
     }
 
     // Safety net for browsers that don't emit controllerchange reliably.
-    setTimeout(function () {
-      if (reloading) window.location.reload();
+    if (reloadFallbackTimer) clearTimeout(reloadFallbackTimer);
+    reloadFallbackTimer = setTimeout(function () {
+      reloadFallbackTimer = null;
+      if (reloading) {
+        reloading = false;
+        window.location.reload();
+      }
     }, 3000);
 
     return Promise.resolve(true);

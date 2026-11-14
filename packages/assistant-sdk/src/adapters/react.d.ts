@@ -1,6 +1,11 @@
 import type { AssistantConfigInput } from '../config/index.js';
-import type { AssistantEnvironment, AssistantInstance, AssistantState } from '../index.js';
-import type { AssistantNotificationLevel } from '../index.js';
+import type {
+  AssistantEnvironment,
+  AssistantInstance,
+  AssistantNotificationLevel,
+  AssistantState,
+  AssistantUpdateResult,
+} from '../index.js';
 import type {
   ResolvedColorScheme,
   ResolvedTheme,
@@ -54,7 +59,7 @@ export interface ReactAssistantAdapter {
     level: unknown,
     createElement?: (type: string, props: Record<string, unknown>) => unknown
   ): unknown;
-  dispatchAction(id: string, kind?: string): void;
+  dispatchAction(id: string, kind?: string): Promise<AssistantUpdateResult | boolean> | void;
 }
 
 export declare const FALLBACK_ASSISTANT_STATE: AssistantState;
@@ -104,6 +109,6 @@ export declare function dispatchAssistantAction(
     root?: Record<string, unknown> | null;
     source?: string;
   }
-): void;
+): Promise<AssistantUpdateResult | boolean> | void;
 
 export declare function createReactAdapter(options: ReactAdapterOptions): ReactAssistantAdapter;

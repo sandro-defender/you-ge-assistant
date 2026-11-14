@@ -2499,6 +2499,56 @@
     }
   }
 
+  function readPwaHasUpdate(pwa) {
+    const snapshot = readPwaSnapshot(pwa);
+    if (snapshot.hasUpdate !== undefined) return snapshot.hasUpdate;
+    if (pwa && typeof pwa.hasUpdate === 'function') {
+      try {
+        return Boolean(pwa.hasUpdate());
+      } catch (error) {
+        return undefined;
+      }
+    }
+    return undefined;
+  }
+  function requestPwaUpdate(options) {
+    const opts = options || {};
+    const pwa = opts.pwa || null;
+    if (opts.enabled === false) {
+      return Promise.resolve({ applied: false, outcome: 'disabled' });
+    }
+    if (!pwa || typeof pwa.applyUpdate !== 'function') {
+      return Promise.resolve({ applied: false, outcome: 'unsupported' });
+    }
+    try {
+      return Promise.resolve(pwa.applyUpdate()).then(
+        function (resolved) {
+          if (resolved === true) return { applied: true, outcome: 'applied' };
+          if (resolved === false) return { applied: false, outcome: 'no-waiting-worker' };
+          if (resolved == null) {
+            return readPwaHasUpdate(pwa) === false
+              ? { applied: false, outcome: 'no-waiting-worker' }
+              : { applied: true, outcome: 'applied' };
+          }
+          if (typeof resolved === 'object' && typeof resolved.applied === 'boolean') {
+            const outcome = typeof resolved.outcome === 'string' && resolved.outcome
+              ? resolved.outcome
+              : (resolved.applied ? 'applied' : 'no-waiting-worker');
+            return { applied: resolved.applied, outcome: outcome };
+          }
+          return resolved
+            ? { applied: true, outcome: 'applied' }
+            : { applied: false, outcome: 'no-waiting-worker' };
+        },
+        function () {
+          return { applied: false, outcome: 'error' };
+        }
+      );
+    } catch (error) {
+      return Promise.resolve({ applied: false, outcome: 'error' });
+    }
+  }
+
   /* --- browser/index.js --- */
 
   const ANDROID_RE = /Android/i;
@@ -2904,6 +2954,7 @@
     let destroyed = false;
     let unsubscribePwa = null;
     let lastConditionKeys = new Set();
+    let lastPwaHasUpdate;
 
     const nav = getNavigator();
     const conditions = {
@@ -3248,9 +3299,20 @@
 
     function computeState() {
       const project = projectInfo();
-      const pwaSnapshot = readPwaSnapshot(getPwa());
+      const pwa = getPwa();
+      const pwaSnapshot = readPwaSnapshot(pwa);
+      let pwaHasUpdate = pwaSnapshot.hasUpdate;
+      if (pwaHasUpdate === undefined && pwa && typeof pwa.hasUpdate === 'function') {
+        try { pwaHasUpdate = Boolean(pwa.hasUpdate()); } catch (error) { /* ignore */ }
+      }
+      if (lastPwaHasUpdate === true && pwaHasUpdate === false) {
+        conditions.updateAvailable = false;
+      }
+      if (typeof pwaHasUpdate === 'boolean') {
+        lastPwaHasUpdate = pwaHasUpdate;
+      }
       const installation = deriveInstallationState({
-        pwa: getPwa(),
+        pwa: pwa,
         enabled: config.modules.installation,
       });
       const network = {
@@ -3271,7 +3333,7 @@
         // The toolkit records a waiting worker in its own snapshot before (or
         // without) a `pwa:update` event, so seed from it: otherwise an update
         // detected before the assistant bound stays invisible forever.
-        updateAvailable: conditions.updateAvailable || pwaSnapshot.hasUpdate === true,
+        updateAvailable: conditions.updateAvailable || pwaHasUpdate === true,
         recovery: conditions.recovery,
       };
       const notifications = buildNotifications(project, installation, network);
@@ -3352,11 +3414,18 @@
       if (unsubscribePwa || destroyed) return;
       const pwa = getPwa();
       if (pwa && typeof pwa.onChange === 'function') {
+        let initial = true;
         try {
-          unsubscribePwa = pwa.onChange(function () { emit(); });
+          unsubscribePwa = pwa.onChange(function (nextState) {
+            if (!initial && nextState && typeof nextState === 'object' && nextState.hasUpdate === false && lastPwaHasUpdate === true) {
+              conditions.updateAvailable = false;
+            }
+            emit();
+          });
         } catch (error) {
           unsubscribePwa = null;
         }
+        initial = false;
       }
     }
 
@@ -3533,6 +3602,28 @@
       }, promptOptions);
     }
 
+    function applyUpdate() {
+      if (destroyed) return Promise.resolve({ applied: false, outcome: 'unsupported' });
+      return requestPwaUpdate({
+        pwa: getPwa(),
+        enabled: config.modules.updates !== false,
+      }).then(function (result) {
+        if (!destroyed && result && !result.applied && result.outcome === 'no-waiting-worker') {
+          const pwa = getPwa();
+          const pwaSnapshot = readPwaSnapshot(pwa);
+          let hasUpdate = pwaSnapshot.hasUpdate;
+          if (hasUpdate === undefined && pwa && typeof pwa.hasUpdate === 'function') {
+            try { hasUpdate = Boolean(pwa.hasUpdate()); } catch (error) { /* ignore */ }
+          }
+          if (hasUpdate !== true) {
+            conditions.updateAvailable = false;
+            emit();
+          }
+        }
+        return result;
+      });
+    }
+
     function dismiss(id) {
       const safeId = safeText(id, 80);
       const notification = (snapshot && snapshot.notifications || []).filter(function (entry) { return entry.id === safeId; })[0];
@@ -3650,6 +3741,7 @@
       setUpdateAvailable: setUpdateAvailable,
       runDiagnostics: runDiagnostics,
       requestInstall: requestInstall,
+      applyUpdate: applyUpdate,
       dismiss: dismiss,
       acknowledge: acknowledge,
       isDestroyed: function () { return destroyed; },

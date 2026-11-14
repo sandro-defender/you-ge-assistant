@@ -27,7 +27,15 @@ export interface PwaRuntimeLike {
   promptInstall?: (options?: Record<string, unknown>) => Promise<{ outcome: string }> | { outcome: string };
   runNetworkDiagnostics?: (options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   showNetworkDiagnostics?: () => unknown;
+  hasUpdate?: () => boolean;
   applyUpdate?: () => Promise<boolean> | boolean | void;
+}
+
+export type UpdateApplyOutcome = 'applied' | 'no-waiting-worker' | 'unsupported' | 'disabled' | 'error';
+
+export interface AssistantUpdateResult {
+  applied: boolean;
+  outcome: UpdateApplyOutcome;
 }
 
 export interface AssistantInstallationState {
@@ -51,3 +59,6 @@ export declare function requestPwaInstall(
   options?: { pwa?: PwaRuntimeLike | null; enabled?: boolean },
   promptOptions?: Record<string, unknown>
 ): Promise<{ outcome: string }>;
+export declare function requestPwaUpdate(
+  options?: { pwa?: PwaRuntimeLike | null; enabled?: boolean }
+): Promise<AssistantUpdateResult>;

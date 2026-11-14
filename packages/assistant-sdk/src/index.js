@@ -53,6 +53,7 @@ import {
   deriveInstallationState,
   readPwaSnapshot,
   requestPwaInstall,
+  requestPwaUpdate,
 } from './installation/index.js';
 import {
   NOTIFICATION_LEVEL_MAP,
@@ -169,6 +170,7 @@ export {
   readPwaSnapshot,
   deriveInstallationState,
   requestPwaInstall,
+  requestPwaUpdate,
   createAssistant,
   attachAssistant,
   getGlobalAssistant,
