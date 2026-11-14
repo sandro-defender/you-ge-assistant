@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sdkSrcDir = join(rootDir, 'packages', 'assistant-sdk', 'src');
-const targetFile = join(rootDir, 'assistant-state.js');
+const targetFile = join(rootDir, 'src', 'assistant', 'assistant-state.js');
 
 const SOURCE_MODULES = [
   'core/constants.js',

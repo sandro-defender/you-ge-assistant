@@ -19,6 +19,7 @@
     "node": ">=18"
   },
   "scripts": {
+    "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs && node packages/assistant-sdk/scripts/validate-package.mjs && node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs",
     "check:precache": "node scripts/precache-integrity.mjs",
     "test": "node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs",

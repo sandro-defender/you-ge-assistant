@@ -8,16 +8,18 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
-import '../domain-config.js';
+import '../src/domain/domain-config.js';
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+import { resolveSourcePath } from '../scripts/source-paths.mjs';
+const root = new URL('..', import.meta.url).pathname;
+const read = (path) => readFileSync(resolveSourcePath(root, path), 'utf8');
 const has = (path) => existsSync(new URL(`../${path}`, import.meta.url));
 
-const pwa = read('pwa.js');
-const worker = read('you-ge-sw.js');
-const legacyWorkerShim = read('progressier.js');
-const styles = read('pwa.css');
-const offlineHtml = read('offline.html');
+const pwa = read('src/runtime/pwa.js');
+const worker = read('src/runtime/you-ge-sw.js');
+const legacyWorkerShim = read('src/runtime/progressier.js');
+const styles = read('src/runtime/pwa.css');
+const offlineHtml = read('src/offline/offline.html');
 const exampleCss = read('examples/example/example.css');
 const preview = read('examples/example/src/FoundationPreview.tsx');
 const architecture = read('docs/architecture/ASSISTANT_ARCHITECTURE.md');
@@ -29,12 +31,12 @@ function pngSize(path) {
 }
 
 test('static fallback manifest is valid, in-scope and uses canonical identity while staff.you.ge preserves its installed id', () => {
-  const manifest = JSON.parse(read('manifest.webmanifest'));
+  const manifest = JSON.parse(read('public/manifest.webmanifest'));
   assert.equal(manifest.name, 'You.Ge Assistant');
   assert.equal(manifest.short_name, 'You.Ge');
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.id, '/', 'generic static fallback manifest uses canonical "/" id');
-  assert.match(read('domain-registry.js'), /'staff\.you\.ge'[\s\S]*id:\s*'\/HIPSBNVemXtM8VMwRfWs'/, 'staff.you.ge preserves its installed id');
+  assert.match(read('src/domain/domain-registry.js'), /'staff\.you\.ge'[\s\S]*id:\s*'\/HIPSBNVemXtM8VMwRfWs'/, 'staff.you.ge preserves its installed id');
   assert.ok(manifest.start_url.startsWith(manifest.scope), 'start_url stays inside scope');
   assert.ok(Array.isArray(manifest.icons) && manifest.icons.length >= 2);
   assert.ok(manifest.icons.some((icon) => String(icon.purpose).includes('maskable')));
@@ -147,7 +149,7 @@ test('offline shell and caches remain isolated and conservative', () => {
 });
 
 test('domain detection stays injectable and never becomes authentication', () => {
-  const domain = read('domain-config.js');
+  const domain = read('src/domain/domain-config.js');
   assert.match(domain, /function resolve\(locationLike, optionalRegistry\)/);
   assert.match(domain, /normalizeHost/);
   assert.match(domain, /DEFAULTS/);
@@ -158,7 +160,7 @@ test('domain detection stays injectable and never becomes authentication', () =>
   });
   assert.equal(resolved.domain.configured, false, 'unknown hosts are not treated as verified');
   assert.doesNotMatch(JSON.stringify(resolved), /staff-you-ge|workers\.dev|token|secret/i);
-  assert.match(read('domain-registry.js'), /configuration, not an access-control/);
+  assert.match(read('src/domain/domain-registry.js'), /configuration, not an access-control/);
   assert.match(architecture, /Hostname detection is \*\*never authentication\*\*|never authentication/);
   const runtime = [
     'pwa.js', 'you-ge-sw.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',

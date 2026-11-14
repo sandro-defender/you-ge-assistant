@@ -25,6 +25,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runPrecacheIntegrity } from './precache-integrity.mjs';
+import { resolveSourcePath } from './source-paths.mjs';
 import { buildBrowserStateScript } from './sync-sdk-browser.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -51,7 +52,7 @@ function section(title) {
   console.log(`\n${title}`);
 }
 
-const at = (relative) => join(root, relative);
+const at = (relative) => resolveSourcePath(root, relative);
 
 /* ------------------------------------------------------------------ *
  * 1. Files that must exist
@@ -827,7 +828,12 @@ contract(/useSyncExternalStore/.test(mainJsxSource) && ['GlareHover', 'Spotlight
 contract(/data-pwa-diagnostics/.test(mainJsxSource) && /data-pwa-install/.test(mainJsxSource), 'React quick actions preserve working diagnostics and install delegation');
 contract(/assistant-state\.js/.test(offlineHtmlSource) && /assistant-widget\.js/.test(offlineHtmlSource), 'offline shell keeps the Assistant available');
 contract(/assistant-state\.js/.test(snippetHtmlSource) && /assistant-widget\.js/.test(snippetHtmlSource) && /YOU_GE_ASSISTANT_CONFIG/.test(snippetHtmlSource), 'integration snippet documents the configurable SDK interface');
-contract((pagesWorkflowSource.match(/assistant-state\.js/g) || []).length >= 2 && (pagesWorkflowSource.match(/assistant-widget\.css/g) || []).length >= 2, 'Pages workflow deploys the widget runtime to both app scopes');
+contract(
+  pagesWorkflowSource.includes('node scripts/assemble-pages.mjs') &&
+    readFileSync(at('scripts/build.mjs'), 'utf8').includes('assistant-state.js') &&
+    readFileSync(at('scripts/build.mjs'), 'utf8').includes('assistant-widget.css'),
+  'Pages workflow deploys the widget runtime to both app scopes',
+);
 contract(/assistant-state\.js/.test(viteConfigSource) && /assistant-widget\.js/.test(viteConfigSource), 'Vite development middleware serves the shared widget runtime');
 contract(/youge:dns-result/.test(offlineJsSource), 'offline diagnostics publish their result into centralized state');
 contract(widgetDocSource.includes('## 6. React Bits + mandatory design skill') && widgetDocSource.includes('ui-ux-pro-max-skill'), 'WIDGET.md records React Bits and the mandatory design skill');

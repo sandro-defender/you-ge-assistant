@@ -33,6 +33,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { resolveSourcePath } from './source-paths.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
@@ -329,7 +330,7 @@ function resolveBase(git, baseRef) {
  * Resolves `{ status: 'pass'|'fail'|'skipped', report, summary, changes, base, precache }`.
  */
 export async function runPrecacheIntegrity({ root, baseRef = '', env = {} } = {}) {
-  const at = (path) => join(root, path);
+  const at = (path) => resolveSourcePath(root, path);
   const readHead = (path) => (existsSync(at(path)) ? readFileSync(at(path), 'utf8') : null);
   const git = createGit(root, env);
   const fail = (report, extra = {}) => ({ status: 'fail', report, summary: report.split('\n')[0], changes: [], base: null, precache: [], ...extra });
@@ -392,7 +393,7 @@ export async function runPrecacheIntegrity({ root, baseRef = '', env = {} } = {}
   const headBlobs = {};
   for (const path of tracked) {
     if (/^[a-z]+:/i.test(path) || !existsSync(at(path))) headBlobs[path] = null;
-    else if (base.commit) headBlobs[path] = (git(['hash-object', '--', path]) || 'unhashable').trim();
+    else if (base.commit) headBlobs[path] = (git(['hash-object', '--', at(path)]) || 'unhashable').trim();
     else headBlobs[path] = 'present';
   }
 

@@ -140,7 +140,7 @@ function makeSandboxWindow(href = 'https://app.example.com/') {
 }
 
 test('assistant-state.js stays deterministically synchronized with @youge/assistant-sdk', () => {
-  const current = readRepo('assistant-state.js');
+  const current = readRepo('src/assistant/assistant-state.js');
   const expected = buildBrowserStateScript();
   assert.equal(current, expected, 'assistant-state.js matches canonical SDK build');
 });
@@ -155,7 +155,7 @@ test('ESM and classic SDK expose Phase 1 hostname detection and validation APIs'
   assert.ok(registry.issues.some((issue) => issue.code === 'invalid_registry_key'));
 
   const { win } = makeSandboxWindow('https://portal.example.com/');
-  vm.runInContext(readRepo('assistant-state.js'), win, { filename: 'assistant-state.js' });
+  vm.runInContext(readRepo('src/assistant/assistant-state.js'), win, { filename: 'assistant-state.js' });
   const classic = win.YouGeAssistantSDK;
   assert.equal(classic.detectRuntimeHostname('http://localhost:5173/app'), 'localhost');
   const classicConfig = classic.validateDomainConfigDetailed({ project: { id: 'x'.repeat(81) } });
@@ -170,7 +170,7 @@ test('classic assistant-state.js and ESM @youge/assistant-sdk share one singleto
   // Order 1: classic assistant-state.js loads first, then ESM attachAssistant runs
   const envA = makeSandboxWindow('https://alpha.example.com/');
   envA.win.YOU_GE_ASSISTANT_CONFIG = { projectId: 'alpha-classic', branding: { name: 'Alpha Classic' } };
-  vm.runInContext(readRepo('assistant-state.js'), envA.win, { filename: 'assistant-state.js' });
+  vm.runInContext(readRepo('src/assistant/assistant-state.js'), envA.win, { filename: 'assistant-state.js' });
 
   const classicInstance = envA.win.YouGeAssistant;
   assert.ok(classicInstance && classicInstance.__state);
@@ -185,7 +185,7 @@ test('classic assistant-state.js and ESM @youge/assistant-sdk share one singleto
   // Order 2: ESM attachAssistant runs first, then classic assistant-state.js loads
   const envB = makeSandboxWindow('https://beta.example.com/');
   const esmFirst = YouGeAssistant.attach({ projectId: 'beta-esm', branding: { name: 'Beta ESM' } }, { root: envB.win });
-  vm.runInContext(readRepo('assistant-state.js'), envB.win, { filename: 'assistant-state.js' });
+  vm.runInContext(readRepo('src/assistant/assistant-state.js'), envB.win, { filename: 'assistant-state.js' });
 
   assert.equal(envB.win.YouGeAssistant, esmFirst, 'classic script respects existing SDK singleton');
   assert.equal(envB.win.listenerCount('offline'), 1);
@@ -195,8 +195,8 @@ test('classic assistant-state.js and ESM @youge/assistant-sdk share one singleto
 
 test('SDK domain resolver matches domain-config.js across exact, wildcard, subpath and unknown hosts', () => {
   const { win } = makeSandboxWindow('https://portal.example.com/');
-  vm.runInContext(readRepo('domain-registry.js'), win, { filename: 'domain-registry.js' });
-  vm.runInContext(readRepo('domain-config.js'), win, { filename: 'domain-config.js' });
+  vm.runInContext(readRepo('src/domain/domain-registry.js'), win, { filename: 'domain-registry.js' });
+  vm.runInContext(readRepo('src/domain/domain-config.js'), win, { filename: 'domain-config.js' });
 
   const registry = {
     'portal.example.com': {
@@ -264,7 +264,7 @@ test('SDK integrates with real dns-diagnostics.js on-demand without background n
     return { ok: true, status: 200, async json() { return {}; } };
   };
 
-  vm.runInContext(readRepo('dns-diagnostics.js'), win, { filename: 'dns-diagnostics.js' });
+  vm.runInContext(readRepo('src/domain/dns-diagnostics.js'), win, { filename: 'dns-diagnostics.js' });
 
   const assistant = YouGeAssistant.create({
     projectId: 'dns-real',
@@ -285,8 +285,8 @@ test('a failed pwa.js diagnostics dialog reaches centralized state as a critical
   const { win } = makeSandboxWindow('https://probe.example.com/');
   win.AbortController = AbortController;
   win.fetch = async () => { throw new TypeError('Failed to fetch'); };
-  vm.runInContext(readRepo('dns-diagnostics.js'), win, { filename: 'dns-diagnostics.js' });
-  vm.runInContext(readRepo('pwa.js'), win, { filename: 'pwa.js' });
+  vm.runInContext(readRepo('src/domain/dns-diagnostics.js'), win, { filename: 'dns-diagnostics.js' });
+  vm.runInContext(readRepo('src/runtime/pwa.js'), win, { filename: 'pwa.js' });
 
   const assistant = YouGeAssistant.create({ projectId: 'modal-failure', domain: 'probe.example.com' }, { root: win });
   assert.equal(assistant.getState().network.dns.status, 'idle');
@@ -341,7 +341,7 @@ test('bridgePwaGlobals + pwa.js registers canonical /you-ge-sw.js and preserves 
   });
 
   // Load pwa.js into the same window
-  vm.runInContext(readRepo('pwa.js'), win, { filename: 'pwa.js' });
+  vm.runInContext(readRepo('src/runtime/pwa.js'), win, { filename: 'pwa.js' });
 
   assert.equal(win.YouGePWA.__youGePwaKit, true, 'canonical window.YouGePWA exposed');
   assert.equal(win.PWA.__pwaKit, true, 'window.PWA alias preserved');
@@ -358,7 +358,7 @@ test('bridgePwaGlobals + pwa.js registers canonical /you-ge-sw.js and preserves 
 
 test('classic and SDK domain validation agree on diagnostics probe path safety', () => {
   const { win } = makeSandboxWindow('https://portal.example.com/');
-  vm.runInContext(readRepo('domain-config.js'), win, { filename: 'domain-config.js' });
+  vm.runInContext(readRepo('src/domain/domain-config.js'), win, { filename: 'domain-config.js' });
 
   const config = {
     diagnostics: { appProbePath: 'javascript:alert(1)', backendProbePath: 'health' },
@@ -439,7 +439,7 @@ test('end-to-end pwa.js and YouGeAssistant stay synchronized across updatefound,
     },
   };
 
-  vm.runInContext(readRepo('pwa.js'), win, { filename: 'pwa.js' });
+  vm.runInContext(readRepo('src/runtime/pwa.js'), win, { filename: 'pwa.js' });
   await win.PWA.ready;
 
   const assistant = YouGeAssistant.create({ projectId: 'sw-e2e', domain: 'app.example.com' }, { root: win });
@@ -633,7 +633,7 @@ test('a public IP-literal host reaches the real engine as an IP target, never as
     probed.push(String(input));
     return { ok: true, status: 200, async json() { return {}; } };
   };
-  vm.runInContext(readRepo('dns-diagnostics.js'), win, { filename: 'dns-diagnostics.js' });
+  vm.runInContext(readRepo('src/domain/dns-diagnostics.js'), win, { filename: 'dns-diagnostics.js' });
 
   const assistant = YouGeAssistant.create({ projectId: 'ip-literal', domain: '93.184.216.34' }, { root: win });
   const result = await assistant.runDiagnostics();

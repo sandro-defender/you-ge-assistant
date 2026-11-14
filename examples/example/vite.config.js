@@ -5,11 +5,23 @@ import { defineConfig } from 'vite';
 
 const exampleRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(exampleRoot, '../..');
-const sharedFiles = new Set([
-  'pwa.js', 'pwa.css', 'you-ge-sw.js', 'progressier.js', 'qrcode.js',
-  'domain-config.js', 'domain-registry.js', 'dns-diagnostics.js',
-  'assistant-state.js', 'assistant-widget.js', 'assistant-widget.css',
-  'offline.html', 'offline.css', 'offline.js', 'browserconfig.xml', 'favicon.ico',
+const sharedFiles = new Map([
+  ['pwa.js', 'src/runtime/pwa.js'],
+  ['pwa.css', 'src/runtime/pwa.css'],
+  ['you-ge-sw.js', 'src/runtime/you-ge-sw.js'],
+  ['progressier.js', 'src/runtime/progressier.js'],
+  ['qrcode.js', 'src/shared/qrcode.js'],
+  ['domain-config.js', 'src/domain/domain-config.js'],
+  ['domain-registry.js', 'src/domain/domain-registry.js'],
+  ['dns-diagnostics.js', 'src/domain/dns-diagnostics.js'],
+  ['assistant-state.js', 'src/assistant/assistant-state.js'],
+  ['assistant-widget.js', 'src/assistant/assistant-widget.js'],
+  ['assistant-widget.css', 'src/assistant/assistant-widget.css'],
+  ['offline.html', 'src/offline/offline.html'],
+  ['offline.css', 'src/offline/offline.css'],
+  ['offline.js', 'src/offline/offline.js'],
+  ['browserconfig.xml', 'public/browserconfig.xml'],
+  ['favicon.ico', 'public/favicon.ico'],
 ]);
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -32,8 +44,9 @@ function sharedRuntimeDevFiles() {
           return next();
         }
         const isIcon = pathname.startsWith('icons/');
-        if (!sharedFiles.has(pathname) && !isIcon) return next();
-        const filename = path.resolve(repositoryRoot, pathname);
+        const mappedPath = sharedFiles.get(pathname);
+        if (!mappedPath && !isIcon) return next();
+        const filename = path.resolve(repositoryRoot, mappedPath || pathname);
         if (!filename.startsWith(repositoryRoot + path.sep) || !existsSync(filename)) return next();
         response.setHeader('Content-Type', mimeTypes[path.extname(filename)] || 'application/octet-stream');
         createReadStream(filename).pipe(response);

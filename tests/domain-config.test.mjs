@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import '../domain-config.js';
+import '../src/domain/domain-config.js';
 
 const domain = globalThis.YouGeDomain;
 

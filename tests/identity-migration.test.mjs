@@ -11,7 +11,8 @@ import { createAssistant } from '../packages/assistant-sdk/src/index.js';
 import { readToolkitSummary } from '../packages/assistant-sdk/src/adapters/pwa-kit.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (path) => readFileSync(resolve(root, path), 'utf8');
+import { resolveSourcePath } from '../scripts/source-paths.mjs';
+const read = (path) => readFileSync(resolveSourcePath(root, path), 'utf8');
 
 /**
  * Deterministic in-memory IndexedDB fake implementing the IDBFactory / IDBDatabase /
@@ -242,8 +243,8 @@ function bootCustomWorker({
 }
 
 test('Phase 1: canonical you-ge-sw.js ships kit 1.2.0 and excludes both worker entrypoints from caching', async () => {
-  assert.equal(existsSync(resolve(root, 'you-ge-sw.js')), true, 'you-ge-sw.js must exist as canonical worker');
-  const source = read('you-ge-sw.js');
+  assert.equal(existsSync(resolve(root, 'src/runtime/you-ge-sw.js')), true, 'you-ge-sw.js must exist as canonical worker');
+  const source = read('src/runtime/you-ge-sw.js');
   assert.match(source, /const VERSION = '1\.2\.0'/);
 
   const sw = bootCustomWorker({ scriptName: 'you-ge-sw.js', scope: 'https://app.test/' });
@@ -260,7 +261,7 @@ test('Phase 1: canonical you-ge-sw.js ships kit 1.2.0 and excludes both worker e
 });
 
 test('Phase 1: progressier.js acts as a subpath-safe importScripts shim to canonical you-ge-sw.js with update and offline parity', async () => {
-  const shimSource = read('progressier.js');
+  const shimSource = read('src/runtime/progressier.js');
   assert.match(shimSource, /importScripts\(/, 'progressier.js delegates via importScripts');
   assert.match(shimSource, /you-ge-sw\.js/, 'progressier.js loads canonical you-ge-sw.js');
 
@@ -671,7 +672,7 @@ function bootPwaClient({
   sandbox.globalThis = sandbox;
 
   const context = vm.createContext(sandbox);
-  vm.runInContext(read('pwa.js'), context, { filename: 'pwa.js' });
+  vm.runInContext(read('src/runtime/pwa.js'), context, { filename: 'pwa.js' });
 
   return {
     win: sandbox,
@@ -721,7 +722,7 @@ test('Phase 2: pwa.js exposes canonical window.YouGePWA alongside window.PWA and
 });
 
 test('Phase 2: SW registration uses clean canonical cutover to you-ge-sw.js (root and subpath) while keeping explicit data-sw="/progressier.js" compatibility', async () => {
-  const pwaSource = read('pwa.js');
+  const pwaSource = read('src/runtime/pwa.js');
   assert.doesNotMatch(pwaSource, /legacy-preserved|swMigrationMode|isLegacyWorkerScriptUrl/, 'pwa.js contains no automatic legacy-worker preservation logic');
 
   // 1. Fresh/default install -> registers canonical you-ge-sw.js directly without getRegistration lookup
@@ -899,14 +900,14 @@ test('Phase 2: canonical events, query parameters, declarative attributes, and m
   assert.equal(redirectClient.getReplacedHref(), 'https://example.test/inbox');
 
   // 4. Generic fallback manifest.webmanifest vs staff.you.ge registry manifest id
-  const fallbackManifest = JSON.parse(read('manifest.webmanifest'));
+  const fallbackManifest = JSON.parse(read('public/manifest.webmanifest'));
   assert.equal(fallbackManifest.id, '/', 'generic root fallback manifest uses canonical "/" id');
   const protocols = (fallbackManifest.protocol_handlers || []).map((p) => p.protocol);
   assert.ok(protocols.includes('web+youge'), 'canonical web+youge protocol handler declared');
   assert.ok(protocols.includes('web+pwa'), 'web+pwa protocol handler declared');
   assert.ok(protocols.includes('web+loldwyhv'), 'legacy web+loldwyhv handler retained during compatibility window');
 
-  const registrySource = read('domain-registry.js');
+  const registrySource = read('src/domain/domain-registry.js');
   assert.match(registrySource, /'staff\.you\.ge'[\s\S]*id:\s*'\/HIPSBNVemXtM8VMwRfWs'/, 'staff.you.ge preserves its installed app id');
 });
 
@@ -915,7 +916,7 @@ test('Phase 2: canonical events, query parameters, declarative attributes, and m
  * ------------------------------------------------------------------ */
 
 test('Phase 3: pwa.css defines canonical --youge-pwa-* custom properties with --progressier* fallback and canonical .youge-* selectors', () => {
-  const css = read('pwa.css');
+  const css = read('src/runtime/pwa.css');
   const expectedVars = [
     ['--youge-pwa-bg', '--progressierBg'],
     ['--youge-pwa-text', '--progressierTxt'],
@@ -1021,7 +1022,7 @@ test('Phase 3: demo, example, snippet, Vite config, CI workflows, and verificati
   assert.match(read('examples/example/example.css'), /\.youge-install-button\.install-button/);
   assert.match(read('docs/guides/snippet.html'), /data-sw="\/you-ge-sw\.js"/);
   assert.match(read('examples/example/vite.config.js'), /'you-ge-sw\.js'/);
-  assert.match(read('.github/workflows/pages.yml'), /you-ge-sw\.js/);
+  assert.match(read('.github/workflows/pages.yml'), /npm run build/);
   assert.match(read('.github/workflows/check.yml'), /you-ge-sw\.js/);
   assert.match(read('scripts/check.mjs'), /'you-ge-sw\.js'/);
   assert.match(read('scripts/verify-deployment.mjs'), /\/you-ge-sw\.js/);

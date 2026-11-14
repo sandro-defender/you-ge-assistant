@@ -9,6 +9,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { extractPrecacheManifest, runPrecacheIntegrity } from '../scripts/precache-integrity.mjs';
+import { resolveSourcePath } from '../scripts/source-paths.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const cli = join(root, 'scripts', 'precache-integrity.mjs');
@@ -65,7 +66,7 @@ function createKitRepo(t) {
     check: (options = {}) => runPrecacheIntegrity({ root: dir, baseRef: 'main', ...options }),
   };
   for (const path of [...PRECACHED, ...KIT_VERSION_FILES, ...WORKER_FILES, 'manifest-handler.js']) {
-    cpSync(join(root, path), join(dir, path), { recursive: true });
+    cpSync(resolveSourcePath(root, path), join(dir, path), { recursive: true });
   }
   repo.write('README.md', '# Fixture\n');
   repo.write('tests/sample.test.mjs', '// sample\n');
@@ -75,11 +76,11 @@ function createKitRepo(t) {
   return repo;
 }
 
-const kitVersion = /const VERSION = '([^']+)'/.exec(readFileSync(join(root, 'you-ge-sw.js'), 'utf8'))[1];
+const kitVersion = /const VERSION = '([^']+)'/.exec(readFileSync(join(root, 'src/runtime/you-ge-sw.js'), 'utf8'))[1];
 const nextPatch = kitVersion.replace(/\d+$/, (patch) => String(Number(patch) + 1));
 
 test('the precache manifest is read from the worker\'s real install behaviour', async () => {
-  const manifest = await extractPrecacheManifest(readFileSync(join(root, 'you-ge-sw.js'), 'utf8'));
+  const manifest = await extractPrecacheManifest(readFileSync(join(root, 'src/runtime/you-ge-sw.js'), 'utf8'));
   assert.deepEqual(manifest.precache, PRECACHED);
   assert.deepEqual(manifest.imports, ['domain-config.js', 'domain-registry.js']);
 });
@@ -272,11 +273,11 @@ test('the SDK package version is not a kit-version declaration', async (t) => {
 test('every kit-version declaration in this repository agrees, and the SDK package version stays separate', () => {
   const read = (path) => readFileSync(join(root, path), 'utf8');
   const declarations = {
-    'you-ge-sw.js VERSION': /const VERSION = '([^']+)'/.exec(read('you-ge-sw.js'))[1],
-    'pwa.js PWA.version': /^\s*version:\s*'([^']+)'/m.exec(read('pwa.js'))[1],
+    'you-ge-sw.js VERSION': /const VERSION = '([^']+)'/.exec(read('src/runtime/you-ge-sw.js'))[1],
+    'pwa.js PWA.version': /^\s*version:\s*'([^']+)'/m.exec(read('src/runtime/pwa.js'))[1],
     'package.json version': JSON.parse(read('package.json')).version,
     'SDK KIT_COMPAT_VERSION': /export const KIT_COMPAT_VERSION = '([^']+)'/.exec(read(SDK_CONSTANTS))[1],
-    'assistant-state.js KIT_COMPAT_VERSION (generated)': /const KIT_COMPAT_VERSION = '([^']+)'/.exec(read('assistant-state.js'))[1],
+    'assistant-state.js KIT_COMPAT_VERSION (generated)': /const KIT_COMPAT_VERSION = '([^']+)'/.exec(read('src/assistant/assistant-state.js'))[1],
   };
   assert.deepEqual([...new Set(Object.values(declarations))], [kitVersion], JSON.stringify(declarations, null, 2));
 
@@ -361,7 +362,7 @@ test('without an explicit base the default branch is used, and an unresolvable r
 test('outside a git checkout the diff is skipped but version synchronization is still enforced', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'youge-precache-nogit-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  for (const path of [...PRECACHED, ...KIT_VERSION_FILES, ...WORKER_FILES]) cpSync(join(root, path), join(dir, path), { recursive: true });
+  for (const path of [...PRECACHED, ...KIT_VERSION_FILES, ...WORKER_FILES]) cpSync(resolveSourcePath(root, path), join(dir, path), { recursive: true });
   const env = { GIT_CEILING_DIRECTORIES: dirname(dir) };
 
   const skipped = await runPrecacheIntegrity({ root: dir, env });
