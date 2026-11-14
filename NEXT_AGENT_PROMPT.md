@@ -1,25 +1,32 @@
-# Next Agent Prompt — fresh architecture and product-quality audit (post PR #35)
+# Next Agent Prompt — harden `@youge/assistant-sdk` React & PWA-kit adapter contracts (`CD-2` + `CD-3`)
 
-PR [#35](https://github.com/sandro-defender/you-ge-assistant/pull/35) is **merged** into `main` at `86d8ae30ac3816a1bb098ed4750ad313c03a6135` (2026-11-14 15:18 UTC). Post-merge `check` and `pages` runs passed and GitHub Pages published the merge, but **live browser behavior is unverified**. Kit is `1.1.1`; SDK package is `0.2.0`; no tag, release or publication exists. There is no pending work on PR #35 — do not reopen it, wait for its review, or re-verify its merge.
+`main` is at `8b8e95eff16731527586b281a256b66e38972288` (PR #36 merged; post-merge `check` and `pages` green). Kit is `1.1.1`; `@youge/assistant-sdk` is `0.2.0`. Read `AGENTS.md` and `AGENT_HANDOFF.md` first.
 
-## Task
+## Objective
 
-Perform a fresh, **read-only architecture and product-quality audit** of the current repository, based on the merged `main` state (confirm the tip with `git log -1 main` / `gh api repos/sandro-defender/you-ge-assistant/commits/main`). This is an audit, not an implementation phase: change no runtime, test, script or version file.
+Fix the two High-severity confirmed defects in `@youge/assistant-sdk`'s non-precached adapter and TypeScript declaration layer (`CD-2` and `CD-3` from the post-PR #36 audit) without modifying any precached runtime asset or bumping kit/SDK versions:
 
-First read `AGENTS.md` (Repository Development Rules) and `AGENT_HANDOFF.md` (current state, open owner items, risks). Then:
+1. **React external-store selector memoization, SSR fallback shape & lifecycle (`CD-2`):**
+   - Update `createUseAssistant` in `packages/assistant-sdk/src/adapters/react.js` so selector-based subscriptions memoize selected snapshots (`Object.is`) before `useSyncExternalStore` compares them — ensuring components calling `useAssistant(selector)` do not re-render when unrelated `AssistantState` fields change and derived selector outputs remain tear-free and referentially stable while unchanged.
+   - Complete `FALLBACK_ASSISTANT_STATE.project` in `packages/assistant-sdk/src/adapters/react.js` so every non-optional field declared on `AssistantProjectInfo` (`packages/assistant-sdk/src/index.d.ts`: `detectedHostname`, `matchedRegistryKey`, `projectIdSource`, `domainValidation`) is present and frozen for SSR `getServerSnapshot()` callers.
+   - Update `createReactAdapter` (`packages/assistant-sdk/src/adapters/react.js`) so `resolveAssistant()` re-resolves when a cached instance reports `isDestroyed() === true` (matching `getExternalStoreBindings`).
+   - Align paired TypeScript declarations: add optional `createElement` to `ReactAdapterOptions` (`packages/assistant-sdk/src/adapters/react.d.ts`) and optional `seedPrimary?: string | null` to `ThemeResolutionContext` (`packages/assistant-sdk/src/theme/index.d.ts`).
+2. **`bridgePwaGlobals()` SDK global parity for `assistant-widget.js` (`CD-3`):**
+   - Update `bridgePwaGlobals()` in `packages/assistant-sdk/src/adapters/pwa-kit.js` so `root.YouGeAssistantSDK` exposes (or merges onto an existing partial object without clobbering active `domain`/`YouGeAssistant` instances) the same theme, notification-level and Android Chrome-handoff helpers that `assistant-widget.js` reads (`resolveTheme`, `normalizeTheme`, `detectHostScheme`, `contrastRatio`, `THEME_MODES`, `THEME_TOKEN_KEYS`, `NOTIFICATION_LEVELS`, `NOTIFICATION_LEVEL_ICONS`, `NOTIFICATION_LEVEL_SHAPES`, `NOTIFICATION_LEVEL_SVG_ATTRIBUTES`, `NOTIFICATION_LEVEL_LABELS`, `notificationLevelMarkup`, `normalizeNotificationLevel`, `detectInAppBrowser`, `isChromeHandoffCandidate`, `buildChromeIntentUrl`, `chromeHandoffInstructions`, `createChromeHandoff`).
 
-1. **Inspect the actual implementation**, not just the docs: `pwa.js`, `progressier.js`, `assistant-state.js` / `packages/assistant-sdk/`, `assistant-widget.*`, domain configuration (`domain-registry.js`, `domain-config.js`), `dns-diagnostics.js`, offline files, `scripts/` gates, workflows, `demo/` and `example/`. Check that documentation claims match code.
-2. **Identify concrete remaining defects, inconsistencies, risks and quality improvements** — correctness, security/origin boundaries, compatibility-contract handling, precache/update behavior, SDK API coherence, accessibility, test coverage gaps, doc drift.
-3. **Prioritize findings by severity and impact** (e.g. critical / high / medium / low), each with file/line evidence and a concrete reproduction or reasoning chain.
-4. **Clearly separate confirmed defects** (demonstrated in code or by a focused test/read-only probe) **from speculative architectural risks** (plausible but unproven). Never present a hypothesis as a confirmed bug.
-5. **Recommend exactly one best next coherent implementation task**, sized per `AGENTS.md` (one independently verifiable objective), with rationale and acceptance criteria. Do not start it.
+## Acceptance Criteria & Verification
 
-Deliver the audit as a report (new markdown document or PR description) and update `AGENT_HANDOFF.md` / `NEXT_AGENT_PROMPT.md` per the handoff rules. Focused read-only probes and existing checks (`node scripts/check.mjs`, targeted `node --test <file>`) are allowed; avoid unnecessary full-suite runs.
+- Use TDD (`tdd` skill): add failing regression tests first in `packages/assistant-sdk/tests/sdk-integrations.test.mjs`, `packages/assistant-sdk/tests/sdk-declarations.test.mjs`, and `tests/sdk-integration.test.mjs`, plus compile-time coverage in `example/src/sdk-public-subpaths.typecheck.ts`.
+- Verify:
+  1. `useAssistant(selector)` skips subscriber re-renders when unrelated state slices change and returns stable selected values across repeated `getSnapshot()` reads.
+  2. `FALLBACK_ASSISTANT_STATE.project` satisfies every required property of `AssistantProjectInfo` (including `domainValidation.valid === true` and `domainValidation.issues`).
+  3. `createReactAdapter` re-attaches cleanly if its previously resolved assistant was destroyed, and TypeScript accepts `{ useSyncExternalStore, createElement }` and `resolveTheme(theme, { seedPrimary })`.
+  4. Mounting `assistant-widget.js` after `bridgePwaGlobals()` resolves adaptive themes (`data-scheme`, `--youge-*` variables) and offers Android Chrome handoff on restricted Android WebViews identically to `assistant-state.js`.
+- Do **not** edit any file in `SOURCE_MODULES` of `scripts/sync-sdk-browser.mjs` unless authorized for a kit-version bump (`theme/index.d.ts` is `.d.ts`-only and does not change `assistant-state.js`). Confirm `node scripts/sync-sdk-browser.mjs --check`, `node scripts/precache-integrity.mjs`, `npm run test:sdk`, `node --test tests/sdk-integration.test.mjs`, `node packages/assistant-sdk/scripts/validate-package.mjs`, and `npm run check` (plus `example` `npm run typecheck` when dependencies are installed) all pass.
 
 ## Boundaries
 
-- No implementation, refactoring or fixes during the audit; recommendations only.
-- Excluded unless explicitly authorized: Phase 3 dashboard, alternate-domain failover, and unrelated `staff.you.ge`-specific work.
-- Do not merge, publish, release, tag, deploy, or bump kit/package/SDK versions. Any precached-file change needs an owner-authorized kit bump; if the integrity gate fails, request authorization — never bypass it.
-- You.Ge Assistant is the sole product identity; preserve every compatibility contract in `COMPATIBILITY_CONTRACTS.md` (`/progressier.js`, `window.progressier`, selectors, CSS variables, cookies, storage keys, manifest `id`). Do not remove or restructure `reference/` or `PARITY.md`.
-- Live deployment verification and the blocked GitHub-metadata update are owner-level items tracked in `AGENT_HANDOFF.md`; report their status, do not silently absorb them into the audit.
+- Keep `@youge/assistant-sdk` zero-dependency, ESM-only, with zero `fetch()`, `serviceWorker.register()`, `setInterval()`, or runtime `react` imports.
+- Preserve all compatibility contracts in `COMPATIBILITY_CONTRACTS.md`; do not modify `reference/` or `PARITY.md`.
+- Do not bump kit (`1.1.1`) or SDK (`0.2.0`) versions, tag, release, publish, deploy, or merge without explicit authorization.
+- Update `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md` when complete.
