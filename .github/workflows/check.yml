@@ -18,7 +18,7 @@ jobs:
           cache: npm
           cache-dependency-path: example/package-lock.json
 
-      - name: Install, type-check and build ReactBits example
+      - name: Install, type-check SDK public subpaths and build ReactBits example
         run: npm ci && npm run typecheck && npm run build
         working-directory: example
 

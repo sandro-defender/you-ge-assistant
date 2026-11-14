@@ -536,14 +536,17 @@ export function createAssistant(initialOptions, envOverrides) {
       pwa: pwa,
       enabled: config.modules.installation,
     });
+    const dns = {
+      status: conditions.dns.status,
+      classification: conditions.dns.classification,
+      message: conditions.dns.message,
+      checkedAt: conditions.dns.checkedAt,
+    };
+    if (typeof conditions.dns.cancelled === 'boolean') dns.cancelled = conditions.dns.cancelled;
+    if (typeof conditions.dns.failed === 'boolean') dns.failed = conditions.dns.failed;
     const network = {
       online: conditions.online,
-      dns: {
-        status: conditions.dns.status,
-        classification: conditions.dns.classification,
-        message: conditions.dns.message,
-        checkedAt: conditions.dns.checkedAt,
-      },
+      dns: dns,
       endpoints: {
         primary: conditions.endpoints.primary,
         backup: conditions.endpoints.backup,
@@ -635,18 +638,20 @@ export function createAssistant(initialOptions, envOverrides) {
     if (unsubscribePwa || destroyed) return;
     const pwa = getPwa();
     if (pwa && typeof pwa.onChange === 'function') {
-      let initial = true;
       try {
         unsubscribePwa = pwa.onChange(function (nextState) {
-          if (!initial && nextState && typeof nextState === 'object' && nextState.hasUpdate === false && lastPwaHasUpdate === true) {
-            conditions.updateAvailable = false;
+          if (nextState && typeof nextState === 'object' && typeof nextState.hasUpdate === 'boolean') {
+            // Once the toolkit publishes an explicit availability snapshot it
+            // owns that state; event-only and manual legacy signals are fallback
+            // state only until this callback reconciles them.
+            lastPwaHasUpdate = nextState.hasUpdate;
+            conditions.updateAvailable = nextState.hasUpdate;
           }
           emit();
         });
       } catch (error) {
         unsubscribePwa = null;
       }
-      initial = false;
     }
   }
 

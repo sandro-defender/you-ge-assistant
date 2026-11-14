@@ -563,6 +563,7 @@ Listen on `document`:
 
 | Event | Detail |
 | --- | --- |
+| `pwa:ready` | `pwa.js` initialized its API; service-worker registration may not have run or completed |
 | `pwa:installable` | Install prompt captured |
 | `pwa:installed` | App installed or entered standalone |
 | `pwa:update` | New service worker waiting |
@@ -673,6 +674,14 @@ components inherit whatever the page sets.
 ---
 
 ## 12. Updating and rollback
+
+The service-worker install precache is defined in `progressier.js` and includes
+`offline.html`, `offline.js`, `offline.css`, `domain-config.js`,
+`domain-registry.js`, `dns-diagnostics.js`, `assistant-state.js`,
+`assistant-widget.js`, `assistant-widget.css`, `pwa.css`, `qrcode.js`, the
+configured default icon, and `icons/icon-512.png`. `pwa.js` and
+`progressier.js` themselves are not in that precache list; the worker script
+updates through normal service-worker script checks.
 
 When any cached file changes:
 

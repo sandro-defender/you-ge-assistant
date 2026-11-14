@@ -1,31 +1,19 @@
 # `@youge/assistant-sdk` — Release Preparation & Publishing Decision
 
-> **Status: 0.2.0 prepared in-repo (2026-11-07) — version bumped in
-> `package.json`, `SDK_VERSION` and `KIT_COMPAT_VERSION` (`1.1.0`); nothing is
-> staged or published, and every gate below stays closed until the owner
-> dispatches `verify` → `stage` → approve. · 0.1.0 published (2026-11-06) — staged by the manual GitHub
-> Actions `stage` job, then made public only when the owner approved the
-> staged version on npmjs.com with 2FA. · 0.1.1 published (2026-11-07,
-> 07:07 UTC) — staged at 07:04 by the `stage` job, whose OIDC token exchange
-> npm Trusted Publishing accepted, then made public when the owner approved
-> it with 2FA; the `publish` job never ran and no npm token was involved.**
-> Nothing in this repository publishes
-> the package on push, pull request or merge. The first publication used a
-> temporary stage-only bootstrap secret `NPM_STAGE_TOKEN` (granular, stage
-> only, `@youge` scope) that was **created, used and revoked** after staging
-> (§4 steps 3–5, §6.4). Since the 2026-11-07 OIDC migration, the release
-> workflow is fully **npm Trusted Publishing (OIDC)**: the `stage` job carries
-> `id-token: write`, and the `verify` job, the `stage` job and the `publish`
-> job all use **no npm token** at all — no npm token reference exists anywhere
-> in this repository's workflows. The Trusted Publisher connection (§6.3)
-> is registered and validated: `0.1.1` was staged (07:04 UTC) and approved
-> (07:07 UTC) on 2026-11-07, completing the **48-hour** first-publish
-> validation window (§7, §8 item 6). Until the next version bump,
-> the `Verify only` selection correctly fails its "Version has not been published yet"
-> gate — the release gate working as designed
-> ([§6.6](#66-non-mutating-verification-of-npm-trusted-publishing-oidc)). See
-> [§5](#5-publishing-remains-disabled) and
-> [§8](#8-required-follow-ups-before-the-first-publish).
+> **Current registry status (verified 2026-11-14):** npm reports
+> `@youge/assistant-sdk@0.2.0` as the current version. The detailed preparation
+> and verification records below describe the 2026-11-07 release work and are
+> historical; they do not describe the current registry state. This Stage 5.4
+> task did not stage, publish, release, or change package metadata. The
+> repository's release workflow remains manually authorized and gated; nothing
+> is published automatically on push, pull request, or merge.
+>
+> **Release-auth history:** 0.1.0 and 0.1.1 were staged by the manual GitHub
+> Actions `stage` job and made public only after owner approval on npmjs.com.
+> The initial publication used a temporary stage-only `NPM_STAGE_TOKEN`, which
+> was created, used, and revoked. Since the 2026-11-07 OIDC migration, staging
+> and publishing use npm Trusted Publishing (OIDC) and no npm token. See the
+> runbook and historical verification details below.
 
 This document records (1) the package-metadata review, (2) the evaluation of
 publishing destinations with a recommendation, (3) the release procedure to
@@ -43,9 +31,9 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 
 | Item | Value | Notes |
 | --- | --- | --- |
-| Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); published at `0.1.0` (2026-11-06) |
-| Version | `0.2.0` (prepared 2026-11-07, not staged); `0.1.1` published 2026-11-07 07:07 UTC | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
-| Visibility | published (`0.1.0`, 2026-11-06; `0.1.1`, 2026-11-07); `0.2.0` prepared only | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every publish path stays gated ([§5](#5-publishing-remains-disabled)) |
+| Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); npm registry currently reports `0.2.0` (verified 2026-11-14) |
+| Version | `0.2.0` (current registry version as of 2026-11-14) | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
+| Visibility | published (`0.1.0`, `0.1.1`, `0.2.0`) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every future publish path stays gated ([§5](#5-publishing-remains-disabled)) |
 | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
 | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
 | TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./browser`, `./react` |

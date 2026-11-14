@@ -11,6 +11,7 @@ import {
   createDiagnosticsIntegration,
 } from '../src/index.js';
 import { requestPwaUpdate as requestPwaUpdateSubpath } from '../src/installation/index.js';
+import { connectivityFailure, dnsFailure, normalizeDnsResult } from '../src/diagnostics/index.js';
 import {
   FALLBACK_ASSISTANT_STATE,
   createReactAdapter,
@@ -69,6 +70,43 @@ test('integrates with existing diagnostics runners on-demand and single-flight w
   assert.equal(assistant.getState().network.dns.classification, 'normal_connectivity');
   assert.equal(assistant.getState().network.dns.status, 'complete');
 
+  assistant.destroy();
+});
+
+test('normalizes DNS cancellation consistently and publishes the optional cancelled field', () => {
+  const cancelled = normalizeDnsResult({
+    status: 'complete',
+    classification: 'nxdomain',
+    failed: true,
+    cancelled: true,
+    message: 'Caller cancelled the run.',
+  });
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.classification, 'cancelled');
+  assert.equal(cancelled.failed, false);
+  assert.equal(cancelled.cancelled, true);
+  assert.equal(dnsFailure({ classification: 'cancelled', failed: true }), false);
+  assert.equal(connectivityFailure({ classification: 'cancelled', failed: true }), false);
+
+  const notCancelled = normalizeDnsResult({
+    status: 'complete',
+    classification: 'normal_connectivity',
+    failed: false,
+    cancelled: false,
+  });
+  assert.equal(notCancelled.status, 'complete');
+  assert.equal(notCancelled.classification, 'normal_connectivity');
+  assert.equal(notCancelled.failed, false);
+  assert.equal(notCancelled.cancelled, false);
+
+  const legacy = normalizeDnsResult({ status: 'complete', classification: 'unknown' });
+  assert.equal(Object.hasOwn(legacy, 'cancelled'), false, 'legacy results keep the optional field absent');
+
+  const assistant = YouGeAssistant.create({ bindEvents: false });
+  assistant.setDnsResult(cancelled);
+  assert.deepEqual(assistant.getState().network.dns, cancelled);
+  assistant.setDnsResult(legacy);
+  assert.equal(Object.hasOwn(assistant.getState().network.dns, 'cancelled'), false);
   assistant.destroy();
 });
 
@@ -533,6 +571,75 @@ test('requestPwaUpdate delegates safely and classifies applied, no-waiting-worke
     await requestPwaUpdate({ pwa: { applyUpdate: () => Promise.reject(new Error('async fail')) } }),
     { applied: false, outcome: 'error' }
   );
+
+  const supportedUnderlyingOutcomes = [
+    { applied: true, outcome: 'applied' },
+    { applied: false, outcome: 'no-waiting-worker' },
+    { applied: false, outcome: 'unsupported' },
+    { applied: false, outcome: 'disabled' },
+    { applied: false, outcome: 'error' },
+  ];
+  for (const expected of supportedUnderlyingOutcomes) {
+    const result = await requestPwaUpdate({ pwa: { applyUpdate: () => expected } });
+    assert.deepEqual(result, expected);
+    assert.ok(['applied', 'no-waiting-worker', 'unsupported', 'disabled', 'error'].includes(result.outcome));
+  }
+
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { applyUpdate: () => ({ applied: true, outcome: 'future-outcome' }) } }),
+    { applied: true, outcome: 'applied' },
+    'unknown object outcomes fall back to the legacy applied boolean'
+  );
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { applyUpdate: () => ({ applied: false, outcome: 'future-outcome' }) } }),
+    { applied: false, outcome: 'no-waiting-worker' }
+  );
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { applyUpdate: () => ({ applied: true, outcome: 'error' }) } }),
+    { applied: true, outcome: 'applied' },
+    'contradictory outcomes are normalized to match the legacy applied flag'
+  );
+
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { getState: () => ({ hasUpdate: true }), applyUpdate: () => undefined } }),
+    { applied: true, outcome: 'applied' },
+    'legacy void return remains supported when update state is not explicitly absent'
+  );
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { getState: () => ({ hasUpdate: false }), applyUpdate: () => null } }),
+    { applied: false, outcome: 'no-waiting-worker' },
+    'legacy null return consults the PWA snapshot'
+  );
+});
+
+test('a PWA state-change false snapshot clears an update previously surfaced by pwa:update', () => {
+  const docListeners = new Map();
+  const doc = {
+    addEventListener(type, listener) { docListeners.set(type, listener); },
+    removeEventListener(type) { docListeners.delete(type); },
+    dispatchEvent(event) { if (docListeners.has(event.type)) docListeners.get(event.type)(event); },
+  };
+  let onChangeListener;
+  const pwaState = { hasUpdate: false };
+  const root = {
+    document: doc,
+    location: { hostname: 'legacy-update.example.com', origin: 'https://legacy-update.example.com', protocol: 'https:', pathname: '/' },
+    navigator: { onLine: true },
+    addEventListener() {},
+    removeEventListener() {},
+    PWA: {
+      __pwaKit: true,
+      getState: () => ({ ...pwaState }),
+      onChange(listener) { onChangeListener = listener; listener(this.getState()); return () => {}; },
+    },
+  };
+  const assistant = YouGeAssistant.create({ bindEvents: true }, { root });
+  doc.dispatchEvent({ type: 'pwa:update' });
+  assert.equal(assistant.getState().network.updateAvailable, true);
+  onChangeListener({ hasUpdate: false });
+  assert.equal(assistant.getState().network.updateAvailable, false);
+  assert.equal(assistant.getState().notifications.some((n) => n.id === 'app:update'), false);
+  assistant.destroy();
 });
 
 test('assistant.applyUpdate delegates to PWA, respects modules.updates and clears stale update state only when no waiting worker remains', async () => {
@@ -576,6 +683,16 @@ test('assistant.applyUpdate delegates to PWA, respects modules.updates and clear
   assert.ok(assistant.getState().notifications.some((n) => n.id === 'app:update'));
   assert.ok(assistant.getState().availableActions.some((a) => a.id === 'update'));
 
+  const repeatedSnapshots = [];
+  const unsubscribeRepeated = assistant.subscribe((state) => repeatedSnapshots.push(state), { immediate: false });
+  const updateSnapshot = assistant.getState();
+  doc.dispatchEvent({ type: 'pwa:update' });
+  doc.dispatchEvent({ type: 'pwa:update' });
+  assert.equal(assistant.getState(), updateSnapshot, 'repeated update events do not churn an unchanged snapshot');
+  assert.equal(repeatedSnapshots.length, 0, 'repeated update events do not duplicate notifications to subscribers');
+  assert.equal(assistant.getState().notifications.filter((n) => n.id === 'app:update').length, 1);
+  unsubscribeRepeated();
+
   // 1. Applying while waiting worker exists delegates and returns applied: true without clearing prematurely
   const applied = await assistant.applyUpdate();
   assert.deepEqual(applied, { applied: true, outcome: 'applied' });
@@ -596,7 +713,12 @@ test('assistant.applyUpdate delegates to PWA, respects modules.updates and clear
   const beforeDisabledCalls = applyCalls;
   assert.deepEqual(await assistant.applyUpdate(), { applied: false, outcome: 'disabled' });
   assert.equal(applyCalls, beforeDisabledCalls);
+  assert.equal(assistant.getState().network.updateAvailable, true, 'the PWA-owned availability remains observable');
+  assert.equal(assistant.getState().notifications.some((n) => n.id === 'app:update'), false, 'disabled updates suppress notification UI');
+  assert.equal(assistant.getState().availableActions.some((a) => a.id === 'update'), false, 'disabled updates suppress apply actions');
   assistant.configure({ modules: { updates: true } });
+  assert.ok(assistant.getState().notifications.some((n) => n.id === 'app:update'), 're-enabling updates restores the waiting-worker UI');
+  assert.ok(assistant.getState().availableActions.some((a) => a.id === 'update'));
 
   // 4. Waiting worker disappears -> applyUpdate resolves false + hasUpdate is false -> clears stale notice
   pwaState.hasUpdate = false;

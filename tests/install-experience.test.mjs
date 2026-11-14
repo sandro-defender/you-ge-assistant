@@ -443,6 +443,23 @@ function deferredPrompt(outcome = 'accepted') {
   };
 }
 
+test('pwa:ready means the runtime API initialized, before load starts service-worker registration', async () => {
+  const harness = createContext({ controller: null });
+  const ready = harness.events.find((event) => event.type === 'pwa:ready');
+  assert.ok(ready, 'the initialization event is dispatched synchronously');
+  assert.equal(ready.detail.hasUpdate, false);
+  assert.equal(harness.serviceWorker.registerCalls.length, 0, 'registration waits for window load');
+
+  let registrationSettled = false;
+  harness.win.PWA.ready.then(() => { registrationSettled = true; });
+  await Promise.resolve();
+  assert.equal(registrationSettled, false, 'PWA.ready is distinct from pwa:ready');
+
+  harness.win.dispatch('load');
+  await harness.win.PWA.ready;
+  assert.equal(harness.serviceWorker.registerCalls.length, 1);
+});
+
 test('captures beforeinstallprompt and triggers the native browser prompt on a user action', async () => {
   const harness = createContext({ userAgent: CHROME_UA });
   const { calls, event } = deferredPrompt('accepted');
