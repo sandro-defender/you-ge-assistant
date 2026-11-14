@@ -1,6 +1,6 @@
 {
   "name": "you-ge-assistant",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "You.Ge Assistant: a dependency-free, multi-domain PWA toolkit with installation, offline support, sharing, push, badges, QR codes and diagnostics; foundation for the future dashboard and single SDK package.",
   "license": "MIT",

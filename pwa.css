@@ -82,7 +82,7 @@
 }
 
 /* ---------------------------------------------------------------- *
- * Floating install toolbox (original Progressier-style app icon)
+ * Floating install toolbox (app-icon launcher; legacy placement classes preserved)
  * ---------------------------------------------------------------- */
 
 .pwa-toolbox {
@@ -96,7 +96,7 @@
   outline: 0 !important;
 }
 
-/* Retained from Progressier's toolbox stylesheet; its legacy caller is optional. */
+/* Legacy scroll-lock helper kept for existing integrations; no You.Ge Assistant code applies it. */
 body.force-fixed {
   position: fixed !important;
   height: 100vh !important;
