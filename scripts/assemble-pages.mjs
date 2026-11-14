@@ -10,28 +10,50 @@
  */
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, parse, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDist } from './build.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+export function validateOutputDir(outputDir) {
+  if (typeof outputDir !== 'string' || !outputDir.trim()) {
+    throw new Error('Unsafe output directory: outputDir must be a non-empty path.');
+  }
+  const resolved = resolve(outputDir);
+  const fsRoot = parse(resolved).root;
+  if (resolved === fsRoot) {
+    throw new Error(`Unsafe output directory: cannot use filesystem root (${resolved}).`);
+  }
+  if (resolved === rootDir) {
+    throw new Error(`Unsafe output directory: cannot use repository root (${resolved}).`);
+  }
+  if (resolved === resolve(process.cwd())) {
+    throw new Error(`Unsafe output directory: cannot use current working directory (${resolved}).`);
+  }
+  if (rootDir.startsWith(resolved + sep)) {
+    throw new Error(`Unsafe output directory: cannot use a parent directory of the repository (${resolved}).`);
+  }
+  return resolved;
+}
+
 export function assemblePages({
   outputDir = join(rootDir, '_site'),
   basePath = process.env.GITHUB_REPOSITORY ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}` : '/you-ge-assistant',
 } = {}) {
+  const safeOutputDir = validateOutputDir(outputDir);
   const { outputDir: distDir } = buildDist();
 
-  if (existsSync(outputDir)) {
-    rmSync(outputDir, { recursive: true, force: true });
+  if (existsSync(safeOutputDir)) {
+    rmSync(safeOutputDir, { recursive: true, force: true });
   }
-  const exampleOutDir = join(outputDir, 'example');
+  const exampleOutDir = join(safeOutputDir, 'example');
   mkdirSync(exampleOutDir, { recursive: true });
 
   // 1. Root feature-test playground
-  cpSync(distDir, outputDir, { recursive: true });
-  cpSync(join(rootDir, 'examples/demo/index.html'), join(outputDir, 'index.html'));
-  cpSync(join(rootDir, 'examples/demo/manifest.webmanifest'), join(outputDir, 'manifest.webmanifest'));
+  cpSync(distDir, safeOutputDir, { recursive: true });
+  cpSync(join(rootDir, 'examples/demo/index.html'), join(safeOutputDir, 'index.html'));
+  cpSync(join(rootDir, 'examples/demo/manifest.webmanifest'), join(safeOutputDir, 'manifest.webmanifest'));
 
   // 2. Independent /example/ PWA
   const exampleDistDir = join(rootDir, 'examples/example/dist');
@@ -46,7 +68,7 @@ export function assemblePages({
 
   // 3. Scope-specific browserconfig.xml tile paths
   const normalizedBase = basePath.replace(/\/+$/, '');
-  const rootBrowserConfigPath = join(outputDir, 'browserconfig.xml');
+  const rootBrowserConfigPath = join(safeOutputDir, 'browserconfig.xml');
   writeFileSync(
     rootBrowserConfigPath,
     readFileSync(rootBrowserConfigPath, 'utf8').replaceAll('src="/icons/', `src="${normalizedBase}/icons/`),
@@ -68,9 +90,9 @@ export function assemblePages({
   );
 
   // 5. Disable Jekyll processing
-  writeFileSync(join(outputDir, '.nojekyll'), '');
+  writeFileSync(join(safeOutputDir, '.nojekyll'), '');
 
-  return { outputDir, exampleOutDir, basePath: normalizedBase };
+  return { outputDir: safeOutputDir, exampleOutDir, basePath: normalizedBase };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

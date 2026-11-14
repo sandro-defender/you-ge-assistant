@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { assemblePages } from '../scripts/assemble-pages.mjs';
+import { dirname, join, resolve } from 'node:path';
+import { assemblePages, validateOutputDir } from '../scripts/assemble-pages.mjs';
 import { buildDist } from '../scripts/build.mjs';
 import { PUBLIC_TO_SOURCE } from '../scripts/source-paths.mjs';
 import test from 'node:test';
@@ -104,9 +104,49 @@ test('assemblePages produces independent root and /example/ scopes with all runt
     }
 
     // Root vs /example/ manifests and index.html are distinct (no accidental overwriting)
+    const rootHtml = readFileSync(join(outputDir, 'index.html'), 'utf8');
+    const exampleHtml = readFileSync(join(exampleOutDir, 'index.html'), 'utf8');
+    assert.notEqual(rootHtml, exampleHtml, 'root and /example/ index.html must be distinct');
+
     const rootManifest = JSON.parse(readFileSync(join(outputDir, 'manifest.webmanifest'), 'utf8'));
     const exampleManifest = JSON.parse(readFileSync(join(exampleOutDir, 'manifest.webmanifest'), 'utf8'));
     assert.notEqual(rootManifest.name, exampleManifest.name);
+    assert.notEqual(rootManifest.short_name, exampleManifest.short_name);
+
+    // Verify relative references in HTML, CSS, manifests, and service-worker scripts resolve within each scope
+    const isExternalOrSpecial = (ref) =>
+      !ref ||
+      ref.startsWith('#') ||
+      ref.startsWith('http://') ||
+      ref.startsWith('https://') ||
+      ref.startsWith('data:') ||
+      ref.startsWith('mailto:') ||
+      ref.startsWith('tel:');
+
+    const assertScopeRef = (scopeDir, ref, sourceLabel) => {
+      if (isExternalOrSpecial(ref)) return;
+      const clean = ref.split(/[?#]/)[0].replace(/^\.\//, '');
+      if (!clean || clean.startsWith('/')) return;
+      const target = resolve(scopeDir, clean);
+      assert.ok(target.startsWith(outputDir), `${sourceLabel} reference "${ref}" escapes assembled site`);
+      assert.ok(existsSync(target), `${sourceLabel} reference "${ref}" resolves in ${scopeDir}`);
+    };
+
+    for (const [label, scopeDir, html, manifest] of [
+      ['root', outputDir, rootHtml, rootManifest],
+      ['example', exampleOutDir, exampleHtml, exampleManifest],
+    ]) {
+      for (const match of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
+        assertScopeRef(scopeDir, match[1], `${label} index.html`);
+      }
+      for (const icon of manifest.icons || []) {
+        assertScopeRef(scopeDir, icon.src, `${label} manifest.webmanifest`);
+      }
+      const offlineCss = readFileSync(join(scopeDir, 'offline.css'), 'utf8');
+      for (const match of offlineCss.matchAll(/url\(['"]?([^'")]+)['"]?\)/g)) {
+        assertScopeRef(scopeDir, match[1], `${label} offline.css`);
+      }
+    }
 
     // Scope-specific browserconfig.xml tile paths
     const rootBrowserConfig = readFileSync(join(outputDir, 'browserconfig.xml'), 'utf8');
@@ -126,5 +166,23 @@ test('assemblePages produces independent root and /example/ scopes with all runt
     }
   } finally {
     rmSync(tempSite, { recursive: true, force: true });
+  }
+});
+
+test('assemblePages rejects dangerous output paths before deleting anything', () => {
+  const repoRoot = resolve(dirname(new URL('..', import.meta.url).pathname));
+  const parentDir = dirname(repoRoot);
+
+  for (const unsafe of ['', '   ', '/', repoRoot, process.cwd(), parentDir]) {
+    assert.throws(
+      () => validateOutputDir(unsafe),
+      /Unsafe output directory/,
+      `validateOutputDir must reject "${unsafe}"`,
+    );
+    assert.throws(
+      () => assemblePages({ outputDir: unsafe }),
+      /Unsafe output directory/,
+      `assemblePages must reject "${unsafe}"`,
+    );
   }
 });
