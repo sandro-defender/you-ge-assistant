@@ -3235,7 +3235,7 @@
           message: 'The primary endpoint is healthy again.', actionId: 'diagnostics',
         }, 'api:primary-restored');
       }
-      if (network.updateAvailable) {
+      if (config.modules.updates && network.updateAvailable) {
         add({
           id: 'app:update', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
           critical: false, dismissible: true, title: 'App update available',
