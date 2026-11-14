@@ -229,6 +229,12 @@ How it works:
   not the last commit, and changes that landed on `main` after the fork point
   are not attributed to the branch.
 - The working tree is compared, so uncommitted edits are caught locally.
+- Public runtime paths are resolved in the base commit through
+  [`scripts/source-paths.mjs`](../../scripts/source-paths.mjs): since the
+  source/output split the repository stores `you-ge-sw.js` as
+  `src/runtime/you-ge-sw.js`, while a deployment-shaped checkout (and every
+  commit before the split) stores the flat public path. Both are tried, so the
+  diff keeps its base instead of degrading to "diff skipped".
 - An explicit base that cannot be resolved is an error (CI checks out with
   `fetch-depth: 0`). With no base and no git history — a downloaded copy of the
   runtime — the diff is skipped with a warning and rules 1–2 still run.
