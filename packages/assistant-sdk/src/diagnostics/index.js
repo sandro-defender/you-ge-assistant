@@ -29,12 +29,31 @@ const CONNECTIVITY_FAILURE_CLASSIFICATIONS = [
   'timeout',
 ];
 
+// A caller-cancelled run is neither a DNS nor a connectivity failure: the user
+// stopped it, so no critical notice may be raised from it.
+export function isCancelledResult(dns) {
+  if (!dns || typeof dns !== 'object') return false;
+  return dns.cancelled === true || String(dns.status || '').toLowerCase() === 'cancelled';
+}
+
+export function cancelledDiagnosticsResult(reason) {
+  return {
+    status: 'cancelled',
+    classification: 'cancelled',
+    message: safeText(reason, 200) || 'Diagnostics were cancelled.',
+    failed: false,
+    cancelled: true,
+  };
+}
+
 export function dnsFailure(dns) {
+  if (isCancelledResult(dns)) return false;
   const classification = String((dns && dns.classification) || 'unknown').toLowerCase();
   return DNS_FAILURE_CLASSIFICATIONS.indexOf(classification) !== -1;
 }
 
 export function connectivityFailure(dns) {
+  if (isCancelledResult(dns)) return false;
   const classification = String((dns && dns.classification) || 'unknown').toLowerCase();
   return CONNECTIVITY_FAILURE_CLASSIFICATIONS.indexOf(classification) !== -1 || Boolean(dns && dns.failed);
 }
@@ -77,12 +96,43 @@ export function resolveDiagnosticsRunner(options) {
   return null;
 }
 
+/** Normalizes the accepted signal shapes (an AbortSignal or `{ signal }`). */
+export function resolveRunSignal(signal) {
+  if (!signal) return null;
+  const candidate = typeof signal.addEventListener === 'function'
+    ? signal
+    : (signal.signal && typeof signal.signal === 'object' ? signal.signal : null);
+  if (!candidate || typeof candidate.addEventListener !== 'function') return null;
+  return candidate;
+}
+
 export function createDiagnosticsIntegration(options) {
   const opts = options || {};
+  const AbortImpl = opts.AbortController || (typeof AbortController !== 'undefined' ? AbortController : null);
   let inFlight = null;
+  let runController = null;
+  let detachRun = null;
+  // Bumped by `clear()`: a run that was cleared must never report a result
+  // afterwards, otherwise an abandoned check could overwrite newer state.
+  let generation = 0;
+
+  function detach() {
+    if (detachRun) {
+      try { detachRun(); } catch (error) { /* already detached */ }
+      detachRun = null;
+    }
+    runController = null;
+  }
 
   function run(runOptions) {
     if (inFlight) return inFlight;
+    const runOpts = Object.assign({}, runOptions || {});
+    const callerSignal = resolveRunSignal(runOpts.signal);
+    if (callerSignal && callerSignal.aborted) {
+      const cancelled = cancelledDiagnosticsResult('Diagnostics were cancelled before they started.');
+      if (typeof opts.onResult === 'function') opts.onResult(cancelled);
+      return Promise.resolve(cancelled);
+    }
     const runner = resolveDiagnosticsRunner(opts);
     if (!runner) {
       const unavailable = {
@@ -94,32 +144,92 @@ export function createDiagnosticsIntegration(options) {
       return Promise.resolve(unavailable);
     }
 
+    // One controller per run, always. The caller's signal (if any) is bridged
+    // onto it, so `clear()` — which `destroy()` calls — can always stop the run,
+    // the caller's own signal is never mutated here, and a cancellation is
+    // tracked separately from a timeout or an ordinary probe failure.
+    let cancelled = false;
+    let onOwnAbort = null;
+    let onCallerAbort = null;
+    if (AbortImpl) {
+      runController = new AbortImpl();
+      onOwnAbort = function () { cancelled = true; };
+      runController.signal.addEventListener('abort', onOwnAbort, { once: true });
+    }
+    if (callerSignal) {
+      onCallerAbort = function () {
+        if (runController) {
+          try { runController.abort(); } catch (error) { /* already settled */ }
+        } else {
+          cancelled = true;
+        }
+      };
+      if (callerSignal.aborted) onCallerAbort();
+      else callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+    }
+    detachRun = function () {
+      if (callerSignal && onCallerAbort) callerSignal.removeEventListener('abort', onCallerAbort);
+      if (runController && onOwnAbort) runController.signal.removeEventListener('abort', onOwnAbort);
+    };
+    const signal = runController ? runController.signal : callerSignal;
+    if (signal) runOpts.signal = signal;
+    else delete runOpts.signal;
+
+    const runGeneration = generation;
+    const stillCurrent = function () { return runGeneration === generation; };
     if (typeof opts.onStart === 'function') opts.onStart();
-    inFlight = Promise.resolve()
-      .then(function () { return runner(runOptions); })
+    const finished = Promise.resolve()
+      .then(function () {
+        // Cancelled before the runner started: skip the network work entirely.
+        if (cancelled) throw Object.assign(new Error('Diagnostics were cancelled.'), { kind: 'cancelled' });
+        return runner(runOpts);
+      })
       .then(function (result) {
+        // Once the run was cancelled, a late resolution is discarded: a
+        // cancellation must never turn into a reported result.
+        if (cancelled) {
+          const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
+          if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
+          return stopped;
+        }
         const safeResult = result && typeof result === 'object' ? result : {};
-        if (typeof opts.onResult === 'function') opts.onResult(safeResult);
+        if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(safeResult);
         return safeResult;
       })
       .catch(function (error) {
+        // A run stopped by its own signal is a cancellation, never a failure.
+        if (cancelled || (error && error.kind === 'cancelled')) {
+          const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
+          if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
+          return stopped;
+        }
         const failed = {
           classification: 'error',
           message: safeText(error && error.message, 200) || 'Diagnostics failed.',
           status: 'error',
           failed: true,
         };
-        if (typeof opts.onResult === 'function') opts.onResult(failed);
+        if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(failed);
         return failed;
       })
       .then(function (finalResult) {
-        inFlight = null;
+        if (inFlight === finished) inFlight = null;
+        detach();
         return finalResult;
       });
+    inFlight = finished;
     return inFlight;
   }
 
   function clear() {
+    // Invalidate the current run first: whatever it reports from here on is
+    // discarded, so a late response can neither raise a notice nor overwrite
+    // state that belongs to a different project or domain.
+    generation += 1;
+    if (runController) {
+      try { runController.abort(); } catch (error) { /* already settled */ }
+    }
+    detach();
     inFlight = null;
   }
 

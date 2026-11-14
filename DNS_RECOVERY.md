@@ -13,6 +13,16 @@ Accept: application/dns-json
 
 It resolves A and AAAA records for the **current browser hostname**, then makes a no-store, credential-free same-origin request to the app manifest (or an explicitly configured same-origin probe). A backend health URL can be optionally configured as a same-origin path. Requests have AbortController timeouts and one bounded retry by default (configurable up to two); concurrent checks for the same host and probe configuration are deduplicated. No query is made on ordinary startup.
 
+An optional caller `AbortSignal` cancels a check:
+
+```js
+const controller = new AbortController();
+const result = await window.YouGeDns.check(context, { signal: controller.signal });
+// controller.abort() before completion => { ... classification: 'cancelled', cancelled: true, failed: false }
+```
+
+Cancellation is distinct from a timeout and from an ordinary probe failure: the result reports `classification: 'cancelled'` / `status: 'cancelled'` with `dnsErrors: []`, it is never retried, and it never raises a connectivity notice in `YouGeAssistant` state. Callers that pass no signal keep the existing behavior, and one caller's signal never aborts a deduplicated run another caller is waiting for.
+
 Possible result categories include:
 
 - **Normal connectivity:** DoH returned usable records and the application host responded.
@@ -22,6 +32,8 @@ Possible result categories include:
 - **Application host unavailable:** DoH resolved the name but the same-origin app probe did not respond. DNS interference is only one possible cause; IP routing, TLS, CDN, firewall and server problems can look the same.
 - **Backend unavailable:** an optional backend probe failed while the application host responded.
 - **General internet failure:** the browser reports offline and the app probe also fails.
+- **Application host unavailable (online, everything failed):** the browser reports a connection but neither DoH nor the application probe responded. Because the device is online, this is reported as a connectivity failure rather than an inconclusive result. Offline (`general_internet_failure`) and backend-failure precedence are unchanged.
+- **Cancelled:** the caller aborted the check. Not a failure, and no recovery guidance applies.
 - **Inconclusive/unknown:** signals conflict or are insufficient.
 
 CORS and ordinary network failures are intentionally reported together where the browser does not expose a reliable distinction. An absent AAAA record alone is not an outage when A records work.

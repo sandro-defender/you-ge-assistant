@@ -299,16 +299,19 @@ function createContext(options = {}) {
   win.YOU_GE_ASSISTANT_CONFIG = options.config || {};
   win.PWA = pwa;
   win.YouGeDomain = {
-    resolve: () => ({
-      identity: { name: 'Example Project', shortName: 'Example', description: '' },
-      branding: { icon: 'icons/icon-192.png', themeColor: '#155eef' },
-      pwa: { basePath: '/' },
-      domain: {
-        hostname: 'example.test', origin: 'https://example.test', protocol: 'https:',
-        pathname: '/', basePath: '/', configured: true,
-      },
-      features: { installation: true, diagnostics: true },
-    }),
+    // Mirrors a real registry: the resolved hostname follows the location the
+    // assistant asks about, so domain reconfiguration is observable.
+    resolve: (loc = {}) => {
+      const hostname = loc.hostname || 'example.test';
+      const origin = loc.origin || 'https://' + hostname;
+      return {
+        identity: { name: 'Example Project', shortName: 'Example', description: '' },
+        branding: { icon: 'icons/icon-192.png', themeColor: '#155eef' },
+        pwa: { basePath: '/' },
+        domain: { hostname, origin, protocol: 'https:', pathname: '/', basePath: '/', configured: true },
+        features: { installation: true, diagnostics: true },
+      };
+    },
   };
   vm.createContext(win);
   vm.runInContext(stateSource, win, { filename: 'assistant-state.js' });
@@ -1275,4 +1278,60 @@ test('the offer hides while the panel is open and persists its dismissal across 
   ({ ctx, widget } = makeLoaded());
   assert.equal(widget.getRoot().querySelector('.youge-chrome-offer').hidden, true, 'dismissal survives a reload');
   widget.destroy();
+});
+
+/* ------------------------------------------------------------------ *
+ * Stage 3 regressions (2026-11): stale DNS state on reconfiguration
+ * ------------------------------------------------------------------ */
+
+test('reconfiguring the project or domain resets stale DNS state to idle', () => {
+  const ctx = createContext({ config: { projectId: 'dns-test-project' } });
+  ctx.api.setDnsResult({ classification: 'dns_resolution_failure', message: 'NXDOMAIN returned.' });
+  assert.equal(ctx.api.getState().network.dns.classification, 'dns_resolution_failure');
+  assert.ok(ctx.api.getState().notifications.some((n) => n.id === 'dns:failure'));
+
+  ctx.api.configure({ projectId: 'other-project' });
+  let state = ctx.api.getState();
+  assert.equal(state.project.id, 'other-project');
+  assert.equal(state.network.dns.status, 'idle', 'a new project cannot inherit the previous DNS verdict');
+  assert.equal(state.network.dns.classification, 'unknown');
+  assert.equal(state.network.dns.checkedAt, null);
+  assert.equal(state.notifications.some((n) => n.id === 'dns:failure'), false);
+
+  ctx.api.setDnsResult({ classification: 'application_host_unavailable', message: 'No response.' });
+  ctx.api.configure({ domain: 'other.example.com' });
+  state = ctx.api.getState();
+  assert.equal(state.network.dns.status, 'idle', 'a new domain cannot inherit the previous DNS verdict');
+  assert.equal(state.network.dns.classification, 'unknown');
+});
+
+test('unrelated configuration updates keep a valid DNS verdict', () => {
+  const ctx = createContext({ config: { projectId: 'dns-test-project' } });
+  ctx.api.setDnsResult({
+    status: 'complete',
+    classification: 'normal_connectivity',
+    message: 'Healthy DNS and app probe.',
+    checkedAt: '2026-11-14T00:00:00.000Z',
+  });
+
+  ctx.api.configure({ branding: { name: 'Renamed' } });
+  ctx.api.configure({ theme: 'dark' });
+  ctx.api.configure({ position: 'bottom-left' });
+
+  const state = ctx.api.getState();
+  assert.equal(state.project.id, 'dns-test-project', 'the project identity is unchanged');
+  assert.equal(state.network.dns.classification, 'normal_connectivity', 'valid state is not thrown away');
+  assert.equal(state.network.dns.checkedAt, '2026-11-14T00:00:00.000Z');
+  assert.equal(state.appearance.theme, 'dark');
+});
+
+test('a stale DNS verdict is dropped when the resolved hostname changes even if the project id matches', () => {
+  const ctx = createContext({ config: { projectId: 'dns-test-project' } });
+  ctx.api.setDnsResult({ classification: 'dns_records_missing', message: 'No A/AAAA records.' });
+
+  ctx.api.configure({ projectId: 'dns-test-project', domain: 'moved.example.com' });
+  const state = ctx.api.getState();
+  assert.equal(state.project.hostname, 'moved.example.com');
+  assert.equal(state.network.dns.status, 'idle');
+  assert.equal(state.network.dns.classification, 'unknown');
 });

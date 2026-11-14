@@ -2,37 +2,42 @@
 
 **Last updated:** 2026-11-14
 **Repository:** `sandro-defender/you-ge-assistant`
-**Base branch / commit:** `main` @ `ee83c0ed64b84119a43675f3c9b2c1540e8b57b9` (PR #25 merged 2026-11-14 03:04:04 UTC)
-**Active branch:** `arena/976df00e-you-ge-assistant`
-**Stage 2 implementation commit:** `f528c15dcc5751704bda7beece08a2aece354818` (`fix(diagnostics): harden probe paths and local host handling`)
-**Branch head:** latest docs-only handoff commit on top of `f528c15` (see `git log --oneline -3`)
+**Base branch / commit:** `main` @ `fe1854ba1cfbe08de5fed98df1280e93d2880762` (PR #26 merged 2026-11-14 03:30:48 UTC)
+**Active branch:** `arena/fb910a3c-you-ge-assistant`
+**Stage 3 implementation commit:** `1fe4aba` (`fix(diagnostics): synchronize state and support cancellation`)
+**Branch head:** docs-only handoff commits on top of `1fe4aba` (see `git log --oneline -4`)
 
 ---
 
 ## 1. Repository, Branch & CI State
 
-- **Working tree:** clean; the branch holds exactly two commits (Stage 2 implementation + docs-only handoff update).
-- **Open PR:** **#26** — `fix(diagnostics): harden probe paths and local host handling` (`arena/976df00e-you-ge-assistant` → `main`), state `OPEN`, mergeable. Not merged, no release/publish/version change.
-- **CI on PR #26:** `static` (check workflow) — **success** on every pushed head so far (`f528c15` run `43550204333`, `40a805c` run `43550304581`, `0184221` run `43550386543`); re-check with `gh pr checks 26` for the newest docs-only head.
+- **Working tree:** clean; the branch holds the Stage 3 implementation commit plus the docs-only handoff commit.
+- **Open PR:** **#27** — `fix(diagnostics): synchronize state and support cancellation` (`arena/fb910a3c-you-ge-assistant` → `main`). Not merged; no release/publish/version change.
+- **CI on PR #27:** `static` (check workflow) — **pass** on every pushed head so far; latest verified run `43554357263` (23s) on the head pushed after this line was written. `gh pr checks 27` reported `no checks reported` immediately at PR creation and only triggers once a commit is pushed onto the branch — re-check with `gh pr checks 27` for the newest head.
 - **Merged predecessors:**
+  - **Phase 2 — Stage 2** (PR #26, `arena/976df00e-you-ge-assistant`, merge `fe1854b`): probe path hardening + local host handling.
   - **Phase 2 — Stage 1** (PR #25, `arena/8464c385-you-ge-assistant`, merge `ee83c0e`): TypeScript contract alignment + `PHASE2_IMPLEMENTATION_PLAN.md`.
   - **Stage 1 identity baseline** (PR #24, merge `59bcb9a`): permanent agent rules + identity cleanup.
 
 ---
 
-## 2. Phase 2 — Stage 2 Implementation (this task)
+## 2. Phase 2 — Stage 3 Implementation (this task)
 
-All four Stage 2 items from `PHASE2_IMPLEMENTATION_PLAN.md` §3 are implemented, tested and committed on `arena/976df00e-you-ge-assistant`:
+All four Stage 3 items from `PHASE2_IMPLEMENTATION_PLAN.md` §3 are implemented, tested and committed on `arena/fb910a3c-you-ge-assistant` (`1fe4aba`):
 
-1. **Subpath `backendProbePath` resolution (`dns-diagnostics.js`)** — `probeBaseUrl = new URL(basePath, origin)` is now used for both `appProbePath` and `backendProbePath`; a relative `health` under `/app/` probes `/app/health` while `/health` still resolves against the origin. Cross-origin probes are still rejected (backend URL discarded, app URL falls back to `manifest.webmanifest`).
-2. **Bounded body parsing** — `timeoutRequest()` now accepts a response consumer and `fetchWithRetry(..., consume)` runs the consumer inside the raced promise; `query()` body parsing moved into `parseDnsBody(type, response)`. A stalled `response.json()` rejects as `'timeout'`, aborts through the same `AbortController`, and stays bounded by `timeoutMs`.
-3. **Local/loopback/IP-literal hosts** — new `IPV4_PATTERN`, `isIpv4Literal()`, `isIpv6Literal()` and `localHostKind()` helpers. `localhost`, `*.localhost`, IPv4 literals and bracketed IPv6 (including `[::1]`, which previously failed hostname validation with `classification: 'unknown'` and issued no probes) skip public Cloudflare DoH, still run same-origin app/backend probes, and classify as `normal_connectivity` / `application_host_unavailable` with a local-host message. Results gain an additive `dohSkipped: boolean` field (always present; `false` for public hosts). Offline (`general_internet_failure`) and `backend_unavailable` precedence, the DoH caveat, headers/privacy options, `possibleDnsInterference` and the `YouGeDns.create` / `check` signatures are unchanged.
-4. **Diagnostics probe path validation** — SDK `packages/assistant-sdk/src/domain/index.js` and classic `domain-config.js` add `DIAGNOSTICS_PROBE_KEYS`, `safeDiagnosticsProbePath()` and `sanitizeDiagnosticsConfig()`:
-   - `validateDomainConfigDetailed()` / `YouGeDomain.validateConfigDetailed()` emit `invalid_diagnostics_probe` at `diagnostics.appProbePath` / `diagnostics.backendProbePath` for non-strings, empty or whitespace-padded values, cross-origin URLs, `//host` network paths, script schemes, backslashes and `..` traversal, plus `invalid_diagnostics` at `diagnostics` when the value is not an object.
-   - `validateDomainConfig()` / `validConfig()` keep only safe probe keys, so the runtime falls back to `manifest.webmanifest` and no backend probe. Unknown `diagnostics` keys still pass through as before.
-   - `assistant-state.js` regenerated via `npm run sync:sdk` (additive only, deterministic).
-- **Docs:** `DNS_RECOVERY.md` now documents base-path-relative probe resolution, probe validation and local-host behavior.
-- **Scope respected:** no `pwa.js` / `progressier.js` / widget / dashboard / DNS-failover / `staff.you.ge` changes, no SDK `.d.ts` or README changes, no dependency, version or workflow changes, no tests weakened.
+1. **Diagnostics event consistency (`pwa.js`)** — `showNetworkDiagnostics()` now `dispatch('diagnostics', ...)` in its rejection path too (mirroring `offline.js`), with one consistent failure shape: `{ hostname, classification: 'error', status: 'error', failed: true, message }`. `runNetworkDiagnostics()` additionally reports `status: 'unavailable'` when `window.YouGeDns.check` is missing and `status: 'disabled'` when `features.diagnostics === false`, instead of implying a probe ran. Dialog markup, success path and the public `pwa:diagnostics` contract are unchanged.
+2. **Online-failure classification (`dns-diagnostics.js`)** — the `!validDns.length && !app.ok` branch (reachable only while online) now returns `application_host_unavailable` with an online-specific message instead of `unknown`, so `connectivityFailure()` raises the critical `network:unreachable` notice. Offline (`general_internet_failure`), backend (`backend_unavailable`) and Stage 2 local-host branches keep their precedence; `possibleDnsInterference` remains `false` without DNS answers.
+3. **Stale DNS state (`assistant/index.js`)** — new `dnsIdentity()` / `sameDnsIdentity()` compare `{ id, hostname, origin }` before and after `configure()`. Only a real identity change calls `diagnosticsController.clear()`, resets `conditions.dns` to `{ status: 'idle', classification: 'unknown', message: '', checkedAt: null }` and resets `lastConditionKeys`. Branding/theme/position updates keep a valid verdict. `clear()` bumps a generation counter so a cleared run can never publish a late result or notice.
+4. **Cancellation (`dns-diagnostics.js`, `diagnostics/index.js`, `assistant/index.js`)** — optional `signal` in `YouGeDns.check(context, { signal })` and `assistant.runDiagnostics({ signal })`:
+   - Cancelled results are `classification: 'cancelled'`, `status: 'cancelled'`, `cancelled: true`, `failed: false`, `dnsErrors: []`; cancellation is never retried and never reclassified as timeout/network failure.
+   - `isCancelledResult()` short-circuits `dnsFailure()` / `connectivityFailure()`, so a user cancel raises no DNS or connectivity notice.
+   - Caller listeners are removed when they fire and on settle; aborts propagate through the internal controller to every in-flight request; the adapter owns one controller per run and bridges the caller signal (never mutating it).
+   - A caller-started run is isolated from the `inflight` dedup map, so a later retry starts fresh; a caller joining an existing deduplicated run only observes it, so one caller's abort cannot cancel another caller's requests.
+   - `destroy()` → `diagnosticsController.clear()` aborts any in-flight run and invalidates its output.
+   - Callers that pass no signal keep the exact previous signatures and behavior.
+- **Types/docs:** `AbortSignalLike`, `DiagnosticsRunOptions`, `isCancelledResult`, `cancelledDiagnosticsResult`, `resolveRunSignal` added to `diagnostics/index.d.ts` / `index.d.ts`; `runDiagnostics(options?: DiagnosticsRunOptions)`; `DNS_RECOVERY.md` and the SDK `README.md` document classification and cancellation.
+- **Tests:** 17 new regressions (red first) across `tests/dns-diagnostics.test.mjs` (7), `tests/install-experience.test.mjs` (3), `tests/assistant-widget.test.mjs` (3), `tests/sdk-integration.test.mjs` (1), `packages/assistant-sdk/tests/sdk-integrations.test.mjs` (3). `tests/assistant-widget.test.mjs`'s `YouGeDomain.resolve` stub now mirrors a real registry (resolves the location it is given) so hostname changes are observable.
+- **Scope respected:** no Stage 4 / `applyUpdate` / `requestPwaUpdate`, no widget, dashboard, DNS-failover, alternate-domain or `staff.you.ge` work, no `/progressier.js` precache change, no dependency, version, workflow or publish change, no tests weakened, Progressier-named contracts untouched.
 
 ---
 
@@ -45,25 +50,26 @@ All four Stage 2 items from `PHASE2_IMPLEMENTATION_PLAN.md` §3 are implemented,
 
 ## 4. Completed vs. Pending Work
 
-- **Completed:** Phases 0/1/1.5 (PR #6), SDK extraction & audit fixes (PRs #7, #8), release automation & SDK 0.1.0/0.1.1 (PRs #9–#20), skills & UI/TDD fixes (PRs #21, #22), Phase 1 multi-domain (PR #23), Task 1 + Identity Cleanup Stage 1 (PR #24), Phase 2 audit/plan + Stage 1 (PR #25), **Phase 2 — Stage 2 (PR #26, this task)**.
+- **Completed:** Phases 0/1/1.5 (PR #6), SDK extraction & audit fixes (PRs #7, #8), release automation & SDK 0.1.0/0.1.1 (PRs #9–#20), skills & UI/TDD fixes (PRs #21, #22), Phase 1 multi-domain (PR #23), Task 1 + Identity Cleanup Stage 1 (PR #24), Phase 2 audit/plan + Stage 1 (PR #25), Phase 2 — Stage 2 (PR #26, merged), **Phase 2 — Stage 3 (PR #27, open, awaiting owner merge)**.
 - **Pending:**
-  - **Phase 2 — Stage 3 (next task):** diagnostics state synchronization, online failure classification, `configure()` DNS state reset and optional caller `AbortSignal` (`PHASE2_IMPLEMENTATION_PLAN.md` §3 Stage 3).
-  - **Phase 2 — Stage 4:** unified SDK update lifecycle + `pwa.js` behavioral tests.
+  - **Phase 2 — Stage 4 (next task):** unified SDK update lifecycle + `pwa.js` behavioral tests (`PHASE2_IMPLEMENTATION_PLAN.md` §3 Stage 4).
   - **Identity Cleanup — Stage 2 (awaiting explicit owner sign-off):** retire `reference/` and `PARITY.md`, update `scripts/check.mjs` `originalReference` assertions.
   - **Roadmap Phases 3–5 & `@youge/assistant-sdk@0.2.0` npm release:** owner-dispatched, not started.
 
 ---
 
-## 5. Verified Test & Check Results (2026-11-14, after Stage 2 edits)
+## 5. Verified Test & Check Results (2026-11-14, after Stage 3 edits)
 
-- `node --test tests/dns-diagnostics.test.mjs tests/domain-config.test.mjs tests/sdk-integration.test.mjs`: **PASS** (39/39; 7 new Stage 2 tests were red before the implementation).
-- `npm run test:sdk`: **PASS** (97/97).
-- `npm run check`: **PASS** (static contracts + `validate-package.mjs` + **348/348** tests).
-- `node scripts/sync-sdk-browser.mjs --check`: **PASS** (`assistant-state.js` in sync).
-- `node packages/assistant-sdk/scripts/validate-package.mjs`: **PASS** (`@youge/assistant-sdk@0.2.0`, release gates intact).
-- `git diff --check`: **PASS**.
-- CI: PR #26 `static` run `43550204333` — **success** (includes `example` `npm ci` / typecheck / build, `node --check` on every script, SDK package dry-run, unit tests, manifest parse).
-- **Not run locally:** `tsc --noEmit` (no global `tsc`, `example/node_modules` absent locally); `example/` typecheck/build locally; `npm run verify <url>` (needs a deployed URL).
+- Baseline before edits: `node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs` — **PASS** (348/348).
+- New Stage 3 tests were red before implementation (5 in `tests/dns-diagnostics.test.mjs`, 3 in `packages/assistant-sdk/tests/sdk-integrations.test.mjs`, 2 in `tests/assistant-widget.test.mjs`, 2 in `tests/install-experience.test.mjs`; the `tests/sdk-integration.test.mjs` end-to-end case was written after its constituent behaviors were green).
+- `node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs`: **PASS** (365/365 — 348 baseline + 17 new).
+- `npm run check`: **PASS** (`node scripts/check.mjs` → `All checks passed.`; `validate-package.mjs` → `SDK package validation passed.`; **365/365** tests, exit 0).
+- `node scripts/sync-sdk-browser.mjs --check`: **PASS** (`assistant-state.js` in sync; regenerated with `npm run sync:sdk`).
+- `node packages/assistant-sdk/scripts/validate-package.mjs`: **PASS** (exit 0, `@youge/assistant-sdk@0.2.0`, release gates intact, publishing still disabled).
+- `git diff --check`: **PASS** (exit 0).
+- Declaration/public-surface tests (`packages/assistant-sdk/tests/sdk-declarations.test.mjs`): **PASS** (3/3).
+- CI on PR #27: `static` — **pass** on every pushed head (verified runs `43554111619`, `43554169363`, `43554232349`, `43554300591`, `43554357263`; 18–34s each).
+- **Not run locally:** `tsc --noEmit` (no `tsc`, `example/node_modules` absent), `example/` typecheck/build, `npm run verify <url>` (needs a deployed URL).
 
 ---
 
@@ -77,4 +83,4 @@ All four Stage 2 items from `PHASE2_IMPLEMENTATION_PLAN.md` §3 are implemented,
 
 ## 7. Exact Next Action
 
-Execute `NEXT_AGENT_PROMPT.md` (**Phase 2 — Stage 3: Diagnostics State Synchronization, Online-Failure Classification & Cancellation Hygiene** from `PHASE2_IMPLEMENTATION_PLAN.md` §3) on a fresh task branch from `main` after PR #26 is merged by the owner. Do not merge PR #26, publish packages, bump versions or start Stage 4 from this task.
+Owner action: review and merge **PR #27** (Stage 3). After it is merged, execute `NEXT_AGENT_PROMPT.md` (**Phase 2 — Stage 4: Unified Service Worker Update Lifecycle & Behavioral Tests**, `PHASE2_IMPLEMENTATION_PLAN.md` §3 Stage 4) on a fresh task branch from the then-current `main`. Do not merge PR #27, publish packages, bump versions or start Stage 4 from this task.

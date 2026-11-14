@@ -48,10 +48,17 @@
 
   // The response consumer (including body parsing) runs inside the same timeout
   // and AbortController scope as the request itself, so a stalled body cannot
-  // outlive `timeoutMs`.
-  function timeoutRequest(fetchImpl, url, options, timeoutMs, AbortControllerImpl, consume) {
+  // outlive `timeoutMs`. An optional caller signal rides the same controller:
+  // a caller abort reuses the existing abort path but rejects with a distinct
+  // `cancelled` kind, so cancellation is never reported as a timeout or an
+  // ordinary probe failure, and the caller listener is always released.
+  function timeoutRequest(fetchImpl, url, options, timeoutMs, AbortControllerImpl, consume, callerSignal) {
+    if (callerSignal && callerSignal.aborted) {
+      return Promise.reject(makeError('cancelled', 'Request cancelled by the caller'));
+    }
     var controller = AbortControllerImpl ? new AbortControllerImpl() : null;
     var timer;
+    var onCallerAbort = null;
     var requestOptions = Object.assign({}, options);
     if (controller) requestOptions.signal = controller.signal;
     var request = Promise.resolve().then(function () { return fetchImpl(url, requestOptions); });
@@ -62,7 +69,61 @@
         reject(makeError('timeout', 'Request timed out'));
       }, timeoutMs);
     });
-    return Promise.race([request, timeout]).finally(function () { clearTimeout(timer); });
+    var races = [request, timeout];
+    if (callerSignal && typeof callerSignal.addEventListener === 'function') {
+      races.push(new Promise(function (_, reject) {
+        onCallerAbort = function () {
+          if (typeof callerSignal.removeEventListener === 'function') {
+            callerSignal.removeEventListener('abort', onCallerAbort);
+          }
+          if (controller) {
+            try { controller.abort(); } catch (error) { /* the request is already over */ }
+          }
+          reject(makeError('cancelled', 'Request cancelled by the caller'));
+        };
+        callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+      }));
+    }
+    return Promise.race(races).finally(function () {
+      clearTimeout(timer);
+      if (onCallerAbort && typeof callerSignal.removeEventListener === 'function') {
+        callerSignal.removeEventListener('abort', onCallerAbort);
+      }
+    });
+  }
+
+  // Resolves with the run's own result, or short-circuits to a cancelled result
+  // the moment the caller aborts. The underlying run keeps settling on its own
+  // (its requests are aborted), so no rejection ever goes unhandled.
+  function untilCancelled(promise, signal, buildCancelledResult) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      function cleanup() {
+        if (onAbort && typeof signal.removeEventListener === 'function') signal.removeEventListener('abort', onAbort);
+      }
+      var onAbort = function () {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(buildCancelledResult());
+      };
+      if (!signal || typeof signal.addEventListener !== 'function') {
+        promise.then(resolve, reject);
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+      promise.then(function (value) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      }, function (error) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      });
+    });
   }
 
   function fetchIdentity(fetchImpl) {
@@ -93,11 +154,13 @@
       };
     }
 
-    function fetchWithRetry(url, requestOptions, isDns, consume) {
+    function fetchWithRetry(url, requestOptions, isDns, consume, callerSignal) {
       var attempt = 0;
       function run() {
-        return timeoutRequest(fetchImpl, url, requestOptions, timeoutMs, AbortControllerImpl, checkedResponse(consume)).catch(function (error) {
+        return timeoutRequest(fetchImpl, url, requestOptions, timeoutMs, AbortControllerImpl, checkedResponse(consume), callerSignal).catch(function (error) {
           if (error instanceof TypeError && !error.kind) error.kind = 'network_or_cors';
+          // A caller cancellation is final: never retried, never reclassified.
+          if (error.kind === 'cancelled') throw error;
           var retryable = error.kind === 'timeout' || error.kind === 'network_or_cors' ||
             (error.kind === 'http_error' && error.status >= 500);
           if (retryable && attempt < retries) {
@@ -127,7 +190,7 @@
       });
     }
 
-    function query(hostname, type) {
+    function query(hostname, type, callerSignal) {
       var url = new URL(ENDPOINT);
       url.searchParams.set('name', hostname);
       url.searchParams.set('type', type);
@@ -140,10 +203,10 @@
         headers: { Accept: 'application/dns-json' },
       }, true, function (response) {
         return parseDnsBody(type, response);
-      });
+      }, callerSignal);
     }
 
-    function probe(url) {
+    function probe(url, callerSignal) {
       return fetchWithRetry(url, {
         method: 'GET',
         mode: 'same-origin',
@@ -152,14 +215,46 @@
         headers: { Accept: 'application/manifest+json, application/json, */*' },
       }, false, function (response) {
         return { ok: true, status: response.status };
-      }).catch(function (error) {
+      }, callerSignal).catch(function (error) {
+        // A cancelled probe must not be summarized as a failed probe.
+        if (error && error.kind === 'cancelled') throw error;
         return { ok: false, kind: error.kind || 'application_unavailable', status: error.status || null };
       });
     }
 
-    function check(context) {
+    function cancelledResult(host, origin, online, message) {
+      return {
+        hostname: host,
+        origin: origin,
+        resolver: 'Cloudflare DNS (1.1.1.1)',
+        endpoint: ENDPOINT,
+        checkedAt: new Date().toISOString(),
+        classification: 'cancelled',
+        status: 'cancelled',
+        cancelled: true,
+        failed: false,
+        message: message || 'Diagnostics were cancelled before they finished.',
+        online: online,
+        dohAvailable: false,
+        dohSkipped: false,
+        applicationHostAvailable: false,
+        possibleDnsInterference: false,
+        dns: [],
+        dnsErrors: [],
+        app: { ok: false, kind: 'cancelled', status: null },
+        backend: null,
+      };
+    }
+
+    function check(context, runOptions) {
       context = context || {};
+      var optionsIn = runOptions && typeof runOptions === 'object' ? runOptions : {};
+      var callerSignal = optionsIn.signal && typeof optionsIn.signal === 'object' ? optionsIn.signal : null;
       var host = String(context.hostname || '').toLowerCase().replace(/\.$/, '');
+      if (callerSignal && callerSignal.aborted) {
+        return Promise.resolve(cancelledResult(host, context.origin || (root.location && root.location.origin),
+          context.online !== false, 'Diagnostics were cancelled before any request was made.'));
+      }
       var hostKind = localHostKind(host);
       if (!hostKind && !HOST_PATTERN.test(host)) {
         return Promise.resolve({ hostname: host, classification: 'unknown', message: 'The current hostname is not a valid DNS name.' });
@@ -198,13 +293,22 @@
       }
       var key = [host, origin, basePath, appProbeUrl, backendProbeUrl, context.online !== false,
         timeoutMs, retries, fetchIdentity(fetchImpl), fetchIdentity(AbortControllerImpl)].join('|');
-      if (inflight.has(key)) return inflight.get(key);
+      var buildCancelled = function () {
+        return cancelledResult(host, origin, context.online !== false);
+      };
+      if (inflight.has(key)) {
+        var shared = inflight.get(key);
+        // Deduplication stays single-flight for ordinary callers. A caller that
+        // brought a signal only observes the shared run, so its own cancellation
+        // can never abort requests another caller is waiting for.
+        return callerSignal ? untilCancelled(shared, callerSignal, buildCancelled) : shared;
+      }
 
-      var dnsPromise = localHost ? Promise.resolve([]) : Promise.all([query(host, 'A'), query(host, 'AAAA')].map(function (promise) {
+      var dnsPromise = localHost ? Promise.resolve([]) : Promise.all([query(host, 'A', callerSignal), query(host, 'AAAA', callerSignal)].map(function (promise) {
         return promise.then(function (value) { return { value: value }; }, function (error) { return { error: error }; });
       }));
-      var appPromise = probe(appProbeUrl);
-      var backendPromise = backendProbeUrl ? probe(backendProbeUrl) : Promise.resolve(null);
+      var appPromise = probe(appProbeUrl, callerSignal);
+      var backendPromise = backendProbeUrl ? probe(backendProbeUrl, callerSignal) : Promise.resolve(null);
       var resultPromise = Promise.all([dnsPromise, appPromise, backendPromise]).then(function (parts) {
         var dns = parts[0];
         var app = parts[1];
@@ -257,8 +361,12 @@
           classification = 'general_internet_failure';
           message = 'The browser reports no network connection; neither the application nor the DoH endpoint responded.';
         } else if (!validDns.length && !app.ok) {
-          classification = 'unknown';
-          message = 'The application host and DoH check both failed. Network, CORS, TLS, routing, or server availability may be involved.';
+          // Reached only while online (the offline case is classified above), so
+          // both the DoH endpoint and the application host are unreachable with
+          // no DNS evidence: that is a connectivity failure with a known cause
+          // set, not an inconclusive result.
+          classification = 'application_host_unavailable';
+          message = 'The browser reports a connection, but the application host and Cloudflare DNS-over-HTTPS did not respond. Network, CORS, TLS, routing, or server availability may be involved.';
         } else if (validDns.length && dnsErrors.length) {
           classification = app.ok ? 'inconclusive' : 'possible_dns_interference';
           message = 'DNS checks returned mixed results. Retry; this is not enough evidence to identify DNS interference.';
@@ -286,9 +394,22 @@
           app: app,
           backend: backend,
         };
+      }).catch(function (error) {
+        // Probes aborted by the caller reject; report cancellation separately
+        // from a probe failure instead of surfacing it as an error result.
+        if (error && error.kind === 'cancelled') {
+          return cancelledResult(host, origin, context.online !== false, 'Diagnostics were cancelled by the caller.');
+        }
+        throw error;
       }).finally(function () { inflight.delete(key); });
-      inflight.set(key, resultPromise);
-      return resultPromise;
+      if (!callerSignal) {
+        inflight.set(key, resultPromise);
+        return resultPromise;
+      }
+      // A run started by a cancelled caller is isolated from the dedup map: it
+      // is abandoned the moment the caller aborts, so a later retry has to start
+      // a fresh check instead of latching onto a run nobody awaits.
+      return untilCancelled(resultPromise, callerSignal, buildCancelled);
     }
 
     return { check: check };

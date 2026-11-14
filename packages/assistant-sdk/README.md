@@ -375,7 +375,7 @@ isolation layers are described in [`../../THEMING.md`](../../THEMING.md).
 | `setSessionStatus(detail)` | `({ state, message }) => AssistantState` | Reports `'unknown' \| 'ok' \| 'issue'` session condition from the host app's own auth layer. |
 | `setDnsResult(result)` | `(object) => AssistantState` | Records normalized DNS diagnostic status (`classification`, `message`, `checkedAt`). |
 | `setUpdateAvailable(flag?)` | `(boolean) => AssistantState` | Marks a waiting service worker update ready to apply. |
-| `runDiagnostics(opts?)` | `() => Promise<object>` | Single-flight on-demand diagnostics delegating to `services.diagnostics` → `window.PWA.runNetworkDiagnostics` → `window.YouGeDns.check`. Never polls automatically. |
+| `runDiagnostics(opts?)` | `({ signal? }) => Promise<object>` | Single-flight on-demand diagnostics delegating to `services.diagnostics` → `window.PWA.runNetworkDiagnostics` → `window.YouGeDns.check`. Never polls automatically. An optional `AbortSignal` cancels the run: it resolves `{ status: 'cancelled', cancelled: true, failed: false }` and raises no connectivity or DNS notice. `destroy()` aborts any run still in flight. |
 | `requestInstall(opts?)` | `() => Promise<{ outcome: string }>` | Delegates installation to `window.PWA.promptInstall()`. Never registers a second install flow or service worker. |
 | `dismiss(id)` | `(string) => boolean` | Dismisses a non-critical notification for the active `projectId`. Automatically resets once the underlying condition clears. |
 | `acknowledge(id)` | `(string) => boolean` | Acknowledges a critical notification while keeping the condition visible in diagnostics. |
@@ -454,6 +454,14 @@ export function onSessionExpired() {
 document.querySelector('#check-network-btn')?.addEventListener('click', () => {
   assistant.runDiagnostics();
 });
+
+// Optional: let the user cancel a slow check. Cancellation is reported as
+// `status: 'cancelled'` and never as a connectivity failure.
+const checkController = new AbortController();
+document.querySelector('#cancel-check-btn')?.addEventListener('click', () => {
+  checkController.abort();
+});
+assistant.runDiagnostics({ signal: checkController.signal });
 
 document.querySelector('#install-app-btn')?.addEventListener('click', () => {
   assistant.requestInstall();
