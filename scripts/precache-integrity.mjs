@@ -14,7 +14,8 @@
  *     list (renames and the generated Assistant bundle included) without a
  *     synchronized, higher kit version;
  *   - the kit-version declarations (`progressier.js` VERSION, `pwa.js`
- *     PWA.version, root `package.json` version) disagree;
+ *     PWA.version, root `package.json` version and, when the SDK is in the
+ *     repository, its KIT_COMPAT_VERSION) disagree;
  *   - the worker lists a precache asset that does not exist.
  *
  * The precache list is not duplicated here: it is read by running the worker's
@@ -39,6 +40,8 @@ import vm from 'node:vm';
 const WORKER = 'progressier.js';
 const CLIENT = 'pwa.js';
 const PACKAGE = 'package.json';
+/** SDK source constant naming the kit version the SDK is compatible with. */
+const SDK_CONSTANTS = 'packages/assistant-sdk/src/core/constants.js';
 
 /** Precached files that are build output: the fix is to regenerate, not hand-edit. */
 const GENERATED = {
@@ -49,14 +52,20 @@ const VERSION_LABELS = {
   worker: `${WORKER} VERSION`,
   client: `${CLIENT} PWA.version`,
   package: `${PACKAGE} version`,
+  sdkCompat: `${SDK_CONSTANTS} KIT_COMPAT_VERSION`,
 };
 
 /* ------------------------------------------------------------------ *
  * Reading the kit
  * ------------------------------------------------------------------ */
 
-/** Kit-version declarations found in the given sources (null when absent). */
-export function readKitVersions({ worker, client, pkg }) {
+/**
+ * Kit-version declarations found in the given sources (null when absent).
+ * `sdkConstants` is optional: a kit deployed without the SDK package has no
+ * such declaration, so the key is reported only when the file exists. The SDK
+ * package's own version (SDK_VERSION) is a separate release line and is not read.
+ */
+export function readKitVersions({ worker, client, pkg, sdkConstants }) {
   const match = (source, pattern) => {
     const hit = source == null ? null : pattern.exec(source);
     return hit ? hit[1] : null;
@@ -71,6 +80,9 @@ export function readKitVersions({ worker, client, pkg }) {
     worker: match(worker, /const VERSION = '([^']+)'/),
     client: match(client, /^\s*version:\s*'([^']+)'/m),
     package: packageVersion,
+    ...(sdkConstants == null
+      ? {}
+      : { sdkCompat: match(sdkConstants, /export const KIT_COMPAT_VERSION = '([^']+)'/) }),
   };
 }
 
@@ -247,8 +259,9 @@ export function evaluatePrecacheIntegrity({ base, head, renames = {} }) {
           'With the version unchanged, existing installations keep serving their cached copies until a background ' +
           'revalidation happens to replace them, and never while offline.\n' +
           'Required owner action: authorize a synchronized kit-version bump and apply it in this change — ' +
-          `\`const VERSION\` in ${WORKER}, \`version:\` (PWA.version) in ${CLIENT} and \`version\` in ${PACKAGE} must move to the ` +
-          'same higher value (then follow PRECACHE_INTEGRITY.md for the remaining release declarations). ' +
+          `\`const VERSION\` in ${WORKER}, \`version:\` (PWA.version) in ${CLIENT}, \`version\` in ${PACKAGE} and ` +
+          `\`KIT_COMPAT_VERSION\` in ${SDK_CONSTANTS} (then \`npm run sync:sdk\`) must move to the ` +
+          'same higher value (PRECACHE_INTEGRITY.md lists the pinned tests and documentation lines). ' +
           'Kit-version changes require explicit owner authorization (AGENTS.md, "Git and PR safety"); do not bump without it. ' +
           'If the asset change is unintended, revert it instead.',
       );
@@ -352,7 +365,7 @@ export async function runPrecacheIntegrity({ root, baseRef = '', env = {} } = {}
         blobs[path] = id ? id.trim() : null;
       }
       baseSnapshot = {
-        versions: readKitVersions({ worker: baseWorker, client: show(CLIENT), pkg: show(PACKAGE) }),
+        versions: readKitVersions({ worker: baseWorker, client: show(CLIENT), pkg: show(PACKAGE), sdkConstants: show(SDK_CONSTANTS) }),
         precache: baseManifest.precache,
         blobs,
       };
@@ -375,7 +388,7 @@ export async function runPrecacheIntegrity({ root, baseRef = '', env = {} } = {}
   }
 
   const head = {
-    versions: readKitVersions({ worker: headWorker, client: readHead(CLIENT), pkg: readHead(PACKAGE) }),
+    versions: readKitVersions({ worker: headWorker, client: readHead(CLIENT), pkg: readHead(PACKAGE), sdkConstants: readHead(SDK_CONSTANTS) }),
     precache: headManifest.precache,
     blobs: headBlobs,
   };

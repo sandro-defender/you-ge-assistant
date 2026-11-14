@@ -20,6 +20,7 @@ const PRECACHED = [
   'offline.css', 'offline.html', 'offline.js', 'pwa.css', 'qrcode.js',
 ];
 const KIT_VERSION_FILES = ['progressier.js', 'pwa.js', 'package.json'];
+const SDK_CONSTANTS = 'packages/assistant-sdk/src/core/constants.js';
 /** One line of the worker's precache manifest, as written in progressier.js. */
 const QR_ENTRY = "  { url: new URL('qrcode.js', SCOPE_URL).href, required: false },\n";
 
@@ -225,6 +226,63 @@ test('unsynchronized kit-version declarations are rejected', async (t) => {
   repo.bump(nextPatch, ['package.json']);
   repo.commit('bump package.json');
   assert.equal((await repo.check()).status, 'pass');
+});
+
+test('the SDK kit-compatibility version is part of the synchronized set when the SDK is in the repository', async (t) => {
+  const repo = createKitRepo(t);
+  repo.write(SDK_CONSTANTS, `export const SDK_VERSION = '0.2.0';\nexport const KIT_COMPAT_VERSION = '${kitVersion}';\n`);
+  repo.commit('add the SDK package');
+  repo.git('branch', '-f', 'main', 'HEAD');
+  assert.equal((await repo.check()).status, 'pass', 'an agreeing SDK declaration passes');
+
+  repo.append('pwa.css', '\n.changed {}\n');
+  repo.bump(nextPatch);
+  repo.commit('bump the kit, forget KIT_COMPAT_VERSION');
+
+  const forgotten = await repo.check();
+  assert.equal(forgotten.status, 'fail');
+  assert.match(forgotten.report, /not synchronized/);
+  assert.match(forgotten.report, new RegExp(`constants\\.js.*KIT_COMPAT_VERSION.*${kitVersion.replaceAll('.', '\\.')}`));
+  assert.match(forgotten.report, new RegExp(`progressier\\.js.*${nextPatch.replaceAll('.', '\\.')}`));
+
+  repo.replace(SDK_CONSTANTS, `KIT_COMPAT_VERSION = '${kitVersion}'`, `KIT_COMPAT_VERSION = '${nextPatch}'`);
+  repo.commit('bump KIT_COMPAT_VERSION');
+  const synchronized = await repo.check();
+  assert.equal(synchronized.status, 'pass', synchronized.report);
+
+  repo.replace(SDK_CONSTANTS, `export const KIT_COMPAT_VERSION = '${nextPatch}';\n`, '');
+  repo.commit('drop the declaration');
+  const dropped = await repo.check();
+  assert.equal(dropped.status, 'fail');
+  assert.match(dropped.report, /KIT_COMPAT_VERSION/);
+});
+
+test('the SDK package version is not a kit-version declaration', async (t) => {
+  const repo = createKitRepo(t);
+  repo.write(SDK_CONSTANTS, `export const SDK_VERSION = '0.2.0';\nexport const KIT_COMPAT_VERSION = '${kitVersion}';\n`);
+  repo.write('packages/assistant-sdk/package.json', '{ "name": "@youge/assistant-sdk", "version": "0.2.0" }\n');
+  repo.commit('add the SDK package');
+
+  const result = await repo.check();
+
+  assert.equal(result.status, 'pass', 'SDK 0.2.0 beside a different kit version is not a mismatch');
+});
+
+test('every kit-version declaration in this repository agrees, and the SDK package version stays separate', () => {
+  const read = (path) => readFileSync(join(root, path), 'utf8');
+  const declarations = {
+    'progressier.js VERSION': /const VERSION = '([^']+)'/.exec(read('progressier.js'))[1],
+    'pwa.js PWA.version': /^\s*version:\s*'([^']+)'/m.exec(read('pwa.js'))[1],
+    'package.json version': JSON.parse(read('package.json')).version,
+    'SDK KIT_COMPAT_VERSION': /export const KIT_COMPAT_VERSION = '([^']+)'/.exec(read(SDK_CONSTANTS))[1],
+    'assistant-state.js KIT_COMPAT_VERSION (generated)': /const KIT_COMPAT_VERSION = '([^']+)'/.exec(read('assistant-state.js'))[1],
+  };
+  assert.deepEqual([...new Set(Object.values(declarations))], [kitVersion], JSON.stringify(declarations, null, 2));
+
+  const sdkPackage = JSON.parse(read('packages/assistant-sdk/package.json')).version;
+  const sdkConstant = /export const SDK_VERSION = '([^']+)'/.exec(read(SDK_CONSTANTS))[1];
+  assert.equal(sdkPackage, sdkConstant, 'the SDK package version has its own pair of declarations');
+  assert.notEqual(sdkPackage, kitVersion, 'the SDK release line is independent of the kit version');
 });
 
 test('the kit version may not move backwards', async (t) => {

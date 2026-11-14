@@ -11,7 +11,8 @@
  *   - manifest is valid JSON with the required fields
  *   - every manifest icon exists and its real PNG size matches the declaration
  *   - offline / precache assets referenced by the worker exist
- *   - kit version is synchronized (worker VERSION, PWA.version, package.json)
+ *   - kit version is synchronized (worker VERSION, PWA.version, package.json,
+ *     SDK KIT_COMPAT_VERSION)
  *   - precached assets did not change since the merge base without a
  *     synchronized kit-version bump (scripts/precache-integrity.mjs)
  *   - no leftover legacy hosted-script URLs in deployable files
