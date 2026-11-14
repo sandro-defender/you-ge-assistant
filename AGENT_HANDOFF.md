@@ -4,8 +4,8 @@
 **Repository:** `sandro-defender/you-ge-assistant`
 **Base:** `main` at `befb2e6e3ff5a53cd4eaa22c5ed8fff3d11815ea` (PR #31 merged)
 **Branch:** `arena/e187be96-you-ge-assistant`
-**PR:** Stage 5.3 (D3 + D6) — see the PR link on this branch; open for owner review, do not merge.
-**Implementation commit:** the commit containing this document (check `git log -1` on the branch). Check `git status` and the PR head for live worktree and commit state.
+**PR:** [#32 — Stage 5.3 / D3 + D6](https://github.com/sandro-defender/you-ge-assistant/pull/32), open for owner review; do not merge.
+**Implementation commit:** `a12ba69` (`fix(diagnostics): classify public IP hosts and scope DNS verdicts to the probe identity`), followed by the handoff commit containing this document. Check `git status` and the PR head for live worktree and commit state; the intended final worktree is clean.
 
 ## Completed — Stage 5.3 / D3 + D6
 
@@ -25,6 +25,7 @@ TDD: the new D3 and D6 tests were added first and observed failing on the pre-fi
 - `npm run check` (static checks + package validation + full suite): **390 passed, 0 failed**, exit 0.
 - `node scripts/sync-sdk-browser.mjs --check`: in sync. `node packages/assistant-sdk/scripts/validate-package.mjs`: passed (`0.2.0`, publishing still disabled). `git diff --check`: clean.
 - Example (`example/`): `npm ci`, `npm run typecheck`, `npm run build` all passed. The SDK subpath declarations were also checked with the example's `tsc --noEmit --strict` over `src/diagnostics/index.d.ts` and `src/index.d.ts`.
+- CI: the `check` workflow passed on PR #32's implementation head `a12ba69` (`static` job, 22s). The subsequent handoff commit triggers a fresh run — consult PR checks for the current head rather than treating that result as final.
 - No browser-level (VM/mock harnesses only) or live-deployment verification was performed. No dependency, version, release, publish or deployment change.
 
 ## Remaining / next action
