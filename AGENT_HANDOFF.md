@@ -5,7 +5,7 @@
 **Base:** `main` at `bcdca6ed3bfb829fe09eb8372bfb8e06230254ed` (PR #32 merged)
 **Branch:** `arena/4a49f6ba-you-ge-assistant` (active)
 **PR:** [#34 — Stage 5.4: SDK reliability, type checks and integration guide](https://github.com/sandro-defender/you-ge-assistant/pull/34), open for owner review; do not merge.
-**Implementation commit:** `f7b74517ecc821eba0f2300cacc05d4c90c19f30`. Check live PR #34 for the current head and CI: the check run on this implementation commit was in progress when this handoff was written; this handoff commit will cause CI to run again.
+**Implementation commit:** `f7b74517ecc821eba0f2300cacc05d4c90c19f30`. The handoff commit `c2086d3993df88ba1a73f849113245657bbf8492` is the latest known PR head while this note is being updated; its `check` run is pending. This update will trigger another per-head check. Always query live PR #34 for the current head and check result before review or next action.
 
 ## Verified repository / PR state
 
