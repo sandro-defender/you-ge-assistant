@@ -104,9 +104,14 @@ test('normalizes DNS cancellation consistently and publishes the optional cancel
 
   const assistant = YouGeAssistant.create({ bindEvents: false });
   assistant.setDnsResult(cancelled);
-  assert.deepEqual(assistant.getState().network.dns, cancelled);
+  const cancelledState = assistant.getState().network.dns;
+  assert.equal(cancelledState.status, 'cancelled');
+  assert.equal(cancelledState.classification, 'cancelled');
+  assert.equal(cancelledState.cancelled, true);
+  assert.equal(cancelledState.failed, false, 'a cancelled DNS result is explicitly not a failure');
   assistant.setDnsResult(legacy);
   assert.equal(Object.hasOwn(assistant.getState().network.dns, 'cancelled'), false);
+  assert.equal(assistant.getState().network.dns.failed, false);
   assistant.destroy();
 });
 
@@ -598,6 +603,15 @@ test('requestPwaUpdate delegates safely and classifies applied, no-waiting-worke
     await requestPwaUpdate({ pwa: { applyUpdate: () => ({ applied: true, outcome: 'error' }) } }),
     { applied: true, outcome: 'applied' },
     'contradictory outcomes are normalized to match the legacy applied flag'
+  );
+  const malformedResult = { applied: true };
+  Object.defineProperty(malformedResult, 'outcome', {
+    get() { throw new Error('unexpected outcome getter'); },
+  });
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { applyUpdate: () => malformedResult } }),
+    { applied: false, outcome: 'error' },
+    'throwing accessors in unexpected runtime values resolve to the declared error outcome'
   );
 
   assert.deepEqual(

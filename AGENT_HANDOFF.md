@@ -5,20 +5,21 @@
 **Base:** `main` at `bcdca6ed3bfb829fe09eb8372bfb8e06230254ed` (PR #32 merged)
 **Branch:** `arena/4a49f6ba-you-ge-assistant` (active)
 **PR:** [#34 — Stage 5.4: SDK reliability, type checks and integration guide](https://github.com/sandro-defender/you-ge-assistant/pull/34), open for owner review; do not merge.
-**Implementation commit:** `f7b74517ecc821eba0f2300cacc05d4c90c19f30`. The handoff commit `c2086d3993df88ba1a73f849113245657bbf8492` is the latest known PR head while this note is being updated; its `check` run is pending. This update will trigger another per-head check. Always query live PR #34 for the current head and check result before review or next action.
+**Current PR head at review start:** `11ff3ab547332e89f199b4fdaae0614fac381e4f`; review follow-up changes are being made on this branch and have not yet been pushed. Live `static` check passed on that head (run `43595971080`); pushing review changes will trigger a fresh per-head check. Re-query PR #34 and its checks after the push.
 
 ## Verified repository / PR state
 
 - Live `origin/main` is `bcdca6e`, the merge commit for PR #32; PR #32 is merged. Post-merge `check` and `pages` runs passed on `bcdca6e`.
 - PR #33 (`docs: record the Stage 5.3 merge and unblock Stage 5.4`) is **still open**, not merged. It is a documentation-only follow-up on the older Stage 5.3 branch, head `5d3f14547a9e928801fad828ec2bbe248ccaeeca`; its `check` passed. The current branch is already based on #32's merged commit, so #33 was not a prerequisite for implementation. Do not close or merge #33 as part of this task.
-- PR #34 is the sole Stage 5.4 implementation PR from this branch. Query `gh pr checks 34` before any review/next action; statuses are per-head and the final handoff commit triggers a new run.
-- The worktree was clean at the implementation commit before writing this handoff update. No owner changes were present or overwritten.
+- PR #34 is the sole Stage 5.4 implementation PR from this branch. The current branch is the only work branch; review changes remain unpushed until final checks complete. Query `gh pr checks 34` after pushing because statuses are per-head.
+- Phase 2.1's implementation work is now represented by Stages 5.1–5.4, including this PR. It does not still await authorization to start; PR #34 remains open for owner review/merge, and R1 specifically remains blocked on an owner version/cache-refresh decision. This task does not start a new stage.
+- The prior worktree was clean at PR #34 head before this review; no owner changes were present or overwritten.
 
 ## Completed — Stage 5.4
 
 **D4 — DNS cancellation normalization.** `normalizeDnsResult()` now preserves an explicit optional `cancelled` field and canonicalizes any cancellation marker (`cancelled: true`, `status: 'cancelled'`, or `classification: 'cancelled'`) to status/classification `cancelled`, `failed: false`, `cancelled: true`. Non-cancelled explicit `false` is preserved and missing remains omitted. `isCancelledResult()` also recognizes the cancellation classification, so cancellation cannot surface as a DNS/connectivity failure. `AssistantState.network.dns` publishes its optional `cancelled` and `failed` values. The classic `assistant-state.js` was regenerated from the SDK sources.
 
-**D5 — Update outcome contract.** `requestPwaUpdate()` preserves the five declared outcomes only. Valid, consistent outcome objects are retained; unknown or contradictory values fall back to the existing boolean result (`applied` / `no-waiting-worker`). Boolean, `void`, and `null` legacy runtime returns remain supported. `PwaRuntimeLike.applyUpdate` now describes the compatible legacy null/void and object shapes without widening `UpdateApplyOutcome`.
+**D5 — Update outcome contract.** `requestPwaUpdate()` preserves the five declared outcomes only. Valid, consistent outcome objects are retained; unknown or contradictory values fall back to the existing boolean result (`applied` / `no-waiting-worker`). Boolean, `void`, and `null` legacy runtime returns remain supported. Review found that a throwing `outcome` getter escaped the old rejection handler and rejected the helper promise; a chained catch now normalizes both rejected calls and exceptions while inspecting malformed third-party results to `{ applied: false, outcome: 'error' }`. `PwaRuntimeLike.applyUpdate` describes compatible legacy null/void and object shapes without widening `UpdateApplyOutcome`.
 
 **R2 — Public SDK type coverage in CI.** Added `example/src/sdk-public-subpaths.typecheck.ts`, a consumer fixture importing the root, every typed SDK subpath (`domain`, `config`, `diagnostics`, `installation`, `browser`, `theme`, `react`) and the exported package metadata path using actual `@youge/assistant-sdk/...` imports. The existing example TypeScript command includes this fixture; CI's existing example typecheck job now identifies the SDK-subpath coverage in its step name. No new tool or dependency was added.
 
@@ -31,19 +32,19 @@
 - Kit `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` remain `1.1.0` and agree. SDK package/`SDK_VERSION` remain `0.2.0`; `KIT_COMPAT_VERSION` is `1.1.0`, matching the root kit version.
 - The service-worker precache entries are scope-relative and the referenced files exist. `scripts/check.mjs` checks kit/client version equality and precache asset existence; package validation checks SDK package/SDK/kit compatibility version consistency.
 - The existing safety gap remains: those checks do **not** detect a content change to a precached file when the kit version is unchanged. Phase 2 already changed precached assets without a kit bump. This PR also regenerates `assistant-state.js`, which is precached; without a worker script/version update, installed workers may keep stale cached Assistant code offline or serve it on the first online cache hit while revalidation runs.
-- A diff-aware gate would fail this PR unless `progressier.js: VERSION` and `pwa.js: PWA.version` are changed together. That is a coordinated cache/release decision, and version changes are explicitly forbidden in this task. No new gate was added because a correct gate cannot be made green for this PR without the prohibited version decision. **Owner authorization is required** for the appropriate synchronized kit-version bump and its deployment/cache-refresh plan. No package/kit version, tag or release metadata was changed.
+- A diff-aware gate is technically feasible: CI can compare changed paths against the worker's precache list from the PR merge base, and require the `progressier.js` `VERSION` and `pwa.js` `PWA.version` values to advance together when a precached asset changes. It needs a reliable merge-base checkout and a deliberate rule for removals/list changes. Applied to this PR it would fail because `assistant-state.js` changed while both versions remain `1.1.0`.
+- No gate or version change was made: making this PR pass such a gate requires a coordinated cache/release decision, and version changes are prohibited in this task. **Owner authorization is required** for a synchronized kit-version bump and its deployment/cache-refresh plan. No package/kit version, tag, release metadata, publish, or deploy was changed.
 
 ## Validation
 
 - TDD: each new D4, D5 and stale-update regression was run red against the old behavior, then green after its fix. Update/widget cases use the existing Node VM/browser harness; no real browser was run.
-- Focused `tests/dns-diagnostics.test.mjs`: **26 passed**.
-- Focused SDK D4/D5/update outcome and lifecycle tests: **4 passed**; focused SDK/browser/widget lifecycle suites also passed (**92 tests** before the final repeated-event assertion; the final full suite below includes it).
+- Focused `packages/assistant-sdk/tests/sdk-integrations.test.mjs`: **18 passed, 0 failed**, including D4 assistant snapshot normalization and D5 malformed-runtime result handling. Focused `tests/dns-diagnostics.test.mjs`: **26 passed** (previous relevant validation; those sources were unchanged during this review).
 - `npm test`: **393 passed, 0 failed**.
 - `npm run check`: static checks passed; SDK package validation passed; **393 passed, 0 failed**.
-- `node scripts/sync-sdk-browser.mjs --check`: passed.
+- `node scripts/sync-sdk-browser.mjs --check`: passed after regenerating `assistant-state.js` from canonical SDK sources.
 - `node packages/assistant-sdk/scripts/validate-package.mjs`: passed (`@youge/assistant-sdk@0.2.0`; no publish/release action).
-- In `example/`: `npm ci`, `npm run typecheck`, `npm run build`: passed. The build printed existing Vite notices about classic script tags; build completed successfully. The typecheck includes consumer imports for every public export path.
-- `git diff --check`: clean before the handoff-only update. No live deployment or real-browser verification was performed.
+- In `example/`: `npm ci`, `npm run typecheck`, `npm run build`: passed. Build printed existing Vite notices about classic script tags and completed. The typecheck includes consumer imports for every public export path.
+- `git diff --check`: passed after source, generated bundle and handoff updates. No live deployment or real-browser verification was performed.
 
 ## Skills applied
 

@@ -114,11 +114,13 @@ export function requestPwaUpdate(options) {
         return resolved
           ? { applied: true, outcome: 'applied' }
           : { applied: false, outcome: 'no-waiting-worker' };
-      },
-      function () {
-        return { applied: false, outcome: 'error' };
       }
-    );
+    ).catch(function () {
+      // Normalize both rejected runtime calls and exceptions from malformed
+      // third-party result objects (including throwing getters) to the declared
+      // error outcome rather than leaking an unexpected rejection.
+      return { applied: false, outcome: 'error' };
+    });
   } catch (error) {
     return Promise.resolve({ applied: false, outcome: 'error' });
   }
