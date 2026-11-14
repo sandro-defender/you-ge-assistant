@@ -1380,3 +1380,42 @@ test('DOM widget routes update actions through AssistantInstance.applyUpdate and
   assert.equal(fallbackCtx.pwa.calls.applyUpdate, 1, 'falls back to PWA.applyUpdate when Assistant API lacks applyUpdate');
   fallbackWidget.destroy();
 });
+
+test('update notice and rendered action follow the updates module across reconfiguration (D2)', async () => {
+  const ctx = createContext({
+    richDocument: true,
+    config: { modules: { updates: false } },
+    pwaState: { hasUpdate: true, installed: true, standalone: true },
+  });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+  const assertUpdateUI = (visible) => {
+    const state = ctx.api.getState();
+    assert.equal(state.notifications.some((n) => n.id === 'app:update'), visible);
+    assert.equal(state.availableActions.some((a) => a.id === 'update'), visible);
+    assert.equal(Boolean(root.querySelector('[data-action="update"]')), visible);
+  };
+
+  assertUpdateUI(false);
+  assert.equal((await ctx.api.applyUpdate()).outcome, 'disabled');
+  assert.equal(ctx.pwa.calls.applyUpdate, 0);
+
+  ctx.api.configure({ modules: { updates: true } });
+  assertUpdateUI(true);
+  fire(ctx.document, root.querySelector('[data-action="update"]'), 'click');
+  assert.equal(ctx.pwa.calls.applyUpdate, 1);
+
+  ctx.api.configure({ modules: { updates: false } });
+  assertUpdateUI(false);
+  ctx.api.setUpdateAvailable(true);
+  assertUpdateUI(false);
+  ctx.api.configure({ modules: { updates: true } });
+  assertUpdateUI(true);
+
+  ctx.pwa.state.hasUpdate = false;
+  ctx.pwa.emitChange();
+  assertUpdateUI(false);
+  widget.destroy();
+  ctx.api.destroy();
+});
