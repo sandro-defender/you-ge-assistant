@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.1.1 (kit) — 2026-11-14 · precache integrity and cache refresh
+
+Kit `1.1.0 → 1.1.1` (`progressier.js` `VERSION`, `PWA.version`, root
+`package.json`, SDK `KIT_COMPAT_VERSION` and the regenerated
+`assistant-state.js`). **SDK package unchanged at `0.2.0`**; nothing is tagged,
+released, published or deployed by this change. Details:
+[`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md).
+
+- **New cache generation.** Worker caches are now `…:static:v1.1.1` and
+  `…:pages:v1.1.1`. Existing `1.1.0` installations install the new worker beside
+  the running one, show one update notice, and retire the `1.1.0` caches on
+  activation. This also delivers, deterministically, the precached files that
+  had changed under `1.1.0` without a version change.
+- **Service-worker install is all-or-nothing.** `progressier.js` downloads the
+  whole precache manifest, reading every body, before storing any of it, within
+  a 120 s deadline. Previously every failure was swallowed, which could activate
+  an incomplete shell after an update.
+- **Required and optional precache assets.** `offline.html`, `offline.css`,
+  `offline.js`, `pwa.css`, the default icon and `icons/icon-512.png` are
+  required: a missing one fails the install. The domain, diagnostics, Assistant
+  and QR files are optional and skipped only on 404/410 (or a host's HTML
+  fallback page). 401, 403, 408, 409, 429, 5xx, network failures and timeouts
+  fail the install for every asset; the installed version stays active and the
+  browser retries.
+- **Deployment note.** `pwa.css` must be deployed under the worker scope even
+  with `data-no-css` or a custom `data-css`; the earlier "unless `data-no-css`"
+  exception is withdrawn. Hosts that answer missing files with 403 must deploy
+  the optional files or answer 404.
+- **Diff-aware precache integrity gate.** `scripts/precache-integrity.mjs`
+  (`npm run check`, `npm run check:precache`, CI) reads the precache list from
+  the worker's install handler and fails when a precached file was modified,
+  added, removed or renamed since the merge base without a synchronized, higher
+  kit version, or when the kit-version declarations (worker, client,
+  `package.json`, SDK `KIT_COMPAT_VERSION`) disagree.
+- **Identity cleanup.** Remaining Progressier wording in comments (including the
+  last two in `pwa.css`), check messages and reference/parity framing now
+  describes You.Ge Assistant and its legacy compatibility contracts, inventoried
+  in [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md). No identifier,
+  selector, storage key or path was renamed.
+
 ## 1.1.0 (kit) / SDK 0.2.0 — 2026-11-07 · adaptive theming
 
 Kit `1.0.5 → 1.1.0`, SDK `0.1.1 → 0.2.0` (additive, minor for both). The SDK

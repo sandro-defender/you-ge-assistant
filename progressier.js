@@ -15,7 +15,7 @@
  * Configuration
  * ------------------------------------------------------------------ */
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const WORKER_DIRECTORY = new URL('./', self.location.href);
 const REGISTRATION_SCOPE = self.registration && self.registration.scope
   ? new URL(self.registration.scope, self.location.href)
@@ -68,7 +68,9 @@ const SCOPE_URL = REGISTRATION_SCOPE.href;
 const OFFLINE_URL = new URL('offline.html', SCOPE_URL).href;
 const SHARE_TARGET_PATH = new URL('share-target', SCOPE_URL).pathname;
 const HOME_URL = SCOPE_URL;
-const SHARE_DB = 'progressiersharedfiles'; // same names the old client uses
+// Legacy IndexedDB names (compatibility contract): existing installations
+// already hold shared files and notification history under them.
+const SHARE_DB = 'progressiersharedfiles';
 const SHARE_STORE = 'progressiersharedfiles';
 const NOTIF_DB = 'progressierSavedPushNotifications';
 const NOTIF_STORE = 'progressierSavedPushNotifications';
@@ -303,29 +305,143 @@ function base64ToUint8Array(base64) {
  * Lifecycle
  * ------------------------------------------------------------------ */
 
+// Precache manifest: the assets stored in STATIC_CACHE at install, resolved
+// against the registered scope. `pwa.js` and this worker are deliberately
+// absent: they are always fetched from the network. Changing this list or any
+// listed file needs a synchronized kit-version bump (`npm run check:precache`).
+//
+// required: true  — the shell every deployment ships (offline page, component
+//   stylesheet, default icons). Install fails unless each one is answered with
+//   a complete HTTP 200 response.
+// required: false — a feature file a deployment may leave out; the runtime
+//   degrades without it (PRECACHE_INTEGRITY.md §3 records why for each). It is
+//   skipped only when the server says it is not deployed: HTTP 404 or 410, or
+//   an HTML document in place of a script/stylesheet/image. Every other answer
+//   (401, 403, 408, 409, 429, 5xx, a lost connection, a timeout) fails the
+//   install for optional files too, so a blocked or broken deployment is never
+//   mistaken for a smaller one.
+const PRECACHE_TIMEOUT_MS = 120000;
+const PRECACHE_ASSETS = [
+  { url: OFFLINE_URL, required: true },
+  { url: new URL('offline.js', SCOPE_URL).href, required: true },
+  { url: new URL('offline.css', SCOPE_URL).href, required: true },
+  { url: new URL('pwa.css', SCOPE_URL).href, required: true },
+  { url: DEFAULT_ICON, required: true },
+  { url: new URL('icons/icon-512.png', SCOPE_URL).href, required: true },
+  { url: new URL('domain-config.js', SCOPE_URL).href, required: false },
+  { url: new URL('domain-registry.js', SCOPE_URL).href, required: false },
+  { url: new URL('dns-diagnostics.js', SCOPE_URL).href, required: false },
+  { url: new URL('assistant-state.js', SCOPE_URL).href, required: false },
+  { url: new URL('assistant-widget.js', SCOPE_URL).href, required: false },
+  { url: new URL('assistant-widget.css', SCOPE_URL).href, required: false },
+  { url: new URL('qrcode.js', SCOPE_URL).href, required: false },
+];
+
+// One entry per URL; a URL listed twice (a registry icon override equal to
+// another entry) is required if any of its entries is.
+function precacheAssets() {
+  const byUrl = new Map();
+  PRECACHE_ASSETS.forEach((asset) => {
+    const known = byUrl.get(asset.url);
+    byUrl.set(asset.url, { url: asset.url, required: asset.required || Boolean(known && known.required) });
+  });
+  return Array.from(byUrl.values());
+}
+
+function precacheError(asset, reason) {
+  const kind = asset.required ? 'required' : 'optional';
+  return new Error(`Precache failed: ${kind} asset ${asset.url} ${reason}. The service worker was not installed; the previous version, if any, stays active.`);
+}
+
+// Resolves with a complete response to store, or null for an optional asset
+// the deployment does not ship. Rejects for everything else.
+async function fetchPrecacheAsset(asset, signal) {
+  const request = new Request(asset.url, { cache: 'reload', signal });
+  let response;
+  try {
+    response = await fetch(request);
+  } catch (error) {
+    throw precacheError(asset, `could not be fetched (${(error && error.message) || 'network error'})`);
+  }
+
+  let absent = '';
+  if (response.status === 404 || response.status === 410) {
+    absent = `is not deployed (HTTP ${response.status})`;
+  } else if (response.status !== 200) {
+    throw precacheError(asset, `was answered with HTTP ${response.status}`);
+  } else if (
+    !/\.html?$/i.test(new URL(asset.url).pathname) &&
+    /^\s*text\/html\b/i.test(response.headers.get('content-type') || '')
+  ) {
+    // Hosts with a single-page fallback answer a missing file with their HTML page.
+    absent = 'is not deployed (the server answered with an HTML document instead of the file)';
+  }
+  if (absent) {
+    if (asset.required) throw precacheError(asset, absent);
+    return null;
+  }
+
+  // Read the whole body before anything is stored: a download that breaks off
+  // must fail the install, not leave a truncated file in the cache.
+  try {
+    await response.clone().arrayBuffer();
+  } catch (error) {
+    throw precacheError(asset, `was not received completely (${(error && error.message) || 'network error'})`);
+  }
+  return { request, response };
+}
+
+// Download the whole manifest, bypassing the HTTP cache, before storing any of
+// it. The first failure — or the deadline — aborts the remaining requests and
+// rejects: the browser discards this worker, retries on its next update check,
+// and the installed version keeps serving its own complete shell.
+async function fetchPrecache() {
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const signal = controller ? controller.signal : undefined;
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Precache failed: the download timed out after ${PRECACHE_TIMEOUT_MS / 1000} s. The service worker was not installed; the previous version, if any, stays active.`)),
+      PRECACHE_TIMEOUT_MS
+    );
+  });
+  try {
+    const assets = precacheAssets();
+    const downloads = assets.map((asset) => fetchPrecacheAsset(asset, signal));
+    // Every download is observed even after the first failure decides the outcome.
+    downloads.forEach((download) => download.catch(noop));
+    const entries = await Promise.race([Promise.all(downloads), deadline]);
+    return {
+      stored: entries.filter(Boolean),
+      absent: assets.filter((asset, index) => !entries[index]).map((asset) => asset.url),
+    };
+  } catch (error) {
+    if (controller) controller.abort();
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       if (OFFLINE_ENABLED) {
-        const cache = await caches.open(STATIC_CACHE);
-        const precache = [
-          OFFLINE_URL,
-          new URL('offline.js', SCOPE_URL).href,
-          new URL('offline.css', SCOPE_URL).href,
-          new URL('domain-config.js', SCOPE_URL).href,
-          new URL('domain-registry.js', SCOPE_URL).href,
-          new URL('dns-diagnostics.js', SCOPE_URL).href,
-          new URL('assistant-state.js', SCOPE_URL).href,
-          new URL('assistant-widget.js', SCOPE_URL).href,
-          new URL('assistant-widget.css', SCOPE_URL).href,
-          new URL('pwa.css', SCOPE_URL).href,
-          new URL('qrcode.js', SCOPE_URL).href,
-          DEFAULT_ICON,
-          new URL('icons/icon-512.png', SCOPE_URL).href,
-        ];
-        await Promise.allSettled(
-          precache.map((url) => cache.add(new Request(url, { cache: 'reload' })))
-        );
+        const { stored, absent } = await fetchPrecache();
+        // A cache that already exists belongs to the active worker of the same
+        // kit version (or to an interrupted attempt) and is refreshed in place;
+        // one created here is removed again if it cannot be filled completely.
+        const created = !(await caches.has(STATIC_CACHE));
+        try {
+          const cache = await caches.open(STATIC_CACHE);
+          await Promise.all(stored.map((entry) => cache.put(entry.request, entry.response)));
+          // Keep the cache equal to the deployment: drop an earlier copy of an
+          // optional asset that is no longer shipped.
+          await Promise.all(absent.map((url) => cache.delete(url)));
+        } catch (error) {
+          if (created) await caches.delete(STATIC_CACHE).catch(noop);
+          throw error;
+        }
       }
       // Do NOT skipWaiting here. Updates wait until the page asks for them,
       // which prevents mixing old HTML with new JS.

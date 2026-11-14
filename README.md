@@ -692,7 +692,7 @@ without changes.
 | `data-auto-update` | off | Apply service worker updates without asking |
 | `data-no-meta` | off | Do not inject manifest/Apple/Windows meta tags |
 | `data-no-splash` | off | Do not generate iOS splash screens |
-| `data-no-css` | off | Do not inject `pwa.css` |
+| `data-no-css` | off | Do not inject `pwa.css` (keep the file deployed: the worker requires it) |
 | `data-viewport-fit` | off | Add `viewport-fit=cover` on iOS/standalone |
 | `data-itunes-app-id` | — | Adds the `apple-itunes-app` meta tag |
 | `data-allow-external-protocol` | off | Allow `web+pwa:` redirects to other origins |
@@ -950,7 +950,18 @@ allowed; set `data-allow-external-protocol` if the app must handle external link
 - `/api/*`, non-GET requests and cross-origin requests are never cached.
 - Responses with `Cache-Control: no-store` or `private`, and requests carrying an
   `Authorization` header, are never cached.
-- Bump `VERSION` in `progressier.js` on deploy to invalidate old caches.
+- The kit version is the cache key. When a precached file changes, bump
+  `VERSION` in `progressier.js`, `PWA.version` in `pwa.js`, `version` in
+  `package.json` and the SDK's `KIT_COMPAT_VERSION` together; `npm run check`
+  enforces this against the merge base
+  ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md)).
+- Installing a new worker is all-or-nothing. `offline.html`, `offline.css`,
+  `offline.js`, `pwa.css` and the two default icons are **required**: if any of
+  them is missing the worker does not install. The domain, diagnostics,
+  Assistant and QR files are optional and skipped only when the server answers
+  404/410. Any other failed precache request (401, 403, 429, 5xx, a lost
+  connection, a timeout) fails the install, and the previous version keeps
+  serving its complete shell until a retry succeeds.
 
 The worker deliberately does **not** cache private or unmarked HTML. It only
 stores navigation responses explicitly marked `Cache-Control: public`; set

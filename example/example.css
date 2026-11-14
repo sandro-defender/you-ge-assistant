@@ -233,6 +233,7 @@ a { color: inherit; }
 .connection-pill.is-offline .connection-dot { background: #d38631; box-shadow: 0 0 0 3px rgba(211, 134, 49, 0.13); }
 .connection-pill.is-offline { color: #936029; }
 
+/* `.progressier-install-button` is the legacy compatibility selector the You.Ge Assistant runtime captures. */
 .progressier-install-button.install-button {
   display: inline-flex;
   align-items: center;

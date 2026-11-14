@@ -128,8 +128,15 @@ routes with your existing session middleware. Use your own contact address for
 - Roll back by restoring the previous runtime files while keeping the worker
   URL. Do not manually clear all Cache Storage or IndexedDB; this may erase
   user-visible history and shared payloads.
-- Bump `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` together for
-  future cache-affecting releases.
+- Bump `VERSION` in `progressier.js`, `PWA.version` in `pwa.js`, `version`
+  in `package.json` and the SDK's `KIT_COMPAT_VERSION` together for
+  cache-affecting releases. `npm run check` rejects a changed precached file
+  without that bump ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md)).
+- The worker installs only when `offline.html`, `offline.css`, `offline.js`,
+  `pwa.css`, `icons/icon-192.png` (or the registry's `branding.icon`) and
+  `icons/icon-512.png` are all served with HTTP 200 under its scope. The other
+  precached files are optional and may answer 404. Any other failure leaves the
+  installed version untouched and is retried by the browser.
 
 ## 8. DNS recovery
 

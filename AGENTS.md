@@ -41,7 +41,7 @@
 - Preserve existing work.
 - Never reset, discard or overwrite user changes.
 - Never force-push.
-- Do not merge, publish, release or bump package versions without explicit authorization.
+- Do not merge, publish, release or bump package or kit versions without explicit authorization. When the precache integrity gate (§12) demands a kit-version bump, stop and request owner authorization; never bump, bypass or weaken the gate to get a green check.
 - Keep changes within the requested scope.
 
 ### Handoff requirements
@@ -61,10 +61,13 @@
 
 ### Permanent You.Ge Assistant Identity Rule
 
+- You.Ge Assistant is the sole product identity of this repository. Nothing in it is, or may be described as, a Progressier product.
 - Whenever an agent discovers obsolete Progressier branding, product descriptions, example/template framing, documentation, comments, metadata, or other user-facing project identity references, it must proactively replace or reframe them as You.Ge Assistant.
 - Do not leave newly discovered obsolete branding behind merely because it is outside the immediate task scope. Include it in the current task when safe, or record it in `AGENT_HANDOFF.md` for a focused follow-up.
 - Preserve technical compatibility identifiers and migration safeguards. Never blindly rename or remove legacy APIs, globals, selectors, CSS variables, storage keys, service-worker paths, or other compatibility contracts.
 - Only change compatibility contracts through an explicitly authorized breaking migration.
+- Report remaining Progressier-named technical identifiers accurately: never claim a complete cleanup without the search method and the list of exceptions. [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md) is the authoritative inventory (purpose, why each remains, migration status); update it whenever one is added, removed or migrated.
+- `reference/` and `PARITY.md` are third-party compatibility evidence. Do not remove or restructure them without separate owner approval.
 
 ---
 
@@ -80,8 +83,9 @@ JavaScript, CSS, a manifest, a service worker, static icons, central domain
 configuration, and an on-demand DNS diagnostics module. There is no build step
 or runtime package install required for classic `<script>` integration.
 
-Current runtime version: **1.1.0** (`PWA.version` and `VERSION` in
-`progressier.js`). For architecture findings and risks, see
+Current runtime version: **1.1.1** (`PWA.version`, `VERSION` in
+`progressier.js`, root `package.json` and the SDK's `KIT_COMPAT_VERSION`; the SDK
+package itself is versioned separately, currently `0.2.0`). For architecture findings and risks, see
 [`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md) and
 [`FOUNDATION_AUDIT.md`](FOUNDATION_AUDIT.md).
 
@@ -169,9 +173,9 @@ copy for a subpath deployment.
 | `dns-diagnostics.js` | optional | On-demand Cloudflare DoH diagnostics and classifications |
 | `manifest-handler.js`, `functions/manifest.webmanifest.js` | hosting-dependent | Host-aware manifest response/helper and Cloudflare Pages adapter |
 | `pwa.js` | yes | Client runtime: config, SW registration, install/push UI, floating toolbox, QR, banners, meta, splash |
-| `pwa.css` | yes (unless `data-no-css`) | Component styles and preserved compatibility CSS variables |
-| `assistant-state.js` | yes | Centralized, event-driven state + configurable SDK API for the Intelligent Floating Assistant |
-| `assistant-widget.js`, `assistant-widget.css` | yes (unless disabled) | Dependency-free DOM renderer, fixed placement, safe areas, badges, in-place panel, auto-scaling launcher with manual size/position adjustment, Android Chrome handoff offer |
+| `pwa.css` | yes | Component styles and preserved compatibility CSS variables. Required by the worker's precache: keep it deployed even with `data-no-css` or a custom `data-css` |
+| `assistant-state.js` | for the Assistant | Centralized, event-driven state + configurable SDK API for the Intelligent Floating Assistant |
+| `assistant-widget.js`, `assistant-widget.css` | for the Assistant widget | Dependency-free DOM renderer, fixed placement, safe areas, badges, in-place panel, auto-scaling launcher with manual size/position adjustment, Android Chrome handoff offer |
 | `progressier.js` | yes | Service worker (kept at `/progressier.js` for update continuity): offline cache, push display, share target, badge |
 | `manifest.webmanifest` | yes | App identity, icons, share target, protocol handlers |
 | `qrcode.js` | only for QR | Vendored MIT `qrcode-generator` 2.0.4 |
@@ -361,8 +365,9 @@ node scripts/check.mjs      # or: npm run check
 ```
 
 It verifies JS syntax, manifest JSON, real PNG sizes against the declared
-`icons[].sizes`, precache assets, `VERSION` consistency between the worker and
-`pwa.js`, and leftover hosted Progressier URLs.
+`icons[].sizes`, precache assets, kit-version consistency (worker `VERSION`,
+`PWA.version`, `package.json`, SDK `KIT_COMPAT_VERSION`), precache integrity
+against the merge base (§12), and leftover legacy hosted-script URLs.
 
 Live checks:
 
@@ -612,15 +617,20 @@ these preserved compatibility CSS variables from `:root`:
 --progressierTxt
 --progressierBorderColor
 --progressierHover
---progressierBackdrop
 --progressierBoxShadow
---progressierIconShadow
 --progressierFont
 --progressierLetterSpacing
 --progressierTextFontWeight
 --progressierHeadingFontWeight
 --progressierBtnFontWeight
+--progressierAccent
+--progressierAccentText
+--progressierFocus
+--progressierNote
 ```
+
+These 15 names are the complete set the runtime reads; they are legacy
+compatibility contracts (see [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md)).
 
 Set them in CSS or at runtime:
 
@@ -683,9 +693,31 @@ configured default icon, and `icons/icon-512.png`. `pwa.js` and
 `progressier.js` themselves are not in that precache list; the worker script
 updates through normal service-worker script checks.
 
+Each entry is declared required or optional in the worker. **Required**
+(`offline.html`, `offline.css`, `offline.js`, `pwa.css`, the default icon,
+`icons/icon-512.png`): the install fails unless every one is answered with a
+complete HTTP 200. **Optional** (the domain, diagnostics, Assistant and QR
+files): skipped only when the server answers 404/410 or its HTML fallback page.
+Any other answer — 401, 403, 408, 409, 429, 5xx, a lost connection, a 120 s
+timeout — fails the install for every asset. A failed install writes nothing and
+leaves the installed version active; the browser retries. Do not make an asset
+optional, or widen what counts as "not deployed", without owner approval.
+
+`npm run check` (and CI) runs the diff-aware precache integrity gate,
+`scripts/precache-integrity.mjs`: it reads that list by executing the worker's
+install handler, compares every listed file with the merge base, and fails when
+a precached file was modified, added, removed or renamed without a synchronized,
+higher kit version, or when the kit-version declarations disagree. Details,
+cache lifecycle and upgrade guarantees: [`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md).
+
 When any cached file changes:
 
-1. Bump `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` together.
+1. Bump `VERSION` in `progressier.js`, `PWA.version` in `pwa.js`, `version`
+   in the root `package.json` and `KIT_COMPAT_VERSION` in
+   `packages/assistant-sdk/src/core/constants.js` together, then run
+   `npm run sync:sdk` (in this repository the bump needs owner authorization;
+   `PRECACHE_INTEGRITY.md` §7 lists the pinned tests and documentation lines).
+   The SDK package version is separate and does not move with the kit.
 2. Upload the changed files.
 3. Reload. With `data-auto-update` the new worker activates automatically;
    otherwise `PWA.showReloadPrompt()` or the built-in prompt asks the user.
@@ -712,6 +744,7 @@ calls `self.registration.unregister()` and remove the manifest/script tags.
 | QR blank | `/qrcode.js` not uploaded or blocked; check the Network panel |
 | Share target 404 | `share_target.action` must be `/share-target`; the worker handles the POST |
 | Offline page missing | Upload `offline.html`, `offline.css`, `offline.js`; the worker precaches them |
+| Worker never installs or updates (`Precache failed: …` in the console) | A required precache asset is missing or a precache request was refused; the message names the asset and the HTTP status. Deploy the file under the worker scope — see `PRECACHE_INTEGRITY.md` §3 |
 
 ---
 

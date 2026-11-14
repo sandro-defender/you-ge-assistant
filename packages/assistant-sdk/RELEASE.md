@@ -41,7 +41,7 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 | Runtime dependencies | **Zero** | `react >= 18` is an optional peer only (for `./react`) |
 | License | MIT ([`LICENSE`](LICENSE)) | Matches the repository license |
 | Packed size | 21 files, 38.0 kB tarball / 147.4 kB unpacked | `npm pack --dry-run` (2026-11-07) |
-| Kit compatibility | `KIT_COMPAT_VERSION = 1.1.0` | Matches the You.Ge Assistant runtime version (`pwa.js` / `progressier.js`) |
+| Kit compatibility | `KIT_COMPAT_VERSION = 1.1.1` in the repository source | Matches the You.Ge Assistant runtime version (`pwa.js` / `progressier.js`). The published `0.2.0` tarball was built at kit `1.1.0` and reports `1.1.0`; the constant is informational and changes in a published package only with the next SDK release |
 | Config schema | `SCHEMA_VERSION = 1` | Data-only `publishedConfig` pipeline, LKG fallback |
 | **Publishing auth** | **npm Trusted Publishing (OIDC) everywhere: the `stage` and `publish` jobs both carry `id-token: write`; no npm token reference exists anywhere in the workflows. First publication (0.1.0, 2026-11-06) used the temporary `NPM_STAGE_TOKEN` bootstrap — created, used and revoked** | Verify, stage and publish use no npm token at all; the bootstrap token was a temporary credential, not the future publishing method — [§4](#4-release-runbook-when-a-release-is-approved), [§6](#6-npm-trusted-publishing-oidc), [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important) |
 

@@ -95,7 +95,7 @@ function makeHostEnv(overrides = {}) {
 test('exposes explicit, documented public exports on root and subpath entry points', () => {
   assert.equal(YouGeAssistantDefault, YouGeAssistant);
   assert.equal(typeof SDK_VERSION, 'string');
-  assert.equal(KIT_COMPAT_VERSION, '1.1.0');
+  assert.equal(KIT_COMPAT_VERSION, '1.1.1');
   assert.equal(SCHEMA_VERSION, 1);
   assert.deepEqual(PRIORITY, { critical: 1, auth: 2, backup: 3, install: 4, info: 5 });
   assert.equal(typeof YouGeAssistant.create, 'function');

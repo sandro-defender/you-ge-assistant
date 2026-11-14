@@ -24,8 +24,8 @@
 | Root scripts | `check` (static checker + Node tests), `test` (`node --test tests/*.test.mjs`), `verify` (live deployment smoke check), `keys` (VAPID generation). |
 | Entry points | `pwa.js` (page-side client, IIFE exposing `window.PWA`), `progressier.js` (service worker), `manifest.webmanifest`, `offline.html` + `offline.js`, `domain-registry.js` → `domain-config.js` → `dns-diagnostics.js` loaded before the client. |
 | Optional/edge | `manifest-handler.js` + `functions/manifest.webmanifest.js` (Cloudflare Pages adapter), `qrcode.js` (vendored MIT library, loaded on demand), `examples/push-server/` (sample Web Push sender). |
-| UI | `pwa.css` (component styles and all Progressier-compatible class names), `offline.css`, `demo/index.html` (playground), `example/` (React 19 + Vite 8 app with plain CSS and a vendored React Bits `ElectricLogo`). |
-| Reference | `reference/Script.js`, `Script.decompiled.js`, `progressier*.json` — research-only original Progressier artifacts, deliberately not deployed. |
+| UI | `pwa.css` (component styles and all legacy `.progressier-*` compatibility class names), `offline.css`, `demo/index.html` (playground), `example/` (React 19 + Vite 8 app with plain CSS and a vendored React Bits `ElectricLogo`). |
+| Reference | `reference/Script.js`, `Script.decompiled.js`, `progressier*.json` — research-only artifacts of the legacy hosted client, deliberately not deployed. |
 | CI/CD | `.github/workflows/check.yml` (build ReactBits example, static checks, syntax checks, unit tests, manifest parse) and `.github/workflows/pages.yml` (assemble and deploy the Pages playground + `/example/` sample). Both use GitHub-hosted `ubuntu-latest`; no self-hosted runner label is configured or verifiable from this session. |
 
 ## 2. What currently works (verified)
@@ -39,13 +39,13 @@
 - **Network / DNS diagnostics** — `dns-diagnostics.js` performs user-triggered Cloudflare DoH A/AAAA queries with `AbortController` timeouts, bounded retries, single-flight deduplication, JSON validation and cautious classifications. `DNS_RECOVERY.md` documents Android Private DNS and iOS DNS-only recovery.
 - **Other PWA features** — Web Push (VAPID), badges, notification history, share target, share-file retrieval, protocol handlers, iOS splash generation, translated wording, theming, QR install codes, toast notifications, offline alerts.
 - **API endpoints** — no production API exists in this repo. The only sample routes are in `examples/push-server/server.js` (`/health`, `/api/push/public-key`, `/api/push/subscribe`, `/api/push/send`, `/api/push/test`) and the `/share-target` POST handled by the worker. Push/analytics endpoints are supplied by page configuration, never hardcoded. `scripts/verify-deployment.mjs` takes a user-supplied target URL.
-- **Tests** — 30 Node tests passed before any change (`npm run check`, `npm test`) covering domain resolution, manifest responses, DNS outcomes and the sample UI. `scripts/check.mjs` additionally verifies file presence, JS syntax, manifest icons/PNG dimensions, worker/client version parity, toolbox CSS parity, legacy Progressier leftovers, Pages asset resolution and distinct example install identities.
+- **Tests** — 30 Node tests passed before any change (`npm run check`, `npm test`) covering domain resolution, manifest responses, DNS outcomes and the sample UI. `scripts/check.mjs` additionally verifies file presence, JS syntax, manifest icons/PNG dimensions, worker/client version parity, toolbox CSS parity, legacy hosted-script leftovers, Pages asset resolution and distinct example install identities.
 - **Build** — `cd example && npm ci && npm run build` passed before any change (Vite 8, React 19).
 
 ## 3. What must be preserved
 
 1. The entire installation experience and its public API (`PWA.promptInstall`, `install`, `canInstall`, `isStandalone`, `isInstalled`, `isIOS`, `isSafari`, `showInstallHelp`, `showInstallBanner`, `showInstallRequest`, `wording`).
-2. `Progressier`-compatible CSS class names, markup contracts, cookie names (`progressierinstallbanner`, `progressierpushbanner`), `localStorage` keys (`pwakit:welcome`) and IndexedDB names (`progressiersharedfiles`, `progressierSavedPushNotifications`).
+2. Legacy `.progressier-*` CSS class names, markup contracts, cookie names (`progressierinstallbanner`, `progressierpushbanner`), `localStorage` keys (`pwakit:welcome`) and IndexedDB names (`progressiersharedfiles`, `progressierSavedPushNotifications`).
 3. `/progressier.js` as the default worker path and the stable legacy manifest `id` — changing either creates a second installed app for existing users.
 4. `window.PWA.__pwaKit` idempotence, script `data-*` attributes, `[data-pwa-install]`/`[data-pwa-diagnostics]` delegation and MutationObserver behavior for dynamically added buttons.
 5. Static-fallback operation when `domain-config.js`, `dns-diagnostics.js` or the manifest handler are absent.
