@@ -20,6 +20,8 @@ const PRECACHED = [
   'offline.css', 'offline.html', 'offline.js', 'pwa.css', 'qrcode.js',
 ];
 const KIT_VERSION_FILES = ['progressier.js', 'pwa.js', 'package.json'];
+/** One line of the worker's precache manifest, as written in progressier.js. */
+const QR_ENTRY = "  { url: new URL('qrcode.js', SCOPE_URL).href, required: false },\n";
 
 /** A throw-away git repository holding the real kit runtime on `main`. */
 function createKitRepo(t) {
@@ -137,7 +139,7 @@ test('a worker change that leaves the precache list alone passes without a bump'
 test('adding an asset to the precache list requires a bump', async (t) => {
   const repo = createKitRepo(t);
   repo.write('extra-shell.js', '// new shell asset\n');
-  repo.replace('progressier.js', "new URL('qrcode.js', SCOPE_URL).href,", "new URL('qrcode.js', SCOPE_URL).href,\n    new URL('extra-shell.js', SCOPE_URL).href,");
+  repo.replace('progressier.js', QR_ENTRY, `${QR_ENTRY}  { url: new URL('extra-shell.js', SCOPE_URL).href, required: false },\n`);
   repo.commit('precache one more asset');
 
   const result = await repo.check();
@@ -153,7 +155,7 @@ test('adding an asset to the precache list requires a bump', async (t) => {
 
 test('removing an asset from the precache list requires a bump', async (t) => {
   const repo = createKitRepo(t);
-  repo.replace('progressier.js', "    new URL('qrcode.js', SCOPE_URL).href,\n", '');
+  repo.replace('progressier.js', QR_ENTRY, '');
   repo.commit('stop precaching the QR library');
 
   const result = await repo.check();

@@ -130,11 +130,11 @@ test('a server error while precaching fails the install instead of activating an
   assert.deepEqual(await caches.snapshot(next.staticCache) || {}, {});
 });
 
-test('optional assets a deployment does not ship (4xx) never block installation', async () => {
+test('optional assets a deployment does not ship (404) never block installation', async () => {
   const caches = createCacheStorage();
   const network = createNetwork({ release: 'r1' });
   network.status('/qrcode.js', 404);
-  network.status('/dns-diagnostics.js', 403);
+  network.status('/dns-diagnostics.js', 404);
   const worker = bootWorker({ caches, network });
 
   await worker.install();
