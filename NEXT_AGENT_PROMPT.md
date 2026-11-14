@@ -1,6 +1,6 @@
 # Next Agent Prompt — Stage 5.4 (proposed, not authorized)
 
-Do not start until the owner explicitly approves Stage 5.4 and the Stage 5.3 (D3 + D6) PR has merged. Verify live `main`, worktree, PR and CI state first; read `AGENTS.md`, `AGENT_HANDOFF.md`, the relevant skills and `POST_PHASE2_ARCHITECTURE_REVIEW.md` (D4, D5, R2 and Stage 5.4). Follow the active session branch instructions.
+Do not start until the owner explicitly approves Stage 5.4. Stage 5.3 (D3 + D6) is merged at `bcdca6e` on `main`, so this task is unblocked but still unauthorized. Verify live `main`, worktree, PR and CI state first; read `AGENTS.md`, `AGENT_HANDOFF.md`, the relevant skills and `POST_PHASE2_ARCHITECTURE_REVIEW.md` (D4, D5, R2 and Stage 5.4). Follow the active session branch instructions.
 
 ## Objective
 

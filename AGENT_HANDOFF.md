@@ -2,10 +2,10 @@
 
 **Last updated:** 2026-11-14
 **Repository:** `sandro-defender/you-ge-assistant`
-**Base:** `main` at `befb2e6e3ff5a53cd4eaa22c5ed8fff3d11815ea` (PR #31 merged)
-**Branch:** `arena/e187be96-you-ge-assistant`
-**PR:** [#32 — Stage 5.3 / D3 + D6](https://github.com/sandro-defender/you-ge-assistant/pull/32), open for owner review; do not merge.
-**Implementation commit:** `a12ba69` (`fix(diagnostics): classify public IP hosts and scope DNS verdicts to the probe identity`), followed by the handoff commit containing this document. Check `git status` and the PR head for live worktree and commit state; the intended final worktree is clean.
+**Main:** `bcdca6ed3bfb829fe09eb8372bfb8e06230254ed` (PR #32 merged 2026-11-14T12:09:34Z on top of `befb2e6`, PR #31)
+**Merged branch:** `arena/e187be96-you-ge-assistant`
+**PR:** [#32 — Stage 5.3 / D3 + D6](https://github.com/sandro-defender/you-ge-assistant/pull/32) — **merged** by the owner (squash-free merge commit `bcdca6e`).
+**Implementation commit:** `a12ba69` (`fix(diagnostics): classify public IP hosts and scope DNS verdicts to the probe identity`), merged in `bcdca6e`. Only this documentation update follows it. Check `git status` and `origin/main` for live state.
 
 ## Completed — Stage 5.3 / D3 + D6
 
@@ -25,9 +25,9 @@ TDD: the new D3 and D6 tests were added first and observed failing on the pre-fi
 - `npm run check` (static checks + package validation + full suite): **390 passed, 0 failed**, exit 0.
 - `node scripts/sync-sdk-browser.mjs --check`: in sync. `node packages/assistant-sdk/scripts/validate-package.mjs`: passed (`0.2.0`, publishing still disabled). `git diff --check`: clean.
 - Example (`example/`): `npm ci`, `npm run typecheck`, `npm run build` all passed. The SDK subpath declarations were also checked with the example's `tsc --noEmit --strict` over `src/diagnostics/index.d.ts` and `src/index.d.ts`.
-- CI: the `check` workflow passed on PR #32's implementation head `a12ba69` and again on the handoff head `e7a4ae1` (`static` job, 22s and 19s). Any later commit triggers a fresh run — consult PR checks for the current head rather than treating an earlier result as final.
+- CI: the `check` workflow passed on PR #32's implementation head `a12ba69`, on handoff heads `e7a4ae1` and `a724e1c` (`static` job), and on `main` after the merge: both `check` and `pages` succeeded at `bcdca6e`.
 - No browser-level (VM/mock harnesses only) or live-deployment verification was performed. No dependency, version, release, publish or deployment change.
 
 ## Remaining / next action
 
-Wait for the Stage 5.3 PR's owner review and its current-head CI; do not merge. Stage 5.4 is only proposed (see `NEXT_AGENT_PROMPT.md`) and must not start until this PR merges and the owner authorizes it. Untouched: D4 (declared `cancelled` field never published), D5 (`requestPwaUpdate` outcome union), R1 (precache version bump), R2 (CI does not type-check the non-React SDK subpaths), R3–R5, Identity Cleanup Stage 2 (`reference/`, `PARITY.md`) and later roadmap work. Preserve Progressier-named technical compatibility identifiers: earlier audits classify every remaining reference as a contract, provenance or history.
+Stage 5.3 is merged and green on `main`; nothing is waiting on review. Stage 5.4 is only proposed (see `NEXT_AGENT_PROMPT.md`) and must not start until the owner explicitly authorizes it. Untouched: D4 (declared `cancelled` field never published), D5 (`requestPwaUpdate` outcome union), R1 (precache version bump), R2 (CI does not type-check the non-React SDK subpaths), R3–R5, Identity Cleanup Stage 2 (`reference/`, `PARITY.md`) and later roadmap work. Preserve Progressier-named technical compatibility identifiers: earlier audits classify every remaining reference as a contract, provenance or history.
