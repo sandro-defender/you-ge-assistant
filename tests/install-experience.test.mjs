@@ -5,7 +5,8 @@
  * verifies the real event flow rather than only grepping for source tokens:
  * beforeinstallprompt capture, native prompt(), userChoice, appinstalled,
  * already-installed behavior, platform detection, iOS/generic instructions,
- * dismissal, banner state and service worker registration.
+ * dismissal, banner state, service worker registration and the on-demand
+ * network diagnostics dialog's event contract.
  */
 
 import assert from 'node:assert/strict';
@@ -480,4 +481,79 @@ test('push permission requests support callback-only browsers and never throw', 
   revoked.win.Notification.permission = 'default';
   revoked.win.Notification.requestPermission = function requestPermission() { return Promise.reject(new Error('blocked')); };
   assert.equal(await revoked.win.PWA.requestPushPermission(), 'denied', 'a rejected request resolves denied');
+});
+
+/* ------------------------------------------------------------------ *
+ * Stage 3 regressions (2026-11): diagnostics dialog event contract
+ * ------------------------------------------------------------------ */
+
+function diagnosticsContext() {
+  const harness = createContext();
+  return harness;
+}
+
+function retryButtonOf(flow) {
+  return findAll(flow, (node) => node.tagName === 'BUTTON')[0] || null;
+}
+
+test('the diagnostics dialog publishes pwa:diagnostics when the check succeeds', async () => {
+  const harness = diagnosticsContext();
+  let checks = 0;
+  harness.win.YouGeDns = {
+    check() {
+      checks += 1;
+      return Promise.resolve({ classification: 'normal_connectivity', message: 'DNS resolved and the app responded.' });
+    },
+  };
+
+  const flow = harness.win.PWA.showNetworkDiagnostics();
+  assert.ok(flow, 'the dialog is created');
+  assert.equal(flow.getAttribute('role'), 'dialog');
+  assert.equal(flow.getAttribute('aria-modal'), 'true');
+
+  retryButtonOf(flow).dispatch('click');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(checks, 1, 'the network check runs only on the user action');
+  const events = harness.events.filter((entry) => entry.type === 'pwa:diagnostics');
+  assert.equal(events.length, 1);
+  assert.equal(events[0].detail.classification, 'normal_connectivity');
+  assert.notEqual(events[0].detail.failed, true);
+});
+
+test('a rejected diagnostics check still publishes pwa:diagnostics with a consistent failure result', async () => {
+  const harness = diagnosticsContext();
+  harness.win.YouGeDns = {
+    check() {
+      return Promise.reject(new Error('Network down'));
+    },
+  };
+
+  const flow = harness.win.PWA.showNetworkDiagnostics();
+  retryButtonOf(flow).dispatch('click');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const events = harness.events.filter((entry) => entry.type === 'pwa:diagnostics');
+  assert.equal(events.length, 1, 'the state layer must never miss a failed modal check');
+  const detail = events[0].detail;
+  assert.equal(detail.failed, true);
+  assert.equal(detail.classification, 'error');
+  assert.equal(detail.status, 'error');
+  assert.match(detail.message, /Network down/);
+  assert.match(textOf(flow), /could not complete/i, 'the dialog still explains the failure to the user');
+});
+
+test('a diagnostics module that is missing does not publish a misleading result', async () => {
+  const harness = diagnosticsContext();
+  harness.win.YouGeDns = undefined;
+
+  const flow = harness.win.PWA.showNetworkDiagnostics();
+  retryButtonOf(flow).dispatch('click');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const events = harness.events.filter((entry) => entry.type === 'pwa:diagnostics');
+  assert.equal(events.length, 1);
+  assert.equal(events[0].detail.classification, 'unknown');
+  assert.equal(events[0].detail.status, 'unavailable');
+  assert.match(events[0].detail.message, /not loaded/i);
 });

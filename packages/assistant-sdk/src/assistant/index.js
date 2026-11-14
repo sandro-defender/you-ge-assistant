@@ -652,8 +652,18 @@ export function createAssistant(initialOptions, envOverrides) {
     },
   });
 
+  function dnsIdentity() {
+    const project = projectInfo();
+    return { id: project.id, hostname: project.hostname, origin: project.origin };
+  }
+
+  function sameDnsIdentity(a, b) {
+    return Boolean(a && b) && a.id === b.id && a.hostname === b.hostname && a.origin === b.origin;
+  }
+
   function configure(nextOptions) {
     if (destroyed) return snapshot;
+    const previousDnsIdentity = dnsIdentity();
     const baseGlobal = useGlobalConfig && root.YOU_GE_ASSISTANT_CONFIG && typeof root.YOU_GE_ASSISTANT_CONFIG === 'object'
       ? root.YOU_GE_ASSISTANT_CONFIG
       : {};
@@ -670,6 +680,13 @@ export function createAssistant(initialOptions, envOverrides) {
     configMeta = resolvedBundle.meta;
     services = config.services;
     persistPublishedLkgIfDerivedProject();
+    // A DNS verdict belongs to one project on one hostname: when either
+    // changes, the previous result is stale. Unrelated updates keep it.
+    if (!sameDnsIdentity(previousDnsIdentity, dnsIdentity())) {
+      diagnosticsController.clear();
+      conditions.dns = { status: 'idle', classification: 'unknown', message: '', checkedAt: null };
+      lastConditionKeys = new Set();
+    }
     loadNotices(projectInfo().id);
     syncPwaSubscription();
     emit();
@@ -772,6 +789,9 @@ export function createAssistant(initialOptions, envOverrides) {
       setDnsResult(disabled);
       return Promise.resolve(disabled);
     }
+    // Single-flight and cancellation hygiene live in the diagnostics adapter:
+    // it owns one controller per run (bridging an optional caller signal) and
+    // aborts it from `clear()`, which `destroy()` calls.
     return diagnosticsController.run(runOptions);
   }
 

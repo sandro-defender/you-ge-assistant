@@ -273,3 +273,127 @@ test('external-store bindings resolve the assistant once instead of re-attaching
   unsubscribe();
   assistant.destroy();
 });
+
+/* ------------------------------------------------------------------ *
+ * Stage 3 regressions (2026-11): cancellation hygiene in the adapter
+ * ------------------------------------------------------------------ */
+
+function manualSignal() {
+  const listeners = new Set();
+  const removed = [];
+  return {
+    aborted: false,
+    removed,
+    get listenerCount() { return listeners.size; },
+    addEventListener(type, listener) { listeners.add(listener); },
+    removeEventListener(type, listener) { removed.push(type); listeners.delete(listener); },
+    abort() { this.aborted = true; Array.from(listeners).forEach((listener) => listener({ type: 'abort' })); },
+  };
+}
+
+test('a cancelled diagnostics run records cancellation and never reports a synthetic error', async () => {
+  const controller = new AbortController();
+  let runnerSignal = null;
+  const assistant = YouGeAssistant.create({
+    projectId: 'cancel-run',
+    bindEvents: false,
+    services: {
+      diagnostics: (options) => {
+        runnerSignal = options && options.signal;
+        // A real probe settles when its signal aborts; simulate exactly that.
+        return new Promise((resolve, reject) => {
+          if (!options || !options.signal) return;
+          options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { kind: 'cancelled' })), { once: true });
+        });
+      },
+    },
+  });
+
+  const running = assistant.runDiagnostics({ signal: controller.signal });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(runnerSignal && typeof runnerSignal.addEventListener === 'function', 'the runner receives an abortable signal');
+  assert.equal(runnerSignal.aborted, false);
+  controller.abort();
+  assert.equal(runnerSignal.aborted, true, 'the caller cancellation reaches the delegated runner');
+  const result = await running;
+
+  assert.equal(result.status, 'cancelled');
+  assert.equal(result.cancelled, true);
+  assert.equal(result.failed, false);
+  assert.equal(assistant.getState().network.dns.status, 'cancelled');
+  assert.equal(
+    assistant.getState().notifications.some((n) => n.id === 'network:unreachable'),
+    false,
+    'a user cancellation must never raise a critical connection notice'
+  );
+  assert.equal(assistant.isDestroyed(), false);
+
+  assistant.destroy();
+});
+
+test('destroying the assistant while diagnostics are in flight aborts them and they cannot resurrect state', async () => {
+  const controller = new AbortController();
+  let receivedSignal = null;
+  const assistant = YouGeAssistant.create({
+    projectId: 'cancel-on-destroy',
+    services: {
+      diagnostics: (options) => new Promise((resolve) => {
+        receivedSignal = options && options.signal;
+        setTimeout(() => resolve({ classification: 'normal_connectivity', message: 'late result' }), 5);
+      }),
+    },
+  });
+
+  const running = assistant.runDiagnostics({ signal: controller.signal });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(receivedSignal, 'the delegated runner received an abortable signal');
+  assert.equal(receivedSignal.aborted, false);
+  assistant.destroy();
+  assert.equal(receivedSignal.aborted, true, 'destroy aborts the run it owns');
+
+  const result = await running;
+  assert.equal(result.failed, false);
+  assert.equal(result.status, 'cancelled');
+  assert.equal(assistant.getState().network.dns.status, 'running', 'a destroyed instance never publishes a late result');
+});
+
+test('the adapter forwards a caller signal to real runners and cleans the run up on abort', async () => {
+  const signal = manualSignal();
+  let seenOptions = null;
+  const assistant = YouGeAssistant.create({
+    projectId: 'forward-signal',
+    bindEvents: false,
+    services: {
+      diagnostics: (options) => {
+        seenOptions = options;
+        return new Promise((resolve) => setTimeout(() => resolve({ classification: 'normal_connectivity' }), 10));
+      },
+    },
+  });
+
+  const running = assistant.runDiagnostics({ signal });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(seenOptions && typeof seenOptions.signal.addEventListener === 'function', 'the runner receives an abortable signal');
+  assert.equal(seenOptions.signal.aborted, false);
+
+  signal.abort();
+  assert.equal(seenOptions.signal.aborted, true, 'the caller abort propagates to the runner signal');
+  const cancelled = await running;
+  assert.equal(cancelled.cancelled, true);
+  assert.equal(cancelled.failed, false, 'a cancellation is not a failure');
+  assert.equal(assistant.getState().network.dns.status, 'cancelled');
+  assert.equal(assistant.getState().network.dns.classification, 'cancelled');
+  assert.equal(
+    assistant.getState().notifications.some((n) => n.id === 'network:unreachable' || n.id === 'dns:failure'),
+    false,
+    'cancellation raises no connectivity or DNS notice'
+  );
+
+  // A later run is not blocked by the cancelled one.
+  const again = await assistant.runDiagnostics();
+  assert.equal(again.classification, 'normal_connectivity');
+  assert.equal(assistant.getState().network.dns.classification, 'normal_connectivity');
+  assert.equal(signal.listenerCount, 0, 'the adapter releases its caller listener');
+
+  assistant.destroy();
+});

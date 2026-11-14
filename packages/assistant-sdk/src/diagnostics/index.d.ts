@@ -4,6 +4,21 @@ export interface DnsDiagnosticSnapshot {
   message: string;
   checkedAt: string | null;
   failed?: boolean;
+  /** True only when the caller cancelled the run; never a failure. */
+  cancelled?: boolean;
+}
+
+/** Minimal structural shape of an `AbortSignal`, so no DOM lib is required. */
+export interface AbortSignalLike {
+  readonly aborted: boolean;
+  addEventListener(type: 'abort', listener: (event?: unknown) => void, options?: { once?: boolean }): void;
+  removeEventListener(type: 'abort', listener: (event?: unknown) => void): void;
+}
+
+export interface DiagnosticsRunOptions {
+  /** Optional caller cancellation. Omitted signals keep the existing behavior. */
+  signal?: AbortSignalLike | { signal?: AbortSignalLike } | null;
+  [key: string]: unknown;
 }
 
 export interface DiagnosticsContext {
@@ -14,8 +29,9 @@ export interface DiagnosticsContext {
 }
 
 export interface DiagnosticsIntegrationOptions {
+  AbortController?: { new (): { signal: AbortSignalLike; abort(): void } } | null;
   services?: {
-    diagnostics?: ((options?: Record<string, unknown>) => Promise<Record<string, unknown>> | Record<string, unknown>) | null;
+    diagnostics?: ((options?: DiagnosticsRunOptions) => Promise<Record<string, unknown>> | Record<string, unknown>) | null;
   };
   pwa?: {
     runNetworkDiagnostics?: (options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -32,11 +48,17 @@ export interface DiagnosticsIntegrationOptions {
 }
 
 export interface DiagnosticsController {
-  run(runOptions?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  run(runOptions?: DiagnosticsRunOptions): Promise<Record<string, unknown>>;
+  /** Aborts the run this controller owns; its late result is discarded. */
   clear(): void;
   isRunning(): boolean;
 }
 
+export declare function isCancelledResult(dns?: Partial<DnsDiagnosticSnapshot> | null): boolean;
+export declare function cancelledDiagnosticsResult(reason?: string): DnsDiagnosticSnapshot;
+export declare function resolveRunSignal(
+  signal?: AbortSignalLike | { signal?: AbortSignalLike | null } | null
+): AbortSignalLike | null;
 export declare function dnsFailure(dns?: Partial<DnsDiagnosticSnapshot> | null): boolean;
 export declare function connectivityFailure(dns?: Partial<DnsDiagnosticSnapshot> | null): boolean;
 export declare function normalizeDnsResult(result?: Record<string, unknown> | null, DateCtor?: DateConstructor): DnsDiagnosticSnapshot;

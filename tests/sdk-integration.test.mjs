@@ -281,6 +281,40 @@ test('SDK integrates with real dns-diagnostics.js on-demand without background n
   assistant.destroy();
 });
 
+test('a failed pwa.js diagnostics dialog reaches centralized state as a critical connectivity notice', async () => {
+  const { win } = makeSandboxWindow('https://probe.example.com/');
+  win.AbortController = AbortController;
+  win.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  vm.runInContext(readRepo('dns-diagnostics.js'), win, { filename: 'dns-diagnostics.js' });
+  vm.runInContext(readRepo('pwa.js'), win, { filename: 'pwa.js' });
+
+  const assistant = YouGeAssistant.create({ projectId: 'modal-failure', domain: 'probe.example.com' }, { root: win });
+  assert.equal(assistant.getState().network.dns.status, 'idle');
+
+  // The real dialog dispatches `pwa:diagnostics` on both resolution and
+  // rejection (see tests/install-experience.test.mjs); the state layer must
+  // turn either shape into a usable classification.
+  const result = await win.PWA.runNetworkDiagnostics();
+  assert.equal(result.classification, 'application_host_unavailable');
+  win.document.dispatchEvent(new win.CustomEvent('pwa:diagnostics', { detail: result }));
+
+  let state = assistant.getState();
+  assert.equal(state.network.dns.classification, 'application_host_unavailable');
+  assert.ok(state.notifications.some((n) => n.id === 'network:unreachable'), 'a total online failure raises a critical notice');
+  assert.ok(state.availableActions.some((a) => a.id === 'diagnostics'));
+
+  // The rejection shape pwa.js publishes must classify the same way.
+  win.document.dispatchEvent(new win.CustomEvent('pwa:diagnostics', {
+    detail: { hostname: 'probe.example.com', classification: 'error', status: 'error', failed: true, message: 'Network down' },
+  }));
+  state = assistant.getState();
+  assert.equal(state.network.dns.status, 'error');
+  assert.equal(state.network.dns.message, 'Network down');
+  assert.ok(state.notifications.some((n) => n.id === 'network:unreachable'));
+
+  assistant.destroy();
+});
+
 test('bridgePwaGlobals + pwa.js preserves single /progressier.js registration and window.PWA / window.progressier contracts', () => {
   const { win } = makeSandboxWindow('https://tenant.example.com/');
   const swRegistrations = [];

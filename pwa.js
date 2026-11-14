@@ -2349,10 +2349,18 @@
   function runNetworkDiagnostics(options) {
     options = options || {};
     if (config.features && config.features.diagnostics === false) {
-      return Promise.resolve({ hostname: domainConfig.domain.hostname, classification: 'disabled', message: 'Network diagnostics are disabled for this domain.' });
+      return Promise.resolve({
+        hostname: domainConfig.domain.hostname, classification: 'disabled', status: 'disabled',
+        message: 'Network diagnostics are disabled for this domain.',
+      });
     }
     if (!window.YouGeDns || typeof window.YouGeDns.check !== 'function') {
-      return Promise.resolve({ hostname: domainConfig.domain.hostname, classification: 'unknown', message: 'The DNS diagnostics module is not loaded.' });
+      // A missing engine is an unavailable check, not an inconclusive result:
+      // the status says so instead of implying a probe was attempted.
+      return Promise.resolve({
+        hostname: domainConfig.domain.hostname, classification: 'unknown', status: 'unavailable',
+        message: 'The DNS diagnostics module is not loaded.',
+      });
     }
     var diagnosticsConfig = domainConfig.diagnostics || {};
     return window.YouGeDns.check({
@@ -2468,6 +2476,15 @@
       }).catch(function (error) {
         status.textContent = 'Diagnostics could not complete.';
         detail.textContent = error && error.message ? error.message : 'Retry when your connection is available.';
+        // Same contract as a resolved check: centralized state must hear about
+        // failed modal runs too, with one consistent failure shape.
+        dispatch('diagnostics', {
+          hostname: domainConfig.domain.hostname,
+          classification: 'error',
+          status: 'error',
+          failed: true,
+          message: error && error.message ? error.message : 'Diagnostics could not complete.',
+        });
       }).then(function () {
         running = false;
         retry.disabled = false;

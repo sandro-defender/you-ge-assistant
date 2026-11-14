@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import '../dns-diagnostics.js';
+import { connectivityFailure, dnsFailure } from '../packages/assistant-sdk/src/diagnostics/index.js';
 
 const { create, endpoint } = globalThis.YouGeDns;
 
@@ -261,4 +262,165 @@ test('reports a failing loopback host without false NXDOMAIN or DoH noise', asyn
   const offline = await create({ fetch: async () => { throw new TypeError('Failed to fetch'); }, retries: 0 })
     .check(browserContext({ hostname: '127.0.0.1', origin: 'http://127.0.0.1:5173', online: false }));
   assert.equal(offline.classification, 'general_internet_failure');
+});
+
+/* ------------------------------------------------------------------ *
+ * Stage 3 regressions: online-failure classification and cancellation
+ * ------------------------------------------------------------------ */
+
+test('classifies an online device whose DoH and application probes both fail as a connectivity failure, not unknown', async () => {
+  const fetch = async () => { throw new TypeError('Failed to fetch'); };
+  const result = await create({ fetch, retries: 0 }).check(browserContext({ online: true }));
+
+  assert.equal(result.online, true);
+  assert.notEqual(result.classification, 'unknown', 'evidence supports a connectivity failure, not an inconclusive result');
+  assert.equal(result.classification, 'application_host_unavailable');
+  assert.equal(connectivityFailure(result), true, 'assistant state must raise a reachable-connection notice');
+  assert.equal(result.possibleDnsInterference, false, 'no DNS answer exists, so DNS interference stays unclaimed');
+  assert.match(result.message, /did not respond/i);
+});
+
+test('keeps offline and backend-failure precedence when DoH also fails', async () => {
+  const offline = await create({ fetch: async () => { throw new TypeError('Failed to fetch'); }, retries: 0 })
+    .check(browserContext({ online: false }));
+  assert.equal(offline.classification, 'general_internet_failure');
+
+  const backendCheck = create({ fetch: async (input) => {
+    const url = new URL(input);
+    if (url.href.startsWith(endpoint)) throw new TypeError('Failed to fetch');
+    if (url.pathname === '/health') return response({}, 503);
+    return response({});
+  }, retries: 0 });
+  const backend = await backendCheck.check(browserContext({ backendProbePath: '/health' }));
+  assert.equal(backend.classification, 'backend_unavailable', 'a responsive app host still outranks a DoH failure');
+});
+
+function fakeSignal() {
+  const listeners = new Set();
+  const added = [];
+  const removed = [];
+  return {
+    aborted: false,
+    added,
+    removed,
+    get listenerCount() { return listeners.size; },
+    addEventListener(type, listener) {
+      added.push(type);
+      listeners.add(listener);
+    },
+    removeEventListener(type, listener) {
+      removed.push(type);
+      listeners.delete(listener);
+    },
+    abort() {
+      this.aborted = true;
+      Array.from(listeners).forEach((listener) => listener({ type: 'abort' }));
+    },
+    fire() { Array.from(listeners).forEach((listener) => listener({ type: 'abort' })); },
+  };
+}
+
+test('an already-aborted caller signal cancels without issuing any request', async () => {
+  const signal = fakeSignal();
+  signal.aborted = true;
+  let requests = 0;
+  const result = await create({ fetch: async () => { requests += 1; return response({}); }, retries: 0 })
+    .check(browserContext(), { signal });
+
+  assert.equal(requests, 0, 'cancellation is honored before any network work');
+  assert.equal(result.classification, 'cancelled');
+  assert.equal(result.cancelled, true);
+  assert.equal(result.status, 'cancelled');
+  assert.equal(result.failed, false);
+  assert.equal(dnsFailure(result), false);
+  assert.equal(connectivityFailure(result), false, 'a cancellation is not a connectivity failure');
+});
+
+test('aborting mid-flight cancels every in-flight request and is distinguishable from a timeout', async () => {
+  const signal = fakeSignal();
+  const aborted = [];
+  const fetch = (input, init) => {
+    const url = new URL(input);
+    return new Promise((resolve, reject) => {
+      const onAbort = () => { aborted.push(url.href); };
+      if (init && init.signal) init.signal.addEventListener('abort', onAbort, { once: true });
+      // A cancelled caller never settles its fetches; only the abort path resolves the check.
+      void resolve; void reject;
+    });
+  };
+
+  const promise = create({ fetch, retries: 0, timeoutMs: 5000 }).check(browserContext(), { signal });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  signal.abort();
+  const result = await promise;
+
+  assert.equal(result.classification, 'cancelled');
+  assert.equal(result.cancelled, true);
+  assert.equal(result.dnsErrors.length, 0, 'cancellation is not reported as a probe failure');
+  assert.equal(result.classification === 'cancelled' && result.dnsErrors.some((e) => e.kind === 'timeout'), false);
+  assert.equal(aborted.length, 3, 'both DoH queries and the app probe are aborted through the internal controller');
+  assert.equal(signal.listenerCount, 0, 'caller listeners are released');
+  assert.ok(signal.added.length > 0 && signal.added.length === signal.removed.length);
+});
+
+test('a cancelled run does not poison the deduplicated in-flight map or later retries', async () => {
+  const signal = fakeSignal();
+  let hanging = true;
+  let dnsCalls = 0;
+  const fetch = async (input, init) => {
+    const url = new URL(input);
+    if (hanging) {
+      // A cancelled run's requests only settle when their controller aborts,
+      // exactly as a real fetch behaves.
+      return new Promise((resolve, reject) => {
+        init.signal.addEventListener('abort', () => reject(new TypeError('Failed to fetch')), { once: true });
+      });
+    }
+    if (url.href.startsWith(endpoint)) {
+      dnsCalls += 1;
+      return response(dnsAnswer(url));
+    }
+    return response({});
+  };
+  const engine = create({ fetch, timeoutMs: 5000, retries: 0 });
+
+  const first = engine.check(browserContext(), { signal });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  signal.abort();
+  const cancelled = await first;
+  assert.equal(cancelled.classification, 'cancelled');
+  assert.equal(cancelled.cancelled, true);
+
+  hanging = false;
+  const ok = await engine.check(browserContext());
+  assert.equal(ok.classification, 'normal_connectivity', 'a later uncancelled retry still runs normally');
+  assert.equal(dnsCalls, 2, 'the retry issues fresh DoH queries instead of joining the abandoned run');
+});
+
+test('a caller abort never cancels an unrelated concurrent caller sharing the same host', async () => {
+  const signal = fakeSignal();
+  const fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.href.startsWith(endpoint)) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return response(dnsAnswer(url));
+    }
+    return response({});
+  };
+  const engine = create({ fetch, retries: 0 });
+
+  const cancellable = engine.check(browserContext(), { signal });
+  const independent = engine.check(browserContext());
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  signal.abort();
+  const [cancelled, ok] = await Promise.all([cancellable, independent]);
+
+  assert.equal(cancelled.classification, 'cancelled');
+  assert.equal(ok.classification, 'normal_connectivity', 'the uncancelled call is unaffected by another caller signal');
+});
+
+test('without a caller signal the engine keeps its existing signature and behavior', async () => {
+  const result = await create({ fetch: successfulFetch(), retries: 0 }).check(browserContext());
+  assert.equal(result.classification, 'normal_connectivity');
+  assert.equal(result.status, undefined, 'no cancellation status leaks into ordinary results');
 });

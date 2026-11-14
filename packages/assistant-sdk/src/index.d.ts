@@ -39,9 +39,11 @@ import type {
   ResolvedDomainConfig,
 } from './domain/index.js';
 import type {
+  AbortSignalLike,
   DiagnosticsContext,
   DiagnosticsController,
   DiagnosticsIntegrationOptions,
+  DiagnosticsRunOptions,
   DnsDiagnosticSnapshot,
 } from './diagnostics/index.js';
 import type {
@@ -89,9 +91,11 @@ export type {
   AssistantOffsets,
   AssistantPosition,
   AssistantTheme,
+  AbortSignalLike,
   DiagnosticsContext,
   DiagnosticsController,
   DiagnosticsIntegrationOptions,
+  DiagnosticsRunOptions,
   DnsDiagnosticSnapshot,
   DomainBranding,
   DomainConfigIssue,
@@ -295,7 +299,7 @@ export interface AssistantInstance {
   setSessionStatus(detail: SessionStatusInput): AssistantState;
   setDnsResult(result: Record<string, unknown>): AssistantState;
   setUpdateAvailable(available?: boolean): AssistantState;
-  runDiagnostics(options?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  runDiagnostics(options?: DiagnosticsRunOptions): Promise<Record<string, unknown>>;
   requestInstall(options?: Record<string, unknown>): Promise<{ outcome: string }>;
   dismiss(id: string): boolean;
   acknowledge(id: string): boolean;
@@ -381,11 +385,14 @@ export {
 } from './domain/index.js';
 
 export {
+  cancelledDiagnosticsResult,
   connectivityFailure,
   createDiagnosticsIntegration,
   dnsFailure,
+  isCancelledResult,
   normalizeDnsResult,
   resolveDiagnosticsRunner,
+  resolveRunSignal,
 } from './diagnostics/index.js';
 
 export {
