@@ -1,3 +1,19 @@
+# Current handoff — CI assertion fixed; Diagnostics Stage 2 blocked
+
+**Date:** 2026-11-14
+**Branch:** `arena/ca1b6b72-you-ge-assistant`, based on `main` at `9876c267d595c6af54daf3d59c67efca67ca4dcb`.
+**Scope:** assertion-only correction and handoff updates; see the branch and PR history for commit and review status. Kit remains `1.2.1`; SDK remains `0.2.0`.
+
+Part A: corrected the obsolete precache summary assertion in `tests/identity-migration.test.mjs`; the current summary reports unchanged assets and synchronized version `1.2.1`. Focused identity suite passed 13/13. No other obsolete assertion was found by searching test summary wording.
+
+Part B is **not implemented**. Both `dns-diagnostics.js` and `domain-config.js` are precached by `src/runtime/you-ge-sw.js`. The integrity gate requires a synchronized kit-version increase when a precached asset changes. The task forbids changing `1.2.1` and bypassing or weakening the gate; `AGENTS.md` requires stopping and asking for owner authorization. Existing diagnostics still resolve root-relative backend paths at the origin rather than ensuring the configured base path; Stage 2 safety and body-timeout requirements remain unverified and must not be represented as complete. Browser DNS cannot establish whether an arbitrary hostname resolves to a local address.
+
+Verification of Part A: identity 13/13; existing diagnostics 26/26; `npm test` 537/537; `npm run test:sdk` 128/128; `npm run check`, `npm run sync:sdk -- --check`, `npm run build`, and `npm run check:precache` passed. `npm test` and `npm run check` initially failed because `examples/example/dist` was absent; after `npm ci`, `npm run typecheck`, and `npm run build` in `examples/example`, both passed. Example build warns about classic scripts not bundled, as expected. No Stage 2 regressions have been added. The pending work is backend probe-path resolution (including subpaths), bounded JSON response parsing timeouts, localhost and local-IP hardening, domain configuration validation, and deployment/networking regression tests. Obtain explicit owner authorization for a future synchronized kit-version bump before changing precached runtime files; do not weaken the gate or move code to avoid it.
+
+---
+
+## Historical handoff (PR #40; superseded by current status above)
+
 # Agent Handoff — You.Ge Assistant
 
 **Last updated:** 2026-11-14

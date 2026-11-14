@@ -1,3 +1,13 @@
+# Next Agent Prompt — Diagnostics Stage 2 blocked
+
+On `arena/ca1b6b72-you-ge-assistant`, Part A's stale precache assertion is fixed and verified in a separate focused change. See the current section of `AGENT_HANDOFF.md` for results and the earlier example-build prerequisite. The historical PR #40 guidance below is superseded.
+
+Before implementing Diagnostics Phase 2 Stage 2, obtain explicit owner authorization for a future synchronized kit-version bump: `dns-diagnostics.js` and `domain-config.js` are precached, so changing them requires a synchronized kit-version bump under the integrity gate, but the request explicitly prohibits changing kit `1.2.1` or weakening the gate. Do not bypass the gate. Once the conflict is resolved explicitly, complete the requested path confinement, bounded JSON consumption, local-address behavior and configuration validation, add focused regressions, rerun all required verification, and submit Stage 2 separately without merging unless explicitly authorized. Keep the SDK package at `0.2.0`; do not publish, tag, release or deploy.
+
+---
+
+## Historical prompt (superseded)
+
 # Next Agent Prompt — CD-1 complete, PR #40 awaiting owner review
 
 CD-1 (module capability enforcement) plus the owner-authorized kit `1.2.0 →
