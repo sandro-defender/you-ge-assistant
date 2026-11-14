@@ -31,8 +31,7 @@ toolkit remains dependency-free. See [`example/README.md`](example/README.md).
 **Platform direction:** You.Ge Assistant is structured as a reusable PWA
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
-(`@youge/assistant-sdk` v`0.2.0` prepared 2026-11-07; v`0.1.1` is the
-current published npm version) while keeping this repository's dependency-free PWA
+(`@youge/assistant-sdk` v`0.2.0`, also the current npm registry version) while keeping this repository's dependency-free PWA
 toolkit (`window.PWA`, `/progressier.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
 production failover engine or `staff.you.ge` modification is implemented here.
@@ -102,6 +101,270 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 ```
 
 `npm run check` runs static checks and unit tests; `npm run verify` checks a live deployment.
+
+---
+
+## SDK integration guide — `@youge/assistant-sdk`
+
+### A. Overview
+
+`@youge/assistant-sdk` is the framework-independent, typed state and integration
+layer for You.Ge Assistant. It provides project/domain resolution, validated
+configuration, subscriptions, on-demand diagnostics and delegates installation
+and update actions to an existing PWA runtime. It does not register a service
+worker, render a widget, poll, or make hidden network requests.
+
+Use the SDK when an application needs the Assistant state/API in its own code,
+React, or a custom UI. The existing You.Ge Assistant runtime (`pwa.js`,
+`/progressier.js`, `dns-diagnostics.js`) remains responsible for browser PWA
+registration, install prompts, offline caching, push and the built-in PWA UI.
+The Classic toolkit remains suitable for static pages that want script-tag
+integration without an npm build. The SDK can share that runtime through
+`window.PWA`; do not register another service worker or compete for the browser's
+install prompt.
+
+### B. Installation and requirements
+
+Install the official npm package:
+
+```bash
+npm install @youge/assistant-sdk
+```
+
+The package is ESM-only (`"type": "module"`), includes TypeScript declarations,
+and supports Node.js 18 or newer and modern browser bundlers using package
+`exports`/ESM resolution. Use `import`, not `require()`; CommonJS applications
+can use dynamic `import()`. The package metadata is currently version `0.2.0`;
+use `npm install @youge/assistant-sdk@0.2.0` to pin that release exactly, or
+allow npm to select the current version when adding the dependency. React is an
+**optional peer dependency** (`react >=18`) used only by the `/react` adapter;
+the core has no runtime dependencies.
+
+Official package page: <https://www.npmjs.com/package/@youge/assistant-sdk/>.
+
+### C. Quick start
+
+This browser ESM example owns an isolated instance, subscribes to state, and
+cleans up both the subscription and SDK instance when the host view is removed:
+
+```js
+import { YouGeAssistant } from '@youge/assistant-sdk';
+
+const assistant = YouGeAssistant.create({
+  project: { id: 'customer-portal' },
+  position: 'bottom-right',
+  modules: { diagnostics: true, updates: true },
+});
+
+const unsubscribe = assistant.subscribe((state) => {
+  console.log(state.badge.label, state.network.updateAvailable);
+});
+
+// From an explicit user action only; no diagnostics run at startup.
+const result = await assistant.runDiagnostics();
+console.log(result.status, result.classification, result.cancelled);
+
+// Call when this application-owned instance is no longer needed.
+function disposeAssistant() {
+  unsubscribe();
+  assistant.destroy();
+}
+```
+
+`YouGeAssistant.attach(options)` instead returns the page-level shared instance,
+so ESM consumers and the Classic `assistant-state.js`/widget do not create
+separate state owners. Only the code that owns an isolated `create()` instance
+should destroy it; shared consumers should unsubscribe their own listeners.
+
+### D. Shared configuration and options
+
+`create()`, `attach()`, `configure()` and `AssistantConfigInput` share these
+configuration options (defaults are from `BUNDLED_DEFAULTS` and normalizers):
+
+| Option | Default / behavior |
+| --- | --- |
+| `enabled` | `true`; enables the Assistant state/UI integration. |
+| `project` / `projectId` | No explicit project; prefer stable `project: { id }`. `projectId` remains a compatibility alias. |
+| `domain`, `domainRegistry` | Host is detected when not overridden. Registry entries can customize project identity, branding, PWA settings, feature flags and diagnostics paths for a host/path. Host matching is public configuration, never authorization. |
+| `position`, `offsets` | `bottom-right`; `{ x: 20, y: 20 }`. |
+| `theme` | `auto`; accepts the legacy string modes or a validated theme object. See [`THEMING.md`](THEMING.md). |
+| `modules` | All default to `true`: `installation`, `diagnostics`, `recovery`, `failover`, `help`, `updates`, and `chromeHandoff`. These gate Assistant capabilities/UI; they do not change PWA registration. |
+| `notifications` | `dismissible: true`, `suppressRepeats: true`, `criticalPersistent: true`. |
+| `branding` | Empty overrides; resolved project/domain identity supplies defaults. Fields: `name`, `shortName`, `icon`, `themeColor`. |
+| `actions`, `features` | Empty arrays. Actions are safe data-only entries; features add informational feature announcements. |
+| `publishedConfig`, `useLastKnownGood` | Optional validated data-only published revision and local fallback. Resolution order is bundled defaults → validated published config/LKG → explicit project overrides. No remote fetch is performed. |
+| `services.diagnostics` | Optional application-owned diagnostics function; takes precedence over PWA and DNS-module runners. No other custom service is currently part of this shared option. |
+
+A host can pass an application-owned diagnostics result without adding a new
+transport:
+
+```js
+const assistant = YouGeAssistant.create({
+  project: { id: 'portal' },
+  services: {
+    diagnostics: async () => ({
+      status: 'complete',
+      classification: 'normal_connectivity',
+      message: 'Application health checks passed.',
+      failed: false,
+    }),
+  },
+});
+```
+
+The service is invoked only by `runDiagnostics()`. Keep secrets and credentials
+out of SDK configuration and public domain registry entries.
+
+### E. Integration methods
+
+**Framework-independent:** use `YouGeAssistant.create()` for an owned instance
+or `YouGeAssistant.attach()` for a shared page singleton. Subscribe with
+`assistant.subscribe(callback)`; it returns an unsubscribe function. Call
+`assistant.configure(nextOptions)` when application-owned configuration changes.
+
+**Existing PWA runtime:** load the Classic runtime and its dependencies as
+usual, then let the SDK delegate to `window.PWA`. The SDK never registers a
+worker itself. You can use its PWA adapter directly when needed:
+
+```js
+import {
+  deriveInstallationState,
+  requestPwaInstall,
+  requestPwaUpdate,
+} from '@youge/assistant-sdk/installation';
+
+const pwa = window.PWA;
+const installState = deriveInstallationState({ pwa });
+const installResult = await requestPwaInstall({ pwa }); // call from a user gesture
+const updateResult = await requestPwaUpdate({ pwa });
+```
+
+With the Assistant instance, prefer `assistant.requestInstall()` and
+`assistant.applyUpdate()` so its module gates and state reconciliation apply.
+
+**React 18+:** React is supplied by the host application; the adapter does not
+import React at runtime. Build one hook outside render and read a selector:
+
+```tsx
+import { useSyncExternalStore } from 'react';
+import { YouGeAssistant } from '@youge/assistant-sdk';
+import { createUseAssistant } from '@youge/assistant-sdk/react';
+
+const useAssistant = createUseAssistant(
+  useSyncExternalStore,
+  () => YouGeAssistant.attach({ project: { id: 'customer-portal' } }),
+);
+
+export function AssistantStatus() {
+  const badge = useAssistant((state) => state.badge);
+  return <span role="status">{badge.label}</span>;
+}
+```
+
+The getter is resolved once per hook creation, not on every render. Configure
+from an effect/event handler rather than passing new options through that getter.
+
+Adapter-only environment injection (`env`, `location`, `storage`, `pwa`, `dns`,
+`bindEvents` and `exposeGlobal`) belongs to `create()`/`attach()` and is useful
+for tests, SSR and controlled host integrations; it is not shared published
+configuration. `useSyncExternalStore` and optional `assistant`/`config` props
+belong to the React adapter.
+
+### F. Diagnostics
+
+Diagnostics are explicit and on demand:
+
+```js
+const abortController = new AbortController();
+const result = await assistant.runDiagnostics({ signal: abortController.signal });
+// abortController.abort() cancels an in-flight check when the caller needs to.
+// inspect result.status, result.classification, result.message,
+// result.failed and result.cancelled
+```
+
+The SDK chooses the configured `services.diagnostics`, then
+`PWA.runNetworkDiagnostics()`, then `YouGeDns.check()` when available. A caller
+can cancel through `AbortSignal`; cancellation resolves as `status` and
+`classification` `cancelled`, with `cancelled: true` and `failed: false`, and is
+not reported as a connectivity failure. Legacy results may omit optional
+`failed`/`cancelled` fields. No probe starts at initialization and no retry loop
+or polling is added by the SDK.
+
+The toolkit's Cloudflare DoH check queries the current hostname (A/AAAA), then
+same-origin app/backend probes. Registry `diagnostics.appProbePath` and
+`backendProbePath` can select those paths. Relative paths follow the app
+`basePath`; root-relative paths remain on the current origin. Cross-origin URLs,
+network-path URLs (`//host`), script/data schemes, backslashes, whitespace
+padding and `..` traversal are rejected. The request uses no credentials; the
+browser, network and Cloudflare availability still constrain results. See
+[`DNS_RECOVERY.md`](DNS_RECOVERY.md) for the full behavior and limitations.
+
+### G. Updates and lifecycle
+
+The PWA toolkit owns service-worker registration, waiting-worker detection,
+`PWA.getState().hasUpdate`, and application of the waiting worker. It publishes
+state through `PWA.onChange()` and emits `pwa:update` after it detects a waiting
+worker. On detection, the toolkit refreshes its state before dispatching
+`pwa:update`; after `SKIP_WAITING`, `controllerchange` refreshes state and
+reloads once. A disappeared/redundant waiting worker clears toolkit state.
+
+`pwa:ready` means `pwa.js` initialized and exposed its API; it is dispatched
+synchronously during script initialization. It does **not** mean service-worker
+registration succeeded or completed. Registration starts at window `load` (or
+immediately if the document is already complete); await `PWA.ready` for that
+registration attempt. The SDK listens for `pwa:ready` to bind when the runtime
+loads later, and also reads an already-present `window.PWA` snapshot.
+
+The SDK's `network.updateAvailable` is a synchronized view: a boolean
+`PWA.getState().hasUpdate`/`PWA.onChange()` snapshot is authoritative; the
+`pwa:update` event and `setUpdateAvailable()` are compatibility fallbacks until
+the toolkit publishes its state. Applying through `assistant.applyUpdate()`
+delegates to `PWA.applyUpdate()` and returns the declared
+`UpdateApplyOutcome` (`applied`, `no-waiting-worker`, `unsupported`, `disabled`,
+`error`). Legacy PWA methods returning booleans, `void` or `null` remain accepted.
+
+`modules.updates: false` suppresses the Assistant's update notification and
+update action and makes `assistant.applyUpdate()` return `disabled`; it does not
+turn off the toolkit's independent PWA UI or service-worker lifecycle. The
+Assistant widget and React action adapters use this same state/action model.
+Repeated events do not create duplicate notifications or changed snapshots.
+Unsubscribe when a component unmounts; `destroy()` removes listeners and
+aborts any diagnostics owned by an isolated instance.
+
+The PWA lifecycle events are document events:
+
+| Event | Meaning |
+| --- | --- |
+| `pwa:ready` | PWA API initialized; registration is not implied. |
+| `pwa:update` | A waiting service-worker update was detected. |
+| `pwa:installable`, `pwa:installed` | Install prompt availability / install state changed. |
+| `pwa:diagnostics` | Toolkit diagnostics result. |
+
+### H. TypeScript and API reference
+
+Types can be imported from the root or the owning subpath:
+
+```ts
+import type { AssistantState, UpdateApplyOutcome } from '@youge/assistant-sdk';
+import type { DnsDiagnosticSnapshot } from '@youge/assistant-sdk/diagnostics';
+import type { DomainRegistry } from '@youge/assistant-sdk/domain';
+```
+
+Supported typed package subpaths (all resolve through `package.json` `exports`):
+
+| Import | Purpose / declaration |
+| --- | --- |
+| `@youge/assistant-sdk` | Main API and re-exported types — [`src/index.d.ts`](packages/assistant-sdk/src/index.d.ts) |
+| `@youge/assistant-sdk/domain` | Domain resolution and manifest types — [`domain/index.d.ts`](packages/assistant-sdk/src/domain/index.d.ts) |
+| `@youge/assistant-sdk/config` | Shared config and published-config validation — [`config/index.d.ts`](packages/assistant-sdk/src/config/index.d.ts) |
+| `@youge/assistant-sdk/diagnostics` | DNS diagnostics integration — [`diagnostics/index.d.ts`](packages/assistant-sdk/src/diagnostics/index.d.ts) |
+| `@youge/assistant-sdk/installation` | Existing PWA install/update adapter — [`installation/index.d.ts`](packages/assistant-sdk/src/installation/index.d.ts) |
+| `@youge/assistant-sdk/browser` | Android browser handoff helpers — [`browser/index.d.ts`](packages/assistant-sdk/src/browser/index.d.ts) |
+| `@youge/assistant-sdk/theme` | Theme tokens and resolution — [`theme/index.d.ts`](packages/assistant-sdk/src/theme/index.d.ts) |
+| `@youge/assistant-sdk/react` | Optional React external-store adapter — [`adapters/react.d.ts`](packages/assistant-sdk/src/adapters/react.d.ts) |
+
+`@youge/assistant-sdk/package.json` is also exported for package tooling; it is
+metadata, not a typed SDK API. See the [official npm package page](https://www.npmjs.com/package/@youge/assistant-sdk/), the full [SDK README](packages/assistant-sdk/README.md), and the [source declarations](packages/assistant-sdk/src/).
 
 ---
 
@@ -503,6 +766,7 @@ console.log(PWA.wording.get('install'));
 Listen on `document`:
 
 ```js
+document.addEventListener('pwa:ready', () => {}); // PWA API initialized; not SW registration completion
 document.addEventListener('pwa:installable', () => {});
 document.addEventListener('pwa:installed', () => {});
 document.addEventListener('pwa:update', () => {});

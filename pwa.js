@@ -202,6 +202,9 @@
 
   var listeners = new Set();
   var installPromptEvent = null;
+  // PWA owns the authoritative waiting-worker state. `updateWorker` and
+  // `sawWaitingWorker` are reconciliation sentinels; consumers read `hasUpdate`
+  // from getState(), and onChange notifications happen only via refreshState().
   var updateAvailable = false;
   var updateWorker = null;
   var sawWaitingWorker = false;
@@ -239,6 +242,8 @@
     });
   }
 
+  // This read reconciles the local sentinel with ServiceWorkerRegistration;
+  // it may update internal bookkeeping but deliberately does not notify listeners.
   function isUpdateAvailable() {
     var waiting = registration && registration.waiting;
     if (isWaitingWorker(waiting)) {

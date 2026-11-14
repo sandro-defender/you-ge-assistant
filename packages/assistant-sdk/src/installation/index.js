@@ -103,19 +103,24 @@ export function requestPwaUpdate(options) {
             : { applied: true, outcome: 'applied' };
         }
         if (typeof resolved === 'object' && typeof resolved.applied === 'boolean') {
-          const outcome = typeof resolved.outcome === 'string' && resolved.outcome
+          const fallbackOutcome = resolved.applied ? 'applied' : 'no-waiting-worker';
+          const supportedOutcomes = ['applied', 'no-waiting-worker', 'unsupported', 'disabled', 'error'];
+          const outcome = supportedOutcomes.indexOf(resolved.outcome) !== -1 &&
+            (resolved.outcome === 'applied') === resolved.applied
             ? resolved.outcome
-            : (resolved.applied ? 'applied' : 'no-waiting-worker');
+            : fallbackOutcome;
           return { applied: resolved.applied, outcome: outcome };
         }
         return resolved
           ? { applied: true, outcome: 'applied' }
           : { applied: false, outcome: 'no-waiting-worker' };
-      },
-      function () {
-        return { applied: false, outcome: 'error' };
       }
-    );
+    ).catch(function () {
+      // Normalize both rejected runtime calls and exceptions from malformed
+      // third-party result objects (including throwing getters) to the declared
+      // error outcome rather than leaking an unexpected rejection.
+      return { applied: false, outcome: 'error' };
+    });
   } catch (error) {
     return Promise.resolve({ applied: false, outcome: 'error' });
   }

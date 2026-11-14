@@ -2234,7 +2234,9 @@
   // stopped it, so no critical notice may be raised from it.
   function isCancelledResult(dns) {
     if (!dns || typeof dns !== 'object') return false;
-    return dns.cancelled === true || String(dns.status || '').toLowerCase() === 'cancelled';
+    return dns.cancelled === true ||
+      String(dns.status || '').toLowerCase() === 'cancelled' ||
+      String(dns.classification || '').toLowerCase() === 'cancelled';
   }
   function cancelledDiagnosticsResult(reason) {
     return {
@@ -2258,13 +2260,19 @@
   function normalizeDnsResult(result, DateCtor) {
     const raw = result && typeof result === 'object' ? result : {};
     const DateImpl = DateCtor || Date;
-    return {
-      status: String(raw.status || 'complete'),
-      classification: safeText(raw.classification || 'unknown', 60),
+    const status = String(raw.status || 'complete');
+    const classification = safeText(raw.classification || 'unknown', 60);
+    const cancelled = raw.cancelled === true || status.toLowerCase() === 'cancelled' || classification.toLowerCase() === 'cancelled';
+    const normalized = {
+      status: cancelled ? 'cancelled' : status,
+      classification: cancelled ? 'cancelled' : classification,
       message: safeText(raw.message || '', 240),
       checkedAt: raw.checkedAt ? safeText(raw.checkedAt, 60) : new DateImpl().toISOString(),
-      failed: Boolean(raw.failed),
+      failed: cancelled ? false : Boolean(raw.failed),
     };
+    if (cancelled) normalized.cancelled = true;
+    else if (typeof raw.cancelled === 'boolean') normalized.cancelled = raw.cancelled;
+    return normalized;
   }
   function resolveDiagnosticsRunner(options) {
     const opts = options || {};
@@ -2549,19 +2557,24 @@
               : { applied: true, outcome: 'applied' };
           }
           if (typeof resolved === 'object' && typeof resolved.applied === 'boolean') {
-            const outcome = typeof resolved.outcome === 'string' && resolved.outcome
+            const fallbackOutcome = resolved.applied ? 'applied' : 'no-waiting-worker';
+            const supportedOutcomes = ['applied', 'no-waiting-worker', 'unsupported', 'disabled', 'error'];
+            const outcome = supportedOutcomes.indexOf(resolved.outcome) !== -1 &&
+              (resolved.outcome === 'applied') === resolved.applied
               ? resolved.outcome
-              : (resolved.applied ? 'applied' : 'no-waiting-worker');
+              : fallbackOutcome;
             return { applied: resolved.applied, outcome: outcome };
           }
           return resolved
             ? { applied: true, outcome: 'applied' }
             : { applied: false, outcome: 'no-waiting-worker' };
-        },
-        function () {
-          return { applied: false, outcome: 'error' };
         }
-      );
+      ).catch(function () {
+        // Normalize both rejected runtime calls and exceptions from malformed
+        // third-party result objects (including throwing getters) to the declared
+        // error outcome rather than leaking an unexpected rejection.
+        return { applied: false, outcome: 'error' };
+      });
     } catch (error) {
       return Promise.resolve({ applied: false, outcome: 'error' });
     }
@@ -3333,14 +3346,17 @@
         pwa: pwa,
         enabled: config.modules.installation,
       });
+      const dns = {
+        status: conditions.dns.status,
+        classification: conditions.dns.classification,
+        message: conditions.dns.message,
+        checkedAt: conditions.dns.checkedAt,
+      };
+      if (typeof conditions.dns.cancelled === 'boolean') dns.cancelled = conditions.dns.cancelled;
+      if (typeof conditions.dns.failed === 'boolean') dns.failed = conditions.dns.failed;
       const network = {
         online: conditions.online,
-        dns: {
-          status: conditions.dns.status,
-          classification: conditions.dns.classification,
-          message: conditions.dns.message,
-          checkedAt: conditions.dns.checkedAt,
-        },
+        dns: dns,
         endpoints: {
           primary: conditions.endpoints.primary,
           backup: conditions.endpoints.backup,
@@ -3432,18 +3448,20 @@
       if (unsubscribePwa || destroyed) return;
       const pwa = getPwa();
       if (pwa && typeof pwa.onChange === 'function') {
-        let initial = true;
         try {
           unsubscribePwa = pwa.onChange(function (nextState) {
-            if (!initial && nextState && typeof nextState === 'object' && nextState.hasUpdate === false && lastPwaHasUpdate === true) {
-              conditions.updateAvailable = false;
+            if (nextState && typeof nextState === 'object' && typeof nextState.hasUpdate === 'boolean') {
+              // Once the toolkit publishes an explicit availability snapshot it
+              // owns that state; event-only and manual legacy signals are fallback
+              // state only until this callback reconciles them.
+              lastPwaHasUpdate = nextState.hasUpdate;
+              conditions.updateAvailable = nextState.hasUpdate;
             }
             emit();
           });
         } catch (error) {
           unsubscribePwa = null;
         }
-        initial = false;
       }
     }
 

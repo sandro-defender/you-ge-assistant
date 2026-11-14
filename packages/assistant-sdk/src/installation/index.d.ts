@@ -28,7 +28,13 @@ export interface PwaRuntimeLike {
   runNetworkDiagnostics?: (options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   showNetworkDiagnostics?: () => unknown;
   hasUpdate?: () => boolean;
-  applyUpdate?: () => Promise<boolean> | boolean | void;
+  /** Existing toolkit returns a boolean; older implementations may return void/null. */
+  applyUpdate?: () =>
+    | Promise<boolean | null | void | { applied: boolean; outcome?: string }>
+    | boolean
+    | null
+    | void
+    | { applied: boolean; outcome?: string };
 }
 
 export type UpdateApplyOutcome = 'applied' | 'no-waiting-worker' | 'unsupported' | 'disabled' | 'error';

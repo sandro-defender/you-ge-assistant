@@ -33,7 +33,9 @@ const CONNECTIVITY_FAILURE_CLASSIFICATIONS = [
 // stopped it, so no critical notice may be raised from it.
 export function isCancelledResult(dns) {
   if (!dns || typeof dns !== 'object') return false;
-  return dns.cancelled === true || String(dns.status || '').toLowerCase() === 'cancelled';
+  return dns.cancelled === true ||
+    String(dns.status || '').toLowerCase() === 'cancelled' ||
+    String(dns.classification || '').toLowerCase() === 'cancelled';
 }
 
 export function cancelledDiagnosticsResult(reason) {
@@ -61,13 +63,19 @@ export function connectivityFailure(dns) {
 export function normalizeDnsResult(result, DateCtor) {
   const raw = result && typeof result === 'object' ? result : {};
   const DateImpl = DateCtor || Date;
-  return {
-    status: String(raw.status || 'complete'),
-    classification: safeText(raw.classification || 'unknown', 60),
+  const status = String(raw.status || 'complete');
+  const classification = safeText(raw.classification || 'unknown', 60);
+  const cancelled = raw.cancelled === true || status.toLowerCase() === 'cancelled' || classification.toLowerCase() === 'cancelled';
+  const normalized = {
+    status: cancelled ? 'cancelled' : status,
+    classification: cancelled ? 'cancelled' : classification,
     message: safeText(raw.message || '', 240),
     checkedAt: raw.checkedAt ? safeText(raw.checkedAt, 60) : new DateImpl().toISOString(),
-    failed: Boolean(raw.failed),
+    failed: cancelled ? false : Boolean(raw.failed),
   };
+  if (cancelled) normalized.cancelled = true;
+  else if (typeof raw.cancelled === 'boolean') normalized.cancelled = raw.cancelled;
+  return normalized;
 }
 
 export function resolveDiagnosticsRunner(options) {

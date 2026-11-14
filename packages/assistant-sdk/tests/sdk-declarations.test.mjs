@@ -76,7 +76,11 @@ test('installation and domain declaration interfaces reflect runtime hasUpdate, 
   const installDts = readPkg('src/installation/index.d.ts');
   const pwaBody = extractInterfaceBody(installDts, 'PwaRuntimeLike');
   assert.match(pwaBody, /\bhasUpdate\?:\s*boolean\b/, 'PwaRuntimeLike.getState declares hasUpdate?: boolean');
-  assert.match(pwaBody, /\bapplyUpdate\?:\s*\(\)\s*=>\s*Promise<boolean>/, 'PwaRuntimeLike.applyUpdate allows Promise<boolean>');
+  assert.match(
+    pwaBody,
+    /\bapplyUpdate\?:[\s\S]*?Promise<boolean \| null \| void \| \{ applied: boolean; outcome\?: string \}>/,
+    'PwaRuntimeLike.applyUpdate declares boolean results and legacy void/null/object forms'
+  );
   assert.match(installDts, /\bexport declare function requestPwaUpdate\(/, 'installation declarations export requestPwaUpdate');
 
   const domainDts = readPkg('src/domain/index.d.ts');

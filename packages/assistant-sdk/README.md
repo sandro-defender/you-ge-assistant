@@ -5,20 +5,12 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status (0.2.0 — prepared 2026-11-07, not yet staged):**
-> `@youge/assistant-sdk@0.1.1` is on the public npm registry (org `youge`,
-> scope `@youge`); `0.2.0` adds adaptive theming — four modes, validated
-> custom tokens, optional host adaptation, the `./theme` subpath and the
-> notification level taxonomy — prepared in-repo, **not staged and not
-> published**; the owner dispatches the release workflow manually (see
-> below). The first
-> publication was staged by the manual-only `sdk-release-prep` workflow's
-> `stage` job and became public only when the owner approved the staged
-> version on npmjs.com with 2FA — the approved runbook is
-> [`RELEASE.md`](RELEASE.md) §4. Staging and later releases authenticate
-> with npm Trusted Publishing (OIDC); the workflows use **no npm token**
-> (the temporary stage-only bootstrap was created, used and revoked).
-> Release procedure and registry decision: [`RELEASE.md`](RELEASE.md).
+> **Package status:** The npm registry reports `@youge/assistant-sdk@0.2.0`
+> as the current version (checked 2026-11-14). This release adds adaptive
+> theming — four modes, validated custom tokens, optional host adaptation,
+> the `./theme` subpath and notification-level taxonomy. This Stage 5.4 work
+> does not publish or release the package. Historical release procedure and
+> workflow decisions are recorded in [`RELEASE.md`](RELEASE.md).
 > Vendored-copy → package migration (staff.you.ge): [`MIGRATION.md`](MIGRATION.md).
 
 ---
@@ -35,7 +27,7 @@ installation integration.
 
 ## Installation & Consumption
 
-### From npm (after publication)
+### From npm
 
 ```bash
 npm install @youge/assistant-sdk@0.2.0
@@ -315,7 +307,7 @@ handoff.destroy(); // clears the pending fallback timer
 
 ---
 
-## Adaptive theming (unreleased)
+## Adaptive theming
 
 `theme` accepts the original string form and a validated object form:
 
@@ -359,6 +351,46 @@ React renderers use `resolveAppearanceTheme(state.appearance)` and
 `@youge/assistant-sdk/react`, so an app never re-implements theming and never
 injects markup. The library ships no CSS of its own; the embedded widget's
 isolation layers are described in [`../../THEMING.md`](../../THEMING.md).
+
+## Update lifecycle and state ownership
+
+The existing PWA toolkit owns service-worker registration and the actual
+waiting-worker lifecycle. It detects a waiting worker, exposes
+`PWA.getState().hasUpdate`, publishes changes through `PWA.onChange()`, and
+emits `pwa:update` after refreshing its state. Applying an update delegates to
+`PWA.applyUpdate()`; the waiting worker receives `SKIP_WAITING`, and the toolkit
+clears availability after the worker activates/disappears. The SDK never
+registers a second worker.
+
+`pwa:ready` is dispatched synchronously when `pwa.js` has initialized its API;
+it does not indicate that registration completed. Registration is started at
+window `load` (or immediately for a complete document); await `PWA.ready` for
+the registration attempt. The Assistant binds to an already-present `window.PWA`
+or listens for `pwa:ready` when the toolkit is loaded later. After toolkit
+detection, `refreshState()` notifies `PWA.onChange()` subscribers before the
+`pwa:update` document event is dispatched.
+
+The SDK's `network.updateAvailable` is a reconciled view, not a second worker
+owner. A boolean toolkit snapshot/change is authoritative; `pwa:update` and
+`setUpdateAvailable()` are compatibility fallbacks until the toolkit publishes
+its explicit state. When that state becomes false, stale Assistant notification
+and action state clears. Repeated identical updates do not emit duplicate state
+snapshots or notifications.
+
+`modules.updates: false` gates the Assistant update notification, update action,
+and `assistant.applyUpdate()` (which returns `disabled`). It does not disable
+the toolkit's independent PWA prompt or service-worker machinery. Apply through
+the Assistant instance when using the Assistant UI, so the gate and stale-state
+reconciliation are honored. `destroy()` unsubscribes from `PWA.onChange()` and
+removes Assistant listeners; `configure()` can toggle the updates module
+without replacing the instance.
+
+| Event | Meaning |
+| --- | --- |
+| `pwa:ready` | PWA API initialized; not a registration-success event. |
+| `pwa:update` | Toolkit detected a waiting service-worker update. |
+| `pwa:installable`, `pwa:installed` | Installation availability/state changed. |
+| `pwa:diagnostics` | Toolkit diagnostics result. |
 
 ## Public API Reference
 
@@ -487,16 +519,11 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 - **Version sources are synchronized and machine-checked:** `package.json` ↔
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
-- **Publishing is gated, never automatic.** `0.2.0` is prepared in-repo
-  (2026-11-07) and **not staged or published**; `0.1.1` was published
-  (2026-11-07) and `0.1.0` (2026-11-06)
-  only through the manual `sdk-release-prep` workflow's staged-approval flow;
-  every publication still requires explicit authorization (`confirm_publish`,
-  `SDK_RELEASE_ENABLED`, the protected `sdk-npm-publish` environment, npm
-  Trusted Publishing (OIDC) on both the `stage` and `publish` jobs — no npm
-  token anywhere — and the `SDK_RELEASE_CONFIRM` env that `prepublishOnly`
-  requires — a stray direct `npm publish` is refused). The registry decision
-  and release runbook live in [`RELEASE.md`](RELEASE.md).
+- **Publishing is gated, never automatic.** The registry currently reports
+  `0.2.0` as the current package version (checked 2026-11-14). The repository's
+  manual release workflow remains authorization-gated; this Stage 5.4 task
+  does not publish or release. Historical release decisions and the current
+  runbook are recorded in [`RELEASE.md`](RELEASE.md).
 - Replacing a vendored SDK copy (e.g. `staff.you.ge`): see
   [`MIGRATION.md`](MIGRATION.md).
 

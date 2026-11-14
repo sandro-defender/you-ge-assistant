@@ -550,6 +550,10 @@ test('PWA update event produces an update action; app-installed event changes in
   let state = ctx.api.getState();
   assert.ok(noticeIds(state).includes('app:update'));
   assert.ok(state.availableActions.some((action) => action.id === 'update'));
+  ctx.document.dispatchEvent(new ctx.win.CustomEvent('pwa:update', { detail: {} }));
+  state = ctx.api.getState();
+  assert.equal(state.notifications.filter((notice) => notice.id === 'app:update').length, 1);
+  assert.equal(state.availableActions.filter((action) => action.id === 'update').length, 1);
 
   ctx.document.dispatchEvent(new ctx.win.CustomEvent('pwa:installed', { detail: {} }));
   state = ctx.api.getState();
