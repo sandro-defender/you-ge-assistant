@@ -68,7 +68,9 @@ const SCOPE_URL = REGISTRATION_SCOPE.href;
 const OFFLINE_URL = new URL('offline.html', SCOPE_URL).href;
 const SHARE_TARGET_PATH = new URL('share-target', SCOPE_URL).pathname;
 const HOME_URL = SCOPE_URL;
-const SHARE_DB = 'progressiersharedfiles'; // same names the old client uses
+// Legacy IndexedDB names (compatibility contract): existing installations
+// already hold shared files and notification history under them.
+const SHARE_DB = 'progressiersharedfiles';
 const SHARE_STORE = 'progressiersharedfiles';
 const NOTIF_DB = 'progressierSavedPushNotifications';
 const NOTIF_STORE = 'progressierSavedPushNotifications';
@@ -303,29 +305,53 @@ function base64ToUint8Array(base64) {
  * Lifecycle
  * ------------------------------------------------------------------ */
 
+// App-shell assets stored in STATIC_CACHE at install, resolved against the
+// registered scope. `pwa.js` and this worker are deliberately absent: they are
+// always fetched from the network. Changing this list or any listed file needs
+// a synchronized kit-version bump (`npm run check:precache` enforces it).
+function precacheUrls() {
+  return Array.from(new Set([
+    OFFLINE_URL,
+    new URL('offline.js', SCOPE_URL).href,
+    new URL('offline.css', SCOPE_URL).href,
+    new URL('domain-config.js', SCOPE_URL).href,
+    new URL('domain-registry.js', SCOPE_URL).href,
+    new URL('dns-diagnostics.js', SCOPE_URL).href,
+    new URL('assistant-state.js', SCOPE_URL).href,
+    new URL('assistant-widget.js', SCOPE_URL).href,
+    new URL('assistant-widget.css', SCOPE_URL).href,
+    new URL('pwa.css', SCOPE_URL).href,
+    new URL('qrcode.js', SCOPE_URL).href,
+    DEFAULT_ICON,
+    new URL('icons/icon-512.png', SCOPE_URL).href,
+  ]));
+}
+
+// Fetch the whole app shell before storing any of it, bypassing the HTTP cache.
+// A 4xx means this deployment does not ship that (optional) file, so it is
+// skipped. A network failure or 5xx is transient: it rejects, the browser
+// discards this worker and retries on its next update check, and the installed
+// version keeps serving its own complete shell instead of a half-updated one.
+async function fetchPrecache() {
+  const entries = await Promise.all(
+    precacheUrls().map(async (url) => {
+      const request = new Request(url, { cache: 'reload' });
+      const response = await fetch(request);
+      if (response.ok) return { request, response };
+      if (response.status >= 400 && response.status < 500) return null;
+      throw new Error(`Precache failed for ${url} (HTTP ${response.status})`);
+    })
+  );
+  return entries.filter(Boolean);
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       if (OFFLINE_ENABLED) {
+        const entries = await fetchPrecache();
         const cache = await caches.open(STATIC_CACHE);
-        const precache = [
-          OFFLINE_URL,
-          new URL('offline.js', SCOPE_URL).href,
-          new URL('offline.css', SCOPE_URL).href,
-          new URL('domain-config.js', SCOPE_URL).href,
-          new URL('domain-registry.js', SCOPE_URL).href,
-          new URL('dns-diagnostics.js', SCOPE_URL).href,
-          new URL('assistant-state.js', SCOPE_URL).href,
-          new URL('assistant-widget.js', SCOPE_URL).href,
-          new URL('assistant-widget.css', SCOPE_URL).href,
-          new URL('pwa.css', SCOPE_URL).href,
-          new URL('qrcode.js', SCOPE_URL).href,
-          DEFAULT_ICON,
-          new URL('icons/icon-512.png', SCOPE_URL).href,
-        ];
-        await Promise.allSettled(
-          precache.map((url) => cache.add(new Request(url, { cache: 'reload' })))
-        );
+        await Promise.all(entries.map((entry) => cache.put(entry.request, entry.response)));
       }
       // Do NOT skipWaiting here. Updates wait until the page asks for them,
       // which prevents mixing old HTML with new JS.
