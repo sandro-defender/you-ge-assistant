@@ -37,13 +37,109 @@
     }
   }
 
-  // Local development and IP-literal hosts are never resolved by public DNS, so
-  // querying Cloudflare DoH for them would only produce misleading NXDOMAIN noise.
-  function localHostKind(host) {
+  function ipv4Octets(host) {
+    if (!isIpv4Literal(host)) return null;
+    return host.split('.').map(function (part) { return Number(part); });
+  }
+
+  function inIpv4Range(octets, first, second, bits) {
+    var value = ((octets[0] << 24) >>> 0) + (octets[1] << 16) + (octets[2] << 8) + octets[3];
+    var base = ((first << 24) >>> 0) + (second << 16);
+    var size = Math.pow(2, 32 - bits);
+    return value >= base && value < base + size;
+  }
+
+  function ipv4Kind(host) {
+    var octets = ipv4Octets(host);
+    if (!octets) return '';
+    // Loopback is 127.0.0.0/8; it is the one range browsers can serve a
+    // development app from without any network interface.
+    if (octets[0] === 127) return 'loopback';
+    if (inIpv4Range(octets, 10, 0, 8) ||
+        inIpv4Range(octets, 172, 16, 12) ||
+        inIpv4Range(octets, 192, 168, 16) ||
+        inIpv4Range(octets, 169, 254, 16) ||
+        inIpv4Range(octets, 100, 64, 10)) return 'private';
+    return 'public-ip';
+  }
+
+  // Expands a validated IPv6 literal into its eight 16-bit groups so that
+  // compressed and fully written spellings classify identically.
+  function expandIpv6(literal) {
+    var text = literal.toLowerCase();
+    var tail = [];
+    var tailMatch = /(\d+\.\d+\.\d+\.\d+)$/.exec(text);
+    if (tailMatch) {
+      var embedded = tailMatch[1].split('.').map(Number);
+      tail = [((embedded[0] << 8) | embedded[1]).toString(16), ((embedded[2] << 8) | embedded[3]).toString(16)];
+      text = text.slice(0, tailMatch.index).replace(/:$/, '');
+    }
+    var halves = text.split('::');
+    var head = halves[0] ? halves[0].split(':') : [];
+    var rest = halves.length > 1 && halves[1] ? halves[1].split(':') : [];
+    rest = rest.concat(tail);
+    var missing = 8 - head.length - rest.length;
+    var groups = head.concat(new Array(missing > 0 ? missing : 0).fill('0'), rest);
+    if (groups.length !== 8) return null;
+    return groups.map(function (group) { return parseInt(group || '0', 16) || 0; });
+  }
+
+  function ipv6Kind(host) {
+    if (!isIpv6Literal(host)) return '';
+    var groups = expandIpv6(host.slice(1, -1));
+    if (!groups) return 'public-ip';
+    var first = groups[0];
+    var onlyLastSet = groups.slice(0, 7).every(function (group) { return group === 0; });
+    if (onlyLastSet && groups[7] === 1) return 'loopback';
+    // IPv4-mapped (::ffff:a.b.c.d) and IPv4-compatible forms keep their IPv4
+    // meaning, so ::ffff:127.0.0.1 is loopback and ::ffff:8.8.8.8 is public.
+    if (groups.slice(0, 5).every(function (group) { return group === 0; }) &&
+        (groups[5] === 0xffff || groups[5] === 0)) {
+      var mapped = [groups[6] >> 8, groups[6] & 0xff, groups[7] >> 8, groups[7] & 0xff];
+      return ipv4Kind(mapped.join('.'));
+    }
+    if ((first & 0xfe00) === 0xfc00) return 'private';
+    if ((first & 0xffc0) === 0xfe80) return 'private';
+    if ((first & 0xffc0) === 0xfec0) return 'private';
+    return 'public-ip';
+  }
+
+  // Host classification. The kinds are separate because they mean different
+  // things to the user:
+  //   localhost — the browser resolves it locally by specification.
+  //   loopback  — 127.0.0.0/8 and ::1; a local development address.
+  //   private   — RFC1918, carrier-grade NAT and link-local ranges (plus their
+  //               IPv6 equivalents). Local-only, but reached over a network
+  //               interface rather than the loopback device, so it is not
+  //               reported as loopback.
+  //   public-ip — any other IP literal. A production-style target that happens
+  //               not to be a DNS name: public DoH still cannot resolve it,
+  //               but it is never described as a development host.
+  // An empty string means "ordinary DNS hostname" (public DoH applies).
+  function hostKind(host) {
     if (!host) return '';
-    if (host === 'localhost' || host.slice(-10) === '.localhost') return 'local';
-    if (isIpv4Literal(host) || isIpv6Literal(host)) return 'ip';
-    return '';
+    if (host === 'localhost' || host.slice(-10) === '.localhost') return 'localhost';
+    var ipv4 = ipv4Kind(host);
+    if (ipv4) return ipv4;
+    return ipv6Kind(host);
+  }
+
+  // Every non-hostname kind is never resolved by public DNS, so querying
+  // Cloudflare DoH for it would only produce misleading NXDOMAIN noise.
+  function skipsPublicDoh(kind) {
+    return Boolean(kind);
+  }
+
+  function describeTarget(host, kind) {
+    if (kind === 'public-ip') {
+      return 'This app is served from the IP address ' + host +
+        '. Public Cloudflare DNS resolves DNS names, not IP literals, so the DNS lookup was skipped. ';
+    }
+    if (kind === 'private') {
+      return 'This app is served from a private or local-only IP address, so public Cloudflare DNS ' +
+        'checks were skipped. ';
+    }
+    return 'This is a local development host, so public Cloudflare DNS checks were skipped. ';
   }
 
   // The response consumer (including body parsing) runs inside the same timeout
@@ -255,11 +351,11 @@
         return Promise.resolve(cancelledResult(host, context.origin || (root.location && root.location.origin),
           context.online !== false, 'Diagnostics were cancelled before any request was made.'));
       }
-      var hostKind = localHostKind(host);
-      if (!hostKind && !HOST_PATTERN.test(host)) {
-        return Promise.resolve({ hostname: host, classification: 'unknown', message: 'The current hostname is not a valid DNS name.' });
+      var kind = hostKind(host);
+      if (!kind && !HOST_PATTERN.test(host)) {
+        return Promise.resolve({ hostname: host, classification: 'unknown', hostKind: 'invalid', message: 'The current hostname is not a valid DNS name.' });
       }
-      var localHost = Boolean(hostKind);
+      var localHost = skipsPublicDoh(kind);
       var origin;
       try {
         origin = new URL(context.origin || root.location.origin).origin;
@@ -329,14 +425,21 @@
           classification = 'backend_unavailable';
           message = 'The application host responds, but its configured backend health endpoint did not.';
         } else if (localHost) {
-          // Public DoH cannot resolve loopback/IP-literal hosts, so the local
-          // same-origin probe result is the only meaningful signal.
+          // Public DoH cannot resolve loopback, private or IP-literal hosts, so
+          // the same-origin probe result is the only meaningful signal. The
+          // wording follows the host kind: only `localhost` and loopback are a
+          // development host, and a public IP literal says so plainly.
+          var target = describeTarget(host, kind);
           if (app.ok) {
             classification = 'normal_connectivity';
-            message = 'This is a local development host, so public Cloudflare DNS checks were skipped. The application host responded.';
+            message = target + 'The application host responded.';
           } else {
             classification = 'application_host_unavailable';
-            message = 'This is a local development host, so public Cloudflare DNS checks were skipped. The application host did not respond; verify that the local development server is running.';
+            message = target + (kind === 'private'
+              ? 'The application host did not respond; verify the server is running on that address and port.'
+              : (kind === 'public-ip'
+                ? 'The application host did not respond; verify the server address, port and TLS configuration.'
+                : 'The application host did not respond; verify that the local development server is running.'));
           }
         } else if (statuses.length === 2 && statuses.every(function (status) { return status === 3; })) {
           classification = app.ok ? 'inconclusive' : 'dns_resolution_failure';
@@ -378,6 +481,9 @@
         return {
           hostname: host,
           origin: origin,
+          // Additive field: the classification the wording above is based on —
+          // 'localhost' | 'loopback' | 'private' | 'public-ip' | 'hostname'.
+          hostKind: kind || 'hostname',
           resolver: 'Cloudflare DNS (1.1.1.1)',
           endpoint: ENDPOINT,
           checkedAt: new Date().toISOString(),

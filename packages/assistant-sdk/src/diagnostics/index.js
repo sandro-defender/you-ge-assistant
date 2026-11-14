@@ -85,12 +85,17 @@ export function resolveDiagnosticsRunner(options) {
   if (dns && typeof dns.check === 'function') {
     return function (runOptions) {
       const ctx = typeof opts.getContext === 'function' ? opts.getContext() : (opts.context || {});
-      return dns.check({
+      const context = {
         hostname: ctx.hostname,
         origin: ctx.origin,
         basePath: ctx.basePath || '/',
         online: ctx.online !== false,
-      }, runOptions);
+      };
+      // Probe paths change the effective app/backend diagnostic target, so the
+      // engine must receive the same ones the assistant's DNS identity uses.
+      if (typeof ctx.appProbePath === 'string' && ctx.appProbePath) context.appProbePath = ctx.appProbePath;
+      if (typeof ctx.backendProbePath === 'string' && ctx.backendProbePath) context.backendProbePath = ctx.backendProbePath;
+      return dns.check(context, runOptions);
     };
   }
   return null;

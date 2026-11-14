@@ -1,15 +1,20 @@
-# Next Agent Prompt — Stage 5.3 (proposed, not authorized)
+# Next Agent Prompt — Stage 5.4 (proposed, not authorized)
 
-Do not start until the owner explicitly approves Stage 5.3 and Stage 5.2 PR [#31](https://github.com/sandro-defender/you-ge-assistant/pull/31) has merged. Verify live `main`, worktree, PR and CI state first; read `AGENTS.md` and `AGENT_HANDOFF.md`, relevant skills and `POST_PHASE2_ARCHITECTURE_REVIEW.md` (D3, D6 and Stage 5.3). Follow the active session branch instructions.
+Do not start until the owner explicitly approves Stage 5.4 and the Stage 5.3 (D3 + D6) PR has merged. Verify live `main`, worktree, PR and CI state first; read `AGENTS.md`, `AGENT_HANDOFF.md`, the relevant skills and `POST_PHASE2_ARCHITECTURE_REVIEW.md` (D4, D5, R2 and Stage 5.4). Follow the active session branch instructions.
 
 ## Objective
 
-Address DNS host-classification and verdict identity accuracy (D3 and D6), scoped to the approved task. Public IP-literal hosts must not be described as local development hosts; preserve the existing DoH skip for IP literals. A change to the effective base path or probe identity must not retain a stale DNS verdict. Inspect current behavior and contracts before choosing the smallest safe correction.
+Close the two remaining low-severity contract defects left by the Phase 2 review, scoped narrowly:
+
+1. **D4** — `DnsDiagnosticSnapshot` declares `cancelled?: boolean`, but `normalizeDnsResult()` rebuilds the record from a fixed shape and drops it, so `assistant.getState().network.dns.cancelled` is always `undefined`. Publish the declared field without changing any existing field or classification.
+2. **D5** — `requestPwaUpdate()` forwards any non-empty runtime `outcome` string verbatim while `UpdateApplyOutcome` declares five values. Normalize an out-of-union runtime outcome to the declared union (or document and widen the contract deliberately) so consumers narrowing on the union stay sound.
+
+Inspect current behavior and contracts before choosing the smallest safe correction. Do not rework the diagnostics architecture, change unrelated public APIs or result contracts, revisit D3/D6, change package or kit versions, or add dependencies.
 
 ## Tests and validation
 
-Use deterministic regression tests for public and local IP literals and for changes to effective DNS probe identity; preserve existing DNS tests and compatibility. Run focused tests first, the full suite, `npm run check`, package validation and `git diff --check`; regenerate the browser SDK only if its source changes, then verify synchronization. Report any browser or environment limitations honestly.
+Use deterministic regression tests for both defects (including the negative cases in the review) and preserve existing tests and compatibility. Run focused tests first, the full suite, `npm run check`, package validation and `git diff --check`; regenerate the browser SDK only if its source changes (`npm run sync:sdk`), then verify synchronization with `--check`. Report any browser or environment limitations honestly.
 
 ## Boundaries and handoff
 
-Do not revisit D1/D2, start Stage 5.4, add dependencies, change versions, publish, deploy or merge. Preserve Progressier technical compatibility contracts and public APIs. Update both handoff files with actual branch, PR, commit, tests and CI; open one focused PR for owner review. Stop after the PR is ready.
+Do not publish, release, deploy, merge, force-push, reset or overwrite owner work. Preserve Progressier technical compatibility contracts and public APIs. Update both handoff files with actual branch, PR, commit, tests and CI; open one focused PR for owner review. Stop after the PR is ready.
