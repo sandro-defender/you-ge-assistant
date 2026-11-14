@@ -167,3 +167,98 @@ test('deduplicates concurrent requests for the same origin and hostname', async 
   assert.equal(dnsQueries, 2);
   assert.equal(a.checkedAt, b.checkedAt);
 });
+
+test('resolves a relative backend probe path against the configured base path', async () => {
+  async function probePaths(backendProbePath) {
+    const probed = [];
+    const fetch = async (input, init) => {
+      const url = new URL(input);
+      if (url.href.startsWith(endpoint)) return response(dnsAnswer(url));
+      probed.push({ path: url.pathname, mode: init.mode, credentials: init.credentials });
+      return response({});
+    };
+    const result = await create({ fetch, retries: 0 }).check(browserContext({ backendProbePath }));
+    assert.equal(result.backend.ok, true);
+    assert.equal(result.dohSkipped, false);
+    return probed;
+  }
+
+  const relative = await probePaths('health');
+  assert.deepEqual(relative.map((call) => call.path), ['/app/manifest.webmanifest', '/app/health']);
+  assert.ok(relative.every((call) => call.mode === 'same-origin' && call.credentials === 'omit'));
+
+  const rootRelative = await probePaths('/health');
+  assert.deepEqual(rootRelative.map((call) => call.path), ['/app/manifest.webmanifest', '/health']);
+
+  const appRelative = await probePaths('/app/health?probe=1');
+  assert.deepEqual(appRelative.map((call) => call.path), ['/app/manifest.webmanifest', '/app/health']);
+});
+
+test('keeps response body parsing inside the configured timeout and abort scope', async () => {
+  let aborted = 0;
+  const fetch = (input, init) => {
+    const url = new URL(input);
+    if (!url.href.startsWith(endpoint)) return Promise.resolve(response({}));
+    init.signal.addEventListener('abort', () => { aborted += 1; }, { once: true });
+    return Promise.resolve({ ok: true, status: 200, json: () => new Promise(() => {}) });
+  };
+  const started = Date.now();
+  const result = await create({ fetch, timeoutMs: 20, retries: 0 }).check(browserContext());
+  const elapsed = Date.now() - started;
+  assert.equal(result.classification, 'cloudflare_doh_unavailable');
+  assert.equal(result.applicationHostAvailable, true);
+  assert.equal(result.dnsErrors.length, 2);
+  assert.ok(result.dnsErrors.every((error) => error.kind === 'timeout'));
+  assert.equal(aborted, 2, 'stalled bodies abort through the same controller');
+  assert.ok(elapsed < 2000, `JSON parsing must stay bounded (took ${elapsed}ms)`);
+});
+
+test('skips public DoH for local and IP literal hosts and reports local results accurately', async () => {
+  const contexts = [
+    { hostname: 'localhost', origin: 'http://localhost:5173' },
+    { hostname: 'team.localhost', origin: 'http://team.localhost:5173' },
+    { hostname: '127.0.0.1', origin: 'http://127.0.0.1:5173' },
+    { hostname: '[::1]', origin: 'http://[::1]:4173' },
+  ];
+
+  for (const override of contexts) {
+    const calls = [];
+    const fetch = async (input, init) => {
+      const url = new URL(input);
+      calls.push({ href: url.href, doh: url.href.startsWith(endpoint), mode: init.mode });
+      return response({});
+    };
+    const result = await create({ fetch, retries: 0 }).check(browserContext(override));
+    assert.equal(calls.filter((call) => call.doh).length, 0, `${override.hostname} must not query public DoH`);
+    assert.equal(calls.length, 1, `${override.hostname} still probes the application host`);
+    assert.equal(calls[0].href, new URL('manifest.webmanifest', new URL('/app/', override.origin)).href);
+    assert.equal(calls[0].mode, 'same-origin');
+    assert.equal(result.hostname, override.hostname);
+    assert.equal(result.classification, 'normal_connectivity');
+    assert.equal(result.dohAvailable, false);
+    assert.equal(result.dohSkipped, true);
+    assert.equal(result.possibleDnsInterference, false);
+    assert.deepEqual(result.dns, []);
+    assert.match(result.message, /local development host/i);
+    assert.match(result.caveat, /cannot inspect/);
+  }
+});
+
+test('reports a failing loopback host without false NXDOMAIN or DoH noise', async () => {
+  const calls = [];
+  const fetch = async (input) => {
+    const url = new URL(input);
+    calls.push(url.href);
+    return response({}, 503);
+  };
+  const result = await create({ fetch, retries: 0 }).check(browserContext({ hostname: '[::1]', origin: 'http://[::1]:4173' }));
+  assert.equal(calls.filter((href) => href.startsWith(endpoint)).length, 0);
+  assert.equal(result.classification, 'application_host_unavailable');
+  assert.equal(result.possibleDnsInterference, false);
+  assert.equal(result.dohSkipped, true);
+  assert.match(result.message, /local development host/i);
+
+  const offline = await create({ fetch: async () => { throw new TypeError('Failed to fetch'); }, retries: 0 })
+    .check(browserContext({ hostname: '127.0.0.1', origin: 'http://127.0.0.1:5173', online: false }));
+  assert.equal(offline.classification, 'general_internet_failure');
+});

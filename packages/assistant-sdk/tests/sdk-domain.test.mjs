@@ -481,3 +481,37 @@ test('blank or non-string values fall back rather than producing undefined hrefs
     assert.equal(safeNavigationUrl(value, '/signed-in'), '/signed-in');
   }
 });
+
+test('validates diagnostics probe paths and keeps only safe same-origin probes', () => {
+  const valid = validateDomainConfigDetailed({
+    diagnostics: { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' },
+  });
+  assert.equal(valid.valid, true);
+  assert.deepEqual(valid.config.diagnostics, { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' });
+
+  const unsafe = [
+    'https://evil.example/health',
+    '//evil.example/health',
+    'javascript:alert(1)',
+    '\\\\evil.example\\health',
+    '../admin/health',
+    'health/../../admin',
+    ' health ',
+    '',
+    42,
+    null,
+  ];
+  unsafe.forEach((value) => {
+    const result = validateDomainConfigDetailed({ diagnostics: { appProbePath: value, backendProbePath: value } });
+    assert.equal(result.valid, false, `${String(value)} must be rejected`);
+    assert.ok(result.issues.some((issue) => issue.code === 'invalid_diagnostics_probe' && issue.path === 'diagnostics.appProbePath'));
+    assert.ok(result.issues.some((issue) => issue.code === 'invalid_diagnostics_probe' && issue.path === 'diagnostics.backendProbePath'));
+    assert.equal(result.config.diagnostics.appProbePath, undefined);
+    assert.equal(result.config.diagnostics.backendProbePath, undefined);
+  });
+
+  const notAnObject = validateDomainConfigDetailed({ diagnostics: 'manifest.webmanifest' });
+  assert.equal(notAnObject.valid, false);
+  assert.ok(notAnObject.issues.some((issue) => issue.code === 'invalid_diagnostics' && issue.path === 'diagnostics'));
+  assert.deepEqual(notAnObject.config.diagnostics, {});
+});
