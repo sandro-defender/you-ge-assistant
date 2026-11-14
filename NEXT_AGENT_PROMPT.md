@@ -1,8 +1,10 @@
 # Next Agent Prompt — CD-1 complete, PR #40 awaiting owner review
 
 CD-1 (module capability enforcement) plus the owner-authorized kit `1.2.0 →
-1.2.1` bump are implemented, pushed and green on
-`arena/bc1478a5-you-ge-assistant` (PR #40 → `main`). **No further
+1.2.1` bump are **merged** to `main` (`9876c26`). PR **#41** on
+`arena/bc1478a5-you-ge-assistant` is open: it fixes the one post-merge CI
+failure (the precache-gate summary assertion must also accept the
+unchanged-base form that a push to `main` produces). **No further
 implementation work is queued.** Read `AGENTS.md`, `AGENT_HANDOFF.md`,
 [`docs/architecture/CAPABILITY_ENFORCEMENT.md`](docs/architecture/CAPABILITY_ENFORCEMENT.md)
 and [`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md)

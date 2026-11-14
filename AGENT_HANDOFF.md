@@ -4,9 +4,11 @@
 **Repository:** `sandro-defender/you-ge-assistant`
 **Base:** `main` @ `2e19830` (PR #39 merge)
 **Branch:** `arena/bc1478a5-you-ge-assistant` (active)
-**PR:** #40 — "CD-1 — Module capability enforcement" (open, **draft**, awaiting
-owner review; **do not merge**)
-**Working tree:** clean at the branch tip; everything pushed.
+**PR:** #40 — "CD-1 — Module capability enforcement" — **merged** by the owner
+as `9876c26` (kit `1.2.1`). Follow-up PR **#41** (branch
+`arena/bc1478a5-you-ge-assistant`) fixes the one post-merge CI failure: the
+precache-gate summary assertion now also accepts the unchanged-base form that a
+push to `main` produces. **Do not merge #41 without the owner's go-ahead.**
 **Versions:** kit **`1.2.1`**; `@youge/assistant-sdk` **`0.2.0`** (unchanged).
 
 Permanent development and layout rules live in [`AGENTS.md`](AGENTS.md). The
@@ -117,6 +119,7 @@ skipped or bypassed.
 
 ## Next action
 
-Owner review of PR #40. The implementation is complete and every local gate is
-green; the only open items are the owner's merge decision and the separate
-SDK release line.
+PR #40 is merged. PR #41 is a one-file test fix (+4/−1) so `main`'s
+push-triggered `check` run goes green; it is open for the owner's decision.
+Nothing else is queued: no tag, release, publish or deployment, and the SDK
+release line (`0.2.0`) is still a separate owner decision.
