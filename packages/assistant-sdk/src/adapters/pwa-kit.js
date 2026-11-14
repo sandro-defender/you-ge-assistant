@@ -1,6 +1,6 @@
 /*!
- * @youge/assistant-sdk/adapters/pwa-kit — existing window.PWA compatibility adapter
- * ----------------------------------------------------------------------------------
+ * @youge/assistant-sdk/adapters/pwa-kit — You.Ge Assistant window.PWA adapter
+ * ---------------------------------------------------------------------------
  * Connects the SDK domain resolver and Assistant state cleanly to a host page
  * that also loads pwa.js / progressier.js / dns-diagnostics.js, without
  * overwriting active globals or registering any service worker.

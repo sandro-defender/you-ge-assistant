@@ -1,10 +1,10 @@
 /*!
- * pwa.js — self-hosted PWA client (replaces the Progressier client script)
+ * pwa.js — You.Ge Assistant self-hosted PWA client
  * ------------------------------------------------------------------------
  * Features:
  *   - service worker registration + update flow
  *   - install prompt capture, `[data-pwa-install]` buttons, iOS instructions
- *   - optional Progressier-style floating app-icon install toolbox
+ *   - optional floating app-icon install toolbox (legacy compatibility preserved)
  *   - standalone / installed detection
  *   - optional push subscriptions (VAPID)
  *   - app badge helpers
@@ -377,7 +377,7 @@
       manifestLink.href = config.manifestUrl;
       document.head.appendChild(manifestLink);
     } else {
-      // Replace a leftover Progressier manifest automatically.
+      // Replace a leftover legacy hosted manifest link automatically.
       var href = manifestLink.getAttribute('href') || '';
       if (href.indexOf('progressier.app') !== -1 || href.indexOf('progressier.com') !== -1) {
         manifestLink.href = config.manifestUrl;

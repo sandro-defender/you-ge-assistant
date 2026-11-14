@@ -37,12 +37,11 @@ output with the manifest, service worker, offline page and icons under the
 same `/example/` scope. `base: './'` keeps the assets working beneath the
 GitHub Pages project path.
 
-React, React DOM, TypeScript types, Vite and `ogl` are isolated to this example.
-They are not runtime dependencies of the You.Ge Assistant PWA toolkit. The
-React Bits sources and their license notice are in [`src/`](src/) and
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). `src/assistant-mark.png` is
-a transparent white silhouette derived from the app icon so the logo remains
-visible while the electric strands animate around it.
+React, React DOM, TypeScript types and Vite are isolated to this example.
+They are not runtime dependencies of the You.Ge Assistant PWA toolkit or
+`@youge/assistant-sdk`. The React Bits sources and their license notice are in
+[`src/`](src/) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+`src/assistant-mark.png` is the static circular You.Ge Assistant launcher mark.
 
 `npm run typecheck` runs `tsc --noEmit` over the TypeScript React Bits sources,
 `FoundationPreview.tsx`, and the `.d.ts` declarations exported by

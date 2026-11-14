@@ -1,12 +1,11 @@
 /*!
- * progressier.js — self-hosted PWA service worker
+ * progressier.js — You.Ge Assistant PWA service worker
  * -------------------------------------------------
- * Drop-in replacement for the Progressier service worker.
  * Implements: offline caching, share target, push notifications,
  * app badge, notification clicks and push-subscription renewal.
  *
- * Keep this file at /progressier.js so browsers that already have the
- * old Progressier worker registered update in place.
+ * Keep this file at /progressier.js when migrating existing apps so
+ * previously registered service workers update in place without duplicates.
  *
  * No third-party requests, no build step.
  */

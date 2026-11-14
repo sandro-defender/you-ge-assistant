@@ -1,14 +1,84 @@
-# AGENTS.md — You.Ge Assistant integration guide
+# AGENTS.md — You.Ge Assistant
 
-This guide documents how to integrate You.Ge Assistant into another web project.
+> **Document structure:** The section immediately below defines permanent **Repository Development Rules** for coding agents and contributors working in `sandro-defender/you-ge-assistant`. The remainder of this file (§1–§17) is the preserved **You.Ge Assistant Integration Guide** for target web projects.
+
+---
+
+## Repository Development Rules — Coding Agents and Contributors
+
+### Task sizing
+
+- One prompt, one independently verifiable objective.
+- Prefer small changes over phase-wide implementation.
+- Never proceed to another stage without authorization.
+
+### Token efficiency
+
+- Inspect relevant files only.
+- Never dump entire files, skills or successful test logs.
+- Avoid duplicated explanations and repeated investigations.
+- Report results concisely; show detailed output only when debugging.
+
+### Skills
+
+- Installed project skills live under `.agents/skills/` (`mobile-native`, `break-ui`, `tdd`); read `.agents/skills/README.md` and §17 below for priority rules.
+- Read only relevant skills.
+- Apply their actionable instructions.
+- Never reproduce complete skill contents.
+- Summarize each relevant skill in one line: `skill → application`.
+- Do not claim unused or unavailable skills were applied (note: `ui-ux-pro-max-skill` is referenced by legacy UI docs but is not installed in `.agents/skills/`).
+
+### Testing
+
+- Use focused tests after small changes (`node --test <file>`).
+- Use integration/regression tests at appropriate milestones (`npm run test:sdk`, `node scripts/sync-sdk-browser.mjs --check`, `node packages/assistant-sdk/scripts/validate-package.mjs`).
+- Run full verification at major completion points (`npm run check`, plus `cd example && npm ci && npm run typecheck && npm run build` when dependencies are available).
+- Never weaken tests or claim unexecuted checks passed.
+- Reuse prior results only when the tested source and configuration remain unchanged.
+
+### Git and PR safety
+
+- Preserve existing work.
+- Never reset, discard or overwrite user changes.
+- Never force-push.
+- Do not merge, publish, release or bump package versions without explicit authorization.
+- Keep changes within the requested scope.
+
+### Handoff requirements
+
+- Maintain `AGENT_HANDOFF.md` as the authoritative current-state record.
+- Maintain `NEXT_AGENT_PROMPT.md` as the next small ready-to-use task.
+- Update both after every completed task.
+- Include branch, commit, PR, working-tree status, completed work, pending work, test results, risks and exact next action.
+- Ensure both documents agree with actual repository state.
+
+### Architecture
+
+- Preserve backward compatibility (`window.PWA`, `window.progressier`, `/progressier.js`, manifest `id` stability, classic `<script>` loading).
+- Keep the SDK framework-independent and dependency-light (zero runtime dependencies; no `fetch`, `serviceWorker.register`, or `setInterval` in `@youge/assistant-sdk` core).
+- Respect existing PWA, security and origin boundaries (hostname detection is never auth; no secrets in client/public config; regenerate `assistant-state.js` only via `npm run sync:sdk`).
+- Avoid unnecessary abstractions and dependencies.
+
+### Permanent You.Ge Assistant Identity Rule
+
+- Whenever an agent discovers obsolete Progressier branding, product descriptions, example/template framing, documentation, comments, metadata, or other user-facing project identity references, it must proactively replace or reframe them as You.Ge Assistant.
+- Do not leave newly discovered obsolete branding behind merely because it is outside the immediate task scope. Include it in the current task when safe, or record it in `AGENT_HANDOFF.md` for a focused follow-up.
+- Preserve technical compatibility identifiers and migration safeguards. Never blindly rename or remove legacy APIs, globals, selectors, CSS variables, storage keys, service-worker paths, or other compatibility contracts.
+- Only change compatibility contracts through an explicitly authorized breaking migration.
+
+---
+
+## You.Ge Assistant integration guide
+
+This guide documents how to integrate **You.Ge Assistant** into another web project.
 Follow it in order. It describes **what exists**, **where it goes**, **what must not
 be renamed**, and **how to verify multi-domain/PWA behavior**.
 
-You.Ge Assistant is a dependency-free PWA toolkit that retains compatibility
-with the former hosted Progressier client. Runtime files are plain JavaScript,
-CSS, a manifest, a service worker, static icons, central domain configuration,
-and an on-demand DNS diagnostics module. There is no build step or runtime
-package install.
+You.Ge Assistant is a dependency-free PWA toolkit and modular SDK
+(`@youge/assistant-sdk` / `window.YouGeAssistant`). Runtime files are plain
+JavaScript, CSS, a manifest, a service worker, static icons, central domain
+configuration, and an on-demand DNS diagnostics module. There is no build step
+or runtime package install required for classic `<script>` integration.
 
 Current runtime version: **1.1.0** (`PWA.version` and `VERSION` in
 `progressier.js`). For architecture findings and risks, see
@@ -64,14 +134,15 @@ it is idempotent: a second copy exits immediately (`window.PWA.__pwaKit`).
 
 ---
 
-## 2. Non-negotiable rules
+## 2. Non-negotiable compatibility rules
 
-An agent must preserve these or the migration will break existing installs:
+An agent must preserve these or existing installs will break:
 
-1. **Do not load the old Progressier script and `pwa.js` together.** Remove
-   `https://progressier.app/<id>/script.js` and the hosted manifest link.
+1. **Remove any legacy hosted script/manifest tags when migrating an older app**
+   (for example, `https://progressier.app/<id>/script.js`) so they do not run
+   alongside `pwa.js`.
 2. **Keep the service worker path at `/progressier.js` when migrating an
-   existing site.** Browsers that already registered the hosted worker update it
+   existing site.** Browsers that already registered that worker update it
    in place only if the script URL is unchanged.
 3. **Keep the manifest `id` stable** for an existing app. For a brand-new app,
    choose a new stable id. Changing `id` creates a second installed app.
@@ -81,8 +152,8 @@ the registered app scope; keep those assets in that scope. Use a scoped runtime
 copy for a subpath deployment.
 5. **Load the public domain registry and resolver before `pwa.js`.** Domain
    overrides are public branding/configuration, never secrets or authorization.
-6. **Do not rename `pwa.css` classes** listed in §6; they are the public styling
-   and markup contract.
+6. **Do not rename `pwa.css` classes or legacy CSS variables** listed in §6.1 / §10;
+   they are preserved compatibility contracts.
 7. **Upload assets before changing HTML**, so the first page load never asks for
    a missing worker or manifest.
 8. **HTTPS is required** for service workers, install prompts, and push.
@@ -97,11 +168,11 @@ copy for a subpath deployment.
 | `domain-config.js`, `domain-registry.js` | yes for domain-aware config | Central runtime hostname/origin detection and public overrides |
 | `dns-diagnostics.js` | optional | On-demand Cloudflare DoH diagnostics and classifications |
 | `manifest-handler.js`, `functions/manifest.webmanifest.js` | hosting-dependent | Host-aware manifest response/helper and Cloudflare Pages adapter |
-| `pwa.js` | yes | Client SDK: config, SW registration, install/push UI, floating toolbox, QR, banners, meta, splash |
-| `pwa.css` | yes (unless `data-no-css`) | All component styles and Progressier CSS variables |
+| `pwa.js` | yes | Client runtime: config, SW registration, install/push UI, floating toolbox, QR, banners, meta, splash |
+| `pwa.css` | yes (unless `data-no-css`) | Component styles and preserved compatibility CSS variables |
 | `assistant-state.js` | yes | Centralized, event-driven state + configurable SDK API for the Intelligent Floating Assistant |
 | `assistant-widget.js`, `assistant-widget.css` | yes (unless disabled) | Dependency-free DOM renderer, fixed placement, safe areas, badges, in-place panel, auto-scaling launcher with manual size/position adjustment, Android Chrome handoff offer |
-| `progressier.js` | yes | Service worker: offline cache, push display, share target, badge |
+| `progressier.js` | yes | Service worker (kept at `/progressier.js` for update continuity): offline cache, push display, share target, badge |
 | `manifest.webmanifest` | yes | App identity, icons, share target, protocol handlers |
 | `qrcode.js` | only for QR | Vendored MIT `qrcode-generator` 2.0.4 |
 | `offline.html`, `offline.css`, `offline.js` | yes | Offline fallback page |
@@ -120,7 +191,7 @@ copy for a subpath deployment.
 | `DESIGN_FOUNDATION.md` | reference | ui-ux-pro-max-skill application and React Bits adoption report |
 | `WIDGET.md` | reference | Floating Assistant architecture, SDK config, events, priority, skill/React Bits record and tests |
 | `ARCHITECTURE_AUDIT.md` | reference | Baseline audit and phased architecture plan |
-| `PARITY.md` | reference | What matches the original Progressier client |
+| `PARITY.md` | archive | Historical feature/sizing parity record (not primary product docs) |
 | `packages/assistant-sdk/` | repo | `@youge/assistant-sdk` sources, tests, README, `RELEASE.md` (release runbook + registry decision; publishing gated, not yet executed) and `MIGRATION.md` (staff.you.ge vendored-copy → package) |
 | `packages/assistant-sdk/scripts/validate-package.mjs` | tool | Package metadata, export map, version sync and tarball validation release gate |
 | `reference/` | research only | Original manifest/client source and readable copies; never deploy |
@@ -378,8 +449,27 @@ diagnostics and DNS recovery; see [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md).
 
 ## 6. HTML contract
 
-These selectors and attributes are compatible with the original Progressier
-client. Existing markup keeps working without changes.
+Use You.Ge Assistant's declarative attributes for new integrations:
+
+| Markup | Behaviour |
+| --- | --- |
+| `[data-pwa-install]` | Install trigger; opens the browser prompt or manual install instructions |
+| `[data-pwa-qr]` | Opens the QR dialog; value may be a custom URL |
+| `[data-pwa-hide-standalone]` | Hidden when standalone |
+| `[data-pwa-show-standalone]` | Hidden when not standalone |
+
+Example:
+
+```html
+<button type="button" data-pwa-install>Install</button>
+<button type="button" data-pwa-qr>Show QR code</button>
+```
+
+### 6.1 Legacy compatibility markup
+
+The following selectors and attributes are preserved so existing sites continue
+to work without HTML edits. The scanner runs every 150 ms (`PWA.scanButtons()`
+forces a scan):
 
 | Markup | Behaviour |
 | --- | --- |
@@ -392,13 +482,7 @@ client. Existing markup keeps working without changes.
 | `data-install`, `data-installed` | Custom labels; default English values localize |
 | `data-icons` | Show the install icon next to the label |
 | `data-eligible`, `data-subscribed`, `data-blocked` | Subscribe-button labels |
-| `.captured`, `.initialized` | Added by the kit; same names as the original |
-| `[data-pwa-install]` | Local alias for an install trigger |
-| `[data-pwa-qr]` | Opens the QR dialog; value may be a custom URL |
-| `[data-pwa-hide-standalone]` | Hidden when standalone |
-| `[data-pwa-show-standalone]` | Hidden when not standalone |
-
-Example:
+| `.captured`, `.initialized` | Added by the runtime to wired compatibility buttons |
 
 ```html
 <button class="progressier-install-button" data-icons="true">Install</button>
@@ -408,18 +492,17 @@ Example:
         data-blocked="Notifications blocked"></button>
 ```
 
-The scanner runs every 150 ms and captures new nodes, so client-rendered
-buttons work without a manual call. `PWA.scanButtons()` forces a scan.
-
 ---
 
 ## 7. JavaScript API
 
-`window.PWA` is always defined. `window.progressier` is also defined with a
-compatibility shim (`install`, `prompt`, `isStandalone`,
-`checkIfStandalone`, `register`, `ready`, `setAppBadge`, `clearAppBadge`,
-`track`, `wording`, `detection`, `push`, `installBanner`, `pushBanner`,
-`showWelcome`, `utils.wait`, `utils.vibrate`).
+Use `window.PWA` for runtime PWA actions and `window.YouGeAssistant` (or
+`@youge/assistant-sdk`) for centralized Assistant state, configuration, and
+subscriptions. For legacy compatibility, `window.progressier` is also exposed as
+a thin shim (`install`, `prompt`, `isStandalone`, `checkIfStandalone`, `register`,
+`ready`, `setAppBadge`, `clearAppBadge`, `track`, `wording`, `detection`,
+`push`, `installBanner`, `pushBanner`, `showWelcome`, `utils.wait`,
+`utils.vibrate`).
 
 | Method | Returns / effect |
 | --- | --- |
@@ -487,19 +570,19 @@ Listen on `document`:
 | `pwa:diagnostics` | Classified Cloudflare DoH/current-host result |
 | `pwa:event` | `{ name, detail }` for every `PWA.track()` call |
 
-The `progressier` shim also exposes `progressier.ready` and the push helpers,
-so legacy code such as `progressier.push.isSubscribed()` keeps working.
+The legacy `window.progressier` shim also exposes `progressier.ready` and the push
+helpers so older integrations (such as `progressier.push.isSubscribed()`) keep working.
 
 ---
 
-## 9. Storage and state
+## 9. Storage and state (compatibility keys preserved)
 
 | Key | Type | Purpose |
 | --- | --- | --- |
-| `progressierinstallbanner` + host + path | Cookie | Install banner dismissal timestamp |
-| `progressierpushbanner` + host + path | Cookie | Push banner dismissal timestamp |
-| `progressierSavedPushNotifications` | IndexedDB | Notification history (same name as original) |
-| `progressiersharedfiles` | IndexedDB | Shared files from the share target |
+| `progressierinstallbanner` + host + path | Cookie | Legacy install banner dismissal timestamp |
+| `progressierpushbanner` + host + path | Cookie | Legacy push banner dismissal timestamp |
+| `progressierSavedPushNotifications` | IndexedDB | Preserved notification history store |
+| `progressiersharedfiles` | IndexedDB | Preserved shared-file payload store |
 | `pwakit` / `meta` | IndexedDB | Worker metadata (badge state) |
 | `pwa-static-<legacy-version>` | Cache | Legacy static assets copied in-scope; old cache retained |
 | `pwa-pages-<legacy-version>` | Cache | Only explicitly public, in-scope HTML migrates; old cache retained |
@@ -507,16 +590,20 @@ so legacy code such as `progressier.push.isSubscribed()` keeps working.
 | `you-ge-assistant:<host>:<scope>:static:v<VERSION>` | Cache | This worker scope’s precached/runtime assets |
 | `pwakit:welcome` | localStorage | Welcome modal shown once |
 
-Do not rename the Progressier IndexedDB stores if migrating an existing site;
-old history and shared files live there. Cache names now include hostname, scope and
-version. Old shared-name caches are copied in-scope but not deleted because their
-ownership was not encoded safely.
+Do not rename the preserved IndexedDB stores when migrating an existing site;
+existing notification history and shared files live there. Cache names include
+hostname, scope and version. Old shared-name caches are copied in-scope but not
+deleted because their ownership was not encoded safely.
 
 ---
 
 ## 10. Theming
 
-`pwa.css` reads Progressier variables from `:root`:
+For the Intelligent Floating Assistant (`assistant-widget.js` / `@youge/assistant-sdk`),
+use adaptive theme modes and `--youge-*` tokens documented in [`THEMING.md`](THEMING.md).
+
+For legacy `pwa.css` UI components (banners, modals, toolbox), `pwa.css` reads
+these preserved compatibility CSS variables from `:root`:
 
 ```
 --progressierBg
@@ -608,7 +695,7 @@ calls `self.registration.unregister()` and remove the manifest/script tags.
 | Manifest ignored | Wrong MIME type; serve `application/manifest+json` |
 | Install prompt never appears | Chrome requires HTTPS, a valid manifest, icons, and a controlling worker; use `PWA.promptInstall()` or the markup |
 | Worker not updating | `Cache-Control` too long on `progressier.js`; bump `VERSION` |
-| Buttons do nothing | Old Progressier script still loaded, or `.progressier-*` node added before `pwa.js`; the scanner retries every 150 ms |
+| Buttons do nothing | Legacy hosted script still loaded, or `.progressier-*` node added before `pwa.js`; the scanner retries every 150 ms |
 | Push says not configured | Missing `data-vapid-public-key` or `data-push-endpoint` |
 | Push permission denied | Browser/site settings; `PWA.unsubscribePush()` then reset site permissions |
 | iOS splash missing | Generated only in iOS Safari (not standalone); allow `data:` in `img-src` or supply static links |
@@ -632,37 +719,34 @@ Included and self-hosted:
 - theming variables and 10-language wording
 - protocol redirects (`web+pwa:`, `pwaredirect`, `pwaprotocolredirect`)
 
-Not included because they were Progressier services, not client code:
+Not included because they require a backend service rather than client files:
 
 - hosted push campaigns, scheduling, segments, delivery
 - analytics dashboard, A/B tests, funnel reports
 - dashboard-managed announcements/newsfeed content
 - user accounts, billing, subscription management
 - App Store / Play Store / TWA packaging
-- Progressier attribution/promo mode
+- third-party attribution/promo routing
 
 Do not tell a user these are "implemented" by copying files. They need a
 backend or a separate service.
 
-Client-side Progressier features that are **not** in this kit (add them in the
-target project if the design calls for them):
+Additional client-side UI features **not** bundled in this toolkit (add them in
+the target project if the design calls for them):
 
 - pull-to-refresh indicator
 - cookie-consent banner (only banner-dismissal cookies exist)
-- Progressier's backend-driven toolbox promo/install-page routing; the local
-  `data-toolbox` icon opens the local `PWA.showInstallRequest()` flow instead
-- newsfeed/announcement feed UI (notification history is stored and exposed via
-  `PWA.getNotifications()`, but there is no rendered feed)
-- platform-specific install instruction screens for every OS; the kit ships a
-  generic sheet plus the iOS path
+- backend-driven toolbox promo routing (the local `data-toolbox` icon opens the local `PWA.showInstallRequest()` flow)
+- newsfeed/announcement feed UI (notification history is stored and exposed via `PWA.getNotifications()`, but there is no rendered feed)
+- platform-specific install instruction screens for every OS; the toolkit ships a generic sheet plus the iOS path
 
 ---
 
 ## 15. Agent acceptance checklist
 
-Before reporting the integration complete, confirm all of these:
+Before reporting an integration complete, confirm all of these:
 
-- [ ] Old `progressier.app` script and manifest tags removed.
+- [ ] Any legacy hosted PWA script (`progressier.app`) and manifest tags removed.
 - [ ] `pwa.js`, `pwa.css`, `progressier.js`, manifest, offline files, QR library, icons uploaded.
 - [ ] Manifest `name`, `short_name`, `id`, `start_url`, `scope`, colors, icons adapted.
 - [ ] Manifest served as `application/manifest+json`.
@@ -675,7 +759,7 @@ Before reporting the integration complete, confirm all of these:
 - [ ] The DNS recovery screen is available offline and does not require authentication.
 - [ ] Browser: manifest valid, worker activated, install works, relaunch works.
 - [ ] Browser: offline reload shows the offline page.
-- [ ] Browser: no console errors and no `progressier.app` requests.
+- [ ] Browser: no console errors and no leftover legacy `progressier.app` requests.
 - [ ] If push is enabled: VAPID keys set, subscribe POST reaches the server, a test notification displays.
 - [ ] If the app is on a subpath: worker paths and manifest scope updated.
 - [ ] Version bumped if any cached file changed.
@@ -688,13 +772,13 @@ Paste this into the target project's AI agent and fill in the two placeholders:
 
 > Integrate You.Ge Assistant located at `<KIT_PATH>` into this project.
 >
-> 1. Read `<KIT_PATH>/AGENTS.md` first and follow it exactly.
+> 1. Read `<KIT_PATH>/AGENTS.md` first and follow the integration guide (§1–§16).
 > 2. Copy the runtime files into the web root (or `public/`): `pwa.js`,
 >    `pwa.css`, `progressier.js`, `manifest.webmanifest`, `domain-config.js`,
 >    `domain-registry.js`, `dns-diagnostics.js`, `qrcode.js`,
 >    `offline.html`, `offline.css`, `offline.js`, `browserconfig.xml`,
 >    `favicon.ico`, and `icons/`.
-> 3. Remove any existing `progressier.app` script and manifest tags.
+> 3. Remove any leftover legacy hosted PWA script (`progressier.app`) and manifest tags.
 > 4. Load the public registry, domain resolver, DNS module and `pwa.js` in order;
 >    add the manifest link, icons and theme color to the head.
 > 5. Add validated host configuration. Use `manifest-handler.js` or per-host
