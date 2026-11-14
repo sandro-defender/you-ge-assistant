@@ -75,6 +75,7 @@ Inside another package in this repository or a sibling local project:
 | `@youge/assistant-sdk/diagnostics` | Single-flight diagnostics integration controller and classification helpers |
 | `@youge/assistant-sdk/installation` | `window.PWA` state reader and install prompt delegation |
 | `@youge/assistant-sdk/browser` | Android in-app browser detection and best-effort Chrome handoff (`detectInAppBrowser`, `buildChromeIntentUrl`, `createChromeHandoff`) |
+| `@youge/assistant-sdk/theme` | Adaptive theme normalization/resolution, WCAG contrast helpers, `--youge-*` CSS variables, and notification-level taxonomy |
 | `@youge/assistant-sdk/react` | Optional React 18/19 `useSyncExternalStore` adapter (zero runtime `react` import in SDK) |
 
 All entry points ship paired `.d.ts` TypeScript declarations.
