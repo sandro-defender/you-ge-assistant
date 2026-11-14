@@ -4,7 +4,8 @@
 **Repository:** `sandro-defender/you-ge-assistant`
 **Base branch / commit:** `main` @ `ee83c0ed64b84119a43675f3c9b2c1540e8b57b9` (PR #25 merged 2026-11-14 03:04:04 UTC)
 **Active branch:** `arena/976df00e-you-ge-assistant`
-**HEAD:** `40a805c401341e7ee100a3f68c82be5ef321ecbd` (`docs: update Phase 2 Stage 2 handoff and next Stage 3 prompt`) on top of Stage 2 implementation commit `f528c15dcc5751704bda7beece08a2aece354818` (`fix(diagnostics): harden probe paths and local host handling`)
+**Stage 2 implementation commit:** `f528c15dcc5751704bda7beece08a2aece354818` (`fix(diagnostics): harden probe paths and local host handling`)
+**Branch head:** latest docs-only handoff commit on top of `f528c15` (see `git log --oneline -3`)
 
 ---
 
@@ -12,7 +13,7 @@
 
 - **Working tree:** clean; the branch holds exactly two commits (Stage 2 implementation + docs-only handoff update).
 - **Open PR:** **#26** — `fix(diagnostics): harden probe paths and local host handling` (`arena/976df00e-you-ge-assistant` → `main`), state `OPEN`, mergeable. Not merged, no release/publish/version change.
-- **CI on PR #26:** `static` (check workflow) — **success** on `f528c15` (run `43550204333`) and on the final head `40a805c` (run `43550304581`).
+- **CI on PR #26:** `static` (check workflow) — **success** on every pushed head so far (`f528c15` run `43550204333`, `40a805c` run `43550304581`, `0184221` run `43550386543`); re-check with `gh pr checks 26` for the newest docs-only head.
 - **Merged predecessors:**
   - **Phase 2 — Stage 1** (PR #25, `arena/8464c385-you-ge-assistant`, merge `ee83c0e`): TypeScript contract alignment + `PHASE2_IMPLEMENTATION_PLAN.md`.
   - **Stage 1 identity baseline** (PR #24, merge `59bcb9a`): permanent agent rules + identity cleanup.
