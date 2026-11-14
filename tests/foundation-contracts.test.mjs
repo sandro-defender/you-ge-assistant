@@ -18,9 +18,9 @@ const worker = read('you-ge-sw.js');
 const legacyWorkerShim = read('progressier.js');
 const styles = read('pwa.css');
 const offlineHtml = read('offline.html');
-const exampleCss = read('example/example.css');
-const preview = read('example/src/FoundationPreview.tsx');
-const architecture = read('ASSISTANT_ARCHITECTURE.md');
+const exampleCss = read('examples/example/example.css');
+const preview = read('examples/example/src/FoundationPreview.tsx');
+const architecture = read('docs/architecture/ASSISTANT_ARCHITECTURE.md');
 
 function pngSize(path) {
   const buffer = readFileSync(new URL(`../${path}`, import.meta.url));
@@ -60,9 +60,9 @@ test('static fallback manifest is valid, in-scope and uses canonical identity wh
 test('user-facing identity is You.Ge Assistant across the toolkit', () => {
   assert.equal(JSON.parse(read('package.json')).name, 'you-ge-assistant');
   assert.match(JSON.parse(read('package.json')).description, /You\.Ge Assistant/);
-  assert.match(read('demo/index.html'), /<title>You\.Ge Assistant/);
+  assert.match(read('examples/demo/index.html'), /<title>You\.Ge Assistant/);
   assert.match(offlineHtml, /Offline — You\.Ge Assistant/);
-  assert.match(read('snippet.html'), /content="You\.Ge Assistant"/);
+  assert.match(read('docs/guides/snippet.html'), /content="You\.Ge Assistant"/);
   assert.match(read('README.md'), /# You\.Ge Assistant/);
   // Canonical GitHub repository URL after the PWA-Helper -> you-ge-assistant
   // rename (2026-11-06). Old-name remnants are allowed only as intentional
@@ -70,8 +70,8 @@ test('user-facing identity is You.Ge Assistant across the toolkit', () => {
   // never as github.com or github.io URLs.
   assert.match(read('README.md'), /github\.com\/sandro-defender\/you-ge-assistant/);
   const docsWithUrls = [
-    'README.md', 'AGENTS.md', 'ASSISTANT_ARCHITECTURE.md', 'ARCHITECTURE_AUDIT.md',
-    'demo/index.html', 'packages/assistant-sdk/package.json', 'packages/assistant-sdk/RELEASE.md',
+    'README.md', 'AGENTS.md', 'docs/architecture/ASSISTANT_ARCHITECTURE.md', 'docs/architecture/ARCHITECTURE_AUDIT.md',
+    'examples/demo/index.html', 'packages/assistant-sdk/package.json', 'packages/assistant-sdk/RELEASE.md',
     'packages/assistant-sdk/MIGRATION.md', 'packages/assistant-sdk/README.md',
   ].map(read).join('\n');
   assert.doesNotMatch(docsWithUrls, /github\.com\/sandro-defender\/PWA-Helper/, 'no stale github.com repository URLs');
@@ -162,7 +162,7 @@ test('domain detection stays injectable and never becomes authentication', () =>
   assert.match(architecture, /Hostname detection is \*\*never authentication\*\*|never authentication/);
   const runtime = [
     'pwa.js', 'you-ge-sw.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',
-    'dns-diagnostics.js', 'manifest-handler.js', 'offline.js', 'example/example.js',
+    'dns-diagnostics.js', 'manifest-handler.js', 'offline.js', 'examples/example/example.js',
   ].map(read).join('\n');
   assert.doesNotMatch(runtime, /staff-you-ge\.sandro-1990\.workers\.dev/, 'example backup URL is not a runtime default');
   assert.doesNotMatch(runtime, /eval\(|new Function\(/, 'no executable remote config');
@@ -186,25 +186,25 @@ test('architecture documents the platform, diagram, security boundaries and road
     assert.ok(architecture.includes(phrase), `architecture covers ${phrase}`);
   }
   assert.match(architecture, /Example only; project-specific config, never a global default/);
-  assert.match(read('FOUNDATION_AUDIT.md'), /## 6\. What is genuinely missing/);
-  assert.match(read('INSTALLATION_EXPERIENCE.md'), /## 3\. Future SDK module design/);
+  assert.match(read('docs/architecture/FOUNDATION_AUDIT.md'), /## 6\. What is genuinely missing/);
+  assert.match(read('docs/guides/INSTALLATION_EXPERIENCE.md'), /## 3\. Future SDK module design/);
 });
 
 test('adopted React Bits sources are TypeScript, dependency-free and reduced-motion aware', () => {
   const components = ['SpotlightCard', 'GlareHover', 'LatticeLoader'];
   for (const name of components) {
-    const tsx = read(`example/src/react-bits/${name}.tsx`);
-    const css = read(`example/src/react-bits/${name}.css`);
+    const tsx = read(`examples/example/src/react-bits/${name}.tsx`);
+    const css = read(`examples/example/src/react-bits/${name}.css`);
     assert.ok(tsx.includes(`const ${name}`) || tsx.includes(`function ${name}`), `${name} source is present`);
     assert.ok(!/from ['"](?:gsap|motion|@hugeicons|three|ogl)/.test(tsx), `${name} adds no runtime dependency`);
     assert.ok(!tsx.includes("'use client'"), `${name} has no Next.js-only directive`);
     assert.match(css, /prefers-reduced-motion: reduce/, `${name} respects reduced motion`);
   }
-  assert.match(read('example/THIRD_PARTY_NOTICES.md'), /MIT \+ Commons Clause/);
+  assert.match(read('examples/example/THIRD_PARTY_NOTICES.md'), /MIT \+ Commons Clause/);
 });
 
 test('foundation preview keeps essential UI usable without animation or React', () => {
-  const html = read('example/index.html');
+  const html = read('examples/example/index.html');
   assert.match(html, /id="assistant-foundation-root"/);
   assert.match(html, /<article class="foundation-card">/, 'static no-JS fallback');
   assert.match(html, /data-pwa-install/, 'fallback keeps the existing install hook');
@@ -222,14 +222,14 @@ test('foundation preview keeps essential UI usable without animation or React', 
 });
 
 test('design skill report and persisted design system are applied records', () => {
-  const report = read('DESIGN_FOUNDATION.md');
+  const report = read('docs/guides/DESIGN_FOUNDATION.md');
   assert.match(report, /\.claude\/skills\/ui-ux-pro-max\/SKILL\.md/);
   assert.match(report, /scripts\/search\.py/);
   assert.match(report, /--design-system/);
   assert.match(report, /--stack react/);
   assert.match(report, /React Bits/);
   assert.match(report, /SpotlightCard/);
-  const master = read('design-system/you-ge-assistant/MASTER.md');
+  const master = read('docs/design-system/you-ge-assistant/MASTER.md');
   assert.match(master, /SaaS \(General\)/);
   assert.doesNotMatch(master, /Luxury\/Premium Brand/);
   assert.match(master, /Local application notes/);
@@ -240,8 +240,8 @@ test('build and type-check gates are wired into CI', () => {
   assert.match(workflow, /npm ci && npm run typecheck && npm run build/);
   assert.match(workflow, /node scripts\/check\.mjs/);
   assert.match(workflow, /npm test/);
-  assert.equal(JSON.parse(read('example/package.json')).scripts.typecheck, 'tsc --noEmit -p tsconfig.json');
-  assert.ok(has('example/tsconfig.json'));
+  assert.equal(JSON.parse(read('examples/example/package.json')).scripts.typecheck, 'tsc --noEmit -p tsconfig.json');
+  assert.ok(has('examples/example/tsconfig.json'));
 });
 
 /* ------------------------------------------------------------------ *

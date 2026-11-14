@@ -32,7 +32,7 @@
 
 - Use focused tests after small changes (`node --test <file>`).
 - Use integration/regression tests at appropriate milestones (`npm run test:sdk`, `node scripts/sync-sdk-browser.mjs --check`, `node packages/assistant-sdk/scripts/validate-package.mjs`).
-- Run full verification at major completion points (`npm run check`, plus `cd example && npm ci && npm run typecheck && npm run build` when dependencies are available).
+- Run full verification at major completion points (`npm run check`, plus `cd examples/example && npm ci && npm run typecheck && npm run build` when dependencies are available).
 - Never weaken tests or claim unexecuted checks passed.
 - Reuse prior results only when the tested source and configuration remain unchanged.
 
@@ -54,7 +54,7 @@
 
 ### Architecture
 
-- Use canonical You.Ge Assistant technical identifiers (`you-ge-sw.js`, `window.YouGePWA`, `--youge-pwa-*`, `.youge-*`, `you-ge-*` IndexedDB stores, `youge_*` cookies, `youge:pwa:*` events, `[data-youge-*]`, `web+youge`) for all new code, docs, snippets and examples; keep legacy aliases (`window.PWA`, `window.progressier`, `/progressier.js` `importScripts` shim, `.progressier-*`, `--progressier*`, legacy storage fallbacks, `staff.you.ge` manifest `id`) intact during the `1.x` compatibility window (`COMPATIBILITY_CONTRACTS.md`).
+- Use canonical You.Ge Assistant technical identifiers (`you-ge-sw.js`, `window.YouGePWA`, `--youge-pwa-*`, `.youge-*`, `you-ge-*` IndexedDB stores, `youge_*` cookies, `youge:pwa:*` events, `[data-youge-*]`, `web+youge`) for all new code, docs, snippets and examples; keep legacy aliases (`window.PWA`, `window.progressier`, `/progressier.js` `importScripts` shim, `.progressier-*`, `--progressier*`, legacy storage fallbacks, `staff.you.ge` manifest `id`) intact during the `1.x` compatibility window ([`docs/reference/COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md)).
 - Keep the SDK framework-independent and dependency-light (zero runtime dependencies; no `fetch`, `serviceWorker.register`, or `setInterval` in `@youge/assistant-sdk` core).
 - Respect existing PWA, security and origin boundaries (hostname detection is never auth; no secrets in client/public config; regenerate `assistant-state.js` only via `npm run sync:sdk`).
 - Avoid unnecessary abstractions and dependencies.
@@ -64,10 +64,18 @@
 - You.Ge Assistant is the sole product and canonical technical identity of this repository. Nothing in it is, or may be described as, a Progressier product.
 - **Canonical vs. temporary compatibility policy:** Treat You.Ge Assistant identifiers (`you-ge-sw.js`, `window.YouGePWA`, `window.YouGeAssistant`, `--youge-pwa-*`, `.youge-*`, `you-ge-shared-files` / `you-ge-notifications` / `you-ge-pwa-meta`, `youge_install_banner_` / `youge_push_banner_`, `youge-pwa:welcome`, `youge:pwa:*`, `YOUGE_CONFIG`, `[data-youge-*]`, `?youge-install=1`, `web+youge`) as canonical everywhere. Treat all Progressier-named identifiers (`progressier.js` shim, `window.progressier`, `.progressier-*`, `--progressier*`, `progressier*` cookies/IndexedDB stores, `pswutlzoq`, `web+loldwyhv`) as **temporary migration compatibility only, never permanent contracts**.
 - Never introduce new `progressier*` identifiers, never use legacy selectors or paths in new examples/templates/docs, and never expand legacy shim surfaces.
-- Whenever an agent discovers obsolete Progressier branding, product descriptions, example/template framing, documentation, comments, metadata, or unmapped legacy references, it must proactively replace or reframe them as You.Ge Assistant.
-- Preserve existing temporary migration shims and upgrade paths during the documented `1.x` compatibility period (`>= 12 months` / before `2.0.0`) unless executing the staged removal policy in [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md) §4 with explicit owner approval.
-- Report remaining Progressier-named technical identifiers accurately: never claim a complete cleanup without the search method and the list of exceptions. [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md) is the authoritative inventory (canonical surface, temporary alias, upgrade mechanism, compatibility period and concrete removal policy); update it whenever a surface is added, migrated or retired.
+- Whenever an agent discovers obsolete Progressier branding, product descriptions, examples/example/template framing, documentation, comments, metadata, or unmapped legacy references, it must proactively replace or reframe them as You.Ge Assistant.
+- Preserve existing temporary migration shims and upgrade paths during the documented `1.x` compatibility period (`>= 12 months` / before `2.0.0`) unless executing the staged removal policy in [`docs/reference/COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md) §4 with explicit owner approval.
+- Report remaining Progressier-named technical identifiers accurately: never claim a complete cleanup without the search method and the list of exceptions. [`docs/reference/COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md) is the authoritative inventory (canonical surface, temporary alias, upgrade mechanism, compatibility period and concrete removal policy); update it whenever a surface is added, migrated or retired.
 - `reference/` and `PARITY.md` are third-party compatibility evidence. Do not remove or restructure them without separate owner approval.
+
+### Repository layout conventions
+
+- SDK implementation, package tests and package metadata stay inside `packages/assistant-sdk/`; example-only UI and its independent npm/Vite workflow live in `examples/example/`; the Pages feature-test source is `examples/demo/`.
+- Put new architecture/audit records in `docs/architecture/`, integration and user guides in `docs/guides/`, operations policy in `docs/operations/`, compatibility references in `docs/reference/`, and design-system material in `docs/design-system/`.
+- Put repository tests under `tests/` (with fixtures/harnesses in its subdirectories) and SDK tests under `packages/assistant-sdk/tests/`; helper scripts belong in `scripts/`.
+- Preserve exact root-relative public runtime paths for `you-ge-sw.js`, `progressier.js`, `pwa.js`, `pwa.css`, `assistant-state.js`, `assistant-widget.js`, `assistant-widget.css`, `domain-config.js`, `domain-registry.js`, `dns-diagnostics.js`, `manifest.webmanifest`, `offline.{html,css,js}`, `qrcode.js`, `browserconfig.xml`, `favicon.ico`, and `icons/`. They are deployed directly, precached or scope-sensitive; do not move them without an explicit copy/build strategy and URL/scope verification.
+- Keep `functions/` at root for Cloudflare Pages discovery. Keep `.github/`, `package.json`, `LICENSE`, `README.md`, `CHANGELOG.md`, `AGENTS.md`, `AGENT_HANDOFF.md`, `NEXT_AGENT_PROMPT.md`, and `PARITY.md` at root for platform conventions, discoverability, or explicit preservation.
 
 ---
 
@@ -86,18 +94,18 @@ or runtime package install required for classic `<script>` integration.
 Current runtime version: **1.2.0** (`YouGePWA.version` / `PWA.version`, `VERSION` in
 `you-ge-sw.js`, root `package.json` and the SDK's `KIT_COMPAT_VERSION`; the SDK
 package itself is versioned separately, currently `0.2.0`). For architecture findings and risks, see
-[`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md) and
-[`FOUNDATION_AUDIT.md`](FOUNDATION_AUDIT.md).
+[`docs/architecture/ARCHITECTURE_AUDIT.md`](docs/architecture/ARCHITECTURE_AUDIT.md) and
+[`docs/architecture/FOUNDATION_AUDIT.md`](docs/architecture/FOUNDATION_AUDIT.md).
 
 **For any future UI work:** read
-[`design-system/you-ge-assistant/MASTER.md`](design-system/you-ge-assistant/MASTER.md),
-[`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) and
-[`WIDGET.md`](WIDGET.md) first. The
+[`docs/design-system/you-ge-assistant/MASTER.md`](docs/design-system/you-ge-assistant/MASTER.md),
+[`docs/guides/DESIGN_FOUNDATION.md`](docs/guides/DESIGN_FOUNDATION.md) and
+[`docs/guides/WIDGET.md`](docs/guides/WIDGET.md) first. The
 `ui-ux-pro-max-skill` is mandatory for interface changes; React Bits sources
-are vendored under `example/src/react-bits/` and must keep their license notice,
+are vendored under `examples/example/src/react-bits/` and must keep their license notice,
 reduced-motion overrides and zero-runtime-dependency constraint. Do not
 redesign the installation flow without reading
-[`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md). The floating
+[`docs/guides/INSTALLATION_EXPERIENCE.md`](docs/guides/INSTALLATION_EXPERIENCE.md). The floating
 Assistant has one centralized state model in `assistant-state.js`; renderers
 must not create a second model, poll, call `fetch`, register another service
 worker or auto-open the panel.
@@ -163,7 +171,7 @@ identifiers while existing installs upgrade safely:
 6. **Use canonical `--youge-pwa-*` CSS variables and `.youge-*` selectors** for
    all new styling and markup while keeping the temporary `--progressier*` and
    `.progressier-*` migration aliases intact during the `1.x` compatibility window
-   ([`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md)).
+   ([`COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md)).
 7. **Upload assets before changing HTML**, so the first page load never asks for
    a missing worker or manifest.
 8. **HTTPS is required** for service workers, install prompts, and push.
@@ -192,16 +200,17 @@ identifiers while existing installs upgrade safely:
 | `icons/apple-touch-icon.png` | recommended | iOS home-screen icon (180×180) |
 | `icons/favicon-32.png`, `favicon.ico` | recommended | Browser favicon |
 | `icons/icon-144.png`, `icon-150.png`, `browserconfig.xml` | optional | Windows tiles |
-| `snippet.html` | reference | Copy-paste `<head>` block |
-| `INTEGRATION.md` | reference | Multi-domain deployment, migration and rollback checklist |
+| `docs/guides/snippet.html` | reference | Copy-paste `<head>` block |
+| `docs/guides/INTEGRATION.md` | reference | Multi-domain deployment, migration and rollback checklist |
 | `README.md` | reference | Full API and server config |
-| `MULTI_DOMAIN.md`, `DNS_RECOVERY.md` | reference | Domain registry, manifest, DNS diagnostics and recovery |
-| `FOUNDATION_AUDIT.md` | reference | Phase 0 re-audit: preserved behavior, gaps and risks |
-| `ASSISTANT_ARCHITECTURE.md` | reference | Future dashboard, SDK, config publishing, security, failover and roadmap |
-| `INSTALLATION_EXPERIENCE.md` | reference | Frozen install behavior and future SDK install contract |
-| `DESIGN_FOUNDATION.md` | reference | ui-ux-pro-max-skill application and React Bits adoption report |
-| `WIDGET.md` | reference | Floating Assistant architecture, SDK config, events, priority, skill/React Bits record and tests |
-| `ARCHITECTURE_AUDIT.md` | reference | Baseline audit and phased architecture plan |
+| `docs/architecture/REPOSITORY_STRUCTURE.md` | reference | Root inventory, target layout, relocation map and public-path preservation rules |
+| `docs/guides/MULTI_DOMAIN.md`, `docs/guides/DNS_RECOVERY.md` | reference | Domain registry, manifest, DNS diagnostics and recovery |
+| `docs/architecture/FOUNDATION_AUDIT.md` | reference | Phase 0 re-audit: preserved behavior, gaps and risks |
+| `docs/architecture/ASSISTANT_ARCHITECTURE.md` | reference | Future dashboard, SDK, config publishing, security, failover and roadmap |
+| `docs/guides/INSTALLATION_EXPERIENCE.md` | reference | Frozen install behavior and future SDK install contract |
+| `docs/guides/DESIGN_FOUNDATION.md` | reference | ui-ux-pro-max-skill application and React Bits adoption report |
+| `docs/guides/WIDGET.md` | reference | Floating Assistant architecture, SDK config, events, priority, skill/React Bits record and tests |
+| `docs/architecture/ARCHITECTURE_AUDIT.md` | reference | Baseline audit and phased architecture plan |
 | `PARITY.md` | archive | Historical feature/sizing parity record (not primary product docs) |
 | `packages/assistant-sdk/` | repo | `@youge/assistant-sdk` sources, tests, README, `RELEASE.md` (release runbook + registry decision; publishing gated, not yet executed) and `MIGRATION.md` (staff.you.ge vendored-copy → package) |
 | `packages/assistant-sdk/scripts/validate-package.mjs` | tool | Package metadata, export map, version sync and tarball validation release gate |
@@ -212,8 +221,8 @@ identifiers while existing installs upgrade safely:
 | `scripts/generate-vapid-keys.mjs` | tool | VAPID key generator |
 | `examples/push-server/` | example | Minimal Node push sender |
 | `LICENSE`, `package.json` | repo | MIT license and `npm run check` / `verify` / `keys` scripts |
-| `demo/` | example | Full-feature GitHub Pages playground for testing the helper |
-| `example/` | example | React Bits sample PWA, isolated React build, subpath-safe manifest |
+| `examples/demo/` | example | Full-feature GitHub Pages playground source, emitted at the site root |
+| `examples/example/` | example | React Bits sample PWA source, isolated React build, deployed at `/example/` |
 | `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` playground + example deploy, `sdk-release-prep.yml` manual-only SDK release prep with ONE action dropdown (`Verify only` / `Stage release on npm` / `Publish release to npm` / `Verify OIDC trusted publishing` — no typed confirmations; `verify` never publishes; `stage` runs `npm stage publish` via OIDC (`id-token: write`) for owner approval on npm — token-free, never publishes; `publish` is main-only behind `verify` + the `SDK_RELEASE_ENABLED` authorization gate + protected environment + OIDC; `oidc-check` = non-mutating OIDC token-exchange verification, no npm command, no secrets) |
 
 Keep the directory shape when copying. If the target project uses a `public/`
@@ -452,11 +461,11 @@ present; it waits for the service worker registration before appearing.
 Domain-specific behavior belongs in the central registry—not per-component host
 checks. Exact hosts precede validated `*.example.com` patterns; unknown domains
 fall back safely. The registry is public and must contain no secrets or access
-control. See [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) for configuration and the
+control. See [`docs/guides/MULTI_DOMAIN.md`](docs/guides/MULTI_DOMAIN.md) for configuration and the
 host-aware manifest contract. Static hosting cannot return different manifest
 JSON for each Host; use the supplied server/edge adapter or per-host build output.
 Feature switches cover installation, offline, sharing, push, badges, QR,
-diagnostics and DNS recovery; see [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md).
+diagnostics and DNS recovery; see [`docs/guides/MULTI_DOMAIN.md`](docs/guides/MULTI_DOMAIN.md).
 
 ---
 
@@ -616,7 +625,7 @@ caches untouched so downgrades within `1.x` do not lose history or shares.
 ## 10. Theming
 
 For the Intelligent Floating Assistant (`assistant-widget.js` / `@youge/assistant-sdk`),
-use adaptive theme modes and `--youge-*` tokens documented in [`THEMING.md`](THEMING.md).
+use adaptive theme modes and `--youge-*` tokens documented in [`docs/guides/THEMING.md`](docs/guides/THEMING.md).
 
 For `pwa.css` UI components (banners, modals, toolbox), `pwa.css` defines 15
 canonical `--youge-pwa-*` custom properties on `:root` (falling back to temporary
@@ -642,7 +651,7 @@ canonical `--youge-pwa-*` custom properties on `:root` (falling back to temporar
 
 Use `--youge-pwa-*` in CSS or call `YouGePWA.applyTheme()` at runtime (which
 dual-writes canonical and legacy variables during the `1.x` compatibility period;
-see [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md)):
+see [`COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md)):
 
 ```js
 YouGePWA.applyTheme({
@@ -664,7 +673,7 @@ components inherit whatever the page sets.
 
 ## 11. Framework notes
 
-- **Static HTML / PHP / Rails / Django:** use the head block in `snippet.html`.
+- **Static HTML / PHP / Rails / Django:** use the head block in `docs/guides/snippet.html`.
 - **Next.js (App Router):** put the runtime files in `public/`, add the script
   with `next/script` (`strategy="afterInteractive"`) or a plain `<script defer>`
   in `app/layout.tsx`, and keep `manifest.webmanifest` in `public/`.
@@ -684,8 +693,8 @@ components inherit whatever the page sets.
   for a subpath. Offline assets are scope-relative, as shown in
   `.github/workflows/pages.yml`.
 - **GitHub Pages:** `.github/workflows/pages.yml` builds `_site/` from the
-  runtime files, publishes `demo/` as the root feature-test playground, and
-  publishes `example/` at `/example/` with its own worker scope and offline page.
+  runtime files, publishes `examples/demo/` as the root feature-test playground, and
+  publishes `examples/example/` at `/example/` with its own worker scope and offline page.
   Enable Pages
   with **Source: GitHub Actions** once. The pages are
   <https://sandro-defender.github.io/you-ge-assistant/> and
@@ -719,7 +728,7 @@ install handler, verifies that `progressier.js` delegates to `you-ge-sw.js`,
 compares every listed file with the merge base, and fails when
 a precached file was modified, added, removed or renamed without a synchronized,
 higher kit version, or when the kit-version declarations disagree. Details,
-cache lifecycle and upgrade guarantees: [`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md).
+cache lifecycle and upgrade guarantees: [`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md).
 
 When any cached file changes:
 
@@ -727,7 +736,7 @@ When any cached file changes:
    in the root `package.json` and `KIT_COMPAT_VERSION` in
    `packages/assistant-sdk/src/core/constants.js` together, then run
    `npm run sync:sdk` (in this repository the bump needs owner authorization;
-   `PRECACHE_INTEGRITY.md` §7 lists the pinned tests and documentation lines).
+   `docs/operations/PRECACHE_INTEGRITY.md` §7 lists the pinned tests and documentation lines).
    The SDK package version is separate and does not move with the kit.
 2. Upload the changed files.
 3. Reload. With `data-auto-update` the new worker activates automatically;
@@ -756,7 +765,7 @@ if previously used) that calls `self.registration.unregister()` and remove the m
 | QR blank | `/qrcode.js` not uploaded or blocked; check the Network panel |
 | Share target 404 | `share_target.action` must be `/share-target`; the worker handles the POST |
 | Offline page missing | Upload `offline.html`, `offline.css`, `offline.js`; the worker precaches them |
-| Worker never installs or updates (`Precache failed: …` in the console) | A required precache asset is missing or a precache request was refused; the message names the asset and the HTTP status. Deploy the file under the worker scope — see `PRECACHE_INTEGRITY.md` §3 |
+| Worker never installs or updates (`Precache failed: …` in the console) | A required precache asset is missing or a precache request was refused; the message names the asset and the HTTP status. Deploy the file under the worker scope — see `docs/operations/PRECACHE_INTEGRITY.md` §3 |
 
 ---
 
@@ -897,7 +906,7 @@ vercel-react-best-practices; stageshow. Do not add `animate-expo` to this web PW
 do not use Stageshow as a replacement for production UI engineering.
 
 Suggested workflow: clarify requirements → prepare a specification for larger changes → read
-the design foundation (`DESIGN_FOUNDATION.md`, `WIDGET.md`, `design-system/you-ge-assistant/MASTER.md`) → apply `ui-ux-pro-max-skill` for UI work → apply `mobile-native` for mobile/PWA work → apply `break-ui` for edge-case testing → apply `tdd` for implementation → verify build, tests and lint. Avoid making every skill mandatory for every task.
+the design foundation (`docs/guides/DESIGN_FOUNDATION.md`, `docs/guides/WIDGET.md`, `docs/design-system/you-ge-assistant/MASTER.md`) → apply `ui-ux-pro-max-skill` for UI work → apply `mobile-native` for mobile/PWA work → apply `break-ui` for edge-case testing → apply `tdd` for implementation → verify build, tests and lint. Avoid making every skill mandatory for every task.
 
 Testing tools: `npm test` (`node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs`) and `npm run check` (static checks plus the same tests). No Vitest, Playwright or other test framework may be added to the core toolkit or the React example without a separate decision.
 

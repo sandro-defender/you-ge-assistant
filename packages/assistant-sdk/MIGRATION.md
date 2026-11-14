@@ -154,4 +154,4 @@ the state model are identical in both modes.
 *Migration documentation written with `ui-ux-pro-max-skill` DX guidance
 (atomic steps, explicit success signals per step, checklist with observable
 outcomes, rollback first-class). Skill record:
-[`../../DESIGN_FOUNDATION.md`](../../DESIGN_FOUNDATION.md) §10.*
+[`../../DESIGN_FOUNDATION.md`](../../docs/guides/DESIGN_FOUNDATION.md) §10.*

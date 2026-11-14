@@ -262,7 +262,7 @@ export function evaluatePrecacheIntegrity({ base, head, renames = {} }) {
           'Required owner action: authorize a synchronized kit-version bump and apply it in this change — ' +
           `\`const VERSION\` in ${WORKER}, \`version:\` (PWA.version) in ${CLIENT}, \`version\` in ${PACKAGE} and ` +
           `\`KIT_COMPAT_VERSION\` in ${SDK_CONSTANTS} (then \`npm run sync:sdk\`) must move to the ` +
-          'same higher value (PRECACHE_INTEGRITY.md lists the pinned tests and documentation lines). ' +
+          'same higher value (docs/operations/PRECACHE_INTEGRITY.md lists the pinned tests and documentation lines). ' +
           'Kit-version changes require explicit owner authorization (AGENTS.md, "Git and PR safety"); do not bump without it. ' +
           'If the asset change is unintended, revert it instead.',
       );

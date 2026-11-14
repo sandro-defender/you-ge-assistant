@@ -6,7 +6,7 @@ Kit `1.1.1 → 1.2.0` (`you-ge-sw.js` `VERSION`, `PWA.version`, root
 `package.json`, SDK `KIT_COMPAT_VERSION` and regenerated `assistant-state.js`).
 **SDK package unchanged at `0.2.0`**; nothing is tagged, released, published or
 deployed without separate approval. Details & compatibility schedule:
-[`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md).
+[`docs/reference/COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md).
 
 - **Service worker & script cutover:** Added canonical `you-ge-sw.js` (`1.2.0`)
   and converted `progressier.js` into a subpath-safe
@@ -21,7 +21,7 @@ deployed without separate approval. Details & compatibility schedule:
 - **CSS custom properties & selectors:** Defined 15 canonical `--youge-pwa-*`
   variables on `:root` with `var(--progressier*, <default>)` fallback and paired
   canonical `.youge-*` selectors + `body[data-youge-pwa-forced-theme="light"]`
-  across `pwa.css`, `pwa.js`, `demo/`, and `example/`.
+  across `pwa.css`, `pwa.js`, `examples/demo/`, and `examples/example/`.
 - **Storage migration & rollback safety:** Added canonical IndexedDB databases
   (`you-ge-shared-files`, `you-ge-notifications`, `you-ge-pwa-meta`) with
   idempotent non-destructive worker copy-on-upgrade from legacy stores,
@@ -40,7 +40,7 @@ Kit `1.1.0 → 1.1.1` (`progressier.js` `VERSION`, `PWA.version`, root
 `package.json`, SDK `KIT_COMPAT_VERSION` and the regenerated
 `assistant-state.js`). **SDK package unchanged at `0.2.0`**; nothing is tagged,
 released, published or deployed by this change. Details:
-[`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md).
+[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md).
 
 - **New cache generation.** Worker caches are now `…:static:v1.1.1` and
   `…:pages:v1.1.1`. Existing `1.1.0` installations install the new worker beside
@@ -71,7 +71,7 @@ released, published or deployed by this change. Details:
 - **Identity cleanup.** Remaining Progressier wording in comments (including the
   last two in `pwa.css`), check messages and reference/parity framing now
   describes You.Ge Assistant and its legacy compatibility contracts, inventoried
-  in [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md). No identifier,
+  in [`docs/reference/COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md). No identifier,
   selector, storage key or path was renamed.
 
 ## 1.1.0 (kit) / SDK 0.2.0 — 2026-11-07 · adaptive theming
@@ -463,7 +463,7 @@ by this entry. The detailed development log follows under *Unreleased*.
     hover travel dropped to 1px and press to `scale(0.98)`;
     `prefers-reduced-motion` removes both durations and the travel while the
     color state still changes.
-  - `example/`: the sample launcher keeps its circular geometry but clips the
+  - `examples/example/`: the sample launcher keeps its circular geometry but clips the
     `ElectricLogo` layer to the disc (`inset: 0` + `overflow: hidden` +
     `border-radius: 50%`, no `filter: drop-shadow`), loses its blurred outer
     halo, dims the spotlight/glow/flicker/strands and the `GlareHover`
@@ -518,8 +518,8 @@ by this entry. The detailed development log follows under *Unreleased*.
   - **Example app**: the React notice actions use the same toolkit hooks and
     labels, replacing dead "Open" buttons.
   - **Tests/docs**: regression coverage for every item above (`npm test` now runs
-    121 tests), README/`react.d.ts` wording on hook resolution, `WIDGET.md`
-    interaction notes; the offline example (`example/example.js`) install-button and
+    121 tests), README/`react.d.ts` wording on hook resolution, `docs/guides/WIDGET.md`
+    interaction notes; the offline example (`examples/example/example.js`) install-button and
     permission paths are covered by the vm-backed install-experience suite.
 - Extracted the framework-independent **Phase 2 SDK package** locally at
   `packages/assistant-sdk/` (`@youge/assistant-sdk` v`0.1.0`, `"private": true`
@@ -529,7 +529,7 @@ by this entry. The detailed development log follows under *Unreleased*.
   `./diagnostics`, `./installation`, `./react`), `.d.ts` TypeScript declarations,
   data-only `publishedConfig` + project-scoped Last-Known-Good (`LKG`) fallback
   with executable-code and secret rejection, deterministic browser state sync
-  (`scripts/sync-sdk-browser.mjs` → `assistant-state.js`), `example/` consumption
+  (`scripts/sync-sdk-browser.mjs` → `assistant-state.js`), `examples/example/` consumption
   via `file:../packages/assistant-sdk`, standalone SDK tests
   (`packages/assistant-sdk/tests/`) and toolkit integration tests
   (`tests/sdk-integration.test.mjs`). All `window.PWA`, `/progressier.js`,
@@ -537,27 +537,27 @@ by this entry. The detailed development log follows under *Unreleased*.
   standalone dashboard, remote config fetch, production API failover or
   `staff.you.ge` change was added.
 - Added the You.Ge Assistant platform foundation: a Phase 0 re-audit
-  (`FOUNDATION_AUDIT.md`), the future dashboard/SDK/multi-domain/configuration/
+  (`docs/architecture/FOUNDATION_AUDIT.md`), the future dashboard/SDK/multi-domain/configuration/
   security/failover architecture with a diagram and phased roadmap
-  (`ASSISTANT_ARCHITECTURE.md`), and a frozen installation experience record plus
-  future SDK install contract (`INSTALLATION_EXPERIENCE.md`). No dashboard, SDK
+  (`docs/architecture/ASSISTANT_ARCHITECTURE.md`), and a frozen installation experience record plus
+  future SDK install contract (`docs/guides/INSTALLATION_EXPERIENCE.md`). No dashboard, SDK
   package, central config service, failover, `staff.you.ge` integration, npm
   publish or production deployment was added.
 - Applied the ui-ux-pro-max-skill design system and adopted three zero-dependency
   React Bits TypeScript + CSS components (`SpotlightCard`, `GlareHover`,
   `LatticeLoader`) in the isolated example; documented every adoption decision
-  in `DESIGN_FOUNDATION.md`. Incremental install-sheet and banner accessibility
+  in `docs/guides/DESIGN_FOUNDATION.md`. Incremental install-sheet and banner accessibility
   improvements (visible focus, 44px close target, contrast-safe note,
   `aria-labelledby`/`aria-describedby`, reduced motion) preserve all behavior.
 - Implemented the **Intelligent Floating Assistant** as a reusable core widget:
   `assistant-state.js` (one centralized, event-driven state model and
   configurable SDK API), `assistant-widget.js` / `assistant-widget.css`
-  (dependency-free DOM renderer), and a React renderer in `example/src/main.jsx`
+  (dependency-free DOM renderer), and a React renderer in `examples/example/src/main.jsx`
   using `useSyncExternalStore` plus the already-vendored React Bits
   `GlareHover`, `SpotlightCard` and `LatticeLoader` sources. Real-condition
   badges, the fixed 1–5 priority ladder, in-place panel, dismissal/acknowledgement,
   project-scoped repeat suppression, safe-area/reduced-motion support and
-  single-flight diagnostics are covered by `WIDGET.md` and 24 new tests in
+  single-flight diagnostics are covered by `docs/guides/WIDGET.md` and 24 new tests in
   `tests/assistant-widget.test.mjs`. `pwa.js` install delegation and the single
   `progressier.js` worker remain intact; no dashboard, remote config service,
   production failover or `staff.you.ge` integration was added.

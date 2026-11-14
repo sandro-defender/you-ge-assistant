@@ -22,8 +22,8 @@ network diagnostics.
 **User-facing example:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
 a polished sample staff workspace with a fixed, interactive assistant
 launcher. Its schedule/checklist interactions use sample data stored
-only in the visitor’s browser. The React build dependencies are isolated to `example/`; the core PWA
-toolkit remains dependency-free. See [`example/README.md`](example/README.md).
+only in the visitor’s browser. The React build dependencies are isolated to `examples/example/`; the core PWA
+toolkit remains dependency-free. See [`examples/example/README.md`](examples/example/README.md).
 
 > **For AI coding agents:** start with [`AGENTS.md`](AGENTS.md). It is a
 > step-by-step integration playbook — file placement, manifest adaptation,
@@ -43,12 +43,12 @@ with real-condition badges, a fixed priority ladder and an in-place panel —
 plus an auto-scaling launcher with per-origin manual size/position adjustment,
 the Android in-app browser → Chrome handoff offer (both 0.1.1) and adaptive
 theming with four modes and five notification tiers (new in 0.2.0); see
-[`WIDGET.md`](WIDGET.md) and [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md).
-Read the [foundation audit](FOUNDATION_AUDIT.md),
-[platform architecture and roadmap](ASSISTANT_ARCHITECTURE.md),
-[installation preservation contract](INSTALLATION_EXPERIENCE.md),
-[widget implementation](WIDGET.md) and
-[design/React Bits report](DESIGN_FOUNDATION.md) before starting a later phase.
+[`docs/guides/WIDGET.md`](docs/guides/WIDGET.md) and [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md).
+Read the [foundation audit](docs/architecture/FOUNDATION_AUDIT.md),
+[platform architecture and roadmap](docs/architecture/ASSISTANT_ARCHITECTURE.md),
+[installation preservation contract](docs/guides/INSTALLATION_EXPERIENCE.md),
+[widget implementation](docs/guides/WIDGET.md) and
+[design/React Bits report](docs/guides/DESIGN_FOUNDATION.md) before starting a later phase.
 
 ---
 
@@ -70,7 +70,7 @@ domain-config.js  domain-registry.js  dns-diagnostics.js  manifest-handler.js
 offline.html  offline.css  offline.js  browserconfig.xml  favicon.ico  icons/
 ```
 
-**2. Add to `<head>`** (see [`INTEGRATION.md`](INTEGRATION.md) if migrating from a legacy hosted PWA setup):
+**2. Add to `<head>`** (see [`INTEGRATION.md`](docs/guides/INTEGRATION.md) if migrating from a legacy hosted PWA setup):
 
 ```html
 <link rel="manifest" href="/manifest.webmanifest" />
@@ -190,7 +190,7 @@ configuration options (defaults are from `BUNDLED_DEFAULTS` and normalizers):
 | `project` / `projectId` | No explicit project; prefer stable `project: { id }`. `projectId` remains a compatibility alias. |
 | `domain`, `domainRegistry` | Host is detected when not overridden. Registry entries can customize project identity, branding, PWA settings, feature flags and diagnostics paths for a host/path. Host matching is public configuration, never authorization. |
 | `position`, `offsets` | `bottom-right`; `{ x: 20, y: 20 }`. |
-| `theme` | `auto`; accepts the legacy string modes or a validated theme object. See [`THEMING.md`](THEMING.md). |
+| `theme` | `auto`; accepts the legacy string modes or a validated theme object. See [`THEMING.md`](docs/guides/THEMING.md). |
 | `modules` | All default to `true`: `installation`, `diagnostics`, `recovery`, `failover`, `help`, `updates`, and `chromeHandoff`. These gate Assistant capabilities/UI; they do not change PWA registration. |
 | `notifications` | `dismissible: true`, `suppressRepeats: true`, `criticalPersistent: true`. |
 | `branding` | Empty overrides; resolved project/domain identity supplies defaults. Fields: `name`, `shortName`, `icon`, `themeColor`. |
@@ -300,7 +300,7 @@ same-origin app/backend probes. Registry `diagnostics.appProbePath` and
 network-path URLs (`//host`), script/data schemes, backslashes, whitespace
 padding and `..` traversal are rejected. The request uses no credentials; the
 browser, network and Cloudflare availability still constrain results. See
-[`DNS_RECOVERY.md`](DNS_RECOVERY.md) for the full behavior and limitations.
+[`DNS_RECOVERY.md`](docs/guides/DNS_RECOVERY.md) for the full behavior and limitations.
 
 ### G. Updates and lifecycle
 
@@ -371,64 +371,65 @@ metadata, not a typed SDK API. See the [official npm package page](https://www.n
 
 ---
 
+## Repository layout
+
+```text
+/
+├── docs/                    Architecture, guides, operations, compatibility and design reference
+├── examples/
+│   ├── examples/demo/                Pages feature-test playground source (published at the site root)
+│   ├── examples/example/             Independent React/Vite app (published at /example/)
+│   └── push-server/         Optional Web Push sender
+├── functions/               Cloudflare Pages manifest function (root path is platform-sensitive)
+├── icons/                   Public /icons/* assets
+├── packages/assistant-sdk/  SDK source, tests, declarations and package metadata
+├── reference/               Preserved third-party compatibility evidence
+├── scripts/                 Check, synchronization and development tools
+├── tests/                   Repository tests and support harnesses
+├── AGENTS.md                Contributor rules and integration guide
+├── AGENT_HANDOFF.md         Current agent/repository state
+├── CHANGELOG.md             Release history
+├── LICENSE                  Project license
+├── NEXT_AGENT_PROMPT.md     Next planned task
+├── PARITY.md                Preserved compatibility report
+├── README.md                Repository landing page
+└── package.json             Root scripts and kit version
+```
+
+The root also intentionally serves classic public runtime files directly. Names such as `you-ge-sw.js`, `progressier.js`, `pwa.js`, `assistant-state.js`, `manifest.webmanifest`, and `offline.*` are stable URLs, scope-sensitive or precached; see [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md) for the complete inventory and placement rules. No redirect or service-worker path alias is used.
+
 ## Documentation map
 
-| File | Read it when |
+| Document | Read it when |
 | --- | --- |
-| [`AGENTS.md`](AGENTS.md) | you are a coding agent working in this repository or integrating the kit into a project |
-| `README.md` | you need the full API, config and server setup (this file) |
-| [`INTEGRATION.md`](INTEGRATION.md) | you want a worked deployment, legacy migration, upload order and rollback checklist |
-| [`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md) | you want the earlier baseline audit and architecture plan |
-| [`FOUNDATION_AUDIT.md`](FOUNDATION_AUDIT.md) | you want the Phase 0 re-audit: what works, what is preserved, what is missing and the risks |
-| [`ASSISTANT_ARCHITECTURE.md`](ASSISTANT_ARCHITECTURE.md) | you want the future dashboard, SDK, multi-domain, publishing, security, failover architecture, diagram and roadmap |
-| [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md) | you want `@youge/assistant-sdk` initialization, config/LKG validation, lifecycle APIs, subpath exports and React adapter docs |
-| [Official SDK on npm](https://www.npmjs.com/package/@youge/assistant-sdk/) | you want the published `@youge/assistant-sdk` package page and the current npm version |
-| [`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md) | you need the preserved install behavior and the future SDK install contract |
-| [`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) | you need the ui-ux-pro-max-skill application record and React Bits adoption report |
-| [`WIDGET.md`](WIDGET.md) | you need the Intelligent Floating Assistant state model, SDK config, events, React Bits/skill record and test matrix |
-| [`THEMING.md`](THEMING.md) | you need the adaptive theme modes, host adaptation, token list, CSS isolation or notification level styling |
-| [`ADAPTIVE_THEME_AUDIT.md`](ADAPTIVE_THEME_AUDIT.md) | you want the audit, constraints and plan behind the theming work |
-| [`design-system/you-ge-assistant/MASTER.md`](design-system/you-ge-assistant/MASTER.md) | you are making UI decisions for the Assistant |
-| [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) | you need domain registry, manifest, scope and deployment examples |
-| [`DNS_RECOVERY.md`](DNS_RECOVERY.md) | you need DoH behavior, limitations or device recovery steps |
-| [`CHANGELOG.md`](CHANGELOG.md) | you need release notes |
-| [`snippet.html`](snippet.html) | you want to copy the complete `<head>` block |
-| [`examples/push-server/`](examples/push-server/) | you need a runnable Web Push sender |
-| `demo/` | you want to test the toolkit's full feature set in the playground |
-| `example/` | you want a polished, user-facing sample integration (`Staff Space`) |
+| [`AGENTS.md`](AGENTS.md) | you are contributing, using an agent, or integrating the kit |
+| [`docs/guides/INTEGRATION.md`](docs/guides/INTEGRATION.md) | you want deployment, migration, upload order and rollback guidance |
+| [`docs/architecture/ASSISTANT_ARCHITECTURE.md`](docs/architecture/ASSISTANT_ARCHITECTURE.md) | you want the platform architecture and roadmap |
+| [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md) | you need the root inventory, file placement conventions and public-path decisions |
+| [`docs/reference/COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md) | you need the authoritative compatibility contract inventory and sunset policy |
+| [`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) | you need cache lifecycle, precache and kit-version policy |
+| [`docs/guides/INSTALLATION_EXPERIENCE.md`](docs/guides/INSTALLATION_EXPERIENCE.md) | you need the preserved install behavior and future SDK install contract |
+| [`docs/guides/WIDGET.md`](docs/guides/WIDGET.md) | you need Assistant state, configuration, events and tests |
+| [`docs/guides/THEMING.md`](docs/guides/THEMING.md) | you need adaptive theme modes, tokens and isolation |
+| [`docs/design-system/you-ge-assistant/MASTER.md`](docs/design-system/you-ge-assistant/MASTER.md) | you are making UI decisions for the Assistant |
+| [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md) | you need SDK initialization, subpaths and adapter documentation |
+| [`docs/guides/snippet.html`](docs/guides/snippet.html) | you want the copy-paste integration block |
+| [`CHANGELOG.md`](CHANGELOG.md) | you need release history |
 
 ---
 
-## Files
+## Public runtime and project files
 
-```
-manifest.webmanifest      Valid static fallback manifest
-domain-config.js          Central hostname/origin/config resolver
-domain-registry.js        Public per-domain/subdomain customization
-manifest-handler.js       Validated host-aware manifest response helper
-functions/                Cloudflare Pages Functions manifest adapter
-dns-diagnostics.js        On-demand Cloudflare DoH diagnostics
-you-ge-sw.js              Canonical service worker (offline cache, push, share target, badge)
-progressier.js            Temporary compatibility shim delegating to you-ge-sw.js
-pwa.js                    Client runtime (`window.YouGePWA`) — PWA controls, install flows and domain-aware UI
-pwa.css                   Component stylesheet (`--youge-pwa-*` tokens, `.youge-*` selectors, compatibility aliases)
-assistant-state.js        Centralized Assistant state synchronized from @youge/assistant-sdk
-assistant-widget.js/.css  Dependency-free floating Assistant DOM renderer
-qrcode.js                 Vendored MIT QR generator (QR install dialog)
-offline.html/.css/.js     Offline fallback page and status script
-browserconfig.xml         Windows tile configuration
-favicon.ico               Multi-size favicon (16/32/48)
-snippet.html              Copy-paste head block
-packages/assistant-sdk/   @youge/assistant-sdk source, tests, declarations and release docs
-AGENTS.md                 Repository coding-agent rules and integration guide
-INTEGRATION.md            Deployment, legacy migration and rollback checklist
-demo/                     Full-feature GitHub Pages playground + manifest
-example/                  User-facing Staff Space sample integration + manifest
-.github/workflows/        check.yml, pages.yml, sdk-release-prep.yml
-scripts/                  Static checks, SDK sync, deployment check, VAPID key generator
-examples/push-server/     Runnable push sender (Node + web-push)
-icons/                    You.Ge Assistant sample icons — replace with your own when branding
-```
+| Root path | Purpose |
+| --- | --- |
+| `you-ge-sw.js`, `progressier.js` | Canonical worker and explicit legacy compatibility shim |
+| `pwa.js`, `pwa.css`, `domain-config.js`, `domain-registry.js`, `dns-diagnostics.js` | Classic client runtime and public configuration modules |
+| `assistant-state.js`, `assistant-widget.js`, `assistant-widget.css` | Generated state bundle and optional Assistant renderer |
+| `manifest.webmanifest`, `offline.html`, `offline.css`, `offline.js` | Install identity and offline fallback assets |
+| `qrcode.js`, `browserconfig.xml`, `favicon.ico`, `icons/` | Optional QR script and public browser/branding assets |
+| `manifest-handler.js`, `functions/` | Host-aware server helper and Cloudflare Pages adapter |
+| `packages/assistant-sdk/` | `@youge/assistant-sdk` package boundary |
+| `scripts/`, `tests/`, `.github/workflows/` | Repository tooling, tests and automation |
 
 ---
 
@@ -474,7 +475,7 @@ The script can inject the manifest and Apple meta tags itself if you prefer a
 one-line install, but declaring them in HTML is more reliable (Chrome can miss
 dynamically added manifests on first load).
 
-`snippet.html` contains the full head block, including the optional push
+`docs/guides/snippet.html` contains the full head block, including the optional push
 attributes. `INTEGRATION.md` has the deployment order, headers, update and
 rollback steps for multi-domain deployments.
 
@@ -590,7 +591,7 @@ Auto-show them from the script tag with `data-install-banner`, `data-push-banner
 
 The Floating Assistant supports adaptive themes (`auto`, `light`, `dark`,
 `custom`) via `@youge/assistant-sdk` / `YOU_GE_ASSISTANT_CONFIG` (see
-[`THEMING.md`](THEMING.md)).
+[`THEMING.md`](docs/guides/THEMING.md)).
 
 For `pwa.css` dialogs and banners, `PWA.applyTheme()` updates the preserved
 component CSS variables:
@@ -644,7 +645,7 @@ A static JSON manifest cannot vary based on the request hostname. Serve
 (the Cloudflare Pages adapter is `functions/manifest.webmanifest.js`), or
 generate one manifest per host at build time. The handler uses no-store caching,
 same-origin/in-scope URLs and safe defaults for unknown hosts. See
-[`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) for registry, subpath, deployment and cache
+[`MULTI_DOMAIN.md`](docs/guides/MULTI_DOMAIN.md) for registry, subpath, deployment and cache
 migration examples. Browser installs and storage stay isolated by origin.
 
 ## Configuration
@@ -961,7 +962,7 @@ allowed; set `data-allow-external-protocol` if the app must handle external link
   `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in
   `package.json` and the SDK's `KIT_COMPAT_VERSION` together; `npm run check`
   enforces this against the merge base
-  ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md)).
+  ([`PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md)).
 - Installing a new worker is all-or-nothing. `offline.html`, `offline.css`,
   `offline.js`, `pwa.css` and the two default icons are **required**: if any of
   them is missing the worker does not install. The domain, diagnostics,
@@ -991,7 +992,7 @@ offline page and requires no application authentication.
 JavaScript cannot inspect the device's normal DNS resolver. A DoH response is
 not proof of ISP DNS blocking; app, TLS, IP routing, CDN, backend, CORS and general
 network failures are distinguished where possible, and uncertain results remain
-inconclusive. See [`DNS_RECOVERY.md`](DNS_RECOVERY.md) for official setup links,
+inconclusive. See [`DNS_RECOVERY.md`](docs/guides/DNS_RECOVERY.md) for official setup links,
 store links, classifications and test limitations. Allow
 `https://cloudflare-dns.com` in `connect-src` if the site's CSP is restrictive.
 
@@ -1079,8 +1080,7 @@ This repository publishes two GitHub Pages routes through
 - <https://sandro-defender.github.io/you-ge-assistant/example/> — a polished sample
   staff workspace showing the helper in a user-facing page.
 
-The workflow publishes `demo/` at `/` with the shared runtime at the Pages root.
-It publishes `example/` at `/example/` with its own runtime copy, manifest,
+The workflow builds its source pages from `examples/demo/` and `examples/example/`. The demo is published at `/` with the shared runtime at the Pages root. The user-facing example is still published at `/example/` with its own runtime copy and manifest,
 service-worker scope and offline page so the sample is a separate installable app.
 GitHub Pages is static and uses the example's static manifest; it cannot execute
 the host-aware manifest function.
@@ -1126,14 +1126,14 @@ At a domain root, nothing needs rewriting.
 ## Migration & compatibility
 
 When migrating an existing site off a legacy hosted setup, see
-[`INTEGRATION.md`](INTEGRATION.md) for the step-by-step upload order, header
+[`INTEGRATION.md`](docs/guides/INTEGRATION.md) for the step-by-step upload order, header
 setup, and rollback checklist. In short: remove legacy `progressier.app` tags,
 deploy both `/you-ge-sw.js` (default registration) and the `/progressier.js`
 compatibility shim (for explicit `data-sw="/progressier.js"` setups if needed),
 preserve the existing host manifest `id`, and let `you-ge-sw.js` copy existing
 `progressierSavedPushNotifications` and `progressiersharedfiles` IndexedDB
 records into canonical `you-ge-notifications` and `you-ge-shared-files` stores
-non-destructively. See [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md)
+non-destructively. See [`COMPATIBILITY_CONTRACTS.md`](docs/reference/COMPATIBILITY_CONTRACTS.md)
 for the `1.x` compatibility period and `2.0.0` removal policy.
 
 ---

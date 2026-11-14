@@ -25,7 +25,7 @@ export function workerSourceAt(version) {
 
 /**
  * Scope-relative assets the worker is documented to precache, by policy
- * (PRECACHE_INTEGRITY.md §3). Stated here independently of the worker so the
+ * (docs/operations/PRECACHE_INTEGRITY.md §3). Stated here independently of the worker so the
  * tests fail if the worker's own declaration drifts from the documented one.
  */
 export const REQUIRED_PRECACHE = [

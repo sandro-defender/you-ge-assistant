@@ -122,7 +122,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: example/package-lock.json
+          cache-dependency-path: examples/example/package-lock.json
 
       - name: Static checks, contracts and unit tests
         run: npm run check
@@ -154,7 +154,7 @@ jobs:
 
       - name: Consumer build verification (React example)
         run: npm ci && npm run typecheck && npm run build
-        working-directory: example
+        working-directory: examples/example
 
       - name: Verification summary (selected operation, package, version, result)
         if: always()
