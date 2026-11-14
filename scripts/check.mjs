@@ -11,8 +11,10 @@
  *   - manifest is valid JSON with the required fields
  *   - every manifest icon exists and its real PNG size matches the declaration
  *   - offline / precache assets referenced by the worker exist
- *   - service worker VERSION matches PWA.version
- *   - no leftover hosted Progressier URLs in deployable files
+ *   - kit version is synchronized (worker VERSION, PWA.version, package.json)
+ *   - precached assets did not change since the merge base without a
+ *     synchronized kit-version bump (scripts/precache-integrity.mjs)
+ *   - no leftover legacy hosted-script URLs in deployable files
  *
  * Exits 1 on failure.
  */
@@ -21,6 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runPrecacheIntegrity } from './precache-integrity.mjs';
 import { buildBrowserStateScript } from './sync-sdk-browser.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -339,28 +342,26 @@ if (toolboxStyles.every((token) => styles.includes(token)) &&
   fail('floating toolbox styles differ from the original sizing or placement');
 }
 
-const precached = [
-  'offline.html',
-  'offline.css',
-  'offline.js',
-  'domain-config.js',
-  'domain-registry.js',
-  'dns-diagnostics.js',
-  'assistant-state.js',
-  'assistant-widget.js',
-  'assistant-widget.css',
-  'pwa.css',
-  'qrcode.js',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-];
-for (const name of precached) {
-  if (worker.includes(`'${name}'`)) {
-    if (existsSync(at(name))) pass(`precache ${name} exists`);
-    else fail(`precache ${name} is referenced but missing`);
-  } else {
-    warn(`progressier.js no longer references ${name}`);
-  }
+section('Precache integrity');
+
+// The precache list is read from the worker's own install handler, and the
+// diff-aware gate compares it with the merge base (PRECACHE_INTEGRITY_BASE in
+// CI, the default branch locally). See PRECACHE_INTEGRITY.md.
+const precacheIntegrity = await runPrecacheIntegrity({
+  root,
+  baseRef: process.env.PRECACHE_INTEGRITY_BASE || '',
+});
+for (const name of precacheIntegrity.precache) {
+  if (existsSync(at(name))) pass(`precache ${name} exists`);
+  else fail(`precache ${name} is referenced but missing`);
+}
+if (precacheIntegrity.status === 'fail') {
+  fail(precacheIntegrity.summary);
+  console.log(precacheIntegrity.report.split('\n').map((line) => `       ${line}`).join('\n'));
+} else if (precacheIntegrity.status === 'skipped') {
+  warn(precacheIntegrity.summary);
+} else {
+  pass(precacheIntegrity.summary);
 }
 
 for (const name of ['share-target', 'offline.html', 'qrcode.js']) {
@@ -368,10 +369,14 @@ for (const name of ['share-target', 'offline.html', 'qrcode.js']) {
 }
 
 /* ------------------------------------------------------------------ *
- * 6. No hosted Progressier leftovers in deployable files
+ * 6. No legacy hosted-script leftovers in deployable files
+ *
+ * `progressier.app` / `progressier.com` are the hosts of the hosted client
+ * that You.Ge Assistant replaced. Deployable files must never load from them;
+ * pwa.js names them only to scrub such tags from migrated pages.
  * ------------------------------------------------------------------ */
 
-section('Progressier leftovers');
+section('Legacy hosted-script leftovers');
 
 const deployable = [
   'manifest.webmanifest',
@@ -391,7 +396,7 @@ for (const file of deployable) {
     fail(`${file} still references ${hits[0]} (${hits.length} occurrence(s))`);
   }
 }
-if (!leftovers) pass('no hosted Progressier URLs in deployable files');
+if (!leftovers) pass('no legacy hosted-script URLs in deployable files');
 
 // pwa.js is allowed to mention progressier.app because it rewrites leftover
 // manifest links; anything more than that is suspicious.

@@ -13,14 +13,14 @@
     "web-manifest",
     "web-push",
     "install-prompt",
-    "offline",
-    "assistant"
+    "offline"
   ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
     "check": "node scripts/check.mjs && node packages/assistant-sdk/scripts/validate-package.mjs && node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs",
+    "check:precache": "node scripts/precache-integrity.mjs",
     "test": "node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs",
     "test:sdk": "node --test packages/assistant-sdk/tests/*.test.mjs",
     "sync:sdk": "node scripts/sync-sdk-browser.mjs",

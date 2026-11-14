@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the precache integrity gate diffs against the merge base.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -22,8 +25,11 @@ jobs:
         run: npm ci && npm run typecheck && npm run build
         working-directory: example
 
-      - name: Static checks
+      - name: Static checks and precache integrity gate
         run: node scripts/check.mjs
+        env:
+          # Pull requests diff against their base; pushes against the previous tip.
+          PRECACHE_INTEGRITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
 
       - name: Syntax check every script
         run: |
