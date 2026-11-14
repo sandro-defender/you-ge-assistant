@@ -8,9 +8,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { resolveSourcePath } from '../../scripts/source-paths.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const read = (path) => readFileSync(resolve(root, path), 'utf8');
+const read = (path) => readFileSync(resolveSourcePath(root, path), 'utf8');
 
 export const workerSource = read('you-ge-sw.js');
 export const legacyWorkerShimSource = read('progressier.js');

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import '../domain-config.js';
-import '../manifest-handler.js';
+import '../src/domain/domain-config.js';
+import '../src/domain/manifest-handler.js';
 
 const { handle } = globalThis.YouGeManifestHandler;
 

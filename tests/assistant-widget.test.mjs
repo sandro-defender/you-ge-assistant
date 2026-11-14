@@ -9,13 +9,13 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
-const stateSource = readFileSync(fileURLToPath(new URL('../assistant-state.js', import.meta.url)), 'utf8');
-const widgetSource = readFileSync(fileURLToPath(new URL('../assistant-widget.js', import.meta.url)), 'utf8');
-const widgetCss = readFileSync(fileURLToPath(new URL('../assistant-widget.css', import.meta.url)), 'utf8');
+const stateSource = readFileSync(fileURLToPath(new URL('../src/assistant/assistant-state.js', import.meta.url)), 'utf8');
+const widgetSource = readFileSync(fileURLToPath(new URL('../src/assistant/assistant-widget.js', import.meta.url)), 'utf8');
+const widgetCss = readFileSync(fileURLToPath(new URL('../src/assistant/assistant-widget.css', import.meta.url)), 'utf8');
 const mainJsx = readFileSync(fileURLToPath(new URL('../examples/example/src/main.jsx', import.meta.url)), 'utf8');
 const demoHtml = readFileSync(fileURLToPath(new URL('../examples/demo/index.html', import.meta.url)), 'utf8');
 const exampleHtml = readFileSync(fileURLToPath(new URL('../examples/example/index.html', import.meta.url)), 'utf8');
-const offlineHtml = readFileSync(fileURLToPath(new URL('../offline.html', import.meta.url)), 'utf8');
+const offlineHtml = readFileSync(fileURLToPath(new URL('../src/offline/offline.html', import.meta.url)), 'utf8');
 const snippetHtml = readFileSync(fileURLToPath(new URL('../docs/guides/snippet.html', import.meta.url)), 'utf8');
 
 function makeTarget() {

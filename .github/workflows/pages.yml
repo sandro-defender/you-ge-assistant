@@ -32,43 +32,7 @@ jobs:
 
       - name: Assemble GitHub Pages site
         run: |
-          set -euo pipefail
-          mkdir -p _site/example
-
-          # The root page is the full feature-test playground.
-          cp examples/demo/index.html _site/index.html
-          cp examples/demo/manifest.webmanifest _site/manifest.webmanifest
-
-          # Put the shared runtime at the Pages root for the playground.
-          cp pwa.js pwa.css you-ge-sw.js progressier.js qrcode.js \
-             domain-config.js domain-registry.js dns-diagnostics.js \
-             assistant-state.js assistant-widget.js assistant-widget.css \
-             offline.html offline.css offline.js \
-             browserconfig.xml favicon.ico _site/
-          cp -r icons _site/icons
-
-          # The user-facing sample is a separate, fully scoped PWA. Its own
-          # runtime copy gives it an /example/ service worker and offline page.
-          cp pwa.js pwa.css you-ge-sw.js progressier.js qrcode.js \
-             domain-config.js domain-registry.js dns-diagnostics.js \
-             assistant-state.js assistant-widget.js assistant-widget.css \
-             offline.html offline.css offline.js \
-             browserconfig.xml favicon.ico _site/example/
-          cp -r icons _site/example/icons
-          cp -r examples/example/dist/. _site/example/
-          cp examples/example/example.js examples/example/manifest.webmanifest examples/example/THIRD_PARTY_NOTICES.md _site/example/
-
-          # GitHub Pages project sites are served from /<repo>/. Browserconfig
-          # still uses absolute tile paths; rewrite each file for its own scope.
-          BASE="/${GITHUB_REPOSITORY#*/}"
-          sed -i "s|src=\"/icons/|src=\"${BASE}/icons/|g" _site/browserconfig.xml
-          sed -i "s|src=\"/icons/|src=\"${BASE}/example/icons/|g" _site/example/browserconfig.xml
-
-          # The sample app has its own fallback brand when the host is not
-          # explicitly registered. Registered host branding still takes priority.
-          sed -i 's/data-default-app-name="You.Ge Assistant"/data-default-app-name="Staff Space"/' _site/example/offline.html
-
-          touch _site/.nojekyll
+          node scripts/assemble-pages.mjs
           find _site -maxdepth 3 -type f | sort
 
       - uses: actions/upload-pages-artifact@v3

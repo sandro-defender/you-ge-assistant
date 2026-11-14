@@ -33,7 +33,7 @@ jobs:
 
       - name: Syntax check every script
         run: |
-          for file in pwa.js you-ge-sw.js progressier.js offline.js domain-config.js domain-registry.js dns-diagnostics.js assistant-state.js assistant-widget.js manifest-handler.js functions/manifest.webmanifest.js qrcode.js examples/example/example.js examples/example/vite.config.js; do
+          for file in src/runtime/pwa.js src/runtime/you-ge-sw.js src/runtime/progressier.js src/offline/offline.js src/domain/domain-config.js src/domain/domain-registry.js src/domain/dns-diagnostics.js src/assistant/assistant-state.js src/assistant/assistant-widget.js src/domain/manifest-handler.js functions/manifest.webmanifest.js src/shared/qrcode.js examples/example/example.js examples/example/vite.config.js; do
             node --check "$file"
           done
 
@@ -45,4 +45,4 @@ jobs:
         run: npm test
 
       - name: Manifest parses
-        run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
+        run: node -e "JSON.parse(require('fs').readFileSync('public/manifest.webmanifest','utf8')); console.log('manifest ok')"

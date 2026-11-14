@@ -212,10 +212,10 @@ test('React notice actions reuse the toolkit hooks instead of being inert', () =
  * ------------------------------------------------------------------ */
 
 const exampleCss = readFileSync(new URL('../examples/example/example.css', import.meta.url), 'utf8');
-const widgetCss = readFileSync(new URL('../assistant-widget.css', import.meta.url), 'utf8');
-const pwaCss = readFileSync(new URL('../pwa.css', import.meta.url), 'utf8');
+const widgetCss = readFileSync(new URL('../src/assistant/assistant-widget.css', import.meta.url), 'utf8');
+const pwaCss = readFileSync(new URL('../src/runtime/pwa.css', import.meta.url), 'utf8');
 const widgetSource = readFileSync(new URL('../examples/example/src/main.jsx', import.meta.url), 'utf8');
-const assistantWidgetSource = readFileSync(new URL('../assistant-widget.js', import.meta.url), 'utf8');
+const assistantWidgetSource = readFileSync(new URL('../src/assistant/assistant-widget.js', import.meta.url), 'utf8');
 const exampleHtml = readFileSync(new URL('../examples/example/index.html', import.meta.url), 'utf8');
 
 function actionableTones(css, selector) {

@@ -2,44 +2,44 @@
 
 **Last updated:** 2026-11-14
 **Repository:** `sandro-defender/you-ge-assistant`
-**Verified base:** `main` / PR #37 merge `f7189e182ccaada85693ebb3373395a37982f515`
-**Branch:** `arena/4dc708a7-you-ge-assistant` (active)
-**PR:** #38 — Repository Structure & Organization (this branch; keep open for owner review)
-**Working tree:** clean at the current PR #38 branch tip; PR changes are pushed.
+**Verified base:** `main` / PR #38 merge `42e9a3ab0b204804cba5ab37ad6696e868ec4bbe`
+**Branch:** `arena/abdd374a-you-ge-assistant` (active)
+**PR:** #39 — Deep Repository Structure Cleanup: Separate Runtime Source from Published Assets (this branch; keep open for owner review)
+**Working tree:** clean at the current PR #39 branch tip; PR changes are pushed.
 **Versions:** kit `1.2.0`; `@youge/assistant-sdk` `0.2.0`.
 
-Permanent development and layout rules live in [`AGENTS.md`](AGENTS.md). The full pre-move root inventory, relocation rationale, compatibility decisions and target layout are in [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md).
+Permanent development and layout rules live in [`AGENTS.md`](AGENTS.md). The full root inventory, source/output separation, and compatibility rationale are in [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md).
 
-## PR #38 — Repository Structure & Organization
+## PR #39 — Deep Repository Structure Cleanup
 
 Structural-only changes on this branch:
 
-- Root documentation is grouped into `docs/architecture/`, `docs/guides/`, `docs/operations/`, `docs/reference/` and `docs/design-system/`.
-- First-party examples are consistently under `examples/`: `demo/`, independent React/Vite `example/`, and existing `push-server/`. The demo still assembles to the Pages site root and the app remains at `/example/`.
-- `tests/`, `scripts/`, `packages/assistant-sdk/`, `functions/`, `icons/`, and third-party `reference/` remain within their established boundaries.
-- Public classic runtime files stay at their existing root URLs. This includes `/you-ge-sw.js`, `/progressier.js`, `/pwa.js`, `/pwa.css`, `/assistant-state.js`, `/assistant-widget.js`, `/assistant-widget.css`, `/manifest.webmanifest`, `/offline.{html,css,js}`, `/domain-config.js`, `/domain-registry.js`, `/dns-diagnostics.js`, `/qrcode.js`, `browserconfig.xml`, `favicon.ico`, and `/icons/*`.
-- Pages assembly, GitHub Actions, static checks, tests, docs links, example package resolution and Vite's shared-runtime path are updated for source moves. No redirects or service-worker URL aliases were introduced.
-- `PARITY.md` and `reference/` are preserved. No runtime implementation, product behavior, kit version, SDK version, public SDK exports or package layout changed.
+- **Root cleanup:** Reduced root files from **29** to **11** essential files (`.editorconfig`, `.gitattributes`, `.gitignore`, `AGENTS.md`, `AGENT_HANDOFF.md`, `CHANGELOG.md`, `LICENSE`, `NEXT_AGENT_PROMPT.md`, `PARITY.md`, `README.md`, `package.json`).
+- **Organized source directories:**
+  - `src/runtime/`: `pwa.js`, `pwa.css`, `you-ge-sw.js`, `progressier.js`
+  - `src/assistant/`: `assistant-state.js` (generated from `packages/assistant-sdk/src/` via `npm run sync:sdk`), `assistant-widget.js`, `assistant-widget.css`
+  - `src/domain/`: `domain-config.js`, `domain-registry.js`, `dns-diagnostics.js`, `manifest-handler.js`
+  - `src/offline/`: `offline.html`, `offline.css`, `offline.js`
+  - `src/shared/`: `qrcode.js`
+  - `public/`: `browserconfig.xml`, `favicon.ico`, `manifest.webmanifest`
+- **Source-to-output separation:**
+  - `scripts/source-paths.mjs` maps public root paths to `src/` and `public/`.
+  - `scripts/build.mjs` (`npm run build`) assembles `dist/` (gitignored) with all 18 runtime/public files and `icons/` at their exact original root URLs.
+  - `scripts/assemble-pages.mjs` provides shared GitHub Pages assembly for both `.github/workflows/pages.yml` and automated Pages assembly tests.
+  - `examples/example/vite.config.js` serves the shared runtime from `src/` and `public/` in local dev.
+- `PARITY.md` and `reference/` are preserved. No runtime implementation, product behavior, kit version (`1.2.0`), SDK version (`0.2.0`), or public URLs changed.
+
+## Completed work — PR #38 (historical)
+
+PR #38 (merged at `42e9a3ab0b204804cba5ab37ad6696e868ec4bbe`) grouped root documentation into `docs/` and examples into `examples/` (`demo/`, `example/`, `push-server/`), reducing root files from 46 to 29.
 
 ## Deferred work / known risks
 
-- Do not implement CD-1 (or any other audit item) in this PR. CD-1 capability enforcement remains the next planned implementation task after PR #38.
+- Do not implement CD-1 (or any other audit item) in PR #39. CD-1 capability enforcement remains the next planned implementation task after PR #39 is reviewed and merged.
 - CD-1 touches precached runtime files. Before implementation, consult [`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) and obtain owner authorization for any required kit version bump (current kit `1.2.0`). Never bypass the integrity gate.
-- Other audited defects CD-2 through CD-7 remain deferred.
-- No browser or live deployment test was performed. Pages verification below is a local workflow-equivalent artifact assembly only.
-
-## Verification — PR #38 working tree
-
-- `npm run check` — **passed**, static checks and **496/496** root + SDK tests.
-- `npm run test:sdk` — **passed**, **108/108** SDK tests.
-- `node packages/assistant-sdk/scripts/validate-package.mjs` — **passed**; `npm pack --dry-run` inspection lists **23 package files**, exports included.
-- `node scripts/sync-sdk-browser.mjs --check` — **passed**.
-- `node scripts/precache-integrity.mjs` — **passed**; 13 precached assets unchanged from baseline; kit remains `1.2.0`.
-- Clean example install `cd examples/example && npm ci`, `npm run typecheck`, and `npm run build` — **passed**. Vite printed the existing expected warnings for classic `<script>` runtime files that it does not bundle.
-- Pages workflow-equivalent local assembly — **passed**; checked root and `/example/` output for runtime files, worker shim, manifests and icons. No real Pages deployment was performed.
-- Repository Markdown local-link check — **0 broken links**; `git diff --check` — **passed** after final documentation whitespace cleanup.
-- GitHub Actions CI (`check` workflow, PR #38 run `43642006363`) — **passed**; all static, example, SDK package, unit-test and manifest steps succeeded.
+- SDK publishing remains deferred (`@youge/assistant-sdk` stays `0.2.0`).
+- No live browser or live GitHub Pages deployment test was performed; Pages verification is local artifact assembly via `scripts/assemble-pages.mjs`.
 
 ## Next action
 
-Commit and push verified changes on `arena/4dc708a7-you-ge-assistant`, create/update PR #38, confirm GitHub Actions checks, and leave the PR open for owner review. The next planned code task is CD-1 capability enforcement; do not start it in this refactor.
+Owner review of PR #39 (`arena/abdd374a-you-ge-assistant`). Leave PR #39 open; do not merge, release, tag, deploy, or start CD-1.

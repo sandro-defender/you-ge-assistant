@@ -19,9 +19,9 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
-const stateSource = readFileSync(fileURLToPath(new URL('../assistant-state.js', import.meta.url)), 'utf8');
-const widgetSource = readFileSync(fileURLToPath(new URL('../assistant-widget.js', import.meta.url)), 'utf8');
-const widgetCss = readFileSync(fileURLToPath(new URL('../assistant-widget.css', import.meta.url)), 'utf8');
+const stateSource = readFileSync(fileURLToPath(new URL('../src/assistant/assistant-state.js', import.meta.url)), 'utf8');
+const widgetSource = readFileSync(fileURLToPath(new URL('../src/assistant/assistant-widget.js', import.meta.url)), 'utf8');
+const widgetCss = readFileSync(fileURLToPath(new URL('../src/assistant/assistant-widget.css', import.meta.url)), 'utf8');
 
 /* ------------------------------------------------------------------ *
  * Minimal DOM harness (a trimmed copy of the widget suite's harness so

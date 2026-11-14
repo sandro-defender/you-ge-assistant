@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import '../dns-diagnostics.js';
+import '../src/domain/dns-diagnostics.js';
 import { connectivityFailure, dnsFailure } from '../packages/assistant-sdk/src/diagnostics/index.js';
 
 const { create, endpoint } = globalThis.YouGeDns;
