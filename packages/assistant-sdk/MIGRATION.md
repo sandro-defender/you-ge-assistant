@@ -112,7 +112,7 @@ Rules:
       `vite build` / Cloudflare build).
 - [ ] Behavior unchanged vs the vendor pin:
       - single centralized state instance (`attach` shares `window` singleton);
-      - single service worker registration (`/you-ge-sw.js` on fresh installs, or preserved `/progressier.js` shim on upgraded legacy installs);
+      - single `/you-ge-sw.js` service worker registration by default (`/progressier.js` `importScripts` shim retained for explicit `data-sw="/progressier.js"` compatibility);
       - notification priority ladder `1 critical → 2 auth → 3 backup → 4 install
         → 5 info` unchanged;
       - config pipeline `defaults → published → overrides → last-known-good`

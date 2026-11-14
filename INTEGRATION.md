@@ -114,9 +114,10 @@ routes with your existing session middleware. Use your own contact address for
 
 ## 7. Updating and rollback
 
-- Deploy canonical `/you-ge-sw.js` alongside `/progressier.js`. When `data-sw`
-  is omitted, `pwa.js` preserves active `/progressier.js` registrations in place
-  while `/progressier.js` delegates to `you-ge-sw.js` via `importScripts`.
+- Deploy canonical `/you-ge-sw.js` alongside `/progressier.js`. Fresh and default
+  registrations always use `/you-ge-sw.js`; `/progressier.js` remains available
+  as a thin `importScripts('you-ge-sw.js')` shim for explicit
+  `data-sw="/progressier.js"` compatibility during the `1.x` window.
   Saved share and notification records in legacy IndexedDB stores are copied
   non-destructively into canonical `you-ge-shared-files` and `you-ge-notifications`
   stores while leaving legacy databases intact for rollback.

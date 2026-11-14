@@ -452,10 +452,10 @@ Copy the runtime files to your web root, keeping the paths above:
 / icons/...
 ```
 
-Fresh installs register **`/you-ge-sw.js`** by default. When migrating an
-existing site without setting `data-sw`, `pwa.js` inspects `getRegistration(scope)`
-and keeps updating an active **`/progressier.js`** registration in place (via its
-`importScripts('you-ge-sw.js')` shim) so no duplicate worker is created.
+Fresh and default registrations always register **`/you-ge-sw.js`** (resolved
+relative to `pwa.js` on subpaths). **`/progressier.js`** remains deployed as a
+thin `importScripts('you-ge-sw.js')` compatibility shim during the `1.x`
+compatibility period for explicit `data-sw="/progressier.js"` integrations.
 
 ### 2. Add the `<head>` tags
 
@@ -669,7 +669,7 @@ without changes.
 
 | Attribute | Default | Purpose |
 | --- | --- | --- |
-| `data-sw` | `you-ge-sw.js` (auto-preserves active `/progressier.js` when omitted) | Service worker URL (next to `pwa.js`) |
+| `data-sw` | `you-ge-sw.js` | Service worker URL (next to `pwa.js`; `progressier.js` shim also available) |
 | `data-sw-scope` | resolved app scope, bounded by worker directory | Service worker scope |
 | `data-base-path` | directory serving `pwa.js` | Explicit app base path for a subpath deployment |
 | `data-manifest` | `manifest.webmanifest` | Manifest URL (also injected if missing) |
@@ -1128,9 +1128,9 @@ At a domain root, nothing needs rewriting.
 When migrating an existing site off a legacy hosted setup, see
 [`INTEGRATION.md`](INTEGRATION.md) for the step-by-step upload order, header
 setup, and rollback checklist. In short: remove legacy `progressier.app` tags,
-deploy both `/you-ge-sw.js` and the `/progressier.js` compatibility shim (omit
-`data-sw` so active `/progressier.js` installs update in place), preserve the
-existing host manifest `id`, and let `you-ge-sw.js` copy existing
+deploy both `/you-ge-sw.js` (default registration) and the `/progressier.js`
+compatibility shim (for explicit `data-sw="/progressier.js"` setups if needed),
+preserve the existing host manifest `id`, and let `you-ge-sw.js` copy existing
 `progressierSavedPushNotifications` and `progressiersharedfiles` IndexedDB
 records into canonical `you-ge-notifications` and `you-ge-shared-files` stores
 non-destructively. See [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md)

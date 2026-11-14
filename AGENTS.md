@@ -117,7 +117,7 @@ The ordered page-side files resolve the domain, configure PWA behavior and run t
   <script src="/pwa.js" defer></script>
         |
         |  resolves host config, injects /pwa.css and missing meta tags
-        |  registers /you-ge-sw.js (or preserves an active /progressier.js install)
+        |  registers /you-ge-sw.js (default; /progressier.js shim optional)
         |  mounts buttons, banners, modals, QR
         v
   /pwa.js  --------------------------->  /you-ge-sw.js  (shim: /progressier.js)
@@ -147,10 +147,10 @@ identifiers while existing installs upgrade safely:
    (for example, `https://progressier.app/<id>/script.js`) so they do not run
    alongside `pwa.js`.
 2. **Deploy canonical `/you-ge-sw.js` alongside the `/progressier.js` compatibility
-   shim.** Fresh installs register `/you-ge-sw.js` by default; when `data-sw` is
-   omitted and `getRegistration(scope)` detects an already-installed `/progressier.js`
-   worker, `pwa.js` preserves `/progressier.js` in place while `/progressier.js`
-   loads `/you-ge-sw.js` via `importScripts`.
+   shim.** Fresh and default registrations always register `/you-ge-sw.js` (clean
+   canonical cutover). Explicit `data-sw="/progressier.js"` remains supported
+   through the `/progressier.js` `importScripts('you-ge-sw.js')` shim during the
+   `1.x` compatibility period.
 3. **Keep the manifest `id` stable** for an existing app (such as `staff.you.ge`'s
    pinned `id` in `domain-registry.js`). Generic fallback `manifest.webmanifest`
    and brand-new apps use canonical `"/"` (or their scoped route path). Changing
@@ -183,7 +183,7 @@ identifiers while existing installs upgrade safely:
 | `assistant-state.js` | for the Assistant | Centralized, event-driven state + configurable SDK API for the Intelligent Floating Assistant |
 | `assistant-widget.js`, `assistant-widget.css` | for the Assistant widget | Dependency-free DOM renderer, fixed placement, safe areas, badges, in-place panel, auto-scaling launcher with manual size/position adjustment, Android Chrome handoff offer |
 | `you-ge-sw.js` | yes | Canonical service worker: offline cache, push display, share target, badge, and non-destructive legacy IndexedDB migration |
-| `progressier.js` | migration shim | Subpath-safe `importScripts('you-ge-sw.js')` shim kept during the `1.x` compatibility window so existing `/progressier.js` registrations update in place |
+| `progressier.js` | migration shim | Subpath-safe `importScripts('you-ge-sw.js')` shim kept during the `1.x` compatibility window for explicit `data-sw="/progressier.js"` compatibility |
 | `manifest.webmanifest` | yes | App identity, icons, share target, protocol handlers |
 | `qrcode.js` | only for QR | Vendored MIT `qrcode-generator` 2.0.4 |
 | `offline.html`, `offline.css`, `offline.js` | yes | Offline fallback page |
@@ -289,7 +289,7 @@ Minimum:
 <script src="/pwa.js" defer></script>
 ```
 
-Recommended, with explicit configuration (omit `data-sw` when migrating an existing `/progressier.js` site so `pwa.js` auto-preserves its active registration):
+Recommended, with explicit configuration:
 
 ```html
 <script
@@ -390,7 +390,7 @@ Exit code `1` is a hard failure.
 Browser acceptance:
 
 1. DevTools → Application → Manifest: no errors, installable.
-2. Application → Service Workers: `/you-ge-sw.js` is activated (or `/progressier.js` on an upgraded legacy install).
+2. Application → Service Workers: `/you-ge-sw.js` is activated.
 3. Install, close, relaunch from the icon.
 4. iOS Safari: Share → Add to Home Screen → launch.
 5. Offline reload shows `/offline.html`.
@@ -406,7 +406,7 @@ unchanged at a domain root and under a subpath.
 
 | Attribute | Default | Meaning |
 | --- | --- | --- |
-| `data-sw` | `you-ge-sw.js` (auto-preserves active `/progressier.js` when omitted) | Service worker URL |
+| `data-sw` | `you-ge-sw.js` | Service worker URL (`progressier.js` remains available as a compatibility shim) |
 | `data-sw-scope` | resolved app scope, bounded by worker directory | Service worker scope |
 | `data-base-path` | directory serving `pwa.js` | App base path for a subpath deployment |
 | `data-manifest` | `manifest.webmanifest` | Manifest URL |
@@ -733,8 +733,8 @@ When any cached file changes:
 3. Reload. With `data-auto-update` the new worker activates automatically;
    otherwise `YouGePWA.showReloadPrompt()` or the built-in prompt asks the user.
 
-The old worker is replaced because the script URL is unchanged (`/you-ge-sw.js`
-on fresh installs, or `/progressier.js` on preserved legacy installs). Keep both
+The old worker is replaced on `/you-ge-sw.js` (or `/progressier.js` when
+explicitly configured with `data-sw="/progressier.js"`). Keep both
 worker files in place during rollback; restore the previous files and bump `VERSION`
 again. To remove the PWA entirely, serve a worker at `/you-ge-sw.js` (and `/progressier.js`
 if previously used) that calls `self.registration.unregister()` and remove the manifest/script tags.

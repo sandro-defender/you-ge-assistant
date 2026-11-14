@@ -117,10 +117,10 @@ test('install sheet and banner improvements add accessibility without changing b
   assert.match(styles, /width: 65px/);
 });
 
-test('service worker registration defaults to canonical you-ge-sw.js while preserving active progressier.js installs', () => {
-  assert.match(pwa, /\.register\(targetSwUrl, \{ scope: config\.swScope \}\)/);
+test('service worker registration uses clean canonical you-ge-sw.js cutover while keeping progressier.js shim available', () => {
+  assert.match(pwa, /\.register\(config\.swUrl, \{ scope: config\.swScope \}\)/);
   assert.match(pwa, /swUrl: resolveUrl\(dataset\.sw \|\| 'you-ge-sw\.js'\)/);
-  assert.match(pwa, /isLegacyWorkerScriptUrl/);
+  assert.doesNotMatch(pwa, /legacy-preserved|swMigrationMode|isLegacyWorkerScriptUrl/);
   assert.match(legacyWorkerShim, /importScripts\(new URL\('you-ge-sw\.js'/);
   assert.match(pwa, /addEventListener\('controllerchange'/);
   assert.match(pwa, /SKIP_WAITING/);

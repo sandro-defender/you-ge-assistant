@@ -1,7 +1,7 @@
 <!--
   You.Ge Assistant PWA integration.
-  Canonical service worker path: /you-ge-sw.js (omit data-sw to auto-preserve
-  an active legacy /progressier.js registration during migration).
+  Canonical service worker path: /you-ge-sw.js (default when data-sw is omitted;
+  /progressier.js remains available as a temporary importScripts shim).
   Load the public domain registry and resolver before pwa.js.
 -->
 <link rel="manifest" href="/manifest.webmanifest" />

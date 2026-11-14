@@ -16,8 +16,7 @@
  *   <script src="/pwa.js" defer></script>
  *
  * Configuration through data attributes on the script tag:
- *   data-sw="/you-ge-sw.js"        service worker URL (defaults to you-ge-sw.js;
- *                                  preserves active /progressier.js installs)
+ *   data-sw="/you-ge-sw.js"        service worker URL (defaults to you-ge-sw.js)
  *   data-sw-scope="/"              service worker scope
  *   data-manifest="/manifest.webmanifest"
  *   data-analytics="/api/pwa-events"   optional beacon endpoint
@@ -90,10 +89,6 @@
 
   var config = {
     baseUrl: baseUrl,
-    canonicalSwUrl: resolveUrl('you-ge-sw.js'),
-    legacySwUrl: resolveUrl('progressier.js'),
-    explicitSw: Boolean(dataset.sw),
-    swMigrationMode: dataset.sw ? 'explicit' : 'canonical',
     swUrl: resolveUrl(dataset.sw || 'you-ge-sw.js'),
     swScope: '',
     manifestUrl: resolveUrl(dataset.manifest || 'manifest.webmanifest'),
@@ -703,19 +698,24 @@
     readyResolve = resolve;
   });
 
-  function isLegacyWorkerScriptUrl(rawUrl) {
-    try {
-      var parsed = new URL(String(rawUrl || ''), window.location.origin);
-      if (parsed.origin !== window.location.origin) return false;
-      return /(?:^|\/)progressier\.js$/i.test(parsed.pathname);
-    } catch (error) {
-      return false;
+  function register() {
+    if (domainConfig.pwa.enabled === false) {
+      readyResolve(null);
+      return readyPromise;
     }
-  }
+    if (!('serviceWorker' in navigator)) {
+      log('service workers are not supported');
+      readyResolve(null);
+      return readyPromise;
+    }
+    if (!window.isSecureContext) {
+      log('service workers require HTTPS (or localhost)');
+      readyResolve(null);
+      return readyPromise;
+    }
 
-  function performSwRegistration(targetSwUrl) {
     navigator.serviceWorker
-      .register(targetSwUrl, { scope: config.swScope })
+      .register(config.swUrl, { scope: config.swScope })
       .then(function (reg) {
         registration = reg;
         readyResolve(reg);
@@ -753,50 +753,6 @@
         log('service worker registration failed', error);
         readyResolve(null);
       });
-  }
-
-  function register() {
-    if (domainConfig.pwa.enabled === false) {
-      readyResolve(null);
-      return readyPromise;
-    }
-    if (!('serviceWorker' in navigator)) {
-      log('service workers are not supported');
-      readyResolve(null);
-      return readyPromise;
-    }
-    if (!window.isSecureContext) {
-      log('service workers require HTTPS (or localhost)');
-      readyResolve(null);
-      return readyPromise;
-    }
-
-    if (!config.explicitSw && typeof navigator.serviceWorker.getRegistration === 'function') {
-      var lookup;
-      try {
-        lookup = Promise.resolve(navigator.serviceWorker.getRegistration(config.swScope));
-      } catch (error) {
-        lookup = Promise.resolve(null);
-      }
-      lookup
-        .then(function (existing) {
-          var existingWorker = existing && (existing.active || existing.waiting || existing.installing);
-          var existingScriptUrl = existingWorker && existingWorker.scriptURL ? String(existingWorker.scriptURL) : '';
-          if (existingScriptUrl && isLegacyWorkerScriptUrl(existingScriptUrl)) {
-            config.swUrl = existingScriptUrl;
-            config.swMigrationMode = 'legacy-preserved';
-          } else {
-            config.swMigrationMode = 'canonical';
-          }
-          performSwRegistration(config.swUrl);
-        })
-        .catch(function () {
-          config.swMigrationMode = 'canonical';
-          performSwRegistration(config.swUrl);
-        });
-    } else {
-      performSwRegistration(config.swUrl);
-    }
 
     if (!swListenersBound) {
       swListenersBound = true;

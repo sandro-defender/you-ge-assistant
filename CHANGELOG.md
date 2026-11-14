@@ -11,9 +11,9 @@ deployed without separate approval. Details & compatibility schedule:
 - **Service worker & script cutover:** Added canonical `you-ge-sw.js` (`1.2.0`)
   and converted `progressier.js` into a subpath-safe
   `importScripts(new URL('you-ge-sw.js', self.location.href).href)` shim.
-  `pwa.js` registers `/you-ge-sw.js` on fresh installs and automatically
-  preserves active `/progressier.js` registrations in place when `data-sw` is
-  omitted (`swMigrationMode: 'legacy-preserved'`).
+  `pwa.js` uses clean canonical cutover, registering `you-ge-sw.js` whenever
+  `data-sw` is omitted while keeping explicit `data-sw="/progressier.js"`
+  compatibility working through the shim.
 - **Globals & SDK bridge:** Exposed canonical `window.YouGePWA`
   (`__youGePwaKit: true`) aliased to `window.PWA` alongside the temporary
   `window.progressier` shim; `@youge/assistant-sdk` (`adapters/pwa-kit.js`,

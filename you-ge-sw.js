@@ -5,10 +5,10 @@
  * app badge, notification clicks, push-subscription renewal, and lossless
  * migration of legacy persisted stores.
  *
- * Canonical worker URL: /you-ge-sw.js
+ * Canonical worker URL: /you-ge-sw.js (default for all registrations)
  * Legacy compatibility shim: /progressier.js (delegates here via importScripts
- * during the migration compatibility window so previously installed apps
- * update in place without duplicate registrations or lost push subscriptions).
+ * during the 1.x compatibility window for explicit data-sw="/progressier.js"
+ * integrations or browsers still polling /progressier.js).
  *
  * No third-party requests, no build step.
  */

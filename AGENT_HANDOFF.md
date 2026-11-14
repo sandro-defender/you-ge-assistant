@@ -13,10 +13,10 @@ Permanent contributor rules live in [`AGENTS.md`](AGENTS.md); canonical vs. temp
 
 Owner-authorized parameters executed across Phases 1–4:
 - **Kit version bump:** `1.1.1 → 1.2.0` synchronized across `you-ge-sw.js` (`VERSION`), `pwa.js` (`PWA.version`), root `package.json`, `packages/assistant-sdk/src/core/constants.js` (`KIT_COMPAT_VERSION`), and regenerated `assistant-state.js` (`@youge/assistant-sdk` package version unchanged at **`0.2.0`**).
-- **Service worker cutover (`preserve_active_legacy_url`):**
+- **Service worker cutover (clean canonical cutover):**
   - Added canonical **`you-ge-sw.js`** (`VERSION = '1.2.0'`), excluding both `you-ge-sw.js` and `progressier.js` from caching/precaching.
   - Replaced **`progressier.js`** with a subpath-safe compatibility shim (`importScripts(new URL('you-ge-sw.js', self.location.href).href)`).
-  - Updated `pwa.js` to default to `you-ge-sw.js` on fresh installs while inspecting `navigator.serviceWorker.getRegistration(scope)` when `data-sw` is omitted so existing active `/progressier.js` registrations update in place (`swMigrationMode: 'legacy-preserved'`, zero duplicate SW registrations).
+  - Updated `pwa.js` to consistently register `you-ge-sw.js` on all fresh and default registrations (root and subpath) with no automatic legacy-worker preservation, while keeping explicit `data-sw="/progressier.js"` compatibility working through the shim for the documented `1.x` compatibility period.
 - **Client globals, SDK bridge, storage, events, URL parameters & manifest (`canonical_fallback_preserve_staff`):**
   - Canonical **`window.YouGePWA`** (`__youGePwaKit: true`) aliased to `window.PWA` alongside the temporary `window.progressier` shim; `@youge/assistant-sdk` (`adapters/pwa-kit.js`, `assistant/index.js`) and `assistant-widget.js` prefer `root.YouGePWA || root.PWA`.
   - Canonical IndexedDB databases (`you-ge-shared-files`, `you-ge-notifications`, `you-ge-pwa-meta`) with idempotent, non-destructive service-worker copy-on-upgrade from `progressiersharedfiles` and `progressierSavedPushNotifications` (legacy DBs retained intact for rollback).
@@ -80,7 +80,7 @@ gh repo edit sandro-defender/you-ge-assistant \
 
 ## Remaining owner-level work
 
-1. **Review & merge PR #37 (`1.2.0` canonical technical identity migration)** when ready, then run the real-browser acceptance checklist (`AGENTS.md` §15) on <https://sandro-defender.github.io/you-ge-assistant/> and `/example/` (fresh `/you-ge-sw.js` install, `/progressier.js` shim in-place upgrade, `1.2.0` cache replacement, offline reload, install/relaunch).
+1. **Review & merge PR #37 (`1.2.0` canonical technical identity migration)** when ready, then run the real-browser acceptance checklist (`AGENTS.md` §15) on <https://sandro-defender.github.io/you-ge-assistant/> and `/example/` (`/you-ge-sw.js` activation, `1.2.0` cache generation, offline reload, install/relaunch).
 2. **Repository metadata:** Run the `gh repo edit` command above.
 3. **Future kit `1.2.1` bump authorization:** Required when scheduling precached-runtime fixes (`CD-1`, `CD-4`, `CD-5`, `CD-6`, `CD-7`).
 4. **SDK semver bump & release decision:** Decide whether/when to bump `@youge/assistant-sdk` (`0.2.1` / `0.3.0`) after landing `CD-2` + `CD-3` so npm matches `main`.
@@ -90,7 +90,7 @@ gh repo edit sandro-defender/you-ge-assistant \
 - `npm run check` (`scripts/check.mjs` + full Node test suite including `tests/identity-migration.test.mjs`): **passed**.
 - `npm run test:sdk` & `node packages/assistant-sdk/scripts/validate-package.mjs`: **passed** (`@youge/assistant-sdk@0.2.0`, `KIT_COMPAT_VERSION = 1.2.0`, 27/27 release-workflow gates).
 - `node scripts/sync-sdk-browser.mjs --check` & `node scripts/precache-integrity.mjs`: **passed**.
-- `cd example && npm run typecheck && npm run build`: **passed** (bundle includes both `dist/you-ge-sw.js` and `dist/progressier.js`).
+- `cd example && npm run typecheck && npm run build`: **passed** (`example/vite.config.js` dev server and `.github/workflows/pages.yml` serve/copy both `you-ge-sw.js` and `progressier.js`).
 - `COMPATIBILITY_CONTRACTS.md` §5 legacy-token grep audit & `git diff --check`: **clean** (zero unmapped legacy identifiers).
 - Real-browser testing was **not** performed (Node VM / mocked-DOM verification only).
 

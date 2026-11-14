@@ -24,7 +24,7 @@ Assistant identifiers exclusively.
 | --- | --- | --- | --- |
 | **1. Global objects & SDK bridge** | `window.YouGePWA` (`__youGePwaKit: true`), `window.YouGeAssistant`, `@youge/assistant-sdk`, `window.YouGeDomain`, `window.YouGeDns`, `window.YouGeManifestHandler` | `window.PWA` (`__pwaKit: true`), `window.progressier` | `pwa.js` exports `window.YouGePWA = window.PWA = PWA` and defines the deprecated `window.progressier` forwarding shim only when absent. `@youge/assistant-sdk` (`adapters/pwa-kit.js`, `assistant/index.js`) and `assistant-widget.js` resolve `root.YouGePWA \|\| root.PWA`. |
 | **2. Script filenames & public asset paths** | `/you-ge-sw.js` (service worker), `/pwa.js`, `/pwa.css`, `/assistant-state.js`, `/assistant-widget.js`, `/assistant-widget.css`, `/domain-config.js`, `/domain-registry.js`, `/dns-diagnostics.js`, `/offline.{html,css,js}` | `/progressier.js` | `you-ge-sw.js` is the canonical service worker (`VERSION = '1.2.0'`). `progressier.js` is a 15-line subpath-safe `importScripts(new URL('you-ge-sw.js', self.location.href).href)` shim. Both `/you-ge-sw.js` and `/progressier.js` (plus `pwa.js` and `sw.js`) are excluded from runtime caching. |
-| **3. Service worker registration & cutover** | `data-sw="/you-ge-sw.js"` (default when `data-sw` is omitted on fresh installs; `swMigrationMode: 'canonical'`) | Active `/progressier.js` registration (`swMigrationMode: 'legacy-preserved'`) | When `data-sw` is not explicitly set and `navigator.serviceWorker.getRegistration(scope)` finds an `active`, `waiting`, or `installing` same-origin `/progressier.js` worker, `pwa.js` keeps registering `/progressier.js` in place (avoiding duplicate workers or stranded push subscriptions) while loading canonical `you-ge-sw.js` code via `importScripts`. Fresh installs and failed `getRegistration` lookups register `/you-ge-sw.js`. Explicit `data-sw="/you-ge-sw.js"` forces canonical registration. |
+| **3. Service worker registration & cutover** | `data-sw="/you-ge-sw.js"` (clean canonical default whenever `data-sw` is omitted) | Explicit `data-sw="/progressier.js"` (supported via shim) | Clean canonical cutover: fresh and default registrations always register `you-ge-sw.js` (resolved relative to `pwa.js`, so root and subpath deployments work identically). `pwa.js` does **not** probe `getRegistration()` to preserve legacy `/progressier.js` registrations. Explicit `data-sw="/progressier.js"` remains supported through the `progressier.js` `importScripts` shim during the `1.x` compatibility period. |
 | **4. CSS custom properties** | 15 `--youge-pwa-*` variables on `:root`: `--youge-pwa-bg`, `--youge-pwa-text`, `--youge-pwa-font`, `--youge-pwa-text-weight`, `--youge-pwa-btn-weight`, `--youge-pwa-heading-weight`, `--youge-pwa-letter-spacing`, `--youge-pwa-hover`, `--youge-pwa-element`, `--youge-pwa-border`, `--youge-pwa-shadow`, `--youge-pwa-accent`, `--youge-pwa-accent-text`, `--youge-pwa-focus`, `--youge-pwa-note` (distinct from widget `--youge-*` tokens in `THEMING.md`) | `--progressierBg`, `--progressierTxt`, `--progressierFont`, `--progressierTextFontWeight`, `--progressierBtnFontWeight`, `--progressierHeadingFontWeight`, `--progressierLetterSpacing`, `--progressierHover`, `--progressierElement`, `--progressierBorderColor`, `--progressierBoxShadow`, `--progressierAccent`, `--progressierAccentText`, `--progressierFocus`, `--progressierNote` | `pwa.css` defines `:root { --youge-pwa-*: var(--progressier*, <default>); }` so legacy `:root` overrides continue cascading automatically while canonical `--youge-pwa-*` overrides win directly. `YouGePWA.applyTheme()` dual-writes both variable sets; `qrPalette()` and `showHelp()` read `--youge-pwa-*` first with `--progressier*` fallback. |
 | **5. CSS selectors & forced-theme attribute** | `.youge-install-button`, `.youge-subscribe-button`, `.youge-install-banner*`, `.youge-push-banner*`, `.youge-offline-alert*`, `.youge-prompt-{overlay,reload-button}`, `.youge-qr`, `.youge-toolbox*`, `.youge-pos-{left,right,center,top,middle}`, `body[data-youge-pwa-forced-theme="light"]`, `.youge-hide-{standalone,installed}` | `.progressier-install-button`, `.progressier-subscribe-button`, `.progressier-install-banner*`, `.progressier-push-banner*`, `.progressier-offline-alert*`, `.progressier-prompt-*`, `.progressier-qr`, `.progressier-widget*`, `.pwa-toolbox.progressier-{left,right,center,top,middle}`, `body[data-progressier-forced-theme="light"]`, `.pwa-hide-{standalone,installed}` | `scanButtons()` scans both canonical and legacy button selectors. Runtime UI builders attach both canonical `.youge-*` and legacy `.progressier-*` classes; `pwa.css` groups canonical and legacy selectors on every rule. `demo/` and `example/` use `.youge-install-button`. |
 | **6. Cookies, IndexedDB, `localStorage`, and Cache Storage** | Cookies: `youge_install_banner_`, `youge_push_banner_` (+ host + path)<br>IndexedDB: `you-ge-shared-files` (`shared-files`), `you-ge-notifications` (`notifications`), `you-ge-pwa-meta` (`meta`)<br>`localStorage`: `youge-pwa:welcome`<br>Caches: `you-ge-assistant:<host>:<scope>:{static,pages}:v<VERSION>` | Cookies: `progressierinstallbanner`, `progressierpushbanner`<br>IndexedDB: `progressiersharedfiles`, `progressierSavedPushNotifications`, `pwakit` (`meta`)<br>`localStorage`: `pwakit:welcome`<br>Caches: `pwa-static-1.0.4`, `pwa-pages-1.0.4` | **Cookies & `localStorage`:** read canonical first, promote valid legacy dismissals to canonical on read, and dual-write canonical + legacy on dismissal so downgrading to `1.1.1` never re-prompts users.<br>**IndexedDB:** worker inspects `indexedDB.databases()` when supported so clean installs never create legacy DBs; copies missing records by `id` into canonical stores without overwriting canonical read/click mutations; retains legacy DBs non-destructively for rollback. `pwa.js` `consumeSharedFile()` reads canonical `you-ge-shared-files` first and falls back to `progressiersharedfiles` for in-flight shares. |
@@ -68,24 +68,25 @@ and removal schedule:
 
 ### Concrete Staged Removal Policy
 
-1. **Stage A — Active Migration Window (`1.2.0`, current):**
-   - Canonical You.Ge Assistant identifiers are default everywhere; legacy
-     surfaces dual-read, promote on read, dual-write cookies/`localStorage` for
-     rollback safety, and preserve active `/progressier.js` registrations via
-     the `importScripts` shim.
+1. **Stage A — Active Compatibility Window (`1.2.0`, current):**
+   - Clean canonical cutover: You.Ge Assistant identifiers (`you-ge-sw.js`,
+     `window.YouGePWA`, `--youge-pwa-*`, `.youge-*`, `youge:pwa:*`,
+     `you-ge-*` stores, `youge_*` cookies) are default everywhere.
+   - Legacy surfaces dual-read, promote on read, dual-write cookies/`localStorage`
+     for rollback safety, and keep `progressier.js` available as a thin
+     `importScripts('you-ge-sw.js')` shim for explicit `data-sw="/progressier.js"`
+     compatibility.
    - New code, docs, snippets, and examples use only canonical identifiers.
 2. **Stage B — Deprecation Telemetry & Console Warnings (`>= 1.3.0`, >= 6 months after `1.2.0`):**
    - Emit a one-time `console.warn` (when `data-debug` is enabled, or once per
      session on localhost) whenever a host page invokes `window.progressier`,
      relies on `.progressier-*` buttons, sets `--progressier*` variables without
-     `--youge-pwa-*`, or uses `?pswutlzoq=install` / `web+loldwyhv`.
+     `--youge-pwa-*`, sets `data-sw="/progressier.js"`, or uses
+     `?pswutlzoq=install` / `web+loldwyhv`.
    - Stop mirroring writes to legacy banner cookies (`progressierinstallbanner`,
      `progressierpushbanner`) and `pwakit:welcome` once rollback to `1.1.1` is
      no longer supported, while keeping legacy reads active through the end of
      `1.x`.
-   - For hosts still registered on `/progressier.js`, optionally provide an
-     opt-in cutover mode (`data-sw-cutover="canonical"`) once push subscriptions
-     on those hosts have been re-keyed or verified.
 3. **Stage C — Pre-Removal Verification Gates (required before `2.0.0`):**
    - Owner sign-off confirming either (a) all managed deployments have served
      `>= 1.2.0` through a full 12-month active cycle so active users have
