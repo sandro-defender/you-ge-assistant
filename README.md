@@ -950,7 +950,12 @@ allowed; set `data-allow-external-protocol` if the app must handle external link
 - `/api/*`, non-GET requests and cross-origin requests are never cached.
 - Responses with `Cache-Control: no-store` or `private`, and requests carrying an
   `Authorization` header, are never cached.
-- Bump `VERSION` in `progressier.js` on deploy to invalidate old caches.
+- The kit version is the cache key. When a precached file changes, bump
+  `VERSION` in `progressier.js`, `PWA.version` in `pwa.js` and `version` in
+  `package.json` together; `npm run check` enforces this against the merge base
+  ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md)).
+- Installing a new worker is all-or-nothing: if a precache request fails with a
+  network error or 5xx, the previous version keeps serving its complete shell.
 
 The worker deliberately does **not** cache private or unmarked HTML. It only
 stores navigation responses explicitly marked `Cache-Control: public`; set

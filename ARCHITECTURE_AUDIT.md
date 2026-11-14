@@ -30,7 +30,7 @@ The repository includes:
 
 ### Existing user data / storage compatibility
 
-The worker uses Cache Storage for static assets and network-first pages, and IndexedDB for notifications, shared files, badge/config metadata. Several IndexedDB names deliberately match the previous Progressier integration (`progressiersharedfiles`, `progressierSavedPushNotifications`) and must not be renamed. The kit also uses `localStorage`/cookies for component preferences and dismissal state. Existing origin partitioning by browsers is a useful safety boundary, but cache names are not currently explicitly domain-keyed.
+The worker uses Cache Storage for static assets and network-first pages, and IndexedDB for notifications, shared files, badge/config metadata. Several IndexedDB names are legacy compatibility contracts kept from before the You.Ge Assistant migration (`progressiersharedfiles`, `progressierSavedPushNotifications`) and must not be renamed. The kit also uses `localStorage`/cookies for component preferences and dismissal state. Existing origin partitioning by browsers is a useful safety boundary, but cache names are not currently explicitly domain-keyed.
 
 ## 3. Existing PWA feature inventory
 
@@ -63,7 +63,7 @@ The worker uses Cache Storage for static assets and network-first pages, and Ind
 - Demo/example manifests, branding and GitHub Pages workflow include sample-specific identities, intentionally separate from the production kit.
 - Worker cache names `pwa-static-${VERSION}` / `pwa-pages-${VERSION}` and cache cleanup prefix `pwa-` are version-based, not hostname-based. Names are origin-scoped by browser storage, but a broader worker on a shared origin can currently remove other `pwa-*` caches.
 - Worker metadata/IndexedDB databases and page-side persistence names are compatibility identifiers, not branding; they should be retained and treated as origin-partitioned stores.
-- `reference/` contains original Progressier artifacts and is research-only; it is not deployed and should not be blindly rebranded or rewritten.
+- `reference/` contains the legacy hosted client's original artifacts and is research-only; it is not deployed and should not be blindly rebranded or rewritten.
 
 There are no authentication redirects, canonical/OG metadata system, DNS tests, Cloudflare endpoint integration, or API host constants in the product runtime. Push, analytics and other configured endpoints are supplied through page configuration; they require validation and same-origin-safe defaults when domain-driven endpoint configuration is introduced.
 

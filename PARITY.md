@@ -1,4 +1,14 @@
-# Parity report: Progressier vs this kit
+# Parity report: You.Ge Assistant vs the legacy hosted client
+
+> **Status:** compatibility evidence, not product documentation. You.Ge Assistant is
+> the product. This report compares its runtime with the third-party hosted client
+> (Progressier) that existing installations were migrated from; that client's
+> artifacts are preserved, undeployed, under [`reference/`](reference/README.md).
+> `Progressier*` names below are class identifiers inside that reference bundle and
+> are kept verbatim as parity evidence. The Progressier-named identifiers that
+> You.Ge Assistant still honours at runtime are listed in
+> [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md). Retiring or
+> restructuring this report or `reference/` requires separate owner approval.
 
 Compared artifacts:
 
@@ -8,10 +18,11 @@ Compared artifacts:
 | `sw.js` | 5,193 bytes |
 | `progressier.json` | 958 bytes |
 
-Local implementation: `pwa.js`, `progressier.js`, `pwa.css`, `manifest.webmanifest`.
-This is a clean-room reimplementation. The original bundle cannot be self-hosted
-because it resolves a Progressier `appId` and loads configuration from their
-backend; copying it would still require their service.
+You.Ge Assistant implementation ("Local" below): `pwa.js`, `progressier.js`,
+`pwa.css`, `manifest.webmanifest`. This is a clean-room reimplementation. The
+original bundle cannot be self-hosted because it resolves a hosted-service `appId`
+and loads configuration from that service's backend; copying it would still
+require the service.
 
 ---
 
@@ -96,7 +107,7 @@ Local additions (not in the original): `[data-pwa-install]`,
 
 Both support UI wording in English, French, Italian, German, Swedish, Dutch,
 Norwegian, Danish, Estonian and Spanish. Local translations are original text,
-not copied from Progressier. Unknown keys fall back to English.
+not copied from the hosted client. Unknown keys fall back to English.
 
 ---
 
@@ -104,7 +115,7 @@ not copied from Progressier. Unknown keys fall back to English.
 
 | Item | Original | Local |
 | --- | --- | --- |
-| Manifest link | injected / checked | injected / replaced if it points at Progressier |
+| Manifest link | injected / checked | injected / replaced if it points at the legacy hosted service |
 | `theme-color` | injected | injected if missing, updated when configured |
 | `application-name` | yes | yes |
 | `apple-mobile-web-app-title` | yes | yes |
@@ -163,8 +174,8 @@ Compared the complete `ProgressierToolbox` constructor in
 | `iconBackground`, `iconImage`, `render` | `normalizeToolboxOptions`, `renderToolbox` | Supports theme/custom color, custom image, and forcing the app logo; a broken custom image falls back to the app icon. |
 | `on`, `off`, `updateVisibility` | `showToolbox`, `hideToolbox`, `renderToolbox` | Uses the original `off` class and matching visibility rules; local adds the `hidden` attribute and ARIA state. |
 | `processClick`, `startInstallationFlow` | `onToolboxClick` → `PWA.showInstallRequest()` | Keeps the vibration and launches the local native-prompt/instructions/QR flow. Hosted promo redirects are intentionally not used. |
-| `launchInstallPage` | Not reproduced | It opens a backend-provided hosted install URL; that Progressier route is unavailable to the self-hosted kit. |
-| `shouldHide` | `toolboxShouldHide` | Matches iframe, opt-out, standalone, platform, URL, and service-worker checks. Desktop targeting follows Progressier's OS detection, including iPadOS desktop-mode handling; URL queries use the original subset-match behavior. |
+| `launchInstallPage` | Not reproduced | It opens a backend-provided hosted install URL; that hosted-service route is unavailable to self-hosted You.Ge Assistant. |
+| `shouldHide` | `toolboxShouldHide` | Matches iframe, opt-out, standalone, platform, URL, and service-worker checks. Desktop targeting follows the original OS detection, including iPadOS desktop-mode handling; URL queries use the original subset-match behavior. |
 | `rerender` | `renderToolbox` plus state/resize/page-show/history listeners | Re-renders when kit state changes and polls visibility every second, as the original does. |
 | `forceFixed` | No runtime counterpart | The original Squarespace/hosting-provider helper has no call site in its component. Its legacy `body.force-fixed` CSS rule is retained. |
 
@@ -185,7 +196,7 @@ a keyboard-focus indicator and reduced-motion behavior.
 | `ProgressierPushBanner` | Implemented |
 | `ProgressierInstallBanner` | Implemented |
 | `ProgressierCustomEvents` | `pwa:*` events |
-| `ProgressierBubbleData` | Not applicable (Progressier backend data) |
+| `ProgressierBubbleData` | Not applicable (hosted-service backend data) |
 | `ProgressierDetection` | Standalone, iOS, Safari, desktop, push support |
 | `ProgressierProtocol` | `web+pwa`, `web+loldwyhv`, `pwaprotocolredirect`, `pwaredirect` |
 | `ProgressierText` | 10-language wording table |
@@ -197,9 +208,9 @@ a keyboard-focus indicator and reduced-motion behavior.
 | `ProgressierMeta` | Manifest, Apple meta, Windows tiles, runtime splash screens |
 | `ProgressierManifest` | Static manifest (original is also static) |
 | `ProgressierAnalytics` | Optional beacon only, no dashboard |
-| `ProgressierUtils` | Only utilities used by this kit |
+| `ProgressierUtils` | Only utilities used by You.Ge Assistant |
 | `ProgressierInvalid` | No |
-| `ProgressierAttribution` | No (Progressier branding) |
+| `ProgressierAttribution` | No (third-party attribution; You.Ge Assistant carries none) |
 | `ProgressierData` | No backend config store |
 | `ProgressierPullToRefresh` | No |
 | `ProgressierCookies` | Banner dismissal cookies only; no consent banner |
@@ -213,13 +224,13 @@ a keyboard-focus indicator and reduced-motion behavior.
 | `ProgressierInstallButtons` | Implemented |
 | `ProgressierInstallButton` | Implemented |
 | `ProgressierSw` | Implemented + offline caching |
-| `ProgressierForPromoOnly` | No (Progressier promo mode) |
+| `ProgressierForPromoOnly` | No (hosted-service promo mode) |
 
 ---
 
 ## Genuine gaps (server-side or proprietary)
 
-These cannot be reproduced by static files because they are Progressier services,
+These cannot be reproduced by static files because they are hosted-service features,
 not client code:
 
 - hosted push campaigns, scheduling, segments and delivery
@@ -229,7 +240,7 @@ not client code:
 - App Store / Play Store / TWA packaging
 - pull-to-refresh (site-specific; can be added on top)
 - cookie-consent banner
-- Progressier attribution/promo mode
+- third-party attribution/promo mode
 - backend-controlled toolbox install-page/promo redirection
 - exact wording strings and translations from their dashboard
 
@@ -246,7 +257,7 @@ analytics calls use configured application endpoints.
 
 | File | Purpose |
 | --- | --- |
-| `snippet.html` | Copy-paste `<head>` block replacing the two Progressier tags |
+| `snippet.html` | Copy-paste `<head>` block replacing the two legacy hosted-client tags |
 | `domain-config.js`, `domain-registry.js` | Validated host/path resolution, branding and feature flags |
 | `manifest-handler.js`, `functions/manifest.webmanifest.js` | Host-aware manifest response and Cloudflare Pages adapter |
 | `dns-diagnostics.js`, `DNS_RECOVERY.md` | On-demand current-host DoH diagnostics, limitations and recovery guide |

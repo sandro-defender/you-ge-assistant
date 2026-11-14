@@ -1386,7 +1386,8 @@
     }
   }
 
-  // Progressier compatibility: ?pwaredirect=<base64 url>
+  // Legacy compatibility contract: ?pwaredirect=<base64 url> links issued
+  // before the You.Ge Assistant migration keep resolving.
   var base64Redirect = getParam('pwaredirect');
   if (base64Redirect) {
     try {
@@ -1403,7 +1404,7 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Wording (same languages as Progressier)
+   * Wording (10 languages; the set existing installations already relied on)
    * ------------------------------------------------------------------ */
 
   var translations = {
@@ -1746,7 +1747,8 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Cookies (banner dismissal, same names as Progressier)
+   * Cookies (banner dismissal). The `progressier*` cookie names are a legacy
+   * compatibility contract: renaming them would re-show dismissed banners.
    * ------------------------------------------------------------------ */
 
   function cookieKey(base) {
@@ -1788,7 +1790,7 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Install buttons (.progressier-install-button)
+   * Install buttons (.progressier-install-button, a legacy compatibility selector)
    * ------------------------------------------------------------------ */
 
   function installButtonData(node) {
@@ -1851,8 +1853,8 @@
 
       setButtonHidden(node, false);
 
-      // Original Progressier only disables the button when running standalone
-      // with data-hide-standalone="false".
+      // Legacy button contract: the button is only disabled when running
+      // standalone with data-hide-standalone="false".
       setButtonDisabled(node, standalone);
 
       var status = installedNow ? 'installed' : 'default';
@@ -1895,7 +1897,7 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Subscribe buttons (.progressier-subscribe-button)
+   * Subscribe buttons (.progressier-subscribe-button, a legacy compatibility selector)
    * ------------------------------------------------------------------ */
 
   function subscribeButtonData(node) {
@@ -2618,8 +2620,8 @@
   /* ------------------------------------------------------------------ *
    * QR install code
    * ------------------------------------------------------------------ *
-   * The hosted client asked Progressier's /install-code.svg endpoint for
-   * the image. This version encodes the URL locally with qrcode-generator
+   * You.Ge Assistant never requests the QR image from a hosted endpoint (the
+   * legacy hosted client did). It encodes the URL locally with qrcode-generator
    * (MIT) and draws the app logo in the middle, using the same 300x300
    * canvas / 250x250 display size as the original.
    */
@@ -2943,7 +2945,7 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Floating install toolbox (Progressier-style app icon)
+   * Floating install toolbox (app-icon launcher; legacy placement preserved)
    * ------------------------------------------------------------------ */
 
   var toolboxRoot = null;
@@ -3044,8 +3046,9 @@
       if (target.origin !== current.origin || targetPath !== currentPath) return false;
       if (!target.search) return true;
 
-      // Progressier treats a URL's query as a subset match: every parameter in
-      // the configured pattern must match, but the current URL may have extras.
+      // Legacy targeting contract: a URL's query is a subset match. Every
+      // parameter in the configured pattern must match, but the current URL may
+      // have extras.
       var currentQuery = new URLSearchParams(current.search);
       var targetQuery = new URLSearchParams(target.search);
       var queryMatches = true;
@@ -3082,8 +3085,8 @@
     }
   }
 
-  // Match ProgressierDetection.isDesktop for toolbox targeting rather than
-  // relying on a generic mobile-UA substring (notably iPadOS desktop mode).
+  // Toolbox targeting keeps the legacy desktop detection (see PARITY.md)
+  // rather than a generic mobile-UA substring (notably iPadOS desktop mode).
   function toolboxIsDesktop() {
     try {
       var platform = String(navigator.platform || '').toLowerCase();
@@ -3336,7 +3339,8 @@
     setBadge: setBadge,
     clearBadge: clearBadge,
 
-    // notification history (same IndexedDB store as Progressier)
+    // notification history (legacy `progressierSavedPushNotifications` IndexedDB
+    // store, kept so existing installations retain their history)
     getNotifications: function () {
       return postToWorker({ type: 'GET_NOTIFICATIONS' }).then(function (result) {
         return result && result.notifications ? result.notifications : [];
@@ -3399,7 +3403,8 @@
   window.PWA = PWA;
 
   /* ------------------------------------------------------------------ *
-   * Progressier compatibility shim (only if it isn't already loaded)
+   * Legacy `window.progressier` compatibility shim for integrations written
+   * before You.Ge Assistant (only if that global isn't already defined)
    * ------------------------------------------------------------------ */
 
   if (!window.progressier) {

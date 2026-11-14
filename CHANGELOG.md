@@ -1,5 +1,29 @@
 # Changelog
 
+## Pending — not versioned yet (kit remains 1.1.0)
+
+No kit, package or SDK version was changed. The synchronized kit bump that
+should accompany these entries awaits owner authorization
+([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md) §6).
+
+- **Service-worker install is all-or-nothing.** `progressier.js` now fetches the
+  whole precache list before storing any of it. A network failure or 5xx rejects
+  the install so the previous version keeps its complete shell; a 4xx still
+  means "optional file not deployed" and is skipped. Previously any failure was
+  swallowed, which could activate an incomplete shell after an update. Cache
+  names, the waiting/`SKIP_WAITING` contract and fetch strategies are unchanged.
+- **Diff-aware precache integrity gate.** `scripts/precache-integrity.mjs`
+  (`npm run check`, `npm run check:precache`, CI) reads the precache list from
+  the worker's install handler and fails when a precached file was modified,
+  added, removed or renamed since the merge base without a synchronized, higher
+  kit version, or when `progressier.js` / `pwa.js` / `package.json` versions
+  disagree.
+- **Identity cleanup.** Remaining Progressier wording in comments, check
+  messages and reference/parity framing now describes You.Ge Assistant and its
+  legacy compatibility contracts, inventoried in
+  [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md). No identifier,
+  selector, storage key or path was renamed.
+
 ## 1.1.0 (kit) / SDK 0.2.0 — 2026-11-07 · adaptive theming
 
 Kit `1.0.5 → 1.1.0`, SDK `0.1.1 → 0.2.0` (additive, minor for both). The SDK

@@ -128,8 +128,10 @@ routes with your existing session middleware. Use your own contact address for
 - Roll back by restoring the previous runtime files while keeping the worker
   URL. Do not manually clear all Cache Storage or IndexedDB; this may erase
   user-visible history and shared payloads.
-- Bump `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` together for
-  future cache-affecting releases.
+- Bump `VERSION` in `progressier.js`, `PWA.version` in `pwa.js` and `version`
+  in `package.json` together for cache-affecting releases. `npm run check`
+  rejects a changed precached file without that bump
+  ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md)).
 
 ## 8. DNS recovery
 

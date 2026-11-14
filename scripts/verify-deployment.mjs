@@ -99,9 +99,9 @@ async function main() {
   const html = await checkPage('/');
   if (html) {
     if (/progressier\.app/i.test(html)) {
-      fail('HTML still references progressier.app (old tags are still present)');
+      fail('HTML still loads the legacy hosted client from progressier.app; remove those tags');
     } else {
-      pass('no progressier.app references in HTML');
+      pass('no legacy hosted-client (progressier.app) tags in HTML');
     }
     if (/\/pwa\.js/.test(html)) pass('/pwa.js is referenced');
     else fail('/pwa.js is not referenced in the HTML');
@@ -232,9 +232,9 @@ async function main() {
   if (sw) {
     const source = sw.toString('utf8');
     if (source.includes('pwa-static-') || source.includes('__pwaKit')) {
-      pass('service worker is this kit (not the old Progressier worker)');
+      pass('service worker is the You.Ge Assistant worker (not a legacy hosted worker)');
     } else {
-      fail('service worker does not look like this kit');
+      fail('service worker does not look like the You.Ge Assistant worker');
     }
     try {
       const response = await request('/progressier.js');

@@ -41,7 +41,7 @@
 - Preserve existing work.
 - Never reset, discard or overwrite user changes.
 - Never force-push.
-- Do not merge, publish, release or bump package versions without explicit authorization.
+- Do not merge, publish, release or bump package or kit versions without explicit authorization. When the precache integrity gate (§12) demands a kit-version bump, stop and request owner authorization; never bump, bypass or weaken the gate to get a green check.
 - Keep changes within the requested scope.
 
 ### Handoff requirements
@@ -61,10 +61,13 @@
 
 ### Permanent You.Ge Assistant Identity Rule
 
+- You.Ge Assistant is the sole product identity of this repository. Nothing in it is, or may be described as, a Progressier product.
 - Whenever an agent discovers obsolete Progressier branding, product descriptions, example/template framing, documentation, comments, metadata, or other user-facing project identity references, it must proactively replace or reframe them as You.Ge Assistant.
 - Do not leave newly discovered obsolete branding behind merely because it is outside the immediate task scope. Include it in the current task when safe, or record it in `AGENT_HANDOFF.md` for a focused follow-up.
 - Preserve technical compatibility identifiers and migration safeguards. Never blindly rename or remove legacy APIs, globals, selectors, CSS variables, storage keys, service-worker paths, or other compatibility contracts.
 - Only change compatibility contracts through an explicitly authorized breaking migration.
+- Report remaining Progressier-named technical identifiers accurately: never claim a complete cleanup without the search method and the list of exceptions. [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md) is the authoritative inventory (purpose, why each remains, migration status); update it whenever one is added, removed or migrated.
+- `reference/` and `PARITY.md` are third-party compatibility evidence. Do not remove or restructure them without separate owner approval.
 
 ---
 
@@ -361,8 +364,9 @@ node scripts/check.mjs      # or: npm run check
 ```
 
 It verifies JS syntax, manifest JSON, real PNG sizes against the declared
-`icons[].sizes`, precache assets, `VERSION` consistency between the worker and
-`pwa.js`, and leftover hosted Progressier URLs.
+`icons[].sizes`, precache assets, kit-version consistency (worker `VERSION`,
+`PWA.version`, `package.json`), precache integrity against the merge base
+(§12), and leftover legacy hosted-script URLs.
 
 Live checks:
 
@@ -612,15 +616,20 @@ these preserved compatibility CSS variables from `:root`:
 --progressierTxt
 --progressierBorderColor
 --progressierHover
---progressierBackdrop
 --progressierBoxShadow
---progressierIconShadow
 --progressierFont
 --progressierLetterSpacing
 --progressierTextFontWeight
 --progressierHeadingFontWeight
 --progressierBtnFontWeight
+--progressierAccent
+--progressierAccentText
+--progressierFocus
+--progressierNote
 ```
+
+These 15 names are the complete set the runtime reads; they are legacy
+compatibility contracts (see [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md)).
 
 Set them in CSS or at runtime:
 
@@ -683,9 +692,18 @@ configured default icon, and `icons/icon-512.png`. `pwa.js` and
 `progressier.js` themselves are not in that precache list; the worker script
 updates through normal service-worker script checks.
 
+`npm run check` (and CI) runs the diff-aware precache integrity gate,
+`scripts/precache-integrity.mjs`: it reads that list by executing the worker's
+install handler, compares every listed file with the merge base, and fails when
+a precached file was modified, added, removed or renamed without a synchronized,
+higher kit version, or when the kit-version declarations disagree. Details,
+cache lifecycle and upgrade guarantees: [`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md).
+
 When any cached file changes:
 
-1. Bump `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` together.
+1. Bump `VERSION` in `progressier.js`, `PWA.version` in `pwa.js` and `version`
+   in the root `package.json` together (in this repository that needs owner
+   authorization; `PRECACHE_INTEGRITY.md` lists the remaining declarations).
 2. Upload the changed files.
 3. Reload. With `data-auto-update` the new worker activates automatically;
    otherwise `PWA.showReloadPrompt()` or the built-in prompt asks the user.
