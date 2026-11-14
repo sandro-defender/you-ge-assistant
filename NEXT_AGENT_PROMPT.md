@@ -1,20 +1,20 @@
-# Next Agent Prompt — Stage 5.4 (proposed, not authorized)
+# Next Agent Prompt — Stage 5.4 PR review follow-up
 
-Do not start until the owner explicitly approves Stage 5.4 and the Stage 5.3 (D3 + D6) PR has merged. Verify live `main`, worktree, PR and CI state first; read `AGENTS.md`, `AGENT_HANDOFF.md`, the relevant skills and `POST_PHASE2_ARCHITECTURE_REVIEW.md` (D4, D5, R2 and Stage 5.4). Follow the active session branch instructions.
+Stage 5.4 implementation is complete on `arena/4a49f6ba-you-ge-assistant` in PR [#34](https://github.com/sandro-defender/you-ge-assistant/pull/34). Do not start another roadmap stage. The owner requested this stage; this prompt is only for a later review follow-up.
 
-## Objective
+Before taking any action, read `AGENT_HANDOFF.md`, check the current branch/worktree and query live PR/CI state (`gh pr view 34`, `gh pr checks 34`). PR #32 is merged at `bcdca6e`. PR #33 is still an open documentation-only follow-up on the prior Stage 5.3 branch; do not merge or close it as part of this task.
 
-Close the two remaining low-severity contract defects left by the Phase 2 review, scoped narrowly:
+## Boundaries
 
-1. **D4** — `DnsDiagnosticSnapshot` declares `cancelled?: boolean`, but `normalizeDnsResult()` rebuilds the record from a fixed shape and drops it, so `assistant.getState().network.dns.cancelled` is always `undefined`. Publish the declared field without changing any existing field or classification.
-2. **D5** — `requestPwaUpdate()` forwards any non-empty runtime `outcome` string verbatim while `UpdateApplyOutcome` declares five values. Normalize an out-of-union runtime outcome to the declared union (or document and widen the contract deliberately) so consumers narrowing on the union stay sound.
+- Do not merge PR #34, publish, release, deploy, tag, or change package/kit versions.
+- Preserve Progressier-named compatibility contracts and do not change `/progressier.js`, `window.PWA`, `window.progressier`, storage keys, selectors, CSS variables or manifest identity.
+- Do not add Phase 3 dashboard/failover functionality, dependencies or unrelated refactors.
+- Do not start another roadmap stage.
 
-Inspect current behavior and contracts before choosing the smallest safe correction. Do not rework the diagnostics architecture, change unrelated public APIs or result contracts, revisit D3/D6, change package or kit versions, or add dependencies.
+## Outstanding decision
 
-## Tests and validation
+R1 remains an owner decision: the current kit/client versions are both `1.1.0`, but precached content has changed without a kit version bump (including the generated `assistant-state.js` in PR #34). A correct diff-aware gate would require a coordinated version bump and cache-refresh plan. No version change or new gate was made because both are blocked by the current task restrictions. The owner must explicitly authorize the synchronized `progressier.js` and `pwa.js` version decision before that release-hygiene gap is changed.
 
-Use deterministic regression tests for both defects (including the negative cases in the review) and preserve existing tests and compatibility. Run focused tests first, the full suite, `npm run check`, package validation and `git diff --check`; regenerate the browser SDK only if its source changes (`npm run sync:sdk`), then verify synchronization with `--check`. Report any browser or environment limitations honestly.
+## Next action
 
-## Boundaries and handoff
-
-Do not publish, release, deploy, merge, force-push, reset or overwrite owner work. Preserve Progressier technical compatibility contracts and public APIs. Update both handoff files with actual branch, PR, commit, tests and CI; open one focused PR for owner review. Stop after the PR is ready.
+Wait for owner review of PR #34. If review requests changes, work only on the current branch and preserve the verification/handoff requirements in `AGENTS.md`. Otherwise stop and await explicit owner direction; do not merge.
