@@ -982,22 +982,22 @@
     if (config.nonce) style.setAttribute('nonce', config.nonce);
     style.textContent = [
       ':host{all:initial}',
-      '*{box-sizing:border-box;margin:0;padding:0;font-family:var(--progressierFont,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif)}',
+      '*{box-sizing:border-box;margin:0;padding:0;font-family:var(--youge-pwa-font,var(--progressierFont,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif))}',
       '.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.33)}',
-      '.sheet{position:relative;width:min(500px,calc(100% - 24px));max-height:500px;overflow:auto;background:var(--progressierBg,#fff);color:var(--progressierTxt,#051b2c);border:1px solid var(--progressierBorderColor,rgba(0,0,0,.09));border-radius:30px;box-shadow:0 24px 64px rgba(15,23,42,.28)}',
+      '.sheet{position:relative;width:min(500px,calc(100% - 24px));max-height:500px;overflow:auto;background:var(--youge-pwa-bg,var(--progressierBg,#fff));color:var(--youge-pwa-text,var(--progressierTxt,#051b2c));border:1px solid var(--youge-pwa-border,var(--progressierBorderColor,rgba(0,0,0,.09)));border-radius:30px;box-shadow:0 24px 64px rgba(15,23,42,.28)}',
       '.head{display:flex;align-items:center;gap:12px;width:90%;margin:0 auto;padding:20px;box-sizing:border-box}',
-      '.logo{width:56px;height:56px;border-radius:14px;flex:none;background:var(--progressierElement,#f5f5f5);object-fit:cover}',
+      '.logo{width:56px;height:56px;border-radius:14px;flex:none;background:var(--youge-pwa-element,var(--progressierElement,#f5f5f5));object-fit:cover}',
       'h2{font-size:17px;line-height:1.35;font-weight:600}',
-      '.close{margin-left:auto;margin-right:-6px;flex:none;min-width:44px;min-height:44px;border:0;border-radius:50%;background:transparent;color:var(--progressierTxt,#334155);font-size:20px;line-height:1;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease}',
-      '.close:hover{background:var(--progressierHover,rgba(0,0,0,.06))}',
+      '.close{margin-left:auto;margin-right:-6px;flex:none;min-width:44px;min-height:44px;border:0;border-radius:50%;background:transparent;color:var(--youge-pwa-text,var(--progressierTxt,#334155));font-size:20px;line-height:1;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease}',
+      '.close:hover{background:var(--youge-pwa-hover,var(--progressierHover,rgba(0,0,0,.06)))}',
       'ol{list-style:none;width:90%;margin:0 auto;padding:0 0 8px;counter-reset:step}',
-      'li{position:relative;padding:8px 0 8px 38px;font-size:15px;line-height:24px;color:var(--progressierTxt,#334155);counter-increment:step}',
-      'li::before{content:counter(step);position:absolute;left:0;top:8px;width:24px;height:24px;border-radius:6px;background:var(--progressierElement,#eef2ff);color:var(--progressierTxt,#3730a3);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}',
+      'li{position:relative;padding:8px 0 8px 38px;font-size:15px;line-height:24px;color:var(--youge-pwa-text,var(--progressierTxt,#334155));counter-increment:step}',
+      'li::before{content:counter(step);position:absolute;left:0;top:8px;width:24px;height:24px;border-radius:6px;background:var(--youge-pwa-element,var(--progressierElement,#eef2ff));color:var(--youge-pwa-text,var(--progressierTxt,#3730a3));font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}',
       '.actions{width:90%;margin:0 auto;padding:8px 0 24px}',
-      '.ok{width:100%;min-height:50px;border:0;border-radius:30px;background:var(--progressierAccent,#1a73e8);color:var(--progressierAccentText,#fff);font-size:15px;font-weight:600;padding:0 20px;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease,box-shadow 160ms ease}',
+      '.ok{width:100%;min-height:50px;border:0;border-radius:30px;background:var(--youge-pwa-accent,var(--progressierAccent,#1a73e8));color:var(--youge-pwa-accent-text,var(--progressierAccentText,#fff));font-size:15px;font-weight:600;padding:0 20px;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease,box-shadow 160ms ease}',
       '.ok:hover{box-shadow:0 6px 18px rgba(26,115,232,.18)}',
-      '.close:focus-visible,.ok:focus-visible{outline:3px solid var(--progressierFocus,#2563eb);outline-offset:3px}',
-      '.note{width:90%;margin:0 auto;padding:0 0 16px;font-size:13px;line-height:1.45;color:var(--progressierNote,#475569)}',
+      '.close:focus-visible,.ok:focus-visible{outline:3px solid var(--youge-pwa-focus,var(--progressierFocus,#2563eb));outline-offset:3px}',
+      '.note{width:90%;margin:0 auto;padding:0 0 16px;font-size:13px;line-height:1.45;color:var(--youge-pwa-note,var(--progressierNote,#475569))}',
       '@media (prefers-reduced-motion:reduce){.close,.ok{transition:none}}',
       '@media (max-width:480px){.sheet{border-radius:22px}.head,ol,.actions,.note{width:calc(100% - 32px)}}',
     ].join('');
@@ -1739,22 +1739,28 @@
     options = options || {};
     var root = document.documentElement.style;
     var map = {
-      background: '--progressierBg',
-      text: '--progressierTxt',
-      font: '--progressierFont',
-      textWeight: '--progressierTextFontWeight',
-      buttonWeight: '--progressierBtnFontWeight',
-      headingWeight: '--progressierHeadingFontWeight',
-      letterSpacing: '--progressierLetterSpacing',
-      hover: '--progressierHover',
-      element: '--progressierElement',
-      border: '--progressierBorderColor',
-      shadow: '--progressierBoxShadow',
-      accent: '--progressierAccent',
-      accentText: '--progressierAccentText',
+      background: ['--youge-pwa-bg', '--progressierBg'],
+      text: ['--youge-pwa-text', '--progressierTxt'],
+      font: ['--youge-pwa-font', '--progressierFont'],
+      textWeight: ['--youge-pwa-text-weight', '--progressierTextFontWeight'],
+      buttonWeight: ['--youge-pwa-btn-weight', '--progressierBtnFontWeight'],
+      headingWeight: ['--youge-pwa-heading-weight', '--progressierHeadingFontWeight'],
+      letterSpacing: ['--youge-pwa-letter-spacing', '--progressierLetterSpacing'],
+      hover: ['--youge-pwa-hover', '--progressierHover'],
+      element: ['--youge-pwa-element', '--progressierElement'],
+      border: ['--youge-pwa-border', '--progressierBorderColor'],
+      shadow: ['--youge-pwa-shadow', '--progressierBoxShadow'],
+      accent: ['--youge-pwa-accent', '--progressierAccent'],
+      accentText: ['--youge-pwa-accent-text', '--progressierAccentText'],
+      focus: ['--youge-pwa-focus', '--progressierFocus'],
+      note: ['--youge-pwa-note', '--progressierNote'],
     };
     Object.keys(map).forEach(function (key) {
-      if (options[key] != null && options[key] !== '') root.setProperty(map[key], options[key]);
+      if (options[key] != null && options[key] !== '') {
+        map[key].forEach(function (prop) {
+          root.setProperty(prop, options[key]);
+        });
+      }
     });
     return options;
   }
@@ -2168,23 +2174,23 @@
 
     removeInstallBanner();
 
-    var banner = make('div', 'progressier-install-banner');
+    var banner = make('div', 'youge-install-banner progressier-install-banner');
     if (wording.rtl()) banner.setAttribute('dir', 'rtl');
 
-    var inner = make('div', 'progressier-install-banner-inner');
-    var icon = make('div', 'progressier-install-banner-icon');
+    var inner = make('div', 'youge-install-banner-inner progressier-install-banner-inner');
+    var icon = make('div', 'youge-install-banner-icon progressier-install-banner-icon');
     var image = document.createElement('img');
     image.src = options.icon || appIcon();
     image.alt = 'app icon';
     icon.appendChild(image);
 
-    var details = make('div', 'progressier-install-banner-details');
-    var text = make('div', 'progressier-install-banner-text');
+    var details = make('div', 'youge-install-banner-details progressier-install-banner-details');
+    var text = make('div', 'youge-install-banner-text progressier-install-banner-text');
     text.textContent = options.text || wording.get('wannaSuggestApp');
     details.appendChild(text);
 
-    var buttons = make('div', 'progressier-install-banner-btns');
-    var install = make('button', 'progressier-install-button', wording.get('install'));
+    var buttons = make('div', 'youge-install-banner-btns progressier-install-banner-btns');
+    var install = make('button', 'youge-install-button progressier-install-button', wording.get('install'));
     install.type = 'button';
     var notNow = make('button', '', wording.get('notNow'));
     notNow.type = 'button';
@@ -2192,7 +2198,7 @@
     buttons.appendChild(notNow);
     details.appendChild(buttons);
 
-    var close = make('div', 'progressier-install-banner-close', ICONS.close);
+    var close = make('div', 'youge-install-banner-close progressier-install-banner-close', ICONS.close);
     close.setAttribute('role', 'button');
     close.setAttribute('tabindex', '0');
 
@@ -2201,8 +2207,14 @@
     inner.appendChild(close);
     banner.appendChild(inner);
 
-    if (options.color) banner.style.setProperty('--progressierAccent', options.color);
-    if (options.btnColor) banner.style.setProperty('--progressierAccentText', options.btnColor);
+    if (options.color) {
+      banner.style.setProperty('--youge-pwa-accent', options.color);
+      banner.style.setProperty('--progressierAccent', options.color);
+    }
+    if (options.btnColor) {
+      banner.style.setProperty('--youge-pwa-accent-text', options.btnColor);
+      banner.style.setProperty('--progressierAccentText', options.btnColor);
+    }
 
     function dismiss() {
       if (!options.preview) denyBanner(BANNER_INSTALL_COOKIE, LEGACY_BANNER_INSTALL_COOKIE);
@@ -2248,34 +2260,34 @@
 
     removePushBanner();
 
-    var banner = make('div', 'progressier-push-banner');
+    var banner = make('div', 'youge-push-banner progressier-push-banner');
     if (wording.rtl()) banner.setAttribute('dir', 'rtl');
 
-    var inner = make('div', 'progressier-push-banner-inner');
-    var details = make('div', 'progressier-push-banner-details');
+    var inner = make('div', 'youge-push-banner-inner progressier-push-banner-inner');
+    var details = make('div', 'youge-push-banner-details progressier-push-banner-details');
 
-    var icon = make('div', 'progressier-push-banner-icon');
+    var icon = make('div', 'youge-push-banner-icon progressier-push-banner-icon');
     var image = document.createElement('img');
     image.src = options.icon || appIcon();
     image.alt = 'app icon';
     icon.appendChild(image);
 
-    var text = make('div', 'progressier-push-banner-text');
+    var text = make('div', 'youge-push-banner-text progressier-push-banner-text');
     text.textContent = options.text || wording.get('wannaShowNotifications');
 
     details.appendChild(icon);
     details.appendChild(text);
 
-    var buttons = make('div', 'progressier-push-banner-btns');
+    var buttons = make('div', 'youge-push-banner-btns progressier-push-banner-btns');
     var notNow = make('button', '', wording.get('notNow'));
     notNow.type = 'button';
-    var subscribe = make('button', 'progressier-subscribe-button', wording.get('allowNotifications'));
+    var subscribe = make('button', 'youge-subscribe-button progressier-subscribe-button', wording.get('allowNotifications'));
     subscribe.type = 'button';
     buttons.appendChild(notNow);
     buttons.appendChild(subscribe);
     details.appendChild(buttons);
 
-    var close = make('div', 'progressier-push-banner-close', ICONS.close);
+    var close = make('div', 'youge-push-banner-close progressier-push-banner-close', ICONS.close);
     close.setAttribute('role', 'button');
     close.setAttribute('tabindex', '0');
 
@@ -2283,8 +2295,14 @@
     inner.appendChild(close);
     banner.appendChild(inner);
 
-    if (options.color) banner.style.setProperty('--progressierAccent', options.color);
-    if (options.btnColor) banner.style.setProperty('--progressierAccentText', options.btnColor);
+    if (options.color) {
+      banner.style.setProperty('--youge-pwa-accent', options.color);
+      banner.style.setProperty('--progressierAccent', options.color);
+    }
+    if (options.btnColor) {
+      banner.style.setProperty('--youge-pwa-accent-text', options.btnColor);
+      banner.style.setProperty('--progressierAccentText', options.btnColor);
+    }
 
     function dismiss() {
       if (!options.preview) denyBanner(BANNER_PUSH_COOKIE, LEGACY_BANNER_PUSH_COOKIE);
@@ -2335,11 +2353,11 @@
     options = options || {};
     if (offlineAlertElement) return offlineAlertElement;
 
-    var alert = make('div', 'progressier-offline-alert');
+    var alert = make('div', 'youge-offline-alert progressier-offline-alert');
     if (wording.rtl()) alert.setAttribute('dir', 'rtl');
 
-    var illustration = make('div', 'progressier-offline-alert-illustration', ICONS.wifiOff);
-    var body = make('div', 'progressier-offline-alert-body');
+    var illustration = make('div', 'youge-offline-alert-illustration progressier-offline-alert-illustration', ICONS.wifiOff);
+    var body = make('div', 'youge-offline-alert-body progressier-offline-alert-body');
     var heading = document.createElement('h2');
     heading.textContent = wording.get('youreOffline');
     var copy = document.createElement('p');
@@ -2347,14 +2365,14 @@
     body.appendChild(heading);
     body.appendChild(copy);
 
-    var wifi = make('div', 'progressier-offline-alert-wifi', ICONS.wifiOff);
+    var wifi = make('div', 'youge-offline-alert-wifi progressier-offline-alert-wifi', ICONS.wifiOff);
 
     alert.appendChild(illustration);
     alert.appendChild(body);
     alert.appendChild(wifi);
 
     if (options.dismissible !== false) {
-      var close = make('div', 'progressier-offline-alert-close', ICONS.close);
+      var close = make('div', 'youge-offline-alert-close progressier-offline-alert-close', ICONS.close);
       close.setAttribute('role', 'button');
       close.setAttribute('aria-label', wording.get('close'));
       close.addEventListener('click', function (event) {
@@ -2399,14 +2417,14 @@
       return null;
     }
 
-    var overlay = make('div', 'progressier-prompt-overlay');
+    var overlay = make('div', 'youge-prompt-overlay progressier-prompt-overlay');
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-label', wording.get('tapToReload'));
     overlay.addEventListener('click', function () {
       window.location.reload();
     });
 
-    var button = make('div', 'progressier-prompt-reload-button');
+    var button = make('div', 'youge-prompt-reload-button progressier-prompt-reload-button');
     button.textContent = options.text || wording.get('tapToReload');
     if (options.color) button.style.background = options.color;
     overlay.appendChild(button);
@@ -2789,8 +2807,14 @@
   }
 
   function qrPalette() {
-    var light = colorToHex(themeValue('--progressierBg', config.themeColor || '#ffffff'), '#ffffff');
-    var dark = colorToHex(themeValue('--progressierTxt', '#142a37'), '#142a37');
+    var light = colorToHex(
+      themeValue('--youge-pwa-bg', themeValue('--progressierBg', config.themeColor || '#ffffff')),
+      '#ffffff'
+    );
+    var dark = colorToHex(
+      themeValue('--youge-pwa-text', themeValue('--progressierTxt', '#142a37')),
+      '#142a37'
+    );
 
     // A QR code must stay dark-on-light even with a dark theme.
     function luminance(hex) {
@@ -2961,7 +2985,7 @@
     header.appendChild(close);
     inner.appendChild(header);
 
-    var qrBox = make('div', 'pwa-flow-qr progressier-qr loading');
+    var qrBox = make('div', 'pwa-flow-qr youge-qr progressier-qr loading');
     inner.appendChild(qrBox);
 
     var body = make('div', 'pwa-flow-body pwa-qr-body');
@@ -3134,8 +3158,11 @@
     var vertical = tokens.find(function (token) {
       return token === 'top' || token === 'middle';
     });
-    var classes = ['progressier-' + horizontal];
-    if (vertical) classes.push('progressier-' + vertical);
+    var classes = ['youge-pos-' + horizontal, 'progressier-' + horizontal];
+    if (vertical) {
+      classes.push('youge-pos-' + vertical);
+      classes.push('progressier-' + vertical);
+    }
     return classes;
   }
 
@@ -3251,7 +3278,7 @@
     if (!toolboxRoot || !toolboxOptions) return;
 
     toolboxRoot.className =
-      'pwa-toolbox progressier-widget ' + toolboxPositionClasses(toolboxOptions.position).join(' ');
+      'youge-toolbox pwa-toolbox progressier-widget ' + toolboxPositionClasses(toolboxOptions.position).join(' ');
     toolboxButton.style.backgroundColor = toolboxOptions.color;
     toolboxButton.setAttribute('aria-label', wording.get('installTheApp') + ' — ' + toolboxOptions.appName);
     toolboxButton.title = wording.get('installTheApp');
@@ -3304,16 +3331,17 @@
     toolboxManuallyHidden = false;
 
     if (!toolboxRoot) {
-      toolboxRoot = make('div', 'pwa-toolbox progressier-widget');
+      toolboxRoot = make('div', 'youge-toolbox pwa-toolbox progressier-widget');
+      toolboxRoot.setAttribute('data-youge-toolbox', '');
       toolboxRoot.setAttribute('data-pwa-toolbox', '');
 
       toolboxButton = document.createElement('button');
-      toolboxButton.className = 'pwa-toolbox-icon progressier-widget-icon';
+      toolboxButton.className = 'youge-toolbox-icon pwa-toolbox-icon progressier-widget-icon';
       toolboxButton.type = 'button';
       toolboxButton.addEventListener('click', onToolboxClick);
 
       toolboxImage = document.createElement('img');
-      toolboxImage.className = 'pwa-toolbox-logo progressier-widget-logo';
+      toolboxImage.className = 'youge-toolbox-logo pwa-toolbox-logo progressier-widget-logo';
       toolboxImage.alt = '';
       toolboxImage.draggable = false;
       toolboxImage.addEventListener('error', function () {

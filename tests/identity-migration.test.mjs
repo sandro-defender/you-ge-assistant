@@ -392,6 +392,12 @@ class DomNode {
     this.shadow = null;
   }
 
+  get isConnected() {
+    let cur = this;
+    while (cur.parentNode) cur = cur.parentNode;
+    return cur.tagName === 'HTML' || Boolean(this.parentNode);
+  }
+
   get className() { return this._className; }
   set className(val) {
     this._className = String(val || '');
@@ -866,4 +872,121 @@ test('Phase 2: canonical events, query parameters, declarative attributes, and m
 
   const registrySource = read('domain-registry.js');
   assert.match(registrySource, /'staff\.you\.ge'[\s\S]*id:\s*'\/HIPSBNVemXtM8VMwRfWs'/, 'staff.you.ge preserves its installed app id');
+});
+
+/* ------------------------------------------------------------------ *
+ * Phase 3: CSS custom properties, selectors, examples, CI & scripts
+ * ------------------------------------------------------------------ */
+
+test('Phase 3: pwa.css defines canonical --youge-pwa-* custom properties with --progressier* fallback and canonical .youge-* selectors', () => {
+  const css = read('pwa.css');
+  const expectedVars = [
+    ['--youge-pwa-bg', '--progressierBg'],
+    ['--youge-pwa-text', '--progressierTxt'],
+    ['--youge-pwa-font', '--progressierFont'],
+    ['--youge-pwa-text-weight', '--progressierTextFontWeight'],
+    ['--youge-pwa-btn-weight', '--progressierBtnFontWeight'],
+    ['--youge-pwa-heading-weight', '--progressierHeadingFontWeight'],
+    ['--youge-pwa-letter-spacing', '--progressierLetterSpacing'],
+    ['--youge-pwa-hover', '--progressierHover'],
+    ['--youge-pwa-element', '--progressierElement'],
+    ['--youge-pwa-border', '--progressierBorderColor'],
+    ['--youge-pwa-shadow', '--progressierBoxShadow'],
+    ['--youge-pwa-accent', '--progressierAccent'],
+    ['--youge-pwa-accent-text', '--progressierAccentText'],
+    ['--youge-pwa-focus', '--progressierFocus'],
+    ['--youge-pwa-note', '--progressierNote'],
+  ];
+  for (const [canon, legacy] of expectedVars) {
+    assert.ok(
+      css.includes(`${canon}: var(${legacy},`),
+      `pwa.css defines ${canon} with fallback to ${legacy}`,
+    );
+  }
+
+  for (const selector of [
+    '.youge-install-button',
+    '.youge-subscribe-button',
+    '.youge-install-banner',
+    '.youge-push-banner',
+    '.youge-offline-alert',
+    '.youge-prompt-overlay',
+    '.youge-prompt-reload-button',
+    '.youge-qr',
+    '.youge-toolbox',
+    '.youge-pos-left',
+    '.youge-pos-right',
+    '.youge-pos-center',
+    '.youge-pos-top',
+    '.youge-pos-middle',
+    'data-youge-pwa-forced-theme="light"',
+  ]) {
+    assert.ok(css.includes(selector), `pwa.css includes canonical selector ${selector}`);
+  }
+});
+
+test('Phase 3: pwa.js applyTheme, buttons, banners, alerts, reload prompt, and toolbox emit canonical .youge-* classes and --youge-pwa-* tokens', () => {
+  const client = bootPwaClient({ notificationPermission: 'default' });
+  const canonBtn = client.doc.createElement('button');
+  canonBtn.className = 'youge-install-button';
+  canonBtn.setAttribute('data-install', 'Install Workspace');
+  client.body.appendChild(canonBtn);
+
+  client.win.YouGePWA.scanButtons();
+  assert.equal(canonBtn.classList.contains('captured'), true, 'canonical .youge-install-button captured by scanButtons');
+  assert.match(canonBtn.innerHTML, /Install Workspace/);
+
+  client.win.YouGePWA.applyTheme({
+    background: '#101828',
+    text: '#f8fafc',
+    accent: '#155eef',
+    accentText: '#ffffff',
+    focus: '#2563eb',
+    note: '#475467',
+  });
+  const rootStyle = client.doc.documentElement.style;
+  assert.equal(rootStyle.getPropertyValue('--youge-pwa-bg'), '#101828');
+  assert.equal(rootStyle.getPropertyValue('--progressierBg'), '#101828');
+  assert.equal(rootStyle.getPropertyValue('--youge-pwa-accent'), '#155eef');
+  assert.equal(rootStyle.getPropertyValue('--progressierAccent'), '#155eef');
+  assert.equal(rootStyle.getPropertyValue('--youge-pwa-focus'), '#2563eb');
+  assert.equal(rootStyle.getPropertyValue('--youge-pwa-note'), '#475467');
+
+  const installBanner = client.win.YouGePWA.showInstallBanner({ preview: true, color: '#0f766e', btnColor: '#ffffff' });
+  assert.equal(installBanner.classList.contains('youge-install-banner'), true);
+  assert.equal(installBanner.classList.contains('progressier-install-banner'), true);
+  assert.equal(installBanner.style.getPropertyValue('--youge-pwa-accent'), '#0f766e');
+  assert.equal(installBanner.style.getPropertyValue('--progressierAccent'), '#0f766e');
+
+  const pushBanner = client.win.YouGePWA.showPushBanner({ preview: true, color: '#1d4ed8', btnColor: '#ffffff' });
+  assert.equal(pushBanner.classList.contains('youge-push-banner'), true);
+  assert.equal(pushBanner.classList.contains('progressier-push-banner'), true);
+  assert.equal(pushBanner.style.getPropertyValue('--youge-pwa-accent'), '#1d4ed8');
+
+  const offlineAlert = client.win.YouGePWA.showOfflineAlert({});
+  assert.equal(offlineAlert.classList.contains('youge-offline-alert'), true);
+  assert.equal(offlineAlert.classList.contains('progressier-offline-alert'), true);
+
+  const reloadPrompt = client.win.YouGePWA.showReloadPrompt();
+  assert.equal(reloadPrompt.classList.contains('youge-prompt-overlay'), true);
+  assert.equal(reloadPrompt.classList.contains('progressier-prompt-overlay'), true);
+
+  client.win.YouGePWA.enableToolbox({ position: 'bottom-left' });
+  client.win.YouGePWA.showToolbox();
+  const toolbox = client.body.querySelector('.youge-toolbox');
+  assert.ok(toolbox, 'floating toolbox carries canonical .youge-toolbox class');
+  assert.equal(toolbox.classList.contains('youge-pos-left'), true);
+  assert.equal(toolbox.classList.contains('progressier-left'), true);
+});
+
+test('Phase 3: demo, example, snippet, Vite config, CI workflows, and verification scripts adopt canonical you-ge-sw.js and .youge-install-button', () => {
+  assert.match(read('demo/index.html'), /class="youge-install-button"/);
+  assert.match(read('example/index.html'), /class="youge-install-button install-button"/);
+  assert.match(read('example/example.css'), /\.youge-install-button\.install-button/);
+  assert.match(read('snippet.html'), /data-sw="\/you-ge-sw\.js"/);
+  assert.match(read('example/vite.config.js'), /'you-ge-sw\.js'/);
+  assert.match(read('.github/workflows/pages.yml'), /you-ge-sw\.js/);
+  assert.match(read('.github/workflows/check.yml'), /you-ge-sw\.js/);
+  assert.match(read('scripts/check.mjs'), /'you-ge-sw\.js'/);
+  assert.match(read('scripts/verify-deployment.mjs'), /\/you-ge-sw\.js/);
 });

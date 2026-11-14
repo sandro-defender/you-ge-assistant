@@ -33,7 +33,7 @@ jobs:
 
       - name: Syntax check every script
         run: |
-          for file in pwa.js progressier.js offline.js domain-config.js domain-registry.js dns-diagnostics.js assistant-state.js assistant-widget.js manifest-handler.js functions/manifest.webmanifest.js qrcode.js example/example.js example/vite.config.js; do
+          for file in pwa.js you-ge-sw.js progressier.js offline.js domain-config.js domain-registry.js dns-diagnostics.js assistant-state.js assistant-widget.js manifest-handler.js functions/manifest.webmanifest.js qrcode.js example/example.js example/vite.config.js; do
             node --check "$file"
           done
 

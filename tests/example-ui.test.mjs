@@ -346,9 +346,19 @@ test('the React example demonstrates the Chrome handoff without forced redirects
  * ------------------------------------------------------------------ */
 
 function cssRuleBodies(css, selector) {
-  const escapedSelector = selector.replaceAll('.', '\\.');
-  const pattern = new RegExp(`(?:^|[\\n}])\\s*${escapedSelector}\\s*\\{([^{}]*)\\}`, 'g');
-  return [...css.matchAll(pattern)].map((match) => match[1]);
+  const results = [];
+  const blockPattern = /(?:^|[\n}])\s*([^{}]+?)\s*\{([^{}]*)\}/g;
+  for (const match of css.matchAll(blockPattern)) {
+    const selectorList = match[1]
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (selectorList.includes(selector)) {
+      results.push(match[2]);
+    }
+  }
+  return results;
 }
 
 function cssDeclarationValues(ruleBody, property) {
