@@ -21,7 +21,7 @@
 > or `0.1.1` pin keeps working unchanged.
 
 Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.md)),
-**kit compatibility `1.1.0`** (`KIT_COMPAT_VERSION`), **config schema `1`**.
+**kit compatibility `1.1.1`** (`KIT_COMPAT_VERSION` in the repository; the published `0.2.0` reports `1.1.0`), **config schema `1`**.
 
 ---
 
@@ -107,7 +107,7 @@ Rules:
       vendored-path imports.
 - [ ] `YouGeAssistant.version` reported at runtime equals the pinned version.
 - [ ] `YouGeAssistant.kitCompatVersion` is compatible with the staff app's PWA
-      kit line (currently `1.1.0`).
+      kit line (currently `1.1.x`).
 - [ ] Type-check, unit tests and production build pass (`tsc`, test runner,
       `vite build` / Cloudflare build).
 - [ ] Behavior unchanged vs the vendor pin:

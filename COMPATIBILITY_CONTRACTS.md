@@ -70,6 +70,7 @@ only in `reference/`, `PARITY.md`, this file, the identity rule in `AGENTS.md`,
 the historical records, and handoff or changelog text that discusses the cleanup
 itself. Anywhere else it is obsolete branding and must be replaced.
 
-Known exception awaiting a decision: `pwa.css:85` and `pwa.css:99` still carry
-two such comments. `pwa.css` is precached, so editing it needs the kit-version
-bump that only the owner can authorize ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md) §6).
+No such exception remains: the last two obsolete-branding comments, in
+`pwa.css`, were replaced together with the owner-authorized kit `1.1.1` bump
+(`pwa.css` is precached, so its edits need one —
+[`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md) §7).

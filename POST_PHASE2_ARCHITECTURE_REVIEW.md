@@ -168,7 +168,7 @@ Every service-worker, presentation and lifecycle assertion is mocks/VM-based (`t
 
 ## 7. Progressier branding status
 
-> **Superseded in part (precache integrity and identity cleanup PR, 2026-11-14).** The §6 view that the `pwa.js` and `pwa.css` provenance comments "should stay" no longer applies: the `pwa.js` comments were rewritten to describe legacy You.Ge Assistant compatibility contracts, and the two `pwa.css` comments (`:85`, `:99`) are queued behind the owner-authorized kit-version bump because `pwa.css` is precached. The R1 finding in §5 is now enforced by `scripts/precache-integrity.mjs`. Current state: [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md) and [`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md). The text below is the original point-in-time record.
+> **Superseded in part (precache integrity and identity cleanup PR, 2026-11-14).** The §6 view that the `pwa.js` and `pwa.css` provenance comments "should stay" no longer applies: the `pwa.js` comments were rewritten to describe legacy You.Ge Assistant compatibility contracts, and the two `pwa.css` comments (`:85`, `:99`) were replaced with the owner-authorized kit `1.1.1` bump. The R1 finding in §5 is enforced by `scripts/precache-integrity.mjs` and resolved for existing installations by that bump. Current state: [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md) and [`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md). The text below is the original point-in-time record.
 
 Audited all shipped `.js`/`.css`/`.html`/`.webmanifest`/`.md` outside `reference/`. **No obsolete product branding remains in user-facing output.** Every remaining occurrence is one of:
 
