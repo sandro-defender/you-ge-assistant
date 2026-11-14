@@ -2,54 +2,75 @@
 
 **Last updated:** 2026-11-14
 **Repository:** `sandro-defender/you-ge-assistant`
-**Base:** `main` at `bcdca6ed3bfb829fe09eb8372bfb8e06230254ed` (PR #32 merged)
-**Branch:** `arena/4a49f6ba-you-ge-assistant` (active)
-**PR:** [#34 — Stage 5.4: SDK reliability, type checks and integration guide](https://github.com/sandro-defender/you-ge-assistant/pull/34), open for owner review; do not merge.
-**Review CI:** the code/test follow-up was pushed at `cfa2a949fdd337e5923845aa81f038357bd5e512`; its run `43599568488` was superseded by the final handoff commit `ff09ae83a0de44175bdc1758f1c458373318cce0`. Static CI passed on `ff09ae8` in run `43599599732`. Any additional commit triggers a new per-head run; query live PR #34 and checks after the final push.
+**Base:** `main` at `63c703e956d8eea197220cc0b491110335e5610b` (PR #34 merged)
+**Branch:** `arena/62503a48-you-ge-assistant` (active)
+**PR:** [#35 — Precache integrity gate, all-or-nothing worker install and Progressier identity cleanup](https://github.com/sandro-defender/you-ge-assistant/pull/35), open for owner review; do not merge.
+**CI:** statuses are per head. Query `gh pr checks 35`; do not rely on a result recorded here for a later commit.
 
 ## Verified repository / PR state
 
-- Live `origin/main` is `bcdca6e`, the merge commit for PR #32; PR #32 is merged. Post-merge `check` and `pages` runs passed on `bcdca6e`.
-- PR #33 (`docs: record the Stage 5.3 merge and unblock Stage 5.4`) is **still open**, not merged. It is a documentation-only follow-up on the older Stage 5.3 branch, head `5d3f14547a9e928801fad828ec2bbe248ccaeeca`; its `check` passed. The current branch is already based on #32's merged commit, so #33 was not a prerequisite for implementation. Do not close or merge #33 as part of this task.
-- PR #34 is the sole Stage 5.4 implementation PR from this branch. All work remains on the current branch; the review source fix, generated bundle and handoff updates are pushed. Query `gh pr checks 34` after any push because statuses are per-head.
-- Phase 2.1's implementation work is now represented by Stages 5.1–5.4, including this PR. It does not still await authorization to start; PR #34 remains open for owner review/merge, and R1 specifically remains blocked on an owner version/cache-refresh decision. This task does not start a new stage.
-- The prior worktree was clean at PR #34 head before this review; no owner changes were present or overwritten.
+- PR #34 (Stage 5.4) is **merged** at `63c703e`. Post-merge `check` (run `43600130551`) and `pages` (run `43600130589`) passed on `63c703e`.
+- PR #33 is **closed without merging** (closed 2026-11-14T13:30:32Z, head `5d3f145`). It touched only `AGENT_HANDOFF.md` and `NEXT_AGENT_PROMPT.md`; both were rewritten by #34, and the facts it recorded (#32 merged, Stage 5.4 unblocked) are in `main`. Nothing from it is missing.
+- PR #32 is merged at `bcdca6e`.
+- The previous handoff files were stale (they described #34 and #33 as open); this file replaces them.
+- Worktree was clean at the start; no owner work was overwritten. No force-push, reset or history rewrite.
 
-## Completed — Stage 5.4
+## Completed in PR #35
 
-**D4 — DNS cancellation normalization.** `normalizeDnsResult()` now preserves an explicit optional `cancelled` field and canonicalizes any cancellation marker (`cancelled: true`, `status: 'cancelled'`, or `classification: 'cancelled'`) to status/classification `cancelled`, `failed: false`, `cancelled: true`. Non-cancelled explicit `false` is preserved and missing remains omitted. `isCancelledResult()` also recognizes the cancellation classification, so cancellation cannot surface as a DNS/connectivity failure. `AssistantState.network.dns` publishes its optional `cancelled` and `failed` values. The classic `assistant-state.js` was regenerated from the SDK sources.
+**Service-worker install (defect fixed).** `progressier.js` used `Promise.allSettled()` over `cache.add()`, so a precache failure was swallowed: an update that lost the network mid-install still succeeded with an incomplete `static:v<next>` cache and activation deleted the complete previous one. Install now fetches the whole list (`cache: 'reload'`) and stores it only when every asset is answered. 4xx = optional file not deployed (skipped, as before); network failure or 5xx = install rejected, browser retries, installed version keeps its shell. Cache names, no-`skipWaiting`-on-install, `SKIP_WAITING`, activation and fetch strategies are unchanged.
 
-**D5 — Update outcome contract.** `requestPwaUpdate()` preserves the five declared outcomes only. Valid, consistent outcome objects are retained; unknown or contradictory values fall back to the existing boolean result (`applied` / `no-waiting-worker`). Boolean, `void`, and `null` legacy runtime returns remain supported. Review found that a throwing `outcome` getter escaped the old rejection handler and rejected the helper promise; a chained catch now normalizes both rejected calls and exceptions while inspecting malformed third-party results to `{ applied: false, outcome: 'error' }`. `PwaRuntimeLike.applyUpdate` describes compatible legacy null/void and object shapes without widening `UpdateApplyOutcome`.
+**Diff-aware gate.** `scripts/precache-integrity.mjs` reads the precache list by running the worker's install handler in a VM (base and working tree), diffs from `git merge-base <base> HEAD`, and fails when a precached file is modified / added / removed / renamed without a synchronized strictly higher kit version, when `progressier.js` `VERSION`, `pwa.js` `PWA.version` and root `package.json` `version` disagree, when the version goes backwards, or when a listed asset is missing. Runs inside `scripts/check.mjs` (existing CI step, `fetch-depth: 0`, `PRECACHE_INTEGRITY_BASE` = PR base or pre-push commit) and as `npm run check:precache`. `check.mjs` no longer has its own precache list.
 
-**R2 — Public SDK type coverage in CI.** Added `example/src/sdk-public-subpaths.typecheck.ts`, a consumer fixture importing the root, every typed SDK subpath (`domain`, `config`, `diagnostics`, `installation`, `browser`, `theme`, `react`) and the exported package metadata path using actual `@youge/assistant-sdk/...` imports. The existing example TypeScript command includes this fixture; CI's existing example typecheck job now identifies the SDK-subpath coverage in its step name. No new tool or dependency was added.
+**Identity cleanup.** Reworded remaining Progressier product wording in `pwa.js` and `progressier.js` comments, `scripts/check.mjs` and `scripts/verify-deployment.mjs` messages, `AGENTS.md`, `ARCHITECTURE_AUDIT.md`, `FOUNDATION_AUDIT.md`, `PARITY.md`, `reference/README.md`, demo/example selector labels. No identifier, selector, storage key, path or API was renamed.
 
-**R3/R4 — Update state and lifecycle.** PWA `getState().hasUpdate`/`onChange()` boolean snapshots are the authoritative waiting-worker source; `pwa:update` and `setUpdateAvailable()` remain compatibility fallbacks until explicit PWA state is published. A stale-state case where an event set availability but a legacy PWA subsequently reported `hasUpdate: false` without a preceding `true` snapshot now clears. `modules.updates: false` continues to preserve truthful network availability while suppressing Assistant notifications/actions and refusing Assistant update application. PWA source comments clarify its reconciliation sentinels and side-effectful read invariant. Documentation and deterministic tests cover waiting-worker detection/disappearance, disabled UI/actions, apply/reload behavior, repeated events, runtime reconfiguration and `pwa:ready` ordering.
+**Documentation.** New `PRECACHE_INTEGRITY.md` (architecture, lifecycle guarantees, gate, version proposal) and `COMPATIBILITY_CONTRACTS.md` (every Progressier-named technical identifier: purpose, reason, migration status, audit commands). `AGENTS.md` gained the sole-identity and accurate-reporting rules and the gate reference; its legacy theme-variable list was corrected to the 15 variables the runtime reads.
 
-**README / package docs.** Root `README.md` now has the requested SDK installation and integration guide, including current npm `0.2.0` metadata, ESM/Node/React peer requirements, quick start and cleanup, shared options/defaults and services, framework-independent/React/PWA adapters, diagnostics constraints/cancellation, update lifecycle, public imports and declaration links. `packages/assistant-sdk/README.md` now documents update ownership and event order; package and release status documentation was corrected against the current npm registry (`0.2.0`, checked 2026-11-14). No package metadata/version was changed.
+## R1 status
 
-## R1 — Precache/version audit and owner decision
+- Prevention: **resolved** (gate).
+- Lifecycle defect: **fixed**.
+- Historical drift under kit `1.1.0`: **awaits owner authorization**. R1 is not fully closed.
 
-- Kit `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` remain `1.1.0` and agree. SDK package/`SDK_VERSION` remain `0.2.0`; `KIT_COMPAT_VERSION` is `1.1.0`, matching the root kit version.
-- The service-worker precache entries are scope-relative and the referenced files exist. `scripts/check.mjs` checks kit/client version equality and precache asset existence; package validation checks SDK package/SDK/kit compatibility version consistency.
-- The existing safety gap remains: those checks do **not** detect a content change to a precached file when the kit version is unchanged. Phase 2 already changed precached assets without a kit bump. This PR also regenerates `assistant-state.js`, which is precached; without a worker script/version update, installed workers may keep stale cached Assistant code offline or serve it on the first online cache hit while revalidation runs.
-- A diff-aware gate is technically feasible: CI can compare changed paths against the worker's precache list from the PR merge base, and require the `progressier.js` `VERSION` and `pwa.js` `PWA.version` values to advance together when a precached asset changes. It needs a reliable merge-base checkout and a deliberate rule for removals/list changes. Applied to this PR it would fail because `assistant-state.js` changed while both versions remain `1.1.0`.
-- No gate or version change was made: making this PR pass such a gate requires a coordinated cache/release decision, and version changes are prohibited in this task. **Owner authorization is required** for a synchronized kit-version bump and its deployment/cache-refresh plan. No package/kit version, tag, release metadata, publish, or deploy was changed.
+## Owner decisions requested
 
-## Validation
+1. **Synchronized kit-version bump** `1.1.0` → `1.1.1` (or `1.2.0`). Not applied. Exact files, cache behaviour, risks and tests: `PRECACHE_INTEGRITY.md` §6. Includes the open question of the SDK version, because the bump edits `KIT_COMPAT_VERSION` in SDK source.
+2. **Merging #35 is itself a cache refresh.** It changes `progressier.js`; the Pages deployment on `main` makes browsers install the new worker, which re-fetches the whole precache into the existing `v1.1.0` cache and shows one update notice.
+3. **Repository settings** still carry the old identity (not tracked files, so not changed): description "Self-hosted, Progressier-compatible PWA kit…" and topic `progressier`. Suggested:
+   `gh repo edit sandro-defender/you-ge-assistant --description "You.Ge Assistant: dependency-free multi-domain PWA toolkit and SDK — install UI, offline, sharing, push, badges, QR and diagnostics." --remove-topic progressier --add-topic you-ge-assistant`
+4. **`reference/` and `PARITY.md`** retirement or restructuring (unchanged rule: separate approval; also needs edits to `scripts/check.mjs`).
 
-- TDD: each new D4, D5 and stale-update regression was run red against the old behavior, then green after its fix. Update/widget cases use the existing Node VM/browser harness; no real browser was run.
-- Focused `packages/assistant-sdk/tests/sdk-integrations.test.mjs`: **18 passed, 0 failed**, including D4 assistant snapshot normalization and D5 malformed-runtime result handling. Focused `tests/dns-diagnostics.test.mjs`: **26 passed** (previous relevant validation; those sources were unchanged during this review).
-- `npm test`: **393 passed, 0 failed**.
-- `npm run check`: static checks passed; SDK package validation passed; **393 passed, 0 failed**.
-- `node scripts/sync-sdk-browser.mjs --check`: passed after regenerating `assistant-state.js` from canonical SDK sources.
-- `node packages/assistant-sdk/scripts/validate-package.mjs`: passed (`@youge/assistant-sdk@0.2.0`; no publish/release action).
-- In `example/`: `npm ci`, `npm run typecheck`, `npm run build`: passed. Build printed existing Vite notices about classic script tags and completed. The typecheck includes consumer imports for every public export path.
-- `git diff --check`: passed after source, generated bundle and handoff updates. No live deployment or real-browser verification was performed.
+## Pending work blocked by decision 1
+
+`pwa.css` is precached, so the gate rejects these comment edits without the bump. Apply them in the bump change:
+
+- `pwa.css:85` — ` * Floating install toolbox (original Progressier-style app icon)` → ` * Floating install toolbox (app-icon launcher; legacy placement preserved)`
+- `pwa.css:99` — `/* Retained from Progressier's toolbox stylesheet; its legacy caller is optional. */` → `/* Legacy scroll-lock helper kept for existing integrations; its caller is optional. */`
+
+These are the only known obsolete-branding lines left in tracked files outside the reference material.
+
+## Validation (at the code commit `dbe224d`; later commits change only documentation)
+
+- TDD: three worker regressions (network loss, 5xx, same-version partial refresh) were red against the old install handler and green after the fix. Gate tests were written before the script; two mutations (bump rule disabled; merge base replaced by branch tip) were confirmed to fail them.
+- Focused: `tests/service-worker-lifecycle.test.mjs` **11 passed**; `tests/precache-integrity.test.mjs` **19 passed**.
+- `npm test`: **423 passed, 0 failed** (393 before).
+- `npm run check`: static checks passed (including `precache integrity: 13 precached assets unchanged since 63c703e; kit version 1.1.0 synchronized`), SDK package validation passed, 423 tests passed.
+- `node scripts/sync-sdk-browser.mjs --check`: in sync. `node packages/assistant-sdk/scripts/validate-package.mjs`: passed (`@youge/assistant-sdk@0.2.0`).
+- `packages/assistant-sdk`: `npm test` 108 passed; `npm pack --dry-run` ok.
+- `example/`: `npm ci`, `npm run typecheck`, `npm run build` passed.
+- `git diff --check`: clean.
+- **Not performed:** real-browser testing, live-deployment verification.
+
+## Risks
+
+- First install on a connection that drops mid-precache now fails and is retried on the next page load instead of registering a worker with a partial shell.
+- A deployment that answers a precache file with a persistent 5xx can no longer install the worker (4xx is tolerated).
+- The gate treats any byte change to a precached file as requiring a bump, including comment-only edits.
+- The gate needs git history; CI uses `fetch-depth: 0`. Without git it warns and only runs the static rules.
 
 ## Skills applied
 
-- `tdd` → wrote observable public-boundary regressions first, confirmed red, then implemented and reran green; used existing Node test/VM seams and boundary mocks.
+- `tdd` → red-first regressions at two seams (worker lifecycle events + Cache Storage; gate result and CLI against real throw-away git repositories), then minimal implementation.
 
 ## Next action
 
-Wait for PR #34's current-head CI and owner review. Do not merge, publish, release, deploy, change versions, or start another roadmap stage. The only unresolved release-hygiene item is the R1 owner decision above; do not make the kit bump without authorization.
+Wait for owner review of PR #35 and for the decisions above. Do not merge, publish, release, deploy, change versions or start another roadmap stage.

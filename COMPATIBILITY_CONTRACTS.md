@@ -65,6 +65,11 @@ git grep -Iohi "[A-Za-z0-9_./+:#-]*progressier[A-Za-z0-9_.-]*" -- . \
 git grep -n "Progressier" -- . ':!reference/Script.js' ':!reference/Script.decompiled.js'
 ```
 
-Every token must map to a row above. A capitalized `Progressier` outside
-`reference/`, `PARITY.md`, this file, the identity rule in `AGENTS.md` and the
-historical records is obsolete branding and must be replaced.
+Every token must map to a row above. A capitalized `Progressier` is acceptable
+only in `reference/`, `PARITY.md`, this file, the identity rule in `AGENTS.md`,
+the historical records, and handoff or changelog text that discusses the cleanup
+itself. Anywhere else it is obsolete branding and must be replaced.
+
+Known exception awaiting a decision: `pwa.css:85` and `pwa.css:99` still carry
+two such comments. `pwa.css` is precached, so editing it needs the kit-version
+bump that only the owner can authorize ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md) §6).
