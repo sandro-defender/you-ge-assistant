@@ -59,7 +59,7 @@ export interface ReactAssistantAdapter {
     level: unknown,
     createElement?: (type: string, props: Record<string, unknown>) => unknown
   ): unknown;
-  dispatchAction(id: string, kind?: string): Promise<AssistantUpdateResult | boolean> | void;
+  dispatchAction(id: string, kind?: string): Promise<AssistantUpdateResult | boolean> | AssistantActionDispatchDisabled | void;
 }
 
 export declare const FALLBACK_ASSISTANT_STATE: AssistantState;
@@ -99,6 +99,12 @@ export declare function notificationLevelElement(
   createElement: (type: string, props: Record<string, unknown>, children?: unknown) => unknown
 ): unknown;
 
+/** Returned instead of dispatching when the action's capability is disabled. */
+export interface AssistantActionDispatchDisabled {
+  disabled: true;
+  capability: 'diagnostics' | 'recovery' | 'failover' | 'help';
+}
+
 export declare function dispatchAssistantAction(
   id: string,
   kind?: string,
@@ -109,6 +115,6 @@ export declare function dispatchAssistantAction(
     root?: Record<string, unknown> | null;
     source?: string;
   }
-): Promise<AssistantUpdateResult | boolean> | void;
+): Promise<AssistantUpdateResult | boolean> | AssistantActionDispatchDisabled | void;
 
 export declare function createReactAdapter(options: ReactAdapterOptions): ReactAssistantAdapter;

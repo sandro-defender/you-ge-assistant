@@ -57,7 +57,8 @@ project HTML
 | `examples/example/example.css` | React renderer styles and React Bits local adaptations. |
 | `snippet.html` | Copy-paste integration block including SDK configuration. |
 | `examples/demo/index.html`, `examples/example/index.html`, `offline.html` | Participating pages. |
-| `tests/assistant-widget.test.mjs` | 24 behavioral/static tests for the widget contract. |
+| `tests/assistant-widget.test.mjs` | 58 behavioral/static tests for the widget contract (including the CD-1 capability matrix). |
+| `tests/capability-enforcement.test.mjs` | 12 runtime tests: no diagnostic network traffic (incl. Cloudflare DoH) while a capability is disabled. |
 | `scripts/check.mjs` §7c | Static integration and safety contracts. |
 
 ---
@@ -78,7 +79,7 @@ safe for `useSyncExternalStore` and avoids duplicate renders.
     endpoints: { primary, backup, active, reason },
     session: { state, message }, updateAvailable, recovery
   },
-  capabilities: { installation, diagnostics, recovery, failover, help, updates },
+  capabilities: { installation, diagnostics, recovery, failover, help, updates, chromeHandoff },
   notifications: [{ id, priority, tone, critical, dismissible, title, message, actionId }],
   availableActions: [{ id, label, icon, priority, kind, message, event }],
   badge: { count, tone, label, priority },
@@ -188,6 +189,8 @@ Public API:
 | `dismiss(id)` / `acknowledge(id)` | Suppression controls. |
 | `destroy()` | Cleanup. |
 
+`isCapabilityEnabled(name)` reports the live capabilities below.
+
 `getConfig().theme` returns the mode string (unchanged 0.x contract);
 `getConfig().themeConfig` returns the validated theme record and
 `getConfig().meta.warnings` reports rejected values. See
@@ -201,6 +204,27 @@ application listens for that event and owns the business logic. Built-in
 duplicate prompts and duplicate network checks.
 
 ---
+
+## 4.1 Capability enforcement
+
+`modules.diagnostics`, `modules.recovery`, `modules.failover` and
+`modules.help` are enforced, not advisory. The SDK owns the policy
+(`core/capabilities.js`, bundled into `assistant-state.js`) and the renderer
+asks it, so a disabled capability has no button, no section and no action path:
+
+| Capability | Renderer behavior when `false` |
+| --- | --- |
+| `diagnostics` | No diagnostics button, no `[data-pwa-diagnostics]` hook, and no diagnostics action on notices; `runDiagnostics()` resolves `{ status: 'disabled' }`. |
+| `recovery` | No recovery guidance block and no `recovery` action. |
+| `failover` | No `Backup` status row, no `backup-status` action and no backup-active notice. |
+| `help` | No help action on notices, and project actions with `kind: 'help'` (or a gated id) are dropped. |
+
+Critical connectivity notices that would otherwise link to a gated action stay
+visible without the action, so the badge never hides a real condition. The
+widget re-checks the capability at click time, so a stale DOM node, a keyboard
+replay or a host-injected button cannot dispatch a gated action. The same flag
+is honored by `pwa.js`, the DoH engine and the offline shell (see
+[`../architecture/CAPABILITY_ENFORCEMENT.md`](../architecture/CAPABILITY_ENFORCEMENT.md)).
 
 ## 5. Interaction and UX
 

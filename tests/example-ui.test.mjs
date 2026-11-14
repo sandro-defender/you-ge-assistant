@@ -309,7 +309,7 @@ test('the sample keeps the accessibility contract while restyling', () => {
 test('the React example demonstrates the Chrome handoff without forced redirects', () => {
   assert.match(
     widgetSource,
-    /import \{ YouGeAssistant, createChromeHandoff \} from '@youge\/assistant-sdk'/,
+    /import \{ YouGeAssistant, capabilityForAction, createChromeHandoff \} from '@youge\/assistant-sdk'/,
     'the handoff helpers come from the SDK root entry',
   );
   assert.match(widgetSource, /handoff\.shouldOffer\(\)/, 'the banner renders only for a confident restricted detection');

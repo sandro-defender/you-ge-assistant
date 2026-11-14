@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.2.1 (kit) — 2026-11-14 · CD-1 module capability enforcement
+
+Kit `1.2.0 → 1.2.1` (`you-ge-sw.js` `VERSION`, `PWA.version`, root
+`package.json`, SDK `KIT_COMPAT_VERSION`, and the regenerated
+`assistant-state.js`) — a **patch release of the kit only**, authorized by the
+owner to ship the runtime enforcement change below: the four changed precached
+assets need a new cache generation or installed apps would keep running the
+cached pre-CD-1 runtime. `@youge/assistant-sdk` remains `0.2.0`; no SDK release,
+tag, publish or deployment is part of this entry. See
+[`docs/architecture/CAPABILITY_ENFORCEMENT.md`](docs/architecture/CAPABILITY_ENFORCEMENT.md) and
+[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §9.
+
+- **One capability policy:** `packages/assistant-sdk/src/core/capabilities.js`
+  defines the four gated capabilities (`diagnostics`, `recovery`, `failover`,
+  `help`), the action/notice → capability mapping and the gate helpers. It is
+  bundled into the generated `assistant-state.js`, so classic renderers and ESM
+  consumers cannot drift.
+- **Enforcement, not display:** `runDiagnostics()` refuses a disabled
+  capability (no runner, `{ status: 'disabled' }`), built-in *and project*
+  actions are gated, notices that link to a gated action lose the action while
+  keeping the condition, failover UI disappears, and help can no longer be
+  reached through a `session:issue` notice or a `kind: 'help'` action.
+  Disabling diagnostics mid-run aborts it and discards the late verdict.
+- **Runtime backstop:** `pwa.js` (`runNetworkDiagnostics` /
+  `showNetworkDiagnostics` / `[data-pwa-diagnostics]`), the Cloudflare DoH
+  engine (`dns-diagnostics.js`) and the offline shell (`offline.js`) consult
+  `window.YouGeAssistant.isCapabilityEnabled('diagnostics')` and make no request
+  while it is disabled. They fail open when no Assistant is on the page, so
+  toolkit-only deployments are unchanged.
+- **Renderer parity:** `assistant-widget.js` and `examples/example/src/main.jsx`
+  render and dispatch gated actions only through the SDK policy.
+- **Precache gate fix:** base-commit paths are resolved through
+  `scripts/source-paths.mjs`, so the diff-aware version rule keeps its base
+  after the source/output split instead of silently reporting "diff skipped".
+- **Cache generation:** precached assets changed in this kit version are
+  `assistant-state.js`, `assistant-widget.js`, `dns-diagnostics.js` and
+  `offline.js`; they roll forward into fresh `…:static:v1.2.1` /
+  `…:pages:v1.2.1` caches while `1.2.0` caches are retired on activation.
+- **Tests:** 20 SDK capability tests + 12 runtime capability tests + 4 renderer
+  capability tests; full suite 537 passing with the precache gate and the
+  version pins updated to `1.2.1`.
+
 ## 1.2.0 (kit) — 2026-11-14 · canonical You.Ge Assistant technical identity migration
 
 Kit `1.1.1 → 1.2.0` (`you-ge-sw.js` `VERSION`, `PWA.version`, root

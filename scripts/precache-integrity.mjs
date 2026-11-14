@@ -33,7 +33,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolveSourcePath } from './source-paths.mjs';
+import { PUBLIC_TO_SOURCE, resolveSourcePath } from './source-paths.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
@@ -49,6 +49,20 @@ const SDK_CONSTANTS = 'packages/assistant-sdk/src/core/constants.js';
 const GENERATED = {
   'assistant-state.js': 'generated bundle: rebuilt from packages/assistant-sdk/src by `npm run sync:sdk`',
 };
+
+/**
+ * Repository paths a public runtime path may have in a commit.
+ *
+ * The public runtime is served from the repository root, but its sources live
+ * under `src/` (see `scripts/source-paths.mjs`). A base commit therefore stores
+ * `you-ge-sw.js` as `src/runtime/you-ge-sw.js`; commits from before the
+ * source/output split, and repository-shaped deployments, use the flat public
+ * path. Both are tried in that order so the diff never silently loses its base.
+ */
+function gitPathCandidates(publicPath) {
+  const mapped = PUBLIC_TO_SOURCE[publicPath];
+  return mapped && mapped !== publicPath ? [mapped, publicPath] : [publicPath];
+}
 
 const VERSION_LABELS = {
   worker: `${WORKER} VERSION`,
@@ -358,7 +372,13 @@ export async function runPrecacheIntegrity({ root, baseRef = '', env = {} } = {}
   let baseSnapshot = null;
   let renames = {};
   if (base.commit) {
-    const show = (path) => git(['show', `${base.commit}:./${path}`]);
+    const show = (path) => {
+      for (const candidate of gitPathCandidates(path)) {
+        const source = git(['show', `${base.commit}:./${candidate}`]);
+        if (source != null) return source;
+      }
+      return null;
+    };
     const baseWorkerName = show(WORKER) != null ? WORKER : LEGACY_WORKER;
     const baseWorker = show(baseWorkerName);
     if (baseWorker != null) {
@@ -371,8 +391,15 @@ export async function runPrecacheIntegrity({ root, baseRef = '', env = {} } = {}
       const tracked = [...new Set([...baseManifest.precache, ...headManifest.precache])];
       const blobs = {};
       for (const path of tracked) {
-        const id = git(['rev-parse', '--verify', '-q', `${base.commit}:./${path}`]);
-        blobs[path] = id ? id.trim() : null;
+        let id = null;
+        for (const candidate of gitPathCandidates(path)) {
+          const found = git(['rev-parse', '--verify', '-q', `${base.commit}:./${candidate}`]);
+          if (found) {
+            id = found.trim();
+            break;
+          }
+        }
+        blobs[path] = id || null;
       }
       baseSnapshot = {
         versions: readKitVersions({ worker: baseWorker, client: show(CLIENT), pkg: show(PACKAGE), sdkConstants: show(SDK_CONSTANTS) }),

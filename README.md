@@ -191,7 +191,7 @@ configuration options (defaults are from `BUNDLED_DEFAULTS` and normalizers):
 | `domain`, `domainRegistry` | Host is detected when not overridden. Registry entries can customize project identity, branding, PWA settings, feature flags and diagnostics paths for a host/path. Host matching is public configuration, never authorization. |
 | `position`, `offsets` | `bottom-right`; `{ x: 20, y: 20 }`. |
 | `theme` | `auto`; accepts the legacy string modes or a validated theme object. See [`THEMING.md`](docs/guides/THEMING.md). |
-| `modules` | All default to `true`: `installation`, `diagnostics`, `recovery`, `failover`, `help`, `updates`, and `chromeHandoff`. These gate Assistant capabilities/UI; they do not change PWA registration. |
+| `modules` | All default to `true`: `installation`, `diagnostics`, `recovery`, `failover`, `help`, `updates`, and `chromeHandoff`. `diagnostics`, `recovery`, `failover` and `help` are **enforced** (see below); the rest gate Assistant UI. None of them change PWA registration. |
 | `notifications` | `dismissible: true`, `suppressRepeats: true`, `criticalPersistent: true`. |
 | `branding` | Empty overrides; resolved project/domain identity supplies defaults. Fields: `name`, `shortName`, `icon`, `themeColor`. |
 | `actions`, `features` | Empty arrays. Actions are safe data-only entries; features add informational feature announcements. |
@@ -217,6 +217,21 @@ const assistant = YouGeAssistant.create({
 
 The service is invoked only by `runDiagnostics()`. Keep secrets and credentials
 out of SDK configuration and public domain registry entries.
+
+`modules.diagnostics`, `modules.recovery`, `modules.failover` and
+`modules.help` are enforced capabilities, not advisory labels: a capability set
+to `false` is not executable through any code path. The Assistant API refuses
+it (`runDiagnostics()` resolves `{ status: 'disabled' }` without touching the
+network), no built-in or project-supplied action and no notification action
+link exposes it, the widget and React renderer omit its UI, and the classic
+runtime defers to the flag as well — `PWA.runNetworkDiagnostics()`,
+`YouGeDns.check()` (the Cloudflare DNS-over-HTTPS transport) and the offline
+shell's diagnostics button all refuse while the Assistant disables diagnostics.
+Capabilities are read live, so disabling one aborts an in-flight run and a
+disabled capability cannot be re-enabled by an event, callback or background
+task. Omitted flags keep the documented default (`true`), and
+`state.capabilities` keeps its published shape. See
+[`docs/architecture/CAPABILITY_ENFORCEMENT.md`](docs/architecture/CAPABILITY_ENFORCEMENT.md).
 
 ### E. Integration methods
 

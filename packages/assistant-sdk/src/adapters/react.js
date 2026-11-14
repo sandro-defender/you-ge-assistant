@@ -8,6 +8,7 @@
  */
 
 import { EVENT_NAMES } from '../core/constants.js';
+import { capabilityForAction } from '../core/capabilities.js';
 import { attachAssistant } from '../assistant/index.js';
 import {
   NOTIFICATION_LEVEL_LABELS,
@@ -231,6 +232,16 @@ export function dispatchAssistantAction(id, kind, options) {
   const assistant = opts.assistant || (root.YouGeAssistant && root.YouGeAssistant.__state ? root.YouGeAssistant : null);
   const pwa = opts.pwa || root.PWA || null;
   const source = opts.source || 'react-widget';
+
+  // Capability enforcement (CD-1). A React renderer hides gated buttons, but a
+  // callback, a keyboard handler or a host application can still dispatch the
+  // action: the same centralized mapping decides here, so a disabled capability
+  // is never activated and never announced to hosts through `youge:action`.
+  const capability = capabilityForAction(id, kind);
+  if (capability && assistant && typeof assistant.isCapabilityEnabled === 'function' &&
+      assistant.isCapabilityEnabled(capability) === false) {
+    return { disabled: true, capability: capability };
+  }
 
   if (doc && typeof doc.dispatchEvent === 'function' && typeof root.CustomEvent === 'function') {
     doc.dispatchEvent(new root.CustomEvent(EVENT_NAMES.action, {

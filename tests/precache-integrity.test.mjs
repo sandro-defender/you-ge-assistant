@@ -9,7 +9,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { extractPrecacheManifest, runPrecacheIntegrity } from '../scripts/precache-integrity.mjs';
-import { resolveSourcePath } from '../scripts/source-paths.mjs';
+import { PUBLIC_TO_SOURCE, resolveSourcePath } from '../scripts/source-paths.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const cli = join(root, 'scripts', 'precache-integrity.mjs');
@@ -26,8 +26,17 @@ const SDK_CONSTANTS = 'packages/assistant-sdk/src/core/constants.js';
 /** One line of the worker's precache manifest, as written in you-ge-sw.js. */
 const QR_ENTRY = "  { url: new URL('qrcode.js', SCOPE_URL).href, required: false },\n";
 
-/** A throw-away git repository holding the real kit runtime on `main`. */
-function createKitRepo(t) {
+/**
+ * A throw-away git repository holding the real kit runtime on `main`.
+ *
+ * `layout: 'source'` mirrors this repository: public runtime paths are stored
+ * under their `src/` source paths (see `scripts/source-paths.mjs`). The default
+ * flat layout mirrors a deployment-shaped checkout, where public paths are
+ * repository paths. Both must be diffed correctly.
+ */
+function createKitRepo(t, options = {}) {
+  const sourceLayout = options.layout === 'source';
+  const sourcePath = (path) => (sourceLayout ? (PUBLIC_TO_SOURCE[path] || path) : path);
   const dir = mkdtempSync(join(tmpdir(), 'youge-precache-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const git = (...args) =>
@@ -39,10 +48,11 @@ function createKitRepo(t) {
   const repo = {
     dir,
     git,
-    read: (path) => readFileSync(join(dir, path), 'utf8'),
+    sourcePath,
+    read: (path) => readFileSync(join(dir, sourcePath(path)), 'utf8'),
     write(path, content) {
-      mkdirSync(dirname(join(dir, path)), { recursive: true });
-      writeFileSync(join(dir, path), content);
+      mkdirSync(dirname(join(dir, sourcePath(path))), { recursive: true });
+      writeFileSync(join(dir, sourcePath(path)), content);
     },
     append(path, text) {
       repo.write(path, repo.read(path) + text);
@@ -66,7 +76,7 @@ function createKitRepo(t) {
     check: (options = {}) => runPrecacheIntegrity({ root: dir, baseRef: 'main', ...options }),
   };
   for (const path of [...PRECACHED, ...KIT_VERSION_FILES, ...WORKER_FILES, 'manifest-handler.js']) {
-    cpSync(resolveSourcePath(root, path), join(dir, path), { recursive: true });
+    cpSync(resolveSourcePath(root, path), join(dir, sourcePath(path)), { recursive: true });
   }
   repo.write('README.md', '# Fixture\n');
   repo.write('tests/sample.test.mjs', '// sample\n');
@@ -393,4 +403,38 @@ test('the CLI exits non-zero with the report on failure and zero with a one-line
 test('this repository itself passes the gate against its merge base when history is available', async () => {
   const result = await runPrecacheIntegrity({ root });
   assert.notEqual(result.status, 'fail', result.report);
+});
+
+/* ------------------------------------------------------------------ *
+ * Base-commit path resolution after the source/output split.
+ *
+ * The public runtime is served from the repository root but its sources live
+ * under `src/`. A base commit must be read through `scripts/source-paths.mjs`;
+ * otherwise every public path looks absent at the base and the gate degrades
+ * to "diff skipped", silently dropping the version rule.
+ * ------------------------------------------------------------------ */
+
+test('a base commit that stores runtime sources under src/ is diffed through the source-path mapping', async (t) => {
+  const repo = createKitRepo(t, { layout: 'source' });
+  assert.equal(repo.sourcePath('assistant-widget.js'), 'src/assistant/assistant-widget.js');
+
+  repo.append('assistant-widget.js', '\n// capability enforcement\n');
+  repo.commit('change a precached asset');
+
+  const result = await repo.check();
+
+  assert.equal(result.status, 'fail', result.report);
+  assert.deepEqual(result.changes.map((change) => [change.path, change.kind]), [['assistant-widget.js', 'modified']]);
+});
+
+test('a source-layout base with no precached change still passes without a bump', async (t) => {
+  const repo = createKitRepo(t, { layout: 'source' });
+  repo.append('README.md', '\nMore docs.\n');
+  repo.append('pwa.js', '\n// the page client is never precached\n');
+  repo.commit('docs and a non-precached client change');
+
+  const result = await repo.check();
+
+  assert.equal(result.status, 'pass', result.report);
+  assert.deepEqual(result.changes, []);
 });

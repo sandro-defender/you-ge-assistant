@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-import { YouGeAssistant, createChromeHandoff } from '@youge/assistant-sdk';
+import { YouGeAssistant, capabilityForAction, createChromeHandoff } from '@youge/assistant-sdk';
 import {
   FALLBACK_ASSISTANT_STATE,
   dispatchAssistantAction,
@@ -110,6 +110,20 @@ const NOTICE_ACTION_LABELS = {
  * as urgent. */
 const ACTIONABLE_TONES = new Set(['critical', 'auth', 'install']);
 
+/* Capability enforcement (CD-1). The SDK publishes `state.capabilities` and the
+ * action -> capability mapping, so this renderer never re-implements the policy:
+ * a disabled capability has no section, no quick action and no notice action. */
+function capabilityEnabled(state, name) {
+  const capabilities = state && state.capabilities;
+  if (!capabilities) return true;
+  return capabilities[name] !== false;
+}
+
+function actionEnabled(state, id, kind) {
+  const capability = capabilityForAction(id, kind);
+  return !capability || capabilityEnabled(state, capability);
+}
+
 function noticeActionLabel(state, notice) {
   const match = (state.availableActions || []).find((action) => action.id === notice.actionId);
   if (match && match.label) return match.label;
@@ -218,6 +232,7 @@ function AssistantFloatingWidget() {
   const network = state.network || fallbackState.network;
   const installation = state.installation || fallbackState.installation;
   const project = state.project || fallbackState.project;
+  const capabilities = state.capabilities || fallbackState.capabilities;
   const extraActions = (state.availableActions || []).filter(
     (action) => action.id !== 'diagnostics' && action.id !== 'install'
   );
@@ -298,7 +313,7 @@ function AssistantFloatingWidget() {
           <div className="assistant-status-grid" role="group" aria-label="Connection status">
             <span><i className={`connection-dot${network.online === false ? ' is-offline' : ''}`} aria-hidden="true" />{network.online === false ? 'Offline' : 'Online'}</span>
             <span>Primary: {network.endpoints?.primary || 'unknown'}</span>
-            <span>Backup: {network.endpoints?.backup || 'inactive'}</span>
+            {capabilities.failover !== false ? <span>Backup: {network.endpoints?.backup || 'inactive'}</span> : null}
             <span>DNS: {(network.dns?.classification || 'not checked').replace(/_/g, ' ')}</span>
           </div>
           {network.dns?.status === 'running' ? (
@@ -330,17 +345,19 @@ function AssistantFloatingWidget() {
                     <p>{notice.message}</p>
                   </div>
                   <div className="assistant-notice-controls">
-                    <button
-                      type="button"
-                      {...(notice.actionId === 'install'
-                        ? { 'data-pwa-install': '' }
-                        : notice.actionId === 'diagnostics'
-                          ? { 'data-pwa-diagnostics': '' }
-                          : {})}
-                      onClick={() => dispatchWidgetAction(notice.actionId || notice.id, 'notice')}
-                    >
-                      {noticeActionLabel(state, notice)}
-                    </button>
+                    {notice.actionId && actionEnabled(state, notice.actionId) ? (
+                      <button
+                        type="button"
+                        {...(notice.actionId === 'install'
+                          ? { 'data-pwa-install': '' }
+                          : notice.actionId === 'diagnostics'
+                            ? { 'data-pwa-diagnostics': '' }
+                            : {})}
+                        onClick={() => dispatchWidgetAction(notice.actionId || notice.id, 'notice')}
+                      >
+                        {noticeActionLabel(state, notice)}
+                      </button>
+                    ) : null}
                     {notice.critical ? (
                       <button type="button" onClick={() => YouGeAssistant.attach().acknowledge(notice.id)}>Acknowledge</button>
                     ) : (
@@ -355,16 +372,18 @@ function AssistantFloatingWidget() {
           )}
         </div>
 
-        <button
-          className="assistant-panel-action"
-          type="button"
-          data-pwa-diagnostics
-          onClick={() => { dispatchWidgetAction('diagnostics', 'diagnostics'); closePanel(true); }}
-        >
-          <span aria-hidden="true">⌁</span>
-          <span><strong>Network diagnostics</strong><small>Check this connection on demand</small></span>
-          <span className="assistant-action-arrow" aria-hidden="true">→</span>
-        </button>
+        {capabilities.diagnostics !== false ? (
+          <button
+            className="assistant-panel-action"
+            type="button"
+            data-pwa-diagnostics
+            onClick={() => { dispatchWidgetAction('diagnostics', 'diagnostics'); closePanel(true); }}
+          >
+            <span aria-hidden="true">⌁</span>
+            <span><strong>Network diagnostics</strong><small>Check this connection on demand</small></span>
+            <span className="assistant-action-arrow" aria-hidden="true">→</span>
+          </button>
+        ) : null}
         {installation.status === 'available' ? (
           <button
             className="assistant-panel-action"

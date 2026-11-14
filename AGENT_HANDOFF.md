@@ -2,44 +2,121 @@
 
 **Last updated:** 2026-11-14
 **Repository:** `sandro-defender/you-ge-assistant`
-**Verified base:** `main` / PR #38 merge `42e9a3ab0b204804cba5ab37ad6696e868ec4bbe`
-**Branch:** `arena/abdd374a-you-ge-assistant` (active)
-**PR:** #39 — Deep Repository Structure Cleanup: Separate Runtime Source from Published Assets (this branch; keep open for owner review)
-**Working tree:** clean at the current PR #39 branch tip; PR changes are pushed.
-**Versions:** kit `1.2.0`; `@youge/assistant-sdk` `0.2.0`.
+**Base:** `main` @ `2e19830` (PR #39 merge)
+**Branch:** `arena/bc1478a5-you-ge-assistant` (active)
+**PR:** #40 — "CD-1 — Module capability enforcement" (open, **draft**, awaiting
+owner review; **do not merge**)
+**Working tree:** clean at the branch tip; everything pushed.
+**Versions:** kit **`1.2.1`**; `@youge/assistant-sdk` **`0.2.0`** (unchanged).
 
-Permanent development and layout rules live in [`AGENTS.md`](AGENTS.md). The full root inventory, source/output separation, and compatibility rationale are in [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md).
+Permanent development and layout rules live in [`AGENTS.md`](AGENTS.md). The
+CD-1 audit, enforcement architecture, activation-path inventory, test matrix and
+verification evidence are in
+[`docs/architecture/CAPABILITY_ENFORCEMENT.md`](docs/architecture/CAPABILITY_ENFORCEMENT.md).
 
-## PR #39 — Deep Repository Structure Cleanup
+## CD-1 status: implemented and complete
 
-Structural-only changes on this branch:
+`modules.diagnostics`, `modules.recovery`, `modules.failover` and `modules.help`
+are enforced capabilities rather than advisory UI flags.
 
-- **Root cleanup:** Reduced root files from **29** to **11** essential files (`.editorconfig`, `.gitattributes`, `.gitignore`, `AGENTS.md`, `AGENT_HANDOFF.md`, `CHANGELOG.md`, `LICENSE`, `NEXT_AGENT_PROMPT.md`, `PARITY.md`, `README.md`, `package.json`).
-- **Organized source directories:**
-  - `src/runtime/`: `pwa.js`, `pwa.css`, `you-ge-sw.js`, `progressier.js`
-  - `src/assistant/`: `assistant-state.js` (generated from `packages/assistant-sdk/src/` via `npm run sync:sdk`), `assistant-widget.js`, `assistant-widget.css`
-  - `src/domain/`: `domain-config.js`, `domain-registry.js`, `dns-diagnostics.js`, `manifest-handler.js`
-  - `src/offline/`: `offline.html`, `offline.css`, `offline.js`
-  - `src/shared/`: `qrcode.js`
-  - `public/`: `browserconfig.xml`, `favicon.ico`, `manifest.webmanifest`
-- **Source-to-output separation:**
-  - `scripts/source-paths.mjs` maps public root paths to `src/` and `public/`.
-  - `scripts/build.mjs` (`npm run build`) assembles `dist/` (gitignored) with all 18 runtime/public files and `icons/` at their exact original root URLs.
-  - `scripts/assemble-pages.mjs` provides shared GitHub Pages assembly for both `.github/workflows/pages.yml` and automated Pages assembly tests.
-  - `examples/example/vite.config.js` serves the shared runtime from `src/` and `public/` in local dev.
-- `PARITY.md` and `reference/` are preserved. No runtime implementation, product behavior, kit version (`1.2.0`), SDK version (`0.2.0`), or public URLs changed.
+**Enforcement architecture**
 
-## Completed work — PR #38 (historical)
+- `packages/assistant-sdk/src/core/capabilities.js` is the single policy: gated
+  names, action/notice → capability map, `isCapabilityEnabled`,
+  `capabilityForAction`, `isActionAllowed`, `gateActions`, `gateNotification(s)`,
+  `capabilitiesRecord`. It is bundled into the generated `assistant-state.js`
+  and exposed as `YouGeAssistantSDK.*` for classic renderers.
+- Assistant API boundary: `runDiagnostics()` refuses a disabled capability (no
+  runner), `buildActions()` gates built-in **and** project-supplied actions,
+  `buildNotifications()` gates notices, `state.capabilities` comes from
+  `capabilitiesRecord()`, and `isCapabilityEnabled(name)` is a new read-only
+  method.
+- Diagnostics adapter takes a live `isEnabled` predicate, re-checks it before the
+  runner starts and before publishing, and `configure()` aborts an in-flight run
+  when diagnostics is disabled (async/init-order safety).
+- Renderers: `assistant-widget.js` and `examples/example/src/main.jsx` render
+  and dispatch only through the policy; the widget re-checks at click time.
+- Runtime backstop: `pwa.js` (`runNetworkDiagnostics` / `showNetworkDiagnostics`
+  / `[data-pwa-diagnostics]`), `dns-diagnostics.js` (the Cloudflare DoH
+  transport) and `offline.js` consult
+  `window.YouGeAssistant.isCapabilityEnabled('diagnostics')` and make **no**
+  request while disabled; they fail open when no Assistant is present.
 
-PR #38 (merged at `42e9a3ab0b204804cba5ab37ad6696e868ec4bbe`) grouped root documentation into `docs/` and examples into `examples/` (`demo/`, `example/`, `push-server/`), reducing root files from 46 to 29.
+**Activation paths audited (13):** public SDK API, generated + project actions,
+notifications and their action links, DOM/React renderers, delegated toolkit
+hooks, `youge:action` / `pwa:diagnostics` / session / endpoint events, toolkits,
+DoH engine, offline shell, reconfiguration and in-flight async runs.
 
-## Deferred work / known risks
+**Generated bundle:** `src/assistant/assistant-state.js` is produced only by
+`npm run sync:sdk`; `--check` reports in sync.
 
-- Do not implement CD-1 (or any other audit item) in PR #39. CD-1 capability enforcement remains the next planned implementation task after PR #39 is reviewed and merged.
-- CD-1 touches precached runtime files. Before implementation, consult [`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) and obtain owner authorization for any required kit version bump (current kit `1.2.0`). Never bypass the integrity gate.
-- SDK publishing remains deferred (`@youge/assistant-sdk` stays `0.2.0`).
-- No live browser or live GitHub Pages deployment test was performed; Pages verification is local artifact assembly via `scripts/assemble-pages.mjs`.
+## Kit version bump (owner-authorized) — applied
+
+CD-1 changes four precached assets, so the diff-aware precache gate required a
+synchronized kit bump. The owner authorized `1.2.0 → 1.2.1`, kit only:
+
+| Location | Value |
+| --- | --- |
+| `src/runtime/you-ge-sw.js` | `const VERSION = '1.2.1'` |
+| `src/runtime/pwa.js` | `PWA.version: '1.2.1'` |
+| `package.json` | `"version": "1.2.1"` |
+| `packages/assistant-sdk/src/core/constants.js` | `KIT_COMPAT_VERSION = '1.2.1'` |
+| `src/assistant/assistant-state.js` | regenerated (`npm run sync:sdk`) |
+| `packages/assistant-sdk/package.json` | **`0.2.0` — unchanged** |
+
+Gate result:
+
+```
+precache integrity: 4 of 13 precached assets changed (assistant-state.js,
+assistant-widget.js, dns-diagnostics.js, offline.js) since 2e19830;
+kit version 1.2.0 → 1.2.1 synchronized
+```
+
+Current-version references updated: `AGENTS.md` (runtime version line, also
+asserted by `tests/identity-migration.test.mjs`), worker version + cache names +
+gate summary in that same file, kit pin in `tests/example-theme.test.mjs`,
+`KIT_COMPAT_VERSION` in `packages/assistant-sdk/tests/sdk-core.test.mjs`, plus
+the current-state lines in `PRECACHE_INTEGRITY.md` (§1, §9),
+`MULTI_DOMAIN.md`, `COMPATIBILITY_CONTRACTS.md`, `REPOSITORY_STRUCTURE.md`,
+SDK `MIGRATION.md`/`RELEASE.md`, and a new `CHANGELOG.md` `1.2.1 (kit)` section.
+Historical `1.2.0` records were left intact, and no gate rule was weakened,
+skipped or bypassed.
+
+## Verification (2026-11-14, local)
+
+| Check | Result |
+| --- | --- |
+| `npm test` | **537 pass / 0 fail** |
+| `npm run test:sdk` | 128 pass / 0 fail |
+| CD-1 suites (`sdk-capabilities`, `capability-enforcement`, `assistant-widget`) | 90 pass / 0 fail |
+| `npm run check` | passed (static contracts + package validation + 537 tests) |
+| `npm run check:precache` | passed (see gate result above) |
+| `npm run sync:sdk -- --check` | in sync |
+| `npm run build` | 18 runtime/public files + `icons/` |
+| `validate-package.mjs`, `npm pack --dry-run` | passed (`0.2.0`, 24 files, publishing disabled) |
+| `examples/example` typecheck + build | passed |
+| `git diff --check` | clean |
+| `npm run verify` | not run — requires a deployed URL; nothing was deployed |
+
+## Compatibility notes
+
+- Defaults unchanged: omitted/partial/null `modules` → every capability enabled.
+- `state.capabilities` shape unchanged; additive API only.
+- Opt-out configs only: with an Assistant present and `modules.diagnostics:
+  false`, the *toolkit's* on-demand diagnostics also refuse to run
+  (`classification: 'disabled'`). Documented in README, WIDGET.md, SDK README.
+- Installed apps move to `…:static:v1.2.1` / `…:pages:v1.2.1`; `1.2.0` caches
+  retire on activation.
+
+## Not done / deliberately untouched
+
+- No npm publish, no tag, no GitHub release, no deployment, no merge.
+- `@youge/assistant-sdk` stays `0.2.0`; publishing remains deferred.
+- `npm run verify` (live deployment verification) not performed.
+- No other audit item was started.
 
 ## Next action
 
-Owner review of PR #39 (`arena/abdd374a-you-ge-assistant`). Leave PR #39 open; do not merge, release, tag, deploy, or start CD-1.
+Owner review of PR #40. The implementation is complete and every local gate is
+green; the only open items are the owner's merge decision and the separate
+SDK release line.

@@ -2518,12 +2518,40 @@
     return flow;
   }
 
+  /**
+   * Assistant capability gateway.
+   *
+   * The floating Assistant delegates its diagnostics button to this toolkit
+   * (`[data-pwa-diagnostics]`), so hiding that button is not enforcement: the
+   * same code path is reachable through `PWA.runNetworkDiagnostics()`, a
+   * delegated click or a host script. When an Assistant is on the page and its
+   * project disabled `modules.diagnostics`, the toolkit must refuse as well.
+   *
+   * Deliberately fails open: without an Assistant (toolkit-only deployments),
+   * or with a broken Assistant global, nothing changes.
+   */
+  function assistantCapabilityEnabled(capability) {
+    try {
+      var assistant = window.YouGeAssistant;
+      if (assistant && typeof assistant.isCapabilityEnabled === 'function') {
+        return assistant.isCapabilityEnabled(capability) !== false;
+      }
+    } catch (error) { /* a broken Assistant must never break the toolkit */ }
+    return true;
+  }
+
   function runNetworkDiagnostics(options) {
     options = options || {};
     if (config.features && config.features.diagnostics === false) {
       return Promise.resolve({
         hostname: domainConfig.domain.hostname, classification: 'disabled', status: 'disabled',
         message: 'Network diagnostics are disabled for this domain.',
+      });
+    }
+    if (!assistantCapabilityEnabled('diagnostics')) {
+      return Promise.resolve({
+        hostname: domainConfig.domain.hostname, classification: 'disabled', status: 'disabled',
+        message: 'Network diagnostics are disabled for this project.',
       });
     }
     if (!window.YouGeDns || typeof window.YouGeDns.check !== 'function') {
@@ -2548,6 +2576,8 @@
   function showNetworkDiagnostics() {
     if (document.querySelector('[data-pwa-diagnostics-dialog]')) return document.querySelector('[data-pwa-diagnostics-dialog]');
     if (config.features && config.features.diagnostics === false) return null;
+    // No dialog, and therefore no request, for a disabled capability.
+    if (!assistantCapabilityEnabled('diagnostics')) return null;
 
     var flow = make('div', 'pwa-flow pwa-network-diagnostics');
     flow.setAttribute('data-pwa-diagnostics-dialog', '');
@@ -3397,7 +3427,7 @@
   var PWA = {
     __pwaKit: true,
     __youGePwaKit: true,
-    version: '1.2.0',
+    version: '1.2.1',
     config: config,
 
     // install

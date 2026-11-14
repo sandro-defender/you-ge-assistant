@@ -3,6 +3,7 @@ import type {
   AssistantActionIcon,
   AssistantActionInput,
   AssistantBrandingConfig,
+  AssistantCapabilityName,
   AssistantConfigInput,
   AssistantConfigMeta,
   AssistantFeature,
@@ -83,6 +84,7 @@ export type {
   AssistantActionIcon,
   AssistantActionInput,
   AssistantBrandingConfig,
+  AssistantCapabilityName,
   AssistantConfigInput,
   AssistantConfigMeta,
   AssistantFeature,
@@ -304,6 +306,12 @@ export interface AssistantInstance {
   setDnsResult(result: Record<string, unknown>): AssistantState;
   setUpdateAvailable(available?: boolean): AssistantState;
   runDiagnostics(options?: DiagnosticsRunOptions): Promise<Record<string, unknown>>;
+  /**
+   * Read-only capability check against the current resolved configuration.
+   * Renderers and toolkit integrations use it so a disabled capability is not
+   * actionable, even through a delegated or indirect code path.
+   */
+  isCapabilityEnabled(capability: AssistantCapabilityName | string): boolean;
   requestInstall(options?: Record<string, unknown>): Promise<{ outcome: string }>;
   applyUpdate(): Promise<AssistantUpdateResult>;
   dismiss(id: string): boolean;
@@ -392,6 +400,7 @@ export {
 export {
   cancelledDiagnosticsResult,
   connectivityFailure,
+  disabledDiagnosticsResult,
   createDiagnosticsIntegration,
   dnsFailure,
   isCancelledResult,
@@ -444,6 +453,33 @@ export {
   detectInAppBrowser,
   isChromeHandoffCandidate,
 } from './browser/index.js';
+
+/* ------------------------------------------------------------------ *
+ * Module capability enforcement (CD-1)
+ * ------------------------------------------------------------------ */
+
+/** The capabilities the SDK gated and enforces. */
+export declare const GATED_CAPABILITIES: readonly AssistantCapabilityName[];
+/** Is `capability` enabled in a resolved `modules` record? Default: enabled. */
+export declare function isCapabilityEnabled(
+  modules: Partial<AssistantModulesConfig> | null | undefined,
+  capability: AssistantCapabilityName | string
+): boolean;
+/** Capability an action id (or action object) belongs to, or `null`. */
+export declare function capabilityForAction(
+  actionOrId: string | { id?: string; kind?: string },
+  kind?: string
+): AssistantCapabilityName | null;
+/** Is the action allowed by `modules`? */
+export declare function isActionAllowed(
+  modules: Partial<AssistantModulesConfig> | null | undefined,
+  actionOrId: string | { id?: string; kind?: string },
+  kind?: string
+): boolean;
+/** The published `state.capabilities` record. */
+export declare function capabilitiesRecord(
+  modules: Partial<AssistantModulesConfig> | null | undefined
+): AssistantModulesConfig;
 
 export declare const NOTIFICATION_LEVEL_MAP: Readonly<Record<string, NotificationLevel>>;
 export declare function notificationLevel(id?: string, priority?: number): NotificationLevel;

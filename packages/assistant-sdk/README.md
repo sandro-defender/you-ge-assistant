@@ -377,6 +377,30 @@ its explicit state. When that state becomes false, stale Assistant notification
 and action state clears. Repeated identical updates do not emit duplicate state
 snapshots or notifications.
 
+### Module capability enforcement
+
+`modules.diagnostics`, `modules.recovery`, `modules.failover` and `modules.help`
+are enforced capabilities (`core/capabilities.js` is the single policy, exported
+as `GATED_CAPABILITIES`, `isCapabilityEnabled()`, `capabilityForAction()`,
+`isActionAllowed()`, `capabilitiesRecord()` and `disabledDiagnosticsResult()`):
+
+| Flag `false` | What stops working |
+| --- | --- |
+| `modules.diagnostics` | `runDiagnostics()` resolves `{ status: 'disabled' }` without starting any runner (including an application-owned `services.diagnostics`); the `diagnostics` action, its notice links and the live DNS pipeline follow. Disabling it mid-run aborts the run and discards the late result. |
+| `modules.recovery` | The `recovery` action and every recovery entry point. |
+| `modules.failover` | The `backup-status` action, the `api:backup-active` notice and failover UI. Endpoint state reported by the host is still recorded. |
+| `modules.help` | Help actions on notices and project-supplied actions with `kind: 'help'` (or a gated id). The underlying session condition is still reported. |
+
+Enforcement happens at the API boundary, in generated actions *and*
+project-supplied `configure({ actions })` entries, in notifications (a notice
+that merely links to a gated action keeps its content and loses its action) and
+in the React adapter's `dispatchAction()` (it returns
+`{ disabled: true, capability }` instead of dispatching `youge:action`). Renderers
+read `state.capabilities` and may call `assistant.isCapabilityEnabled(name)`.
+Omitted flags keep the documented `true` default, so no configuration needs to
+change. See
+[`../../docs/architecture/CAPABILITY_ENFORCEMENT.md`](../../docs/architecture/CAPABILITY_ENFORCEMENT.md).
+
 `modules.updates: false` gates the Assistant update notification, update action,
 and `assistant.applyUpdate()` (which returns `disabled`). It does not disable
 the toolkit's independent PWA prompt or service-worker machinery. Apply through
@@ -407,11 +431,12 @@ without replacing the instance.
 | `setSessionStatus(detail)` | `({ state, message }) => AssistantState` | Reports `'unknown' \| 'ok' \| 'issue'` session condition from the host app's own auth layer. |
 | `setDnsResult(result)` | `(object) => AssistantState` | Records normalized DNS diagnostic status (`classification`, `message`, `checkedAt`). |
 | `setUpdateAvailable(flag?)` | `(boolean) => AssistantState` | Marks a waiting service worker update ready to apply. |
-| `runDiagnostics(opts?)` | `({ signal? }) => Promise<object>` | Single-flight on-demand diagnostics delegating to `services.diagnostics` → `window.PWA.runNetworkDiagnostics` → `window.YouGeDns.check`. Never polls automatically. An optional `AbortSignal` cancels the run: it resolves `{ status: 'cancelled', cancelled: true, failed: false }` and raises no connectivity or DNS notice. `destroy()` aborts any run still in flight. |
+| `runDiagnostics(opts?)` | `({ signal? }) => Promise<object>` | Single-flight on-demand diagnostics delegating to `services.diagnostics` → `window.PWA.runNetworkDiagnostics` → `window.YouGeDns.check`. Resolves `{ status: 'disabled' }` and starts nothing when `modules.diagnostics` is false. Never polls automatically. An optional `AbortSignal` cancels the run: it resolves `{ status: 'cancelled', cancelled: true, failed: false }` and raises no connectivity or DNS notice. `destroy()` aborts any run still in flight. |
 | `requestInstall(opts?)` | `() => Promise<{ outcome: string }>` | Delegates installation to `window.PWA.promptInstall()`. Never registers a second install flow or service worker. |
 | `applyUpdate()` | `() => Promise<AssistantUpdateResult>` | Respects `modules.updates !== false` and delegates to `window.PWA.applyUpdate()`. Returns `{ applied, outcome }` (`'applied'`, `'no-waiting-worker'`, `'unsupported'`, `'disabled'`, `'error'`) and clears stale `updateAvailable` state when no waiting worker remains. |
 | `dismiss(id)` | `(string) => boolean` | Dismisses a non-critical notification for the active `projectId`. Automatically resets once the underlying condition clears. |
 | `acknowledge(id)` | `(string) => boolean` | Acknowledges a critical notification while keeping the condition visible in diagnostics. |
+| `isCapabilityEnabled(name)` | `(string) => boolean` | Live check against the resolved configuration for `diagnostics`, `recovery`, `failover` and `help` (other names report `true`). Renderers and toolkit integrations use it instead of reading config. |
 | `isDestroyed()` | `() => boolean` | Returns `true` after `destroy()` has been called. |
 | `destroy()` | `() => void` | Removes all `window`/`document` event listeners, unsubscribes from `PWA.onChange`, and clears subscribers. |
 

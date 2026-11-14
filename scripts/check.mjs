@@ -821,6 +821,27 @@ const afterOnState = assistantWidget.split('function onState')[1] || '';
 contract(!/openPanel\(\s*\);/.test(afterOnState), 'state updates never auto-open the panel');
 contract(/Escape/.test(assistantWidget) && /aria-expanded/.test(assistantWidget) && /aria-controls/.test(assistantWidget) && /setAttribute\('role', 'status'\)/.test(assistantWidget), 'widget supports Escape, expanded state, controls and a live region');
 contract(/data-pwa-install/.test(assistantWidget) && /data-pwa-diagnostics/.test(assistantWidget), 'install/diagnostics actions delegate to existing pwa.js instead of issuing duplicate prompts');
+contract(
+  /state\.capabilities/.test(assistantWidget) && /capabilityForAction/.test(assistantWidget) &&
+    /actionEnabled\(api\.getState\(\)/.test(assistantWidget),
+  'CD-1: the widget renders and activates gated actions only through the SDK capability policy'
+);
+contract(
+  /isCapabilityEnabled/.test(client) && /assistantCapabilityEnabled\(.diagnostics.\)/.test(client),
+  'CD-1: pwa.js refuses toolkit diagnostics while the Assistant disables the capability'
+);
+contract(
+  /isCapabilityEnabled/.test(readFileSync(at('dns-diagnostics.js'), 'utf8')),
+  'CD-1: the Cloudflare DoH transport itself refuses a disabled diagnostics capability'
+);
+contract(
+  /isCapabilityEnabled/.test(offlineJsSource),
+  'CD-1: the offline shell refuses a disabled diagnostics capability'
+);
+contract(
+  /capabilityForAction/.test(mainJsxSource) && /capabilities\.diagnostics/.test(mainJsxSource),
+  'CD-1: the React renderer gates diagnostics and notice actions through the SDK capability policy'
+);
 contract(/position: fixed/.test(assistantStyles) && /env\(safe-area-inset/.test(assistantStyles) && /prefers-reduced-motion/.test(assistantStyles) && /min-height: 44px/.test(assistantStyles) && /max-width: 480px/.test(assistantStyles), 'widget CSS covers fixed placement, safe areas, reduced motion, 44px targets and mobile viewport');
 contract(/position:\s*'bottom-left'/.test(demoHtmlSource) && /data-toolbox/.test(demoHtmlSource), 'playground places the Assistant away from the existing install toolbox');
 contract(/assistant-state\.js/.test(exampleHtmlSource2) && /YOU_GE_ASSISTANT_CONFIG/.test(exampleHtmlSource2), 'React example initializes the centralized state before rendering');
@@ -877,6 +898,12 @@ contract(sdkPkg.version === '0.2.0' && sdkPkg.private !== true, 'SDK package is 
 contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
 contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
 contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
+contract(
+  /export const GATED_CAPABILITIES/.test(readFileSync(at('packages/assistant-sdk/src/core/capabilities.js'), 'utf8')) &&
+    /capabilities: capabilitiesRecord\(config\.modules\)/.test(sdkAssistantSource) &&
+    /isActionAllowed\(config\.modules, action\)/.test(sdkAssistantSource),
+  'CD-1: the SDK enforces the four module capabilities from one policy module (actions, notices, state)'
+);
 contract(mainJsxSource.includes('@youge/assistant-sdk'), 'React example consumes @youge/assistant-sdk directly');
 contract(designSource.includes('## 9. Phase 2 — `@youge/assistant-sdk`'), 'DESIGN_FOUNDATION.md records Phase 2 skill application');
 
