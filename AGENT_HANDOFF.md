@@ -5,7 +5,7 @@
 **Base branch / commit:** `main` @ `fe1854ba1cfbe08de5fed98df1280e93d2880762` (PR #26 merged 2026-11-14 03:30:48 UTC)
 **Active branch:** `arena/fb910a3c-you-ge-assistant`
 **Stage 3 implementation commit:** `1fe4aba` (`fix(diagnostics): synchronize state and support cancellation`)
-**Branch head:** `c16c454` (docs-only handoff commits on top of `1fe4aba`; see `git log --oneline -4`)
+**Branch head:** docs-only handoff commits on top of `1fe4aba` (see `git log --oneline -4`)
 
 ---
 
@@ -13,7 +13,7 @@
 
 - **Working tree:** clean; the branch holds the Stage 3 implementation commit plus the docs-only handoff commit.
 - **Open PR:** **#27** — `fix(diagnostics): synchronize state and support cancellation` (`arena/fb910a3c-you-ge-assistant` → `main`). Not merged; no release/publish/version change.
-- **CI on PR #27:** `static` (check workflow) — **pass** on every pushed head (`a400320` run `43554111619`, 32s; `57ed4ac` run `43554169363`, 34s; `c16c454` run `43554232349`, 18s). `gh pr checks 27` reported `no checks reported` immediately at PR creation and only triggered once a commit was pushed onto the branch.
+- **CI on PR #27:** `static` (check workflow) — **pass** on every pushed head (`a400320` run `43554111619`, 32s; `57ed4ac` run `43554169363`, 34s; `c16c454` run `43554232349`, 18s; `8b83cef` run `43554300591`, 28s). `gh pr checks 27` reported `no checks reported` immediately at PR creation and only triggered once a commit was pushed onto the branch.
 - **Merged predecessors:**
   - **Phase 2 — Stage 2** (PR #26, `arena/976df00e-you-ge-assistant`, merge `fe1854b`): probe path hardening + local host handling.
   - **Phase 2 — Stage 1** (PR #25, `arena/8464c385-you-ge-assistant`, merge `ee83c0e`): TypeScript contract alignment + `PHASE2_IMPLEMENTATION_PLAN.md`.
@@ -68,7 +68,7 @@ All four Stage 3 items from `PHASE2_IMPLEMENTATION_PLAN.md` §3 are implemented,
 - `node packages/assistant-sdk/scripts/validate-package.mjs`: **PASS** (exit 0, `@youge/assistant-sdk@0.2.0`, release gates intact, publishing still disabled).
 - `git diff --check`: **PASS** (exit 0).
 - Declaration/public-surface tests (`packages/assistant-sdk/tests/sdk-declarations.test.mjs`): **PASS** (3/3).
-- CI on PR #27: `static` — **pass** on heads `a400320` (run `43554111619`), `57ed4ac` (run `43554169363`) and `c16c454` (run `43554232349`).
+- CI on PR #27: `static` — **pass** on heads `a400320` (run `43554111619`), `57ed4ac` (run `43554169363`) `c16c454` (run `43554232349`) and `8b83cef` (run `43554300591`).
 - **Not run locally:** `tsc --noEmit` (no `tsc`, `example/node_modules` absent), `example/` typecheck/build, `npm run verify <url>` (needs a deployed URL).
 
 ---
