@@ -25,7 +25,7 @@ TDD: the new D3 and D6 tests were added first and observed failing on the pre-fi
 - `npm run check` (static checks + package validation + full suite): **390 passed, 0 failed**, exit 0.
 - `node scripts/sync-sdk-browser.mjs --check`: in sync. `node packages/assistant-sdk/scripts/validate-package.mjs`: passed (`0.2.0`, publishing still disabled). `git diff --check`: clean.
 - Example (`example/`): `npm ci`, `npm run typecheck`, `npm run build` all passed. The SDK subpath declarations were also checked with the example's `tsc --noEmit --strict` over `src/diagnostics/index.d.ts` and `src/index.d.ts`.
-- CI: the `check` workflow passed on PR #32's implementation head `a12ba69` (`static` job, 22s). The subsequent handoff commit triggers a fresh run — consult PR checks for the current head rather than treating that result as final.
+- CI: the `check` workflow passed on PR #32's implementation head `a12ba69` and again on the handoff head `e7a4ae1` (`static` job, 22s and 19s). Any later commit triggers a fresh run — consult PR checks for the current head rather than treating an earlier result as final.
 - No browser-level (VM/mock harnesses only) or live-deployment verification was performed. No dependency, version, release, publish or deployment change.
 
 ## Remaining / next action
