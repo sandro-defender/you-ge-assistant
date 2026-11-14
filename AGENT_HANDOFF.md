@@ -5,7 +5,7 @@
 **Verified base:** `main` / PR #37 merge `f7189e182ccaada85693ebb3373395a37982f515`
 **Branch:** `arena/4dc708a7-you-ge-assistant` (active)
 **PR:** #38 — Repository Structure & Organization (this branch; keep open for owner review)
-**Working tree:** PR #38 changes; preserve them.
+**Working tree:** clean at the current PR #38 branch tip; PR changes are pushed.
 **Versions:** kit `1.2.0`; `@youge/assistant-sdk` `0.2.0`.
 
 Permanent development and layout rules live in [`AGENTS.md`](AGENTS.md). The full pre-move root inventory, relocation rationale, compatibility decisions and target layout are in [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md).
@@ -38,7 +38,7 @@ Structural-only changes on this branch:
 - Clean example install `cd examples/example && npm ci`, `npm run typecheck`, and `npm run build` — **passed**. Vite printed the existing expected warnings for classic `<script>` runtime files that it does not bundle.
 - Pages workflow-equivalent local assembly — **passed**; checked root and `/example/` output for runtime files, worker shim, manifests and icons. No real Pages deployment was performed.
 - Repository Markdown local-link check — **0 broken links**; `git diff --check` — **passed** after final documentation whitespace cleanup.
-- GitHub Actions CI — **pending** PR workflow run.
+- GitHub Actions CI (`check` workflow, PR #38 run `43642006363`) — **passed**; all static, example, SDK package, unit-test and manifest steps succeeded.
 
 ## Next action
 
