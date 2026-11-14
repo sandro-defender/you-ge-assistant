@@ -4,7 +4,7 @@
 **Repository:** `sandro-defender/you-ge-assistant`
 **Base:** `main` at `63c703e956d8eea197220cc0b491110335e5610b` (PR #34 merged)
 **Branch:** `arena/62503a48-you-ge-assistant` (active)
-**PR:** [#35](https://github.com/sandro-defender/you-ge-assistant/pull/35), open for owner review; do not merge.
+**PR:** [#35](https://github.com/sandro-defender/you-ge-assistant/pull/35). The owner reviewed it and explicitly requested the merge on 2026-11-14; this is the last commit before merging. If you are reading this on `main`, PR #35 is merged — confirm with `gh pr view 35 --json state,mergeCommit`.
 **Head:** code and product documentation end at `ad20ca7`; any later commit changes only these two handoff files. Query the live head with `gh pr view 35 --json headRefOid`.
 **CI:** statuses are per head. Query `gh pr checks 35`; do not rely on a result recorded here for a later commit.
 
@@ -15,7 +15,7 @@
 | Kit (`progressier.js` `VERSION`, `pwa.js` `PWA.version`, root `package.json`, SDK `KIT_COMPAT_VERSION`, generated `assistant-state.js`) | **`1.1.1`** | Bumped from `1.1.0` in `528e17f` with explicit owner authorization. |
 | SDK package (`packages/assistant-sdk/package.json`, `SDK_VERSION`) | **`0.2.0`** | Unchanged by instruction. The published `0.2.0` tarball reports `kitCompatVersion: '1.1.0'`; the repository source reports `1.1.1`. Informational constant, no code compares it. |
 
-No tag, release, publication, deployment or merge was performed. Further version changes need new owner authorization.
+No tag, release or publication was performed. Merging PR #35 (owner-requested) publishes `main` to GitHub Pages through `pages.yml`; no other deployment was performed. Further version changes need new owner authorization.
 
 ## Verified repository / PR state
 
@@ -47,7 +47,7 @@ Method and commands: `COMPATIBILITY_CONTRACTS.md` §4. 49 of 158 tracked files c
 ## Owner decisions still open
 
 1. **Classification choices to confirm.** `pwa.css` and `icons/icon-512.png` are required. For `pwa.css` this withdraws the file map's former "yes (unless `data-no-css`)" exception: a deployment that uses `data-no-css` or a custom `data-css` and does not ship `<scope>/pwa.css` keeps its `1.1.0` worker and stops updating until the file is deployed. The Assistant files are optional. Each is one `required:` flag in `PRECACHE_ASSETS` plus the matching list in `tests/support/service-worker-harness.mjs` and `PRECACHE_INTEGRITY.md` §3.
-2. **Merging #35 deploys.** `pages.yml` publishes `main` to GitHub Pages; existing installations then receive the `1.1.1` update as described above.
+2. **Merging #35 deploys** (accepted by the owner's merge request). `pages.yml` publishes `main` to GitHub Pages; existing installations then receive the `1.1.1` update as described above. The live site has not been verified in a browser.
 3. **Repository settings** still carry the old identity (not tracked files, not changed): description "Self-hosted, Progressier-compatible PWA kit…" and topic `progressier`. Suggested:
    `gh repo edit sandro-defender/you-ge-assistant --description "You.Ge Assistant: dependency-free multi-domain PWA toolkit and SDK — install UI, offline, sharing, push, badges, QR and diagnostics." --remove-topic progressier --add-topic you-ge-assistant`
 4. **`reference/` and `PARITY.md`** retirement or restructuring (separate approval; also needs edits to `scripts/check.mjs`).
@@ -83,4 +83,4 @@ Method and commands: `COMPATIBILITY_CONTRACTS.md` §4. 49 of 158 tracked files c
 
 ## Next action
 
-Wait for owner review of PR #35. Do not merge, publish, release, deploy, tag, change versions or start another roadmap stage.
+Confirm PR #35 is merged and that the post-merge `check` and `pages` runs on `main` passed (`gh run list --branch main --limit 4`). Then wait for owner direction on the open decisions above. Do not publish, release, tag, change versions or start another roadmap stage without it.
