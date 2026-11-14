@@ -2547,6 +2547,14 @@
           return runner(runOpts);
         })
         .then(function (result) {
+          // Disabled while the runner was in flight: the late result is dropped.
+          // Checked before cancellation, because disabling the capability aborts
+          // the owned controller too — the reason a run stopped is "disabled".
+          if (!enabled()) {
+            const disabled = disabledDiagnosticsResult();
+            if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
+            return disabled;
+          }
           // Once the run was cancelled, a late resolution is discarded: a
           // cancellation must never turn into a reported result.
           if (cancelled) {
@@ -2554,29 +2562,23 @@
             if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
             return stopped;
           }
-          // Disabled while the runner was in flight: the late result is dropped.
-          if (!enabled()) {
-            const disabled = disabledDiagnosticsResult();
-            if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
-            return disabled;
-          }
           const safeResult = result && typeof result === 'object' ? result : {};
           if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(safeResult);
           return safeResult;
         })
         .catch(function (error) {
+          // A capability disabled before or during the run is a state, not a
+          // failure and not a cancellation: it must not raise a critical notice.
+          if (!enabled() || (error && error.kind === 'disabled')) {
+            const disabled = disabledDiagnosticsResult();
+            if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
+            return disabled;
+          }
           // A run stopped by its own signal is a cancellation, never a failure.
           if (cancelled || (error && error.kind === 'cancelled')) {
             const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
             if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
             return stopped;
-          }
-          // A capability disabled before or during the run is a state, not a
-          // failure: it must not raise a critical connectivity notice.
-          if ((error && error.kind === 'disabled') || !enabled()) {
-            const disabled = disabledDiagnosticsResult();
-            if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
-            return disabled;
           }
           const failed = {
             classification: 'error',
@@ -3648,7 +3650,9 @@
     const diagnosticsController = createDiagnosticsIntegration({
       // Live gate for asynchronous safety: the adapter re-checks it before the
       // runner starts and before a result is published.
-      isEnabled: function () { return !destroyed && capabilityEnabled('diagnostics'); },
+      // Only the capability: `destroy()` already aborts its own run through
+      // `clear()`, and that aborted run must stay a cancellation.
+      isEnabled: function () { return capabilityEnabled('diagnostics'); },
       get services() { return services; },
       getPwa: getPwa,
       getDns: getDns,

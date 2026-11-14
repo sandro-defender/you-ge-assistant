@@ -14,6 +14,25 @@
   var IPV4_PATTERN = /^(?:\d{1,3}\.){3}\d{1,3}$/;
   var IPV6_BRACKET_PATTERN = /^\[[0-9a-f:.]+\]$/i;
 
+  /**
+   * Assistant capability backstop.
+   *
+   * The DoH transport is the single place where diagnostic network traffic is
+   * produced, so it is also the last line of enforcement: when the page's
+   * Assistant reports `modules.diagnostics: false`, no request is made even if
+   * a caller (a renderer, a delegated handler, an application script) reaches
+   * this engine directly. Fails open when no Assistant is present.
+   */
+  function assistantDiagnosticsDisabled() {
+    try {
+      var assistant = root.YouGeAssistant;
+      if (assistant && typeof assistant.isCapabilityEnabled === 'function') {
+        return assistant.isCapabilityEnabled('diagnostics') === false;
+      }
+    } catch (error) { /* a broken Assistant must never break the engine */ }
+    return false;
+  }
+
   function makeError(kind, message) {
     var error = new Error(message || kind);
     error.kind = kind;
@@ -342,11 +361,39 @@
       };
     }
 
+    function disabledResult(host, origin, online) {
+      return {
+        hostname: host,
+        origin: origin,
+        resolver: 'Cloudflare DNS (1.1.1.1)',
+        endpoint: ENDPOINT,
+        checkedAt: new Date().toISOString(),
+        classification: 'disabled',
+        status: 'disabled',
+        failed: false,
+        message: 'Network diagnostics are disabled for this project.',
+        online: online,
+        dohAvailable: false,
+        dohSkipped: false,
+        applicationHostAvailable: false,
+        possibleDnsInterference: false,
+        dns: [],
+        dnsErrors: [],
+        app: { ok: false, kind: 'disabled', status: null },
+        backend: null,
+      };
+    }
+
     function check(context, runOptions) {
       context = context || {};
       var optionsIn = runOptions && typeof runOptions === 'object' ? runOptions : {};
       var callerSignal = optionsIn.signal && typeof optionsIn.signal === 'object' ? optionsIn.signal : null;
       var host = String(context.hostname || '').toLowerCase().replace(/\.$/, '');
+      // Checked before any request, DNS lookup or probe is built.
+      if (assistantDiagnosticsDisabled()) {
+        return Promise.resolve(disabledResult(host, context.origin || (root.location && root.location.origin),
+          context.online !== false));
+      }
       if (callerSignal && callerSignal.aborted) {
         return Promise.resolve(cancelledResult(host, context.origin || (root.location && root.location.origin),
           context.online !== false, 'Diagnostics were cancelled before any request was made.'));

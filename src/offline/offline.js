@@ -43,9 +43,23 @@
   }
   if (currentDomain) currentDomain.textContent = window.location.hostname;
   if (retryLink) retryLink.href = workerBase;
+  // The Assistant (loaded before this script) is the authority for
+  // `modules.diagnostics`. Hiding its own button is not enforcement, so this
+  // probe checks the capability too and stays fail-open without an Assistant.
+  function assistantDiagnosticsEnabled() {
+    try {
+      var assistant = window.YouGeAssistant;
+      if (assistant && typeof assistant.isCapabilityEnabled === 'function') {
+        return assistant.isCapabilityEnabled('diagnostics') !== false;
+      }
+    } catch (error) { /* a broken Assistant must never break the offline shell */ }
+    return true;
+  }
+
   var recoveryGuide = document.getElementById('recoveryGuide');
   if (recoveryGuide && domainConfig && domainConfig.features.dnsRecovery === false) recoveryGuide.hidden = true;
   if (diagnosticsButton && domainConfig && domainConfig.features.diagnostics === false) diagnosticsButton.hidden = true;
+  if (diagnosticsButton && !assistantDiagnosticsEnabled()) diagnosticsButton.hidden = true;
   document.title = 'Offline — ' + (domainConfig && domainConfig.domain.configured
     ? domainConfig.identity.name
     : (document.documentElement.getAttribute('data-default-app-name') || 'You.Ge Assistant'));
@@ -92,6 +106,7 @@
 
   if (diagnosticsButton) {
     diagnosticsButton.addEventListener('click', function () {
+      if (!assistantDiagnosticsEnabled()) return;
       if (!window.YouGeDns || typeof window.YouGeDns.check !== 'function') {
         if (diagnosticsResult) diagnosticsResult.textContent = 'Diagnostics are unavailable. Check the connection and try again.';
         return;

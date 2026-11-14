@@ -117,7 +117,7 @@ behavior; they are outside CD-1 and unchanged.
 
 ## 6. Test coverage
 
-| Requirement | Test |
+| Requirement | Test (all behavioral) |
 | --- | --- |
 | Each capability independently disabled | `packages/assistant-sdk/tests/sdk-capabilities.test.mjs` |
 | All four disabled / all enabled | same |
@@ -130,6 +130,34 @@ behavior; they are outside CD-1 and unchanged.
 | No diagnostic network requests, incl. Cloudflare DoH | `tests/capability-enforcement.test.mjs` (counting `fetch`) |
 | Recovery/failover cannot be bypassed | `sdk-capabilities.test.mjs` + widget tests |
 | Help cannot be activated through another path | `sdk-capabilities.test.mjs` + widget tests |
+
+Files and counts:
+
+| File | Tests | Scope |
+| --- | --- | --- |
+| `packages/assistant-sdk/tests/sdk-capabilities.test.mjs` | 20 | policy, defaults, per-capability matrix, direct calls, indirect paths, async |
+| `tests/capability-enforcement.test.mjs` | 12 | real `pwa.js` / DoH / offline shell with a counting `fetch` |
+| `tests/assistant-widget.test.mjs` (CD-1 block) | 4 (58 in the file) | DOM renderer: rendering and click behavior |
+| `tests/example-ui.test.mjs` | 15 (updated import assertion) | React example contract |
+
+## 6.1 Verification evidence (2026-11-14, local)
+
+| Check | Result |
+| --- | --- |
+| `node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs` | **535 pass / 2 fail** — both failures are the precache gate demanding the unauthorized kit bump (§7) |
+| `node --test packages/assistant-sdk/tests/*.test.mjs` | 128 pass / 0 fail |
+| `node --test tests/*.test.mjs` | 407 pass / 2 fail (the same two gate tests) |
+| CD-1 capability suites (`sdk-capabilities`, `capability-enforcement`, `assistant-widget`) | 90 pass / 0 fail |
+| `node scripts/sync-sdk-browser.mjs --check` | in sync |
+| `node scripts/build.mjs` | 18 runtime/public files + `icons/` assembled |
+| `node packages/assistant-sdk/scripts/validate-package.mjs` | passed (`@youge/assistant-sdk@0.2.0`, publishing disabled) |
+| `node scripts/check.mjs` | 1 failing check: the precache integrity gate (expected, §7) |
+| `cd examples/example && npm run typecheck && npm run build` | passed |
+| `git diff --check` | clean |
+| `npm run verify` | not run: it requires a deployed URL and no deployment was made |
+
+No browser or production deployment was exercised; all runtime evidence is
+VM-level execution of the real classic sources.
 
 ## 7. Precache integrity and the required owner decision
 

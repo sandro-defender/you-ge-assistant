@@ -1494,3 +1494,145 @@ test('the classic bundle invalidates a DNS verdict when the effective probe iden
 
   ctx.api.destroy();
 });
+
+/* ------------------------------------------------------------------ *
+ * CD-1 — capability enforcement in the DOM renderer.
+ *
+ * The widget renders from the centralized state and asks the SDK for the
+ * action -> capability mapping. These tests assert what is rendered and what a
+ * click does, not that a conditional exists.
+ * ------------------------------------------------------------------ */
+
+const ALL_GATED_OFF = { diagnostics: false, recovery: false, failover: false, help: false };
+
+function firstAction(root, id) {
+  return Boolean(root.querySelector('[data-action="' + id + '"]'));
+}
+
+function statusLabels(ctx) {
+  const root = ctx.win.YouGeAssistantWidget.getRoot();
+  return root.querySelectorAll('.youge-status-row').map((row) => row.children[0].textContent);
+}
+
+function noticeByTitle(root, title) {
+  return root.querySelectorAll('.youge-notice').find(
+    (node) => node.querySelector('.youge-notice-title') &&
+      node.querySelector('.youge-notice-title').textContent === title,
+  );
+}
+
+function openPanelOf(ctx) {
+  const root = ctx.win.YouGeAssistantWidget.getRoot();
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+  return root;
+}
+
+test('all four capabilities disabled: no diagnostics, recovery or failover UI at all', () => {
+  const ctx = createContext({
+    richDocument: true,
+    config: {
+      modules: ALL_GATED_OFF,
+      actions: [{ id: 'open-help', label: 'Open help', kind: 'help', priority: 5 }],
+    },
+  });
+  loadWidget(ctx);
+  ctx.win.dispatchEvent({ type: 'offline' });
+  const root = openPanelOf(ctx);
+
+  assert.equal(firstAction(root, 'diagnostics'), false, 'no diagnostics button');
+  assert.equal(Boolean(root.querySelector('[data-pwa-diagnostics]')), false, 'no delegated diagnostics hook');
+  assert.equal(Boolean(root.querySelector('.youge-recovery')), false, 'no recovery guidance');
+  assert.equal(firstAction(root, 'recovery'), false);
+  assert.equal(firstAction(root, 'backup-status'), false);
+  assert.equal(firstAction(root, 'open-help'), false, 'a help-kind project action is not exposed');
+  assert.equal(statusLabels(ctx).includes('Backup'), false, 'the failover status row is hidden');
+  assert.equal(statusLabels(ctx).includes('DNS'), true, 'connectivity reporting stays intact');
+
+  // The critical connectivity notice still reports reality, without an action.
+  const offlineNotice = noticeByTitle(root, 'No connection');
+  assert.ok(offlineNotice, 'the offline notice is still rendered');
+  assert.equal(Boolean(offlineNotice.querySelector('[data-action]')), false, 'the notice exposes no diagnostics action');
+  assert.ok(offlineNotice.querySelector('[data-acknowledge="network:offline"]'), 'acknowledgement still works');
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('each capability can be disabled on its own in the renderer', () => {
+  const diagnosticsOff = createContext({ richDocument: true, config: { modules: { diagnostics: false } } });
+  loadWidget(diagnosticsOff);
+  const diagnosticsRoot = openPanelOf(diagnosticsOff);
+  assert.equal(firstAction(diagnosticsRoot, 'diagnostics'), false);
+  assert.equal(Boolean(diagnosticsRoot.querySelector('[data-pwa-diagnostics]')), false);
+  assert.ok(diagnosticsRoot.querySelector('.youge-recovery'), 'recovery stays available');
+  diagnosticsOff.win.YouGeAssistantWidget.destroy();
+
+  const recoveryOff = createContext({ richDocument: true, config: { modules: { recovery: false } } });
+  loadWidget(recoveryOff);
+  const recoveryRoot = openPanelOf(recoveryOff);
+  assert.equal(Boolean(recoveryRoot.querySelector('.youge-recovery')), false);
+  assert.equal(firstAction(recoveryRoot, 'diagnostics'), true, 'diagnostics stays available');
+  recoveryOff.win.YouGeAssistantWidget.destroy();
+
+  const failoverOff = createContext({ richDocument: true, config: { modules: { failover: false } } });
+  loadWidget(failoverOff);
+  failoverOff.api.setEndpointStatus({ primary: 'failed', backup: 'active', active: 'backup' });
+  const failoverRoot = openPanelOf(failoverOff);
+  assert.equal(statusLabels(failoverOff).includes('Backup'), false);
+  assert.equal(firstAction(failoverRoot, 'backup-status'), false);
+  failoverOff.win.YouGeAssistantWidget.destroy();
+
+  const helpOff = createContext({
+    richDocument: true,
+    config: { modules: { help: false }, actions: [{ id: 'open-help', label: 'Open help', kind: 'help' }] },
+  });
+  loadWidget(helpOff);
+  helpOff.api.setSessionStatus({ state: 'issue', message: 'Sign in again.' });
+  const helpRoot = openPanelOf(helpOff);
+  assert.equal(firstAction(helpRoot, 'open-help'), false);
+  assert.equal(firstAction(helpRoot, 'help'), false);
+  const sessionNotice = noticeByTitle(helpRoot, 'Session needs attention');
+  assert.ok(sessionNotice, 'the session condition is still reported');
+  assert.equal(Boolean(sessionNotice.querySelector('[data-action]')), false, 'the session notice exposes no help action');
+  helpOff.win.YouGeAssistantWidget.destroy();
+});
+
+test('with every capability enabled the renderer offers the complete action set', () => {
+  const ctx = createContext({ richDocument: true, pwaState: { canInstall: true } });
+  loadWidget(ctx);
+  ctx.api.setEndpointStatus({ primary: 'failed', backup: 'active', active: 'backup' });
+  const root = openPanelOf(ctx);
+
+  assert.equal(firstAction(root, 'diagnostics'), true, 'diagnostics button');
+  assert.equal(Boolean(root.querySelector('[data-pwa-diagnostics]')), true, 'delegated diagnostics hook');
+  assert.equal(Boolean(root.querySelector('.youge-recovery')), true, 'recovery guidance');
+  assert.equal(firstAction(root, 'backup-status'), true, 'failover action');
+  assert.equal(statusLabels(ctx).includes('Backup'), true);
+  const backupNotice = noticeByTitle(root, 'Backup connection active');
+  assert.ok(backupNotice, 'the backup notice is rendered');
+  assert.ok(backupNotice.querySelector('[data-action="backup-status"]'), 'the notice keeps its action');
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('a click on a stale gated action node cannot dispatch or run diagnostics', () => {
+  const ctx = createContext({ richDocument: true, config: { modules: ALL_GATED_OFF } });
+  loadWidget(ctx);
+  const root = openPanelOf(ctx);
+
+  const dispatched = [];
+  ctx.document.addEventListener('youge:action', (event) => dispatched.push(event.detail));
+
+  // A node that survived a re-render (or a host-injected button) still routes
+  // through the widget's delegated handler.
+  const stale = ctx.document.createElement('button');
+  stale.setAttribute('data-action', 'diagnostics');
+  stale.setAttribute('data-pwa-diagnostics', '');
+  root.appendChild(stale);
+  fire(ctx.document, stale, 'click');
+  assert.deepEqual(dispatched, [], 'no gated action is announced to the host');
+
+  const staleFailover = ctx.document.createElement('button');
+  staleFailover.setAttribute('data-action', 'backup-status');
+  root.appendChild(staleFailover);
+  fire(ctx.document, staleFailover, 'click');
+  assert.deepEqual(dispatched, [], 'failover is gated the same way');
+  ctx.win.YouGeAssistantWidget.destroy();
+});

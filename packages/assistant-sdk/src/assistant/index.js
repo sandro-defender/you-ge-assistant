@@ -678,7 +678,9 @@ export function createAssistant(initialOptions, envOverrides) {
   const diagnosticsController = createDiagnosticsIntegration({
     // Live gate for asynchronous safety: the adapter re-checks it before the
     // runner starts and before a result is published.
-    isEnabled: function () { return !destroyed && capabilityEnabled('diagnostics'); },
+    // Only the capability: `destroy()` already aborts its own run through
+    // `clear()`, and that aborted run must stay a cancellation.
+    isEnabled: function () { return capabilityEnabled('diagnostics'); },
     get services() { return services; },
     getPwa: getPwa,
     getDns: getDns,

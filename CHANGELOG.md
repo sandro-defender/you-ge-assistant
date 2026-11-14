@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased (branch) — CD-1 module capability enforcement · **not released**
+
+No version was changed: kit stays `1.2.0`, `@youge/assistant-sdk` stays `0.2.0`.
+CD-1 modifies precached runtime files, so the diff-aware precache gate requires
+an owner-authorized synchronized kit bump (`1.2.0 → 1.2.1`) before this can
+ship; see [`docs/architecture/CAPABILITY_ENFORCEMENT.md`](docs/architecture/CAPABILITY_ENFORCEMENT.md) §7 and
+[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §6.
+Nothing is tagged, released, published, deployed or merged.
+
+- **One capability policy:** `packages/assistant-sdk/src/core/capabilities.js`
+  defines the four gated capabilities (`diagnostics`, `recovery`, `failover`,
+  `help`), the action/notice → capability mapping and the gate helpers. It is
+  bundled into the generated `assistant-state.js`, so classic renderers and ESM
+  consumers cannot drift.
+- **Enforcement, not display:** `runDiagnostics()` refuses a disabled
+  capability (no runner, `{ status: 'disabled' }`), built-in *and project*
+  actions are gated, notices that link to a gated action lose the action while
+  keeping the condition, failover UI disappears, and help can no longer be
+  reached through a `session:issue` notice or a `kind: 'help'` action.
+  Disabling diagnostics mid-run aborts it and discards the late verdict.
+- **Runtime backstop:** `pwa.js` (`runNetworkDiagnostics` /
+  `showNetworkDiagnostics` / `[data-pwa-diagnostics]`), the Cloudflare DoH
+  engine (`dns-diagnostics.js`) and the offline shell (`offline.js`) consult
+  `window.YouGeAssistant.isCapabilityEnabled('diagnostics')` and make no request
+  while it is disabled. They fail open when no Assistant is on the page, so
+  toolkit-only deployments are unchanged.
+- **Renderer parity:** `assistant-widget.js` and `examples/example/src/main.jsx`
+  render and dispatch gated actions only through the SDK policy.
+- **Precache gate fix:** base-commit paths are resolved through
+  `scripts/source-paths.mjs`, so the diff-aware version rule keeps its base
+  after the source/output split instead of silently reporting "diff skipped".
+- **Tests:** 20 SDK capability tests + 12 runtime capability tests + 4 renderer
+  capability tests; full suite 535 passing, 2 expected precache-gate failures
+  that require the owner-authorized kit bump.
+
 ## 1.2.0 (kit) — 2026-11-14 · canonical You.Ge Assistant technical identity migration
 
 Kit `1.1.1 → 1.2.0` (`you-ge-sw.js` `VERSION`, `PWA.version`, root

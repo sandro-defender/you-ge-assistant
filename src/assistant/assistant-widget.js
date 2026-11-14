@@ -440,6 +440,36 @@
     };
   }
 
+  /* ---------------------------------------------------------------- *
+   * Capability enforcement (CD-1).                                   *
+   *                                                                 *
+   * The SDK publishes `state.capabilities` and owns the action ->     *
+   * capability mapping (`YouGeAssistantSDK.capabilityForAction`), so  *
+   * the widget never re-implements the policy: it asks, then renders  *
+   * or acts. A state object without `capabilities` keeps everything   *
+   * enabled, which is the documented default.                        *
+   * ---------------------------------------------------------------- */
+
+  function capabilityEnabled(state, name) {
+    if (!state || !state.capabilities) return true;
+    return state.capabilities[name] !== false;
+  }
+
+  function actionCapability(id, kind) {
+    var sdk = root.YouGeAssistantSDK;
+    if (!sdk || typeof sdk.capabilityForAction !== 'function') return null;
+    try {
+      return sdk.capabilityForAction(id, kind);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function actionEnabled(state, id, kind) {
+    var capability = actionCapability(id, kind);
+    return !capability || capabilityEnabled(state, capability);
+  }
+
   function noticeAction(notice, actions) {
     for (var i = 0; i < actions.length; i += 1) {
       if (actions[i] && actions[i].id === notice.actionId) return actions[i];
@@ -479,7 +509,7 @@
     return span;
   }
 
-  function renderNotice(notice, actions) {
+  function renderNotice(notice, actions, state) {
     var article = el('article', 'youge-notice');
     var level = noticeLevel(notice);
     article.setAttribute('data-priority', String(notice.priority));
@@ -490,7 +520,7 @@
     content.appendChild(el('h4', 'youge-notice-title', notice.title));
     content.appendChild(el('p', 'youge-notice-message', notice.message));
     var controls = el('div', 'youge-notice-controls');
-    if (notice.actionId) {
+    if (notice.actionId && actionEnabled(state, notice.actionId)) {
       var linked = noticeAction(notice, actions || []);
       var action = button(
         (linked && linked.label) || NOTICE_ACTION_LABELS[notice.actionId] || 'Open',
@@ -546,9 +576,18 @@
     var status = section('Connection status', 'Live conditions reported by this project.');
     var statusGrid = el('div', 'youge-status-grid');
     var net = networkText(state);
+    var capabilities = {
+      diagnostics: capabilityEnabled(state, 'diagnostics'),
+      recovery: capabilityEnabled(state, 'recovery'),
+      failover: capabilityEnabled(state, 'failover'),
+      help: capabilityEnabled(state, 'help'),
+    };
     statusGrid.appendChild(statusRow('Network', net.online, state.network.online === false ? 'critical' : 'ok'));
     statusGrid.appendChild(statusRow('Primary API', net.primary, /failed|unavailable|degraded/.test(net.primary) ? 'critical' : 'ok'));
-    statusGrid.appendChild(statusRow('Backup', net.backup, net.backup === 'active' ? 'backup' : 'neutral'));
+    // Failover UI is not shown when the project disabled it.
+    if (capabilities.failover) {
+      statusGrid.appendChild(statusRow('Backup', net.backup, net.backup === 'active' ? 'backup' : 'neutral'));
+    }
     statusGrid.appendChild(statusRow('DNS', net.dns, /failure|missing|interference/.test(net.dns) ? 'critical' : 'neutral'));
     status.appendChild(statusGrid);
     panelBody.appendChild(status);
@@ -556,10 +595,12 @@
     // Prioritized notifications
     var notices = section('What needs attention', state.notifications.length
       ? 'Ordered by priority. Critical recovery stays visible until resolved or acknowledged.'
-      : 'No current alerts. The Assistant remains available for help and diagnostics.');
+      : (capabilities.help || capabilities.diagnostics
+        ? 'No current alerts. The Assistant remains available for help and diagnostics.'
+        : 'No current alerts.'));
     if (state.notifications.length) {
       var list = el('div', 'youge-notice-list');
-      state.notifications.forEach(function (notice) { list.appendChild(renderNotice(notice, state.availableActions)); });
+      state.notifications.forEach(function (notice) { list.appendChild(renderNotice(notice, state.availableActions, state)); });
       notices.appendChild(list);
     } else {
       notices.appendChild(el('p', 'youge-empty', 'All clear — nothing needs your attention right now.'));
@@ -576,26 +617,34 @@
     }
     panelBody.appendChild(install);
 
-    // Network diagnostics + recovery assistance
-    var diagnostics = section('Diagnostics & recovery', 'Checks run only when you choose; no background probing.');
-    var diagnosticsRow = el('div', 'youge-action-row');
-    var diagnosticsButton = button('Run network diagnostics', 'diagnostics');
-    diagnosticsButton.setAttribute('data-action', 'diagnostics');
-    diagnosticsButton.setAttribute('data-pwa-diagnostics', '');
-    diagnosticsRow.appendChild(diagnosticsButton);
-    diagnostics.appendChild(diagnosticsRow);
-    var recovery = el('details', 'youge-recovery');
-    recovery.appendChild(el('summary', '', 'Recovery guidance'));
-    var steps = el('ol', 'youge-steps');
-    ['Confirm device connectivity and retry diagnostics.',
-      'If a backup endpoint is configured, let the project switch to it.',
-      'If DNS results disagree, check DNS propagation before changing provider settings.',
-      'Contact the project support channel if the primary API stays unavailable.'].forEach(function (step) {
-      steps.appendChild(el('li', '', step));
-    });
-    recovery.appendChild(steps);
-    diagnostics.appendChild(recovery);
-    panelBody.appendChild(diagnostics);
+    // Network diagnostics + recovery assistance. Both are capability-gated: a
+    // disabled capability renders nothing at all, so there is no hidden button
+    // left for a delegated handler or a stray click to activate.
+    if (capabilities.diagnostics || capabilities.recovery) {
+      var diagnostics = section('Diagnostics & recovery', 'Checks run only when you choose; no background probing.');
+      if (capabilities.diagnostics) {
+        var diagnosticsRow = el('div', 'youge-action-row');
+        var diagnosticsButton = button('Run network diagnostics', 'diagnostics');
+        diagnosticsButton.setAttribute('data-action', 'diagnostics');
+        diagnosticsButton.setAttribute('data-pwa-diagnostics', '');
+        diagnosticsRow.appendChild(diagnosticsButton);
+        diagnostics.appendChild(diagnosticsRow);
+      }
+      if (capabilities.recovery) {
+        var recovery = el('details', 'youge-recovery');
+        recovery.appendChild(el('summary', '', 'Recovery guidance'));
+        var steps = el('ol', 'youge-steps');
+        ['Confirm device connectivity and retry diagnostics.',
+          'If a backup endpoint is configured, let the project switch to it.',
+          'If DNS results disagree, check DNS propagation before changing provider settings.',
+          'Contact the project support channel if the primary API stays unavailable.'].forEach(function (step) {
+          steps.appendChild(el('li', '', step));
+        });
+        recovery.appendChild(steps);
+        diagnostics.appendChild(recovery);
+      }
+      panelBody.appendChild(diagnostics);
+    }
 
     // App-specific help / available actions
     var actions = section('Available actions', 'Project-specific actions are published through the centralized state.');
@@ -846,6 +895,10 @@
 
   function handleAction(id, kind) {
     var pwaRuntime = root.YouGePWA || root.PWA;
+    // A rendered button is already gated, but a click can also arrive from a
+    // stale DOM node, a keyboard replay or a host script: re-check at the
+    // moment of activation so a disabled capability is never dispatched.
+    if (!actionEnabled(api.getState(), id, kind)) return;
     dispatchAction(id, kind);
     if (id === 'diagnostics' && (!pwaRuntime || typeof pwaRuntime.showNetworkDiagnostics !== 'function')) {
       api.runDiagnostics();
