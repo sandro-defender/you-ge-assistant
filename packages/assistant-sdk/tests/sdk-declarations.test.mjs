@@ -69,10 +69,15 @@ test('YouGeAssistantStatic and AssistantConfigSummary in src/index.d.ts match ru
 });
 
 test('installation and domain declaration interfaces reflect runtime hasUpdate, applyUpdate and diagnostics fields', () => {
+  const indexDts = readPkg('src/index.d.ts');
+  const instanceBody = extractInterfaceBody(indexDts, 'AssistantInstance');
+  assert.match(instanceBody, /\bapplyUpdate\(\):\s*Promise<AssistantUpdateResult>/, 'AssistantInstance declares applyUpdate()');
+
   const installDts = readPkg('src/installation/index.d.ts');
   const pwaBody = extractInterfaceBody(installDts, 'PwaRuntimeLike');
   assert.match(pwaBody, /\bhasUpdate\?:\s*boolean\b/, 'PwaRuntimeLike.getState declares hasUpdate?: boolean');
   assert.match(pwaBody, /\bapplyUpdate\?:\s*\(\)\s*=>\s*Promise<boolean>/, 'PwaRuntimeLike.applyUpdate allows Promise<boolean>');
+  assert.match(installDts, /\bexport declare function requestPwaUpdate\(/, 'installation declarations export requestPwaUpdate');
 
   const domainDts = readPkg('src/domain/index.d.ts');
   const resolvedDomainBody = extractInterfaceBody(domainDts, 'ResolvedDomainConfig');

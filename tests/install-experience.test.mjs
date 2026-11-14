@@ -53,7 +53,13 @@ class FakeNode {
   }
 
   get className() { return this._className; }
-  set className(value) { this._className = value; }
+  set className(value) {
+    this._className = String(value || '');
+  }
+
+  hasClass(name) {
+    return this.classList.contains(name) || this._className.split(/\s+/).includes(name);
+  }
 
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
@@ -74,11 +80,43 @@ class FakeNode {
     }
   }
   attachShadow() { this.shadow = new FakeNode('shadow-root'); return this.shadow; }
-  querySelector() { return null; }
-  querySelectorAll() { return []; }
-  matches() { return false; }
-  contains() { return false; }
-  closest() { return null; }
+  matches(selector) {
+    const text = String(selector || '').trim();
+    if (!text) return false;
+    return text.split(',').some((part) => {
+      const s = part.trim();
+      if (s.startsWith('.')) return this.hasClass(s.slice(1).split(':')[0]);
+      const attrMatch = /^\[([^\]=]+)(?:="?([^"\]]*)"?)?\]$/.exec(s);
+      if (attrMatch) {
+        if (!this.hasAttribute(attrMatch[1])) return false;
+        return attrMatch[2] === undefined ? true : this.getAttribute(attrMatch[1]) === attrMatch[2];
+      }
+      if (s.startsWith('#')) return this.id === s.slice(1);
+      return this.tagName.toLowerCase() === s.toLowerCase();
+    });
+  }
+  querySelector(selector) {
+    return findAll(this, (node) => node !== this && node.matches(selector))[0] || null;
+  }
+  querySelectorAll(selector) {
+    return findAll(this, (node) => node !== this && node.matches(selector));
+  }
+  contains(target) {
+    let cur = target;
+    while (cur) {
+      if (cur === this) return true;
+      cur = cur.parentNode;
+    }
+    return false;
+  }
+  closest(selector) {
+    let cur = this;
+    while (cur) {
+      if (cur.matches(selector)) return cur;
+      cur = cur.parentNode;
+    }
+    return null;
+  }
   focus() { this.focused = true; }
   remove() { if (this.parentNode) this.parentNode.removeChild(this); }
   get isConnected() { return Boolean(this.parentNode); }
@@ -149,11 +187,13 @@ function createContext(options = {}) {
     createDocumentFragment() { return new FakeNode('fragment'); },
     querySelector(selector) {
       if (selector === '[data-pwa-help]') return findHelpHost({ doc });
-      return null;
+      return findAll(doc.body, (node) => node !== doc.body && node.matches(selector))[0] || null;
     },
     querySelectorAll(selector) {
       const pool = options.installButtons || [];
-      if (!pool.length) return [];
+      if (!pool.length) {
+        return findAll(doc.body, (node) => node !== doc.body && node.matches(selector));
+      }
       const text = String(selector);
       if (text.charAt(0) === '.') {
         const className = text.slice(1).split(':')[0];
@@ -179,21 +219,33 @@ function createContext(options = {}) {
     },
   };
 
+  const swListeners = new Map();
+  const defaultRegistration = options.registration || createFakeRegistration();
   const serviceWorker = {
     registerCalls: [],
-    controller: null,
-    ready: Promise.resolve({ scope: 'https://example.test/' }),
+    controller: options.controller !== undefined ? options.controller : null,
+    ready: Promise.resolve(defaultRegistration),
     register(url, opts) {
       serviceWorker.registerCalls.push([url, opts]);
-      return Promise.resolve({
-        scope: 'https://example.test/',
-        addEventListener() {},
-        update() { return Promise.resolve(); },
-      });
+      if (options.registerError) return Promise.reject(options.registerError);
+      return Promise.resolve(defaultRegistration);
     },
-    addEventListener() {},
+    addEventListener(type, listener) {
+      const list = swListeners.get(type) || [];
+      list.push(listener);
+      swListeners.set(type, list);
+    },
+    removeEventListener(type, listener) {
+      swListeners.set(type, (swListeners.get(type) || []).filter((entry) => entry !== listener));
+    },
+    dispatch(type, event = {}) {
+      for (const listener of swListeners.get(type) || []) {
+        listener(event);
+      }
+    },
   };
 
+  let reloadCalls = 0;
   const location = {
     href: 'https://example.test/',
     hostname: 'example.test',
@@ -201,8 +253,16 @@ function createContext(options = {}) {
     protocol: 'https:',
     pathname: '/',
     search: '',
-    reload() {},
+    reload() { reloadCalls += 1; },
   };
+
+  let nowMs = options.initialNow ?? 1_700_000_000_000;
+  let nextTimerId = 1;
+  const timers = new Map();
+  const RealDate = Date;
+  class FakeDate extends RealDate {
+    static now() { return nowMs; }
+  }
 
   const win = {
     location,
@@ -231,6 +291,11 @@ function createContext(options = {}) {
     PushManager: function PushManager() {},
     Notification: { permission: 'default' },
   };
+  if (options.domainConfig) {
+    win.YouGeDomain = {
+      resolve: () => options.domainConfig,
+    };
+  }
   win.self = win;
   win.top = win;
 
@@ -260,7 +325,7 @@ function createContext(options = {}) {
     Set,
     Map,
     console,
-    Date,
+    Date: options.fakeClock ? FakeDate : Date,
     Math,
     JSON,
     RegExp,
@@ -271,8 +336,15 @@ function createContext(options = {}) {
     Boolean,
     Error,
     TypeError,
-    setTimeout() { return 0; },
-    clearTimeout() {},
+    setTimeout(fn, ms = 0) {
+      if (!options.fakeTimers) return 0;
+      const id = nextTimerId++;
+      timers.set(id, { fn, at: nowMs + ms });
+      return id;
+    },
+    clearTimeout(id) {
+      if (options.fakeTimers) timers.delete(id);
+    },
     setInterval() { return 0; },
     clearInterval() {},
     requestAnimationFrame() {},
@@ -289,7 +361,74 @@ function createContext(options = {}) {
 
   vm.runInNewContext(source, context);
   assert.ok(win.PWA && win.PWA.__pwaKit, 'pwa.js exposes window.PWA');
-  return { context, win, doc, navigator, media, serviceWorker, windowListeners, documentListeners, events };
+  return {
+    context,
+    win,
+    doc,
+    navigator,
+    media,
+    serviceWorker,
+    registration: defaultRegistration,
+    windowListeners,
+    documentListeners,
+    events,
+    get reloadCalls() { return reloadCalls; },
+    advanceTime(ms) {
+      nowMs += ms;
+      if (!options.fakeTimers) return;
+      for (const [id, entry] of [...timers.entries()].sort((a, b) => a[1].at - b[1].at)) {
+        if (entry.at <= nowMs) {
+          timers.delete(id);
+          entry.fn();
+        }
+      }
+    },
+    pendingTimerCount() { return timers.size; },
+  };
+}
+
+function createFakeWorker(initialState = 'installing') {
+  const listeners = new Map();
+  const messages = [];
+  return {
+    state: initialState,
+    messages,
+    postMessage(msg) { messages.push(msg); },
+    addEventListener(type, fn) {
+      const list = listeners.get(type) || [];
+      list.push(fn);
+      listeners.set(type, list);
+    },
+    setState(nextState) {
+      this.state = nextState;
+      for (const fn of listeners.get('statechange') || []) fn({ target: this });
+    },
+  };
+}
+
+function createFakeRegistration(overrides = {}) {
+  const listeners = new Map();
+  const reg = {
+    scope: 'https://example.test/',
+    waiting: null,
+    installing: null,
+    active: null,
+    updateCalls: 0,
+    addEventListener(type, fn) {
+      const list = listeners.get(type) || [];
+      list.push(fn);
+      listeners.set(type, list);
+    },
+    dispatch(type, event = {}) {
+      for (const fn of listeners.get(type) || []) fn(event);
+    },
+    update() {
+      reg.updateCalls += 1;
+      return Promise.resolve(reg);
+    },
+    ...overrides,
+  };
+  return reg;
 }
 
 function deferredPrompt(outcome = 'accepted') {
@@ -556,4 +695,256 @@ test('a diagnostics module that is missing does not publish a misleading result'
   assert.equal(events[0].detail.classification, 'unknown');
   assert.equal(events[0].detail.status, 'unavailable');
   assert.match(events[0].detail.message, /not loaded/i);
+});
+
+/* ------------------------------------------------------------------ *
+ * Stage 4 regressions (2026-11): SW update lifecycle & diagnostics UX
+ * ------------------------------------------------------------------ */
+
+test('detects pre-existing reg.waiting on register when controlled and supports auto-update', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const observedStates = [];
+  const harness = createContext({
+    controller: { state: 'activated' },
+    registration: reg,
+    fakeTimers: true,
+  });
+  harness.win.PWA.onChange((state) => observedStates.push(state.hasUpdate));
+
+  await harness.win.PWA.register();
+
+  assert.equal(harness.win.PWA.hasUpdate(), true);
+  assert.equal(harness.win.PWA.getState().hasUpdate, true);
+  assert.equal(observedStates.at(-1), true, 'onChange receives hasUpdate: true');
+  assert.equal(harness.events.filter((e) => e.type === 'pwa:update').length, 1);
+  assert.equal(waiting.messages.length, 0, 'does not auto-apply without data-auto-update');
+
+  // With data-auto-update="true", registration immediately posts SKIP_WAITING
+  const autoWaiting = createFakeWorker('installed');
+  const autoReg = createFakeRegistration({ waiting: autoWaiting });
+  const autoHarness = createContext({
+    controller: { state: 'activated' },
+    registration: autoReg,
+    dataset: { autoUpdate: 'true' },
+    fakeTimers: true,
+  });
+  await autoHarness.win.PWA.register();
+  assert.equal(autoWaiting.messages.length, 1);
+  assert.equal(autoWaiting.messages[0].type, 'SKIP_WAITING');
+});
+
+test('updatefound emits pwa:update only after an existing controller is present, then applyUpdate reloads once', async () => {
+  // 1. First install (no controller) must NOT signal an update
+  const firstInstallReg = createFakeRegistration();
+  const firstHarness = createContext({ controller: null, registration: firstInstallReg, fakeTimers: true });
+  await firstHarness.win.PWA.register();
+  const initialWorker = createFakeWorker('installing');
+  firstInstallReg.installing = initialWorker;
+  firstInstallReg.dispatch('updatefound');
+  initialWorker.setState('installed');
+  assert.equal(firstHarness.win.PWA.hasUpdate(), false);
+  assert.equal(firstHarness.events.filter((e) => e.type === 'pwa:update').length, 0);
+
+  // 2. Controlled update -> installed -> applyUpdate() -> controllerchange triggers single reload & cancels 3s fallback
+  const reg = createFakeRegistration();
+  const harness = createContext({ controller: { state: 'activated' }, registration: reg, fakeTimers: true });
+  await harness.win.PWA.register();
+
+  const nextWorker = createFakeWorker('installing');
+  reg.installing = nextWorker;
+  reg.dispatch('updatefound');
+  reg.waiting = nextWorker;
+  nextWorker.setState('installed');
+
+  assert.equal(harness.win.PWA.hasUpdate(), true);
+  assert.equal(harness.events.filter((e) => e.type === 'pwa:update').length, 1);
+
+  const applied = await harness.win.PWA.applyUpdate();
+  assert.equal(applied, true);
+  assert.equal(nextWorker.messages.length, 1);
+  assert.equal(nextWorker.messages[0].type, 'SKIP_WAITING');
+
+  // Simulate normal controllerchange activation before the 3000ms fallback
+  reg.waiting = null;
+  harness.serviceWorker.controller = nextWorker;
+  harness.serviceWorker.dispatch('controllerchange');
+  assert.equal(harness.reloadCalls, 1, 'controllerchange reloads the page once');
+  assert.equal(harness.win.PWA.hasUpdate(), false, 'update state clears after controllerchange');
+
+  // Advancing past 3000ms must NOT trigger a duplicate second reload
+  harness.advanceTime(3500);
+  assert.equal(harness.reloadCalls, 1, 'fallback timer is cancelled once controllerchange fires');
+});
+
+test('applyUpdate triggers a 3000ms fallback reload if controllerchange never fires and returns false on postMessage failure', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const harness = createContext({ controller: { state: 'activated' }, registration: reg, fakeTimers: true });
+  await harness.win.PWA.register();
+
+  assert.equal(await harness.win.PWA.applyUpdate(), true);
+  assert.equal(harness.reloadCalls, 0);
+  harness.advanceTime(3000);
+  assert.equal(harness.reloadCalls, 1, '3000ms safety net reloads if controllerchange does not arrive');
+  harness.advanceTime(5000);
+  assert.equal(harness.reloadCalls, 1);
+
+  // postMessage error keeps waiting update available and returns false without reloading
+  const brokenWorker = {
+    state: 'installed',
+    postMessage() { throw new Error('channel closed'); },
+    addEventListener() {},
+  };
+  const errReg = createFakeRegistration({ waiting: brokenWorker });
+  const errHarness = createContext({ controller: { state: 'activated' }, registration: errReg, fakeTimers: true });
+  await errHarness.win.PWA.register();
+  assert.equal(await errHarness.win.PWA.applyUpdate(), false);
+  assert.equal(errHarness.win.PWA.hasUpdate(), true, 'valid waiting worker stays reported after transient postMessage throw');
+  errHarness.advanceTime(3500);
+  assert.equal(errHarness.reloadCalls, 0);
+});
+
+test('clears stale updateAvailable without reload loop when waiting worker disappears via applyUpdate, controllerchange or statechange', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const harness = createContext({ controller: { state: 'activated' }, registration: reg, fakeTimers: true });
+  const states = [];
+  harness.win.PWA.onChange((s) => states.push(s.hasUpdate));
+  await harness.win.PWA.register();
+  assert.equal(harness.win.PWA.hasUpdate(), true);
+
+  // Case A: waiting worker disappears before user triggers applyUpdate()
+  reg.waiting = null;
+  const applied = await harness.win.PWA.applyUpdate();
+  assert.equal(applied, false);
+  assert.equal(harness.reloadCalls, 0, 'missing waiting worker must not trigger a reload loop');
+  assert.equal(harness.win.PWA.hasUpdate(), false, 'stale updateAvailable is cleared');
+  assert.equal(states.at(-1), false, 'subscribers observe hasUpdate: false');
+
+  // Case B: external controllerchange (without applyUpdate) clears stale update state with zero reloads
+  const worker2 = createFakeWorker('installed');
+  reg.installing = worker2;
+  reg.dispatch('updatefound');
+  reg.waiting = worker2;
+  worker2.setState('installed');
+  assert.equal(harness.win.PWA.hasUpdate(), true);
+
+  reg.waiting = null;
+  harness.serviceWorker.dispatch('controllerchange');
+  assert.equal(harness.reloadCalls, 0, 'unsolicited controllerchange does not force reload');
+  assert.equal(harness.win.PWA.hasUpdate(), false);
+
+  // Case C: waiting worker transitions to redundant
+  const worker3 = createFakeWorker('installed');
+  reg.installing = worker3;
+  reg.dispatch('updatefound');
+  reg.waiting = worker3;
+  worker3.setState('installed');
+  assert.equal(harness.win.PWA.hasUpdate(), true);
+
+  reg.waiting = null;
+  worker3.setState('redundant');
+  assert.equal(harness.win.PWA.hasUpdate(), false);
+  assert.equal(states.at(-1), false);
+
+  // Case D: a newer installing worker turning redundant does NOT clear an older still-waiting worker
+  const olderWaiting = createFakeWorker('installed');
+  reg.waiting = olderWaiting;
+  const failingNew = createFakeWorker('installing');
+  reg.installing = failingNew;
+  reg.dispatch('updatefound');
+  failingNew.setState('redundant');
+  assert.equal(harness.win.PWA.hasUpdate(), true, 'valid waiting worker stays preserved');
+});
+
+test('visibilitychange throttles registration.update to once per hour and reconciles cleared waiting state', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const harness = createContext({
+    controller: { state: 'activated' },
+    registration: reg,
+    fakeTimers: true,
+    fakeClock: true,
+  });
+  await harness.win.PWA.register();
+  assert.equal(harness.win.PWA.hasUpdate(), true);
+
+  // Within 1h window -> throttled
+  harness.advanceTime(30 * 60 * 1000);
+  harness.doc.dispatch('visibilitychange');
+  assert.equal(reg.updateCalls, 0, 'update check is throttled below 1 hour');
+
+  // Past 1h window -> registration.update() runs and reconciles cleared reg.waiting
+  reg.waiting = null;
+  harness.advanceTime(31 * 60 * 1000);
+  harness.doc.dispatch('visibilitychange');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(reg.updateCalls, 1);
+  assert.equal(harness.win.PWA.hasUpdate(), false, 'reconciles stale update when registration.update finishes with no waiting worker');
+});
+
+test('showNetworkDiagnostics manages click trigger, singleton reuse, dnsRecovery toggle, concurrency lock and removal lifecycle', async () => {
+  const trigger = new FakeNode('button');
+  trigger.setAttribute('data-pwa-diagnostics', '');
+  let resolveCheck;
+  let checks = 0;
+
+  const harness = createContext({
+    fakeTimers: true,
+    domainConfig: {
+      identity: { name: 'Diag App', shortName: 'Diag', description: '' },
+      branding: { icon: '/icon.png', themeColor: '#155eef' },
+      pwa: { enabled: true, basePath: '/' },
+      domain: { hostname: 'diag.example.test', origin: 'https://diag.example.test', protocol: 'https:', pathname: '/', basePath: '/', configured: true },
+      features: { installation: true, diagnostics: true, dnsRecovery: false },
+      diagnostics: {},
+    },
+  });
+  harness.doc.body.appendChild(trigger);
+  harness.win.YouGeDns = {
+    check() {
+      checks += 1;
+      return new Promise((resolve) => { resolveCheck = resolve; });
+    },
+  };
+
+  // 1. Click trigger opens singleton dialog and respects dnsRecovery: false
+  harness.doc.dispatch('click', { target: trigger });
+  const flow = harness.doc.querySelector('[data-pwa-diagnostics-dialog]');
+  assert.ok(flow, 'clicking [data-pwa-diagnostics] opens dialog');
+  assert.equal(harness.win.PWA.showNetworkDiagnostics(), flow, 'second call returns existing singleton');
+
+  const recovery = findAll(flow, (n) => n.hasClass('pwa-diagnostics-recovery'))[0];
+  assert.ok(recovery);
+  assert.equal(recovery.hidden, true, 'dnsRecovery: false hides recovery guide');
+
+  // 2. Concurrent clicks while check is in-flight only execute one check
+  const runBtn = findAll(flow, (n) => n.hasClass('pwa-flow-btn'))[0];
+  runBtn.dispatch('click');
+  runBtn.dispatch('click');
+  assert.equal(checks, 1, 'concurrent run while in-flight is ignored');
+  assert.equal(runBtn.disabled, true);
+
+  resolveCheck({ classification: 'normal_connectivity', message: 'Healthy DNS.' });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(runBtn.disabled, false);
+
+  // 3. Close button, Escape key, and backdrop click all remove the dialog after 300ms
+  const closeBtn = findAll(flow, (n) => n.getAttribute('aria-label') === 'Close')[0];
+  closeBtn.dispatch('click');
+  assert.ok(flow.classList.contains('removing'));
+  harness.advanceTime(300);
+  assert.equal(harness.doc.querySelector('[data-pwa-diagnostics-dialog]'), null, 'close button removes dialog');
+
+  const flow2 = harness.win.PWA.showNetworkDiagnostics();
+  harness.doc.dispatch('keydown', { key: 'Escape' });
+  harness.advanceTime(300);
+  assert.equal(harness.doc.querySelector('[data-pwa-diagnostics-dialog]'), null, 'Escape removes dialog');
+
+  const flow3 = harness.win.PWA.showNetworkDiagnostics();
+  flow3.dispatch('click', { target: flow3 });
+  harness.advanceTime(300);
+  assert.equal(harness.doc.querySelector('[data-pwa-diagnostics-dialog]'), null, 'backdrop click removes dialog');
 });

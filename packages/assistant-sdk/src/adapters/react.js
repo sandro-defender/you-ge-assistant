@@ -237,8 +237,21 @@ export function dispatchAssistantAction(id, kind, options) {
       detail: { id: id, kind: kind || 'custom', source: source },
     }));
   }
-  if (id === 'update' && pwa && typeof pwa.applyUpdate === 'function') {
-    pwa.applyUpdate();
+  if (id === 'update') {
+    if (assistant && typeof assistant.applyUpdate === 'function') {
+      try {
+        return Promise.resolve(assistant.applyUpdate()).catch(function () {
+          return { applied: false, outcome: 'error' };
+        });
+      } catch (error) {
+        return Promise.resolve({ applied: false, outcome: 'error' });
+      }
+    }
+    if (pwa && typeof pwa.applyUpdate === 'function') {
+      try {
+        return Promise.resolve(pwa.applyUpdate()).catch(function () { return false; });
+      } catch (error) { /* ignore */ }
+    }
   }
   if (id === 'diagnostics' && (!pwa || typeof pwa.showNetworkDiagnostics !== 'function') && assistant && typeof assistant.runDiagnostics === 'function') {
     assistant.runDiagnostics();

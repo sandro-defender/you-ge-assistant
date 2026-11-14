@@ -73,7 +73,7 @@ Inside another package in this repository or a sibling local project:
 | `@youge/assistant-sdk/domain` | Multi-domain resolution, validation, and scoped Web App Manifest generation |
 | `@youge/assistant-sdk/config` | Data-only `publishedConfig` validator, Last-Known-Good storage helpers, and override resolver |
 | `@youge/assistant-sdk/diagnostics` | Single-flight diagnostics integration controller and classification helpers |
-| `@youge/assistant-sdk/installation` | `window.PWA` state reader and install prompt delegation |
+| `@youge/assistant-sdk/installation` | `window.PWA` state reader, install prompt, and service-worker update delegation |
 | `@youge/assistant-sdk/browser` | Android in-app browser detection and best-effort Chrome handoff (`detectInAppBrowser`, `buildChromeIntentUrl`, `createChromeHandoff`) |
 | `@youge/assistant-sdk/theme` | Adaptive theme normalization/resolution, WCAG contrast helpers, `--youge-*` CSS variables, and notification-level taxonomy |
 | `@youge/assistant-sdk/react` | Optional React 18/19 `useSyncExternalStore` adapter (zero runtime `react` import in SDK) |
@@ -377,6 +377,7 @@ isolation layers are described in [`../../THEMING.md`](../../THEMING.md).
 | `setUpdateAvailable(flag?)` | `(boolean) => AssistantState` | Marks a waiting service worker update ready to apply. |
 | `runDiagnostics(opts?)` | `({ signal? }) => Promise<object>` | Single-flight on-demand diagnostics delegating to `services.diagnostics` → `window.PWA.runNetworkDiagnostics` → `window.YouGeDns.check`. Never polls automatically. An optional `AbortSignal` cancels the run: it resolves `{ status: 'cancelled', cancelled: true, failed: false }` and raises no connectivity or DNS notice. `destroy()` aborts any run still in flight. |
 | `requestInstall(opts?)` | `() => Promise<{ outcome: string }>` | Delegates installation to `window.PWA.promptInstall()`. Never registers a second install flow or service worker. |
+| `applyUpdate()` | `() => Promise<AssistantUpdateResult>` | Respects `modules.updates !== false` and delegates to `window.PWA.applyUpdate()`. Returns `{ applied, outcome }` (`'applied'`, `'no-waiting-worker'`, `'unsupported'`, `'disabled'`, `'error'`) and clears stale `updateAvailable` state when no waiting worker remains. |
 | `dismiss(id)` | `(string) => boolean` | Dismisses a non-critical notification for the active `projectId`. Automatically resets once the underlying condition clears. |
 | `acknowledge(id)` | `(string) => boolean` | Acknowledges a critical notification while keeping the condition visible in diagnostics. |
 | `isDestroyed()` | `() => boolean` | Returns `true` after `destroy()` has been called. |

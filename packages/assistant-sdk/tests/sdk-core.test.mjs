@@ -25,6 +25,7 @@ import YouGeAssistantDefault, {
   getGlobalAssistant,
   isChromeHandoffCandidate,
   readToolkitSummary,
+  requestPwaUpdate,
   resolveAssistantConfig,
   resolveDomain,
   validatePublishedConfig,
@@ -110,6 +111,7 @@ test('exposes explicit, documented public exports on root and subpath entry poin
   assert.equal(typeof createDomainResolver, 'function');
   assert.equal(typeof createDiagnosticsIntegration, 'function');
   assert.equal(typeof deriveInstallationState, 'function');
+  assert.equal(typeof requestPwaUpdate, 'function');
   assert.equal(typeof bridgePwaGlobals, 'function');
   assert.equal(typeof readToolkitSummary, 'function');
   assert.ok(BUNDLED_DEFAULTS && DOMAIN_DEFAULTS && EVENT_NAMES);
@@ -118,6 +120,7 @@ test('exposes explicit, documented public exports on root and subpath entry poin
   assert.equal(typeof configSubpath.resolveAssistantConfig, 'function');
   assert.equal(typeof diagnosticsSubpath.createDiagnosticsIntegration, 'function');
   assert.equal(typeof installationSubpath.deriveInstallationState, 'function');
+  assert.equal(typeof installationSubpath.requestPwaUpdate, 'function');
   assert.equal(typeof reactSubpath.createReactAdapter, 'function');
 
   // 0.1.1: Android in-app browser detection + Chrome handoff are first-class

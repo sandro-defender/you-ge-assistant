@@ -69,3 +69,54 @@ export function requestPwaInstall(options, promptOptions) {
     return Promise.resolve({ outcome: 'error' });
   }
 }
+
+function readPwaHasUpdate(pwa) {
+  const snapshot = readPwaSnapshot(pwa);
+  if (snapshot.hasUpdate !== undefined) return snapshot.hasUpdate;
+  if (pwa && typeof pwa.hasUpdate === 'function') {
+    try {
+      return Boolean(pwa.hasUpdate());
+    } catch (error) {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+export function requestPwaUpdate(options) {
+  const opts = options || {};
+  const pwa = opts.pwa || null;
+  if (opts.enabled === false) {
+    return Promise.resolve({ applied: false, outcome: 'disabled' });
+  }
+  if (!pwa || typeof pwa.applyUpdate !== 'function') {
+    return Promise.resolve({ applied: false, outcome: 'unsupported' });
+  }
+  try {
+    return Promise.resolve(pwa.applyUpdate()).then(
+      function (resolved) {
+        if (resolved === true) return { applied: true, outcome: 'applied' };
+        if (resolved === false) return { applied: false, outcome: 'no-waiting-worker' };
+        if (resolved == null) {
+          return readPwaHasUpdate(pwa) === false
+            ? { applied: false, outcome: 'no-waiting-worker' }
+            : { applied: true, outcome: 'applied' };
+        }
+        if (typeof resolved === 'object' && typeof resolved.applied === 'boolean') {
+          const outcome = typeof resolved.outcome === 'string' && resolved.outcome
+            ? resolved.outcome
+            : (resolved.applied ? 'applied' : 'no-waiting-worker');
+          return { applied: resolved.applied, outcome: outcome };
+        }
+        return resolved
+          ? { applied: true, outcome: 'applied' }
+          : { applied: false, outcome: 'no-waiting-worker' };
+      },
+      function () {
+        return { applied: false, outcome: 'error' };
+      }
+    );
+  } catch (error) {
+    return Promise.resolve({ applied: false, outcome: 'error' });
+  }
+}

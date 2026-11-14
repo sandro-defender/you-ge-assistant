@@ -849,8 +849,12 @@
     if (id === 'diagnostics' && (!root.PWA || typeof root.PWA.showNetworkDiagnostics !== 'function')) {
       api.runDiagnostics();
     }
-    if (id === 'update' && root.PWA && typeof root.PWA.applyUpdate === 'function') {
-      try { root.PWA.applyUpdate(); } catch (error) { /* ignore */ }
+    if (id === 'update') {
+      if (api && typeof api.applyUpdate === 'function') {
+        try { Promise.resolve(api.applyUpdate()).catch(function () {}); } catch (error) { /* ignore */ }
+      } else if (root.PWA && typeof root.PWA.applyUpdate === 'function') {
+        try { Promise.resolve(root.PWA.applyUpdate()).catch(function () {}); } catch (error) { /* ignore */ }
+      }
     }
     // `install` is handled by pwa.js through [data-pwa-install]; calling
     // promptInstall() here as well would request the same native prompt twice.

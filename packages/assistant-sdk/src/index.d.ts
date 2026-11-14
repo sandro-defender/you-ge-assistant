@@ -48,9 +48,11 @@ import type {
 } from './diagnostics/index.js';
 import type {
   AssistantInstallationState,
+  AssistantUpdateResult,
   InstallationStatus,
   InstallationSupport,
   PwaRuntimeLike,
+  UpdateApplyOutcome,
 } from './installation/index.js';
 import type {
   ChromeHandoffController,
@@ -91,6 +93,7 @@ export type {
   AssistantOffsets,
   AssistantPosition,
   AssistantTheme,
+  AssistantUpdateResult,
   AbortSignalLike,
   DiagnosticsContext,
   DiagnosticsController,
@@ -123,6 +126,7 @@ export type {
   ResolvedAssistantConfig,
   ResolvedDomainConfig,
   StorageLike,
+  UpdateApplyOutcome,
   ChromeHandoffController,
   ChromeHandoffInstructions,
   ChromeHandoffLabels,
@@ -301,6 +305,7 @@ export interface AssistantInstance {
   setUpdateAvailable(available?: boolean): AssistantState;
   runDiagnostics(options?: DiagnosticsRunOptions): Promise<Record<string, unknown>>;
   requestInstall(options?: Record<string, unknown>): Promise<{ outcome: string }>;
+  applyUpdate(): Promise<AssistantUpdateResult>;
   dismiss(id: string): boolean;
   acknowledge(id: string): boolean;
   isDestroyed(): boolean;
@@ -399,6 +404,7 @@ export {
   deriveInstallationState,
   readPwaSnapshot,
   requestPwaInstall,
+  requestPwaUpdate,
 } from './installation/index.js';
 
 export {

@@ -33,6 +33,7 @@ import {
   deriveInstallationState,
   readPwaSnapshot,
   requestPwaInstall,
+  requestPwaUpdate,
 } from '../installation/index.js';
 import { normalizeTheme } from '../theme/index.js';
 
@@ -174,6 +175,7 @@ export function createAssistant(initialOptions, envOverrides) {
   let destroyed = false;
   let unsubscribePwa = null;
   let lastConditionKeys = new Set();
+  let lastPwaHasUpdate;
 
   const nav = getNavigator();
   const conditions = {
@@ -518,9 +520,20 @@ export function createAssistant(initialOptions, envOverrides) {
 
   function computeState() {
     const project = projectInfo();
-    const pwaSnapshot = readPwaSnapshot(getPwa());
+    const pwa = getPwa();
+    const pwaSnapshot = readPwaSnapshot(pwa);
+    let pwaHasUpdate = pwaSnapshot.hasUpdate;
+    if (pwaHasUpdate === undefined && pwa && typeof pwa.hasUpdate === 'function') {
+      try { pwaHasUpdate = Boolean(pwa.hasUpdate()); } catch (error) { /* ignore */ }
+    }
+    if (lastPwaHasUpdate === true && pwaHasUpdate === false) {
+      conditions.updateAvailable = false;
+    }
+    if (typeof pwaHasUpdate === 'boolean') {
+      lastPwaHasUpdate = pwaHasUpdate;
+    }
     const installation = deriveInstallationState({
-      pwa: getPwa(),
+      pwa: pwa,
       enabled: config.modules.installation,
     });
     const network = {
@@ -541,7 +554,7 @@ export function createAssistant(initialOptions, envOverrides) {
       // The toolkit records a waiting worker in its own snapshot before (or
       // without) a `pwa:update` event, so seed from it: otherwise an update
       // detected before the assistant bound stays invisible forever.
-      updateAvailable: conditions.updateAvailable || pwaSnapshot.hasUpdate === true,
+      updateAvailable: conditions.updateAvailable || pwaHasUpdate === true,
       recovery: conditions.recovery,
     };
     const notifications = buildNotifications(project, installation, network);
@@ -622,11 +635,18 @@ export function createAssistant(initialOptions, envOverrides) {
     if (unsubscribePwa || destroyed) return;
     const pwa = getPwa();
     if (pwa && typeof pwa.onChange === 'function') {
+      let initial = true;
       try {
-        unsubscribePwa = pwa.onChange(function () { emit(); });
+        unsubscribePwa = pwa.onChange(function (nextState) {
+          if (!initial && nextState && typeof nextState === 'object' && nextState.hasUpdate === false && lastPwaHasUpdate === true) {
+            conditions.updateAvailable = false;
+          }
+          emit();
+        });
       } catch (error) {
         unsubscribePwa = null;
       }
+      initial = false;
     }
   }
 
@@ -803,6 +823,28 @@ export function createAssistant(initialOptions, envOverrides) {
     }, promptOptions);
   }
 
+  function applyUpdate() {
+    if (destroyed) return Promise.resolve({ applied: false, outcome: 'unsupported' });
+    return requestPwaUpdate({
+      pwa: getPwa(),
+      enabled: config.modules.updates !== false,
+    }).then(function (result) {
+      if (!destroyed && result && !result.applied && result.outcome === 'no-waiting-worker') {
+        const pwa = getPwa();
+        const pwaSnapshot = readPwaSnapshot(pwa);
+        let hasUpdate = pwaSnapshot.hasUpdate;
+        if (hasUpdate === undefined && pwa && typeof pwa.hasUpdate === 'function') {
+          try { hasUpdate = Boolean(pwa.hasUpdate()); } catch (error) { /* ignore */ }
+        }
+        if (hasUpdate !== true) {
+          conditions.updateAvailable = false;
+          emit();
+        }
+      }
+      return result;
+    });
+  }
+
   function dismiss(id) {
     const safeId = safeText(id, 80);
     const notification = (snapshot && snapshot.notifications || []).filter(function (entry) { return entry.id === safeId; })[0];
@@ -920,6 +962,7 @@ export function createAssistant(initialOptions, envOverrides) {
     setUpdateAvailable: setUpdateAvailable,
     runDiagnostics: runDiagnostics,
     requestInstall: requestInstall,
+    applyUpdate: applyUpdate,
     dismiss: dismiss,
     acknowledge: acknowledge,
     isDestroyed: function () { return destroyed; },

@@ -7,10 +7,13 @@ import {
   YouGeAssistant,
   bridgePwaGlobals,
   readToolkitSummary,
+  requestPwaUpdate,
 } from '../src/index.js';
+import { requestPwaUpdate as requestPwaUpdateSubpath } from '../src/installation/index.js';
 import {
   FALLBACK_ASSISTANT_STATE,
   createReactAdapter,
+  dispatchAssistantAction,
   getExternalStoreBindings,
 } from '../src/adapters/react.js';
 
@@ -396,4 +399,208 @@ test('the adapter forwards a caller signal to real runners and cleans the run up
   assert.equal(signal.listenerCount, 0, 'the adapter releases its caller listener');
 
   assistant.destroy();
+});
+
+/* ------------------------------------------------------------------ *
+ * Stage 4 regressions (2026-11): unified update lifecycle
+ * ------------------------------------------------------------------ */
+
+test('requestPwaUpdate delegates safely and classifies applied, no-waiting-worker, disabled, unsupported and error outcomes', async () => {
+  assert.equal(requestPwaUpdate, requestPwaUpdateSubpath, 'root entry re-exports installation.requestPwaUpdate');
+
+  assert.deepEqual(await requestPwaUpdate({ pwa: null }), { applied: false, outcome: 'unsupported' });
+  assert.deepEqual(await requestPwaUpdate({ pwa: {} }), { applied: false, outcome: 'unsupported' });
+
+  let calls = 0;
+  assert.deepEqual(
+    await requestPwaUpdate({ enabled: false, pwa: { applyUpdate: () => { calls += 1; return true; } } }),
+    { applied: false, outcome: 'disabled' }
+  );
+  assert.equal(calls, 0, 'disabled update module does not invoke PWA.applyUpdate');
+
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { applyUpdate: () => Promise.resolve(true) } }),
+    { applied: true, outcome: 'applied' }
+  );
+
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { applyUpdate: () => Promise.resolve(false) } }),
+    { applied: false, outcome: 'no-waiting-worker' }
+  );
+
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { applyUpdate: () => { throw new Error('sync fail'); } } }),
+    { applied: false, outcome: 'error' }
+  );
+
+  assert.deepEqual(
+    await requestPwaUpdate({ pwa: { applyUpdate: () => Promise.reject(new Error('async fail')) } }),
+    { applied: false, outcome: 'error' }
+  );
+});
+
+test('assistant.applyUpdate delegates to PWA, respects modules.updates and clears stale update state only when no waiting worker remains', async () => {
+  const listeners = new Map();
+  const doc = {
+    visibilityState: 'visible',
+    addEventListener(type, fn) { listeners.set(type, fn); },
+    removeEventListener(type) { listeners.delete(type); },
+    dispatchEvent(ev) { if (listeners.has(ev.type)) listeners.get(ev.type)(ev); },
+  };
+  const pwaState = { installed: true, standalone: true, canInstall: false, hasUpdate: true };
+  let onChangeListener = null;
+  let applyCalls = 0;
+  let nextApplyResult = true;
+  const root = {
+    document: doc,
+    location: { hostname: 'update.example.com', origin: 'https://update.example.com', protocol: 'https:', pathname: '/' },
+    navigator: { onLine: true },
+    addEventListener() {},
+    removeEventListener() {},
+    PWA: {
+      __pwaKit: true,
+      config: { features: {} },
+      getState: () => ({ ...pwaState }),
+      onChange(cb) {
+        onChangeListener = cb;
+        cb(this.getState());
+        return () => { if (onChangeListener === cb) onChangeListener = null; };
+      },
+      applyUpdate() {
+        applyCalls += 1;
+        if (nextApplyResult instanceof Error) return Promise.reject(nextApplyResult);
+        return Promise.resolve(nextApplyResult);
+      },
+    },
+  };
+
+  const assistant = YouGeAssistant.create({ projectId: 'apply-update-flow' }, { root });
+  doc.dispatchEvent({ type: 'pwa:update' });
+  assert.equal(assistant.getState().network.updateAvailable, true);
+  assert.ok(assistant.getState().notifications.some((n) => n.id === 'app:update'));
+  assert.ok(assistant.getState().availableActions.some((a) => a.id === 'update'));
+
+  // 1. Applying while waiting worker exists delegates and returns applied: true without clearing prematurely
+  const applied = await assistant.applyUpdate();
+  assert.deepEqual(applied, { applied: true, outcome: 'applied' });
+  assert.equal(applyCalls, 1);
+  assert.equal(assistant.getState().network.updateAvailable, true, 'stays true while waiting worker has not transitioned yet');
+
+  // 2. If applyUpdate rejects or reports false while hasUpdate is still true, valid update state is preserved
+  nextApplyResult = new Error('postMessage error');
+  assert.deepEqual(await assistant.applyUpdate(), { applied: false, outcome: 'error' });
+  assert.equal(assistant.getState().network.updateAvailable, true);
+
+  nextApplyResult = false;
+  assert.deepEqual(await assistant.applyUpdate(), { applied: false, outcome: 'no-waiting-worker' });
+  assert.equal(assistant.getState().network.updateAvailable, true, 'does not clear while PWA.getState().hasUpdate is still true');
+
+  // 3. Disabled updates module refuses cleanly without calling PWA
+  assistant.configure({ modules: { updates: false } });
+  const beforeDisabledCalls = applyCalls;
+  assert.deepEqual(await assistant.applyUpdate(), { applied: false, outcome: 'disabled' });
+  assert.equal(applyCalls, beforeDisabledCalls);
+  assistant.configure({ modules: { updates: true } });
+
+  // 4. Waiting worker disappears -> applyUpdate resolves false + hasUpdate is false -> clears stale notice
+  pwaState.hasUpdate = false;
+  const snapshots = [];
+  const unsub = assistant.subscribe((s) => snapshots.push(s), { immediate: false });
+  const staleResult = await assistant.applyUpdate();
+  assert.deepEqual(staleResult, { applied: false, outcome: 'no-waiting-worker' });
+  assert.equal(assistant.getState().network.updateAvailable, false);
+  assert.equal(assistant.getState().notifications.some((n) => n.id === 'app:update'), false);
+  assert.equal(assistant.getState().availableActions.some((a) => a.id === 'update'), false);
+  assert.equal(snapshots.length, 1, 'clearing stale update state emits one updated snapshot');
+  unsub();
+
+  // 5. Lifecycle sync via onChange (true -> false) clears even after pwa:update fired
+  pwaState.hasUpdate = true;
+  onChangeListener({ ...pwaState });
+  doc.dispatchEvent({ type: 'pwa:update' });
+  assert.equal(assistant.getState().network.updateAvailable, true);
+  pwaState.hasUpdate = false;
+  onChangeListener({ ...pwaState });
+  assert.equal(assistant.getState().network.updateAvailable, false, 'onChange transition true -> false clears conditions.updateAvailable');
+
+  // 6. Lifecycle sync via visibilitychange when hasUpdate transitioned true -> false without onChange
+  pwaState.hasUpdate = true;
+  doc.dispatchEvent({ type: 'pwa:update' });
+  assert.equal(assistant.getState().network.updateAvailable, true);
+  pwaState.hasUpdate = false;
+  doc.dispatchEvent({ type: 'visibilitychange' });
+  assert.equal(assistant.getState().network.updateAvailable, false);
+
+  assistant.destroy();
+  assert.deepEqual(await assistant.applyUpdate(), { applied: false, outcome: 'unsupported' });
+});
+
+test('assistant.applyUpdate preserves manual update state when PWA runtime is unavailable or omits hasUpdate', async () => {
+  const docListeners = new Map();
+  const doc = {
+    visibilityState: 'visible',
+    addEventListener(type, fn) { docListeners.set(type, fn); },
+    removeEventListener(type) { docListeners.delete(type); },
+    dispatchEvent(ev) { if (docListeners.has(ev.type)) docListeners.get(ev.type)(ev); },
+  };
+  const standalone = YouGeAssistant.create({ projectId: 'no-pwa-update' }, {
+    root: { document: doc, location: { hostname: 'alone.example', origin: 'https://alone.example', protocol: 'https:', pathname: '/' }, navigator: { onLine: true }, addEventListener() {}, removeEventListener() {} },
+  });
+  standalone.setUpdateAvailable(true);
+  assert.deepEqual(await standalone.applyUpdate(), { applied: false, outcome: 'unsupported' });
+  assert.equal(standalone.getState().network.updateAvailable, true, 'manual update state stays intact when runtime is absent');
+  standalone.destroy();
+});
+
+test('dispatchAssistantAction and React adapter route update actions through AssistantInstance.applyUpdate and fall back to bare PWA mocks', async () => {
+  const dispatched = [];
+  const doc = {
+    dispatchEvent(ev) { dispatched.push(ev); },
+  };
+  const root = {
+    document: doc,
+    CustomEvent: class CustomEvent { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } },
+  };
+
+  let pwaDirectCalls = 0;
+  const barePwa = { applyUpdate() { pwaDirectCalls += 1; return Promise.resolve(true); } };
+
+  let assistantCalls = 0;
+  const assistantWithApply = {
+    applyUpdate() { assistantCalls += 1; return Promise.resolve({ applied: true, outcome: 'applied' }); },
+  };
+
+  // 1. Routes through assistant.applyUpdate() without touching barePwa directly
+  await dispatchAssistantAction('update', 'update', {
+    assistant: assistantWithApply,
+    pwa: barePwa,
+    document: doc,
+    root,
+  });
+  assert.equal(assistantCalls, 1, 'routes through AssistantInstance.applyUpdate');
+  assert.equal(pwaDirectCalls, 0, 'does not bypass Assistant API to call PWA.applyUpdate directly');
+  assert.equal(dispatched.length, 1);
+  assert.equal(dispatched[0].type, 'youge:action');
+  assert.equal(dispatched[0].detail.id, 'update');
+
+  // 2. React adapter dispatchAction uses the same Assistant API path
+  const adapter = createReactAdapter({
+    useSyncExternalStore: (sub, get) => get(),
+    assistant: Object.assign(YouGeAssistant.create({ projectId: 'react-update', bindEvents: false }), {
+      applyUpdate() { assistantCalls += 1; return Promise.resolve({ applied: true, outcome: 'applied' }); },
+    }),
+    env: { root: Object.assign({ PWA: barePwa }, root) },
+  });
+  await adapter.dispatchAction('update', 'update');
+  assert.equal(assistantCalls, 2);
+  assert.equal(pwaDirectCalls, 0);
+
+  // 3. Falls back to PWA.applyUpdate when only a bare PWA mock exists
+  await dispatchAssistantAction('update', 'update', {
+    assistant: { getState: () => ({}) },
+    pwa: barePwa,
+    document: doc,
+    root,
+  });
+  assert.equal(pwaDirectCalls, 1, 'falls back when AssistantInstance.applyUpdate is absent');
 });
