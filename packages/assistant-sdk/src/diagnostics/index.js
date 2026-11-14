@@ -110,19 +110,14 @@ export function createDiagnosticsIntegration(options) {
   const opts = options || {};
   const AbortImpl = opts.AbortController || (typeof AbortController !== 'undefined' ? AbortController : null);
   let inFlight = null;
-  let runController = null;
-  let detachRun = null;
+  // Per-run ownership record: the run that started last owns the controller,
+  // its abort listeners and its detach function. A run's finalizer retires
+  // only its own record, so a stale run can never detach a newer run's
+  // controller or strip a newer run's caller abort listener.
+  let currentRun = null;
   // Bumped by `clear()`: a run that was cleared must never report a result
   // afterwards, otherwise an abandoned check could overwrite newer state.
   let generation = 0;
-
-  function detach() {
-    if (detachRun) {
-      try { detachRun(); } catch (error) { /* already detached */ }
-      detachRun = null;
-    }
-    runController = null;
-  }
 
   function run(runOptions) {
     if (inFlight) return inFlight;
@@ -151,6 +146,7 @@ export function createDiagnosticsIntegration(options) {
     let cancelled = false;
     let onOwnAbort = null;
     let onCallerAbort = null;
+    let runController = null;
     if (AbortImpl) {
       runController = new AbortImpl();
       onOwnAbort = function () { cancelled = true; };
@@ -167,7 +163,7 @@ export function createDiagnosticsIntegration(options) {
       if (callerSignal.aborted) onCallerAbort();
       else callerSignal.addEventListener('abort', onCallerAbort, { once: true });
     }
-    detachRun = function () {
+    const runDetach = function () {
       if (callerSignal && onCallerAbort) callerSignal.removeEventListener('abort', onCallerAbort);
       if (runController && onOwnAbort) runController.signal.removeEventListener('abort', onOwnAbort);
     };
@@ -177,6 +173,10 @@ export function createDiagnosticsIntegration(options) {
 
     const runGeneration = generation;
     const stillCurrent = function () { return runGeneration === generation; };
+    // This run owns its controller, its abort listeners and this detach
+    // function. Nothing else may retire them while this run is current.
+    const record = { controller: runController, detach: runDetach, generation: runGeneration };
+    currentRun = record;
     if (typeof opts.onStart === 'function') opts.onStart();
     const finished = Promise.resolve()
       .then(function () {
@@ -214,7 +214,14 @@ export function createDiagnosticsIntegration(options) {
       })
       .then(function (finalResult) {
         if (inFlight === finished) inFlight = null;
-        detach();
+        // Per-run ownership: retire only this run's own record, and only
+        // while it still owns the current slot. An older run that was cleared
+        // (or replaced by a newer run) must never detach the newer run's
+        // controller or remove the newer run's caller abort listener.
+        if (currentRun === record) {
+          currentRun = null;
+          record.detach();
+        }
         return finalResult;
       });
     inFlight = finished;
@@ -224,12 +231,18 @@ export function createDiagnosticsIntegration(options) {
   function clear() {
     // Invalidate the current run first: whatever it reports from here on is
     // discarded, so a late response can neither raise a notice nor overwrite
-    // state that belongs to a different project or domain.
+    // state that belongs to a different project or domain. Retiring the
+    // record before aborting/detaching makes the run's own late finalizer a
+    // no-op, so it can never touch a run started afterwards.
     generation += 1;
-    if (runController) {
-      try { runController.abort(); } catch (error) { /* already settled */ }
+    const run = currentRun;
+    if (run) {
+      currentRun = null;
+      if (run.controller) {
+        try { run.controller.abort(); } catch (error) { /* already settled */ }
+      }
+      run.detach();
     }
-    detach();
     inFlight = null;
   }
 
