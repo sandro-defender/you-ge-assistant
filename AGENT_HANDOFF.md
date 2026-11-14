@@ -13,7 +13,7 @@
 
 - **Working tree:** clean; the branch holds the Stage 3 implementation commit plus the docs-only handoff commit.
 - **Open PR:** **#27** — `fix(diagnostics): synchronize state and support cancellation` (`arena/fb910a3c-you-ge-assistant` → `main`). Not merged; no release/publish/version change.
-- **CI on PR #27:** `static` (check workflow) — **pass** in 32s on head `a400320` (run `43554111619`, job `132322951735`). `gh pr checks 27` reported `no checks reported` immediately at PR creation and only triggered after the docs commit was pushed; re-check after any further push.
+- **CI on PR #27:** `static` (check workflow) — **pass** on every pushed head (`a400320` run `43554111619`, 32s; `57ed4ac` run `43554169363`, 34s). `gh pr checks 27` reported `no checks reported` immediately at PR creation and only triggered once a commit was pushed onto the branch.
 - **Merged predecessors:**
   - **Phase 2 — Stage 2** (PR #26, `arena/976df00e-you-ge-assistant`, merge `fe1854b`): probe path hardening + local host handling.
   - **Phase 2 — Stage 1** (PR #25, `arena/8464c385-you-ge-assistant`, merge `ee83c0e`): TypeScript contract alignment + `PHASE2_IMPLEMENTATION_PLAN.md`.
@@ -68,7 +68,7 @@ All four Stage 3 items from `PHASE2_IMPLEMENTATION_PLAN.md` §3 are implemented,
 - `node packages/assistant-sdk/scripts/validate-package.mjs`: **PASS** (exit 0, `@youge/assistant-sdk@0.2.0`, release gates intact, publishing still disabled).
 - `git diff --check`: **PASS** (exit 0).
 - Declaration/public-surface tests (`packages/assistant-sdk/tests/sdk-declarations.test.mjs`): **PASS** (3/3).
-- CI on PR #27: `static` — **pass** (run `43554111619`, 32s, head `a400320`).
+- CI on PR #27: `static` — **pass** on heads `a400320` (run `43554111619`) and `57ed4ac` (run `43554169363`).
 - **Not run locally:** `tsc --noEmit` (no `tsc`, `example/node_modules` absent), `example/` typecheck/build, `npm run verify <url>` (needs a deployed URL).
 
 ---
