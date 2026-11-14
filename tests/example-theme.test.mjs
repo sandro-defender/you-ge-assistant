@@ -153,7 +153,7 @@ test('the example adds no dependency and changes no package version', () => {
     'theming adds no dependency to the example',
   );
   assert.match(deps['@youge/assistant-sdk'], /^file:/, 'the example consumes the local SDK');
-  assert.equal(rootPkg.version, '1.1.1', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
+  assert.equal(rootPkg.version, '1.2.0', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
   assert.deepEqual(
     Object.keys(rootPkg.dependencies || {}),
     [],

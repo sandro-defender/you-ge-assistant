@@ -41,8 +41,9 @@ project HTML
   help sheets and the existing `[data-pwa-install]` / `[data-pwa-diagnostics]`
   delegation. The widget annotates its actions with those attributes rather
   than requesting the same native prompt twice.
-- **`progressier.js` remains the only service worker.** The widget files are
-  precached alongside the offline shell; no second registration is added.
+- **`you-ge-sw.js` remains the single service worker** (with `/progressier.js`
+  delegating to it as a compatibility shim). The widget files are precached
+  alongside the offline shell; no second registration is added.
 
 ### Files
 

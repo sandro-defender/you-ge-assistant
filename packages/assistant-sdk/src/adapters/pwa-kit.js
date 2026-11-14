@@ -1,8 +1,8 @@
 /*!
- * @youge/assistant-sdk/adapters/pwa-kit — You.Ge Assistant window.PWA adapter
+ * @youge/assistant-sdk/adapters/pwa-kit — You.Ge Assistant window.YouGePWA / window.PWA adapter
  * ---------------------------------------------------------------------------
  * Connects the SDK domain resolver and Assistant state cleanly to a host page
- * that also loads pwa.js / progressier.js / dns-diagnostics.js, without
+ * that also loads pwa.js / you-ge-sw.js / dns-diagnostics.js, without
  * overwriting active globals or registering any service worker.
  */
 
@@ -49,7 +49,7 @@ export function bridgePwaGlobals(options) {
 
 export function readToolkitSummary(targetRoot) {
   const root = targetRoot || (typeof globalThis !== 'undefined' ? globalThis : {});
-  const pwa = root.PWA || null;
+  const pwa = root.YouGePWA || root.PWA || null;
   const assistant = root.YouGeAssistant && root.YouGeAssistant.__state ? root.YouGeAssistant : null;
   const state = assistant && typeof assistant.getState === 'function' ? assistant.getState() : null;
   const installation = state && state.installation
@@ -57,7 +57,7 @@ export function readToolkitSummary(targetRoot) {
     : deriveInstallationState({ pwa: pwa, enabled: true });
 
   return {
-    hasPwaToolkit: Boolean(pwa && pwa.__pwaKit),
+    hasPwaToolkit: Boolean(pwa && (pwa.__youGePwaKit || pwa.__pwaKit)),
     hasAssistantState: Boolean(assistant),
     pwaVersion: pwa && pwa.version ? String(pwa.version) : null,
     sdkVersion: (assistant && assistant.version) ? String(assistant.version) : SDK_VERSION,

@@ -13,7 +13,7 @@
  *   - a precached asset was modified, added to or removed from the precache
  *     list (renames and the generated Assistant bundle included) without a
  *     synchronized, higher kit version;
- *   - the kit-version declarations (`progressier.js` VERSION, `pwa.js`
+ *   - the kit-version declarations (`you-ge-sw.js` VERSION, `pwa.js`
  *     PWA.version, root `package.json` version and, when the SDK is in the
  *     repository, its KIT_COMPAT_VERSION) disagree;
  *   - the worker lists a precache asset that does not exist.
@@ -37,7 +37,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 
-const WORKER = 'progressier.js';
+const WORKER = 'you-ge-sw.js';
+const LEGACY_WORKER = 'progressier.js';
 const CLIENT = 'pwa.js';
 const PACKAGE = 'package.json';
 /** SDK source constant naming the kit version the SDK is compatible with. */
@@ -335,6 +336,13 @@ export async function runPrecacheIntegrity({ root, baseRef = '', env = {} } = {}
 
   const headWorker = readHead(WORKER);
   if (headWorker == null) return fail(`${WORKER} is missing; the precache list cannot be read.`);
+  const legacyShim = readHead(LEGACY_WORKER);
+  if (legacyShim == null) {
+    return fail(`${LEGACY_WORKER} legacy compatibility shim is missing; existing installations at /${LEGACY_WORKER} require it during the migration period.`);
+  }
+  if (!legacyShim.includes('importScripts') || !legacyShim.includes(WORKER) || /const VERSION\s*=/.test(legacyShim)) {
+    return fail(`${LEGACY_WORKER} must delegate to ${WORKER} via importScripts without declaring an independent VERSION constant.`);
+  }
   let headManifest;
   try {
     headManifest = await extractPrecacheManifest(headWorker);
@@ -350,13 +358,14 @@ export async function runPrecacheIntegrity({ root, baseRef = '', env = {} } = {}
   let renames = {};
   if (base.commit) {
     const show = (path) => git(['show', `${base.commit}:./${path}`]);
-    const baseWorker = show(WORKER);
+    const baseWorkerName = show(WORKER) != null ? WORKER : LEGACY_WORKER;
+    const baseWorker = show(baseWorkerName);
     if (baseWorker != null) {
       let baseManifest;
       try {
         baseManifest = await extractPrecacheManifest(baseWorker);
       } catch (error) {
-        return fail(`The precache list could not be read from ${WORKER} at base ${base.commit.slice(0, 7)}: ${error.message}`);
+        return fail(`The precache list could not be read from ${baseWorkerName} at base ${base.commit.slice(0, 7)}: ${error.message}`);
       }
       const tracked = [...new Set([...baseManifest.precache, ...headManifest.precache])];
       const blobs = {};

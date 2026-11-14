@@ -16,7 +16,7 @@
  *   <script src="/pwa.js" defer></script>
  *
  * Configuration through data attributes on the script tag:
- *   data-sw="/progressier.js"      service worker URL
+ *   data-sw="/you-ge-sw.js"        service worker URL (defaults to you-ge-sw.js)
  *   data-sw-scope="/"              service worker scope
  *   data-manifest="/manifest.webmanifest"
  *   data-analytics="/api/pwa-events"   optional beacon endpoint
@@ -25,16 +25,17 @@
  *   data-toolbox                   show the floating install launcher
  *   data-toolbox-position="right"  position the floating launcher
  *   data-no-meta                   don't inject manifest/apple meta tags
- *   data-allow-external-protocol   allow web+pwa: redirects to other origins
+ *   data-allow-external-protocol   allow web+youge: / web+pwa: redirects to other origins
  *   data-csp-nonce="..."           nonce for the injected stylesheet
  *   data-debug                     verbose logging
  *
- * Public API: window.PWA (see README.md)
+ * Public API: window.YouGePWA (canonical), window.PWA (supported alias),
+ *             window.progressier (temporary migration compatibility shim)
  */
 (function () {
   'use strict';
 
-  if (window.PWA && window.PWA.__pwaKit) return;
+  if ((window.YouGePWA && window.YouGePWA.__youGePwaKit) || (window.PWA && window.PWA.__pwaKit)) return;
 
   /* ------------------------------------------------------------------ *
    * Configuration
@@ -88,7 +89,7 @@
 
   var config = {
     baseUrl: baseUrl,
-    swUrl: resolveUrl(dataset.sw || 'progressier.js'),
+    swUrl: resolveUrl(dataset.sw || 'you-ge-sw.js'),
     swScope: '',
     manifestUrl: resolveUrl(dataset.manifest || 'manifest.webmanifest'),
     cssUrl: resolveUrl(dataset.css || 'pwa.css'),
@@ -299,12 +300,22 @@
   function refreshDom() {
     var standalone = isStandalone();
     var isInstalled = installed || standalone;
+    var installDisabled = isInstalled || domainConfig.features.installation === false || domainConfig.pwa.enabled === false;
 
+    document.querySelectorAll('[data-youge-install]').forEach(function (element) {
+      if (installDisabled) element.hidden = true;
+    });
     document.querySelectorAll('[data-pwa-install]').forEach(function (element) {
-      if (isInstalled || domainConfig.features.installation === false || domainConfig.pwa.enabled === false) element.hidden = true;
+      if (installDisabled) element.hidden = true;
+    });
+    document.querySelectorAll('[data-youge-hide-standalone]').forEach(function (element) {
+      if (standalone) element.hidden = true;
     });
     document.querySelectorAll('[data-pwa-hide-standalone]').forEach(function (element) {
       if (standalone) element.hidden = true;
+    });
+    document.querySelectorAll('[data-youge-show-standalone]').forEach(function (element) {
+      if (!standalone) element.hidden = true;
     });
     document.querySelectorAll('[data-pwa-show-standalone]').forEach(function (element) {
       if (!standalone) element.hidden = true;
@@ -335,7 +346,14 @@
 
   function dispatch(name, detail) {
     try {
-      document.dispatchEvent(new CustomEvent('pwa:' + name, { detail: detail }));
+      document.dispatchEvent(new CustomEvent('youge:pwa:' + name, { detail: detail }));
+    } catch (error) {
+      /* ignore */
+    }
+    try {
+      var legacyEvent = new CustomEvent('pwa:' + name, { detail: detail });
+      legacyEvent.__youGeBridged = true;
+      document.dispatchEvent(legacyEvent);
     } catch (error) {
       /* ignore */
     }
@@ -683,17 +701,17 @@
   function register() {
     if (domainConfig.pwa.enabled === false) {
       readyResolve(null);
-      return;
+      return readyPromise;
     }
     if (!('serviceWorker' in navigator)) {
       log('service workers are not supported');
       readyResolve(null);
-      return;
+      return readyPromise;
     }
     if (!window.isSecureContext) {
       log('service workers require HTTPS (or localhost)');
       readyResolve(null);
-      return;
+      return readyPromise;
     }
 
     navigator.serviceWorker
@@ -780,6 +798,7 @@
         }).catch(function () {});
       });
     }
+    return readyPromise;
   }
 
   var lastUpdateCheck = Date.now();
@@ -919,22 +938,22 @@
     if (config.nonce) style.setAttribute('nonce', config.nonce);
     style.textContent = [
       ':host{all:initial}',
-      '*{box-sizing:border-box;margin:0;padding:0;font-family:var(--progressierFont,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif)}',
+      '*{box-sizing:border-box;margin:0;padding:0;font-family:var(--youge-pwa-font,var(--progressierFont,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif))}',
       '.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.33)}',
-      '.sheet{position:relative;width:min(500px,calc(100% - 24px));max-height:500px;overflow:auto;background:var(--progressierBg,#fff);color:var(--progressierTxt,#051b2c);border:1px solid var(--progressierBorderColor,rgba(0,0,0,.09));border-radius:30px;box-shadow:0 24px 64px rgba(15,23,42,.28)}',
+      '.sheet{position:relative;width:min(500px,calc(100% - 24px));max-height:500px;overflow:auto;background:var(--youge-pwa-bg,var(--progressierBg,#fff));color:var(--youge-pwa-text,var(--progressierTxt,#051b2c));border:1px solid var(--youge-pwa-border,var(--progressierBorderColor,rgba(0,0,0,.09)));border-radius:30px;box-shadow:0 24px 64px rgba(15,23,42,.28)}',
       '.head{display:flex;align-items:center;gap:12px;width:90%;margin:0 auto;padding:20px;box-sizing:border-box}',
-      '.logo{width:56px;height:56px;border-radius:14px;flex:none;background:var(--progressierElement,#f5f5f5);object-fit:cover}',
+      '.logo{width:56px;height:56px;border-radius:14px;flex:none;background:var(--youge-pwa-element,var(--progressierElement,#f5f5f5));object-fit:cover}',
       'h2{font-size:17px;line-height:1.35;font-weight:600}',
-      '.close{margin-left:auto;margin-right:-6px;flex:none;min-width:44px;min-height:44px;border:0;border-radius:50%;background:transparent;color:var(--progressierTxt,#334155);font-size:20px;line-height:1;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease}',
-      '.close:hover{background:var(--progressierHover,rgba(0,0,0,.06))}',
+      '.close{margin-left:auto;margin-right:-6px;flex:none;min-width:44px;min-height:44px;border:0;border-radius:50%;background:transparent;color:var(--youge-pwa-text,var(--progressierTxt,#334155));font-size:20px;line-height:1;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease}',
+      '.close:hover{background:var(--youge-pwa-hover,var(--progressierHover,rgba(0,0,0,.06)))}',
       'ol{list-style:none;width:90%;margin:0 auto;padding:0 0 8px;counter-reset:step}',
-      'li{position:relative;padding:8px 0 8px 38px;font-size:15px;line-height:24px;color:var(--progressierTxt,#334155);counter-increment:step}',
-      'li::before{content:counter(step);position:absolute;left:0;top:8px;width:24px;height:24px;border-radius:6px;background:var(--progressierElement,#eef2ff);color:var(--progressierTxt,#3730a3);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}',
+      'li{position:relative;padding:8px 0 8px 38px;font-size:15px;line-height:24px;color:var(--youge-pwa-text,var(--progressierTxt,#334155));counter-increment:step}',
+      'li::before{content:counter(step);position:absolute;left:0;top:8px;width:24px;height:24px;border-radius:6px;background:var(--youge-pwa-element,var(--progressierElement,#eef2ff));color:var(--youge-pwa-text,var(--progressierTxt,#3730a3));font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}',
       '.actions{width:90%;margin:0 auto;padding:8px 0 24px}',
-      '.ok{width:100%;min-height:50px;border:0;border-radius:30px;background:var(--progressierAccent,#1a73e8);color:var(--progressierAccentText,#fff);font-size:15px;font-weight:600;padding:0 20px;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease,box-shadow 160ms ease}',
+      '.ok{width:100%;min-height:50px;border:0;border-radius:30px;background:var(--youge-pwa-accent,var(--progressierAccent,#1a73e8));color:var(--youge-pwa-accent-text,var(--progressierAccentText,#fff));font-size:15px;font-weight:600;padding:0 20px;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease,box-shadow 160ms ease}',
       '.ok:hover{box-shadow:0 6px 18px rgba(26,115,232,.18)}',
-      '.close:focus-visible,.ok:focus-visible{outline:3px solid var(--progressierFocus,#2563eb);outline-offset:3px}',
-      '.note{width:90%;margin:0 auto;padding:0 0 16px;font-size:13px;line-height:1.45;color:var(--progressierNote,#475569)}',
+      '.close:focus-visible,.ok:focus-visible{outline:3px solid var(--youge-pwa-focus,var(--progressierFocus,#2563eb));outline-offset:3px}',
+      '.note{width:90%;margin:0 auto;padding:0 0 16px;font-size:13px;line-height:1.45;color:var(--youge-pwa-note,var(--progressierNote,#475569))}',
       '@media (prefers-reduced-motion:reduce){.close,.ok{transition:none}}',
       '@media (max-width:480px){.sheet{border-radius:22px}.head,ol,.actions,.note{width:calc(100% - 32px)}}',
     ].join('');
@@ -1247,15 +1266,22 @@
 
   /* ------------------------------------------------------------------ *
    * Shared file (Web Share Target)
+   * Canonical DB/store: you-ge-shared-files / shared-files
+   * Temporary migration fallback: progressiersharedfiles / progressiersharedfiles
    * ------------------------------------------------------------------ */
 
-  function openShareDB() {
+  var CANONICAL_SHARE_DB = 'you-ge-shared-files';
+  var CANONICAL_SHARE_STORE = 'shared-files';
+  var LEGACY_SHARE_DB = 'progressiersharedfiles';
+  var LEGACY_SHARE_STORE = 'progressiersharedfiles';
+
+  function openNamedShareDB(dbName, storeName) {
     return new Promise(function (resolve, reject) {
-      var request = indexedDB.open('progressiersharedfiles', 1);
+      var request = indexedDB.open(dbName, 1);
       request.onupgradeneeded = function () {
         var db = request.result;
-        if (!db.objectStoreNames.contains('progressiersharedfiles')) {
-          db.createObjectStore('progressiersharedfiles', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: 'id' });
         }
       };
       request.onsuccess = function () {
@@ -1267,11 +1293,11 @@
     });
   }
 
-  function readSharedRecord(id) {
-    return openShareDB().then(function (db) {
+  function consumeShareFromDB(dbName, storeName, id) {
+    return openNamedShareDB(dbName, storeName).then(function (db) {
       return new Promise(function (resolve, reject) {
-        var tx = db.transaction('progressiersharedfiles', 'readwrite');
-        var store = tx.objectStore('progressiersharedfiles');
+        var tx = db.transaction(storeName, 'readwrite');
+        var store = tx.objectStore(storeName);
         var request = store.get(id);
         request.onsuccess = function () {
           var record = request.result || null;
@@ -1289,6 +1315,19 @@
         };
       });
     });
+  }
+
+  function readSharedRecord(id) {
+    return consumeShareFromDB(CANONICAL_SHARE_DB, CANONICAL_SHARE_STORE, id)
+      .catch(function () {
+        return null;
+      })
+      .then(function (record) {
+        if (record) return record;
+        return consumeShareFromDB(LEGACY_SHARE_DB, LEGACY_SHARE_STORE, id).catch(function () {
+          return null;
+        });
+      });
   }
 
   function cleanSharedParams() {
@@ -1369,10 +1408,12 @@
   });
 
   /* ------------------------------------------------------------------ *
-   * Protocol handler redirect (web+pwa:...)
+   * Protocol handler redirect (web+youge:... / web+pwa:...)
+   * Canonical params: ?youge-protocol-redirect=<url>, ?youge-redirect=<base64url>
+   * Legacy migration aliases: ?pwaprotocolredirect=<url>, ?pwaredirect=<base64url>
    * ------------------------------------------------------------------ */
 
-  var protocolRedirect = getParam('pwaprotocolredirect');
+  var protocolRedirect = getParam('youge-protocol-redirect') || getParam('pwaprotocolredirect');
   if (protocolRedirect) {
     try {
       var target = new URL(protocolRedirect, window.location.origin);
@@ -1386,9 +1427,7 @@
     }
   }
 
-  // Legacy compatibility contract: ?pwaredirect=<base64 url> links issued
-  // before the You.Ge Assistant migration keep resolving.
-  var base64Redirect = getParam('pwaredirect');
+  var base64Redirect = getParam('youge-redirect') || getParam('pwaredirect');
   if (base64Redirect) {
     try {
       var decoded = window.atob(base64Redirect.replace(/-/g, '+').replace(/_/g, '/'));
@@ -1399,7 +1438,7 @@
           : false;
       if (redirectAllowed) window.location.replace(redirect.href);
     } catch (error) {
-      log('invalid pwaredirect', error);
+      log('invalid redirect parameter', error);
     }
   }
 
@@ -1656,22 +1695,28 @@
     options = options || {};
     var root = document.documentElement.style;
     var map = {
-      background: '--progressierBg',
-      text: '--progressierTxt',
-      font: '--progressierFont',
-      textWeight: '--progressierTextFontWeight',
-      buttonWeight: '--progressierBtnFontWeight',
-      headingWeight: '--progressierHeadingFontWeight',
-      letterSpacing: '--progressierLetterSpacing',
-      hover: '--progressierHover',
-      element: '--progressierElement',
-      border: '--progressierBorderColor',
-      shadow: '--progressierBoxShadow',
-      accent: '--progressierAccent',
-      accentText: '--progressierAccentText',
+      background: ['--youge-pwa-bg', '--progressierBg'],
+      text: ['--youge-pwa-text', '--progressierTxt'],
+      font: ['--youge-pwa-font', '--progressierFont'],
+      textWeight: ['--youge-pwa-text-weight', '--progressierTextFontWeight'],
+      buttonWeight: ['--youge-pwa-btn-weight', '--progressierBtnFontWeight'],
+      headingWeight: ['--youge-pwa-heading-weight', '--progressierHeadingFontWeight'],
+      letterSpacing: ['--youge-pwa-letter-spacing', '--progressierLetterSpacing'],
+      hover: ['--youge-pwa-hover', '--progressierHover'],
+      element: ['--youge-pwa-element', '--progressierElement'],
+      border: ['--youge-pwa-border', '--progressierBorderColor'],
+      shadow: ['--youge-pwa-shadow', '--progressierBoxShadow'],
+      accent: ['--youge-pwa-accent', '--progressierAccent'],
+      accentText: ['--youge-pwa-accent-text', '--progressierAccentText'],
+      focus: ['--youge-pwa-focus', '--progressierFocus'],
+      note: ['--youge-pwa-note', '--progressierNote'],
     };
     Object.keys(map).forEach(function (key) {
-      if (options[key] != null && options[key] !== '') root.setProperty(map[key], options[key]);
+      if (options[key] != null && options[key] !== '') {
+        map[key].forEach(function (prop) {
+          root.setProperty(prop, options[key]);
+        });
+      }
     });
     return options;
   }
@@ -1747,8 +1792,11 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Cookies (banner dismissal). The `progressier*` cookie names are a legacy
-   * compatibility contract: renaming them would re-show dismissed banners.
+   * Cookies (banner dismissal).
+   * Canonical prefixes: `youge_install_banner_`, `youge_push_banner_`
+   * Temporary migration compatibility prefixes: `progressierinstallbanner`,
+   * `progressierpushbanner` (promoted on read and mirrored on write for safe
+   * rollback during the compatibility period).
    * ------------------------------------------------------------------ */
 
   function cookieKey(base) {
@@ -1777,16 +1825,28 @@
     }
   }
 
-  function bannerAllowed(base, days) {
-    var value = readCookie(cookieKey(base));
+  function bannerAllowed(canonicalBase, legacyBase, days) {
+    var canonicalKey = cookieKey(canonicalBase);
+    var value = readCookie(canonicalKey);
+    var fromLegacy = false;
+    if (!value && legacyBase) {
+      value = readCookie(cookieKey(legacyBase));
+      fromLegacy = Boolean(value);
+    }
     if (!value) return true;
     var time = Date.parse(value);
     if (!time) return true;
-    return Date.now() - time > (Number(days) || 0) * 864e5;
+    var expired = Date.now() - time > (Number(days) || 0) * 864e5;
+    if (!expired && fromLegacy) {
+      writeCookie(canonicalKey, value, 365);
+    }
+    return expired;
   }
 
-  function denyBanner(base) {
-    writeCookie(cookieKey(base), new Date().toISOString(), 365);
+  function denyBanner(canonicalBase, legacyBase) {
+    var nowIso = new Date().toISOString();
+    if (legacyBase) writeCookie(cookieKey(legacyBase), nowIso, 365);
+    writeCookie(cookieKey(canonicalBase), nowIso, 365);
   }
 
   /* ------------------------------------------------------------------ *
@@ -2029,7 +2089,9 @@
   }
 
   function scanButtons() {
+    document.querySelectorAll('.youge-install-button:not(.captured)').forEach(initInstallButton);
     document.querySelectorAll('.progressier-install-button:not(.captured)').forEach(initInstallButton);
+    document.querySelectorAll('.youge-subscribe-button:not(.captured)').forEach(initSubscribeButton);
     document.querySelectorAll('.progressier-subscribe-button:not(.captured)').forEach(initSubscribeButton);
     scanQrButtons();
   }
@@ -2038,11 +2100,13 @@
    * Install banner
    * ------------------------------------------------------------------ */
 
-  var BANNER_INSTALL_COOKIE = 'progressierinstallbanner';
-  var BANNER_PUSH_COOKIE = 'progressierpushbanner';
+  var BANNER_INSTALL_COOKIE = 'youge_install_banner_';
+  var LEGACY_BANNER_INSTALL_COOKIE = 'progressierinstallbanner';
+  var BANNER_PUSH_COOKIE = 'youge_push_banner_';
+  var LEGACY_BANNER_PUSH_COOKIE = 'progressierpushbanner';
 
   function removeInstallBanner() {
-    var banner = document.querySelector('.progressier-install-banner');
+    var banner = document.querySelector('.youge-install-banner') || document.querySelector('.progressier-install-banner');
     if (!banner) return;
     banner.classList.remove('in');
     setTimeout(function () {
@@ -2062,27 +2126,27 @@
     var platforms = options.platforms || 'all';
     if (platforms === 'mobile' && !isMobile()) return null;
     if (platforms === 'desktop' && isMobile()) return null;
-    if (!options.preview && !bannerAllowed(BANNER_INSTALL_COOKIE, options.interval == null ? 7 : options.interval)) return null;
+    if (!options.preview && !bannerAllowed(BANNER_INSTALL_COOKIE, LEGACY_BANNER_INSTALL_COOKIE, options.interval == null ? 7 : options.interval)) return null;
 
     removeInstallBanner();
 
-    var banner = make('div', 'progressier-install-banner');
+    var banner = make('div', 'youge-install-banner progressier-install-banner');
     if (wording.rtl()) banner.setAttribute('dir', 'rtl');
 
-    var inner = make('div', 'progressier-install-banner-inner');
-    var icon = make('div', 'progressier-install-banner-icon');
+    var inner = make('div', 'youge-install-banner-inner progressier-install-banner-inner');
+    var icon = make('div', 'youge-install-banner-icon progressier-install-banner-icon');
     var image = document.createElement('img');
     image.src = options.icon || appIcon();
     image.alt = 'app icon';
     icon.appendChild(image);
 
-    var details = make('div', 'progressier-install-banner-details');
-    var text = make('div', 'progressier-install-banner-text');
+    var details = make('div', 'youge-install-banner-details progressier-install-banner-details');
+    var text = make('div', 'youge-install-banner-text progressier-install-banner-text');
     text.textContent = options.text || wording.get('wannaSuggestApp');
     details.appendChild(text);
 
-    var buttons = make('div', 'progressier-install-banner-btns');
-    var install = make('button', 'progressier-install-button', wording.get('install'));
+    var buttons = make('div', 'youge-install-banner-btns progressier-install-banner-btns');
+    var install = make('button', 'youge-install-button progressier-install-button', wording.get('install'));
     install.type = 'button';
     var notNow = make('button', '', wording.get('notNow'));
     notNow.type = 'button';
@@ -2090,7 +2154,7 @@
     buttons.appendChild(notNow);
     details.appendChild(buttons);
 
-    var close = make('div', 'progressier-install-banner-close', ICONS.close);
+    var close = make('div', 'youge-install-banner-close progressier-install-banner-close', ICONS.close);
     close.setAttribute('role', 'button');
     close.setAttribute('tabindex', '0');
 
@@ -2099,11 +2163,17 @@
     inner.appendChild(close);
     banner.appendChild(inner);
 
-    if (options.color) banner.style.setProperty('--progressierAccent', options.color);
-    if (options.btnColor) banner.style.setProperty('--progressierAccentText', options.btnColor);
+    if (options.color) {
+      banner.style.setProperty('--youge-pwa-accent', options.color);
+      banner.style.setProperty('--progressierAccent', options.color);
+    }
+    if (options.btnColor) {
+      banner.style.setProperty('--youge-pwa-accent-text', options.btnColor);
+      banner.style.setProperty('--progressierAccentText', options.btnColor);
+    }
 
     function dismiss() {
-      if (!options.preview) denyBanner(BANNER_INSTALL_COOKIE);
+      if (!options.preview) denyBanner(BANNER_INSTALL_COOKIE, LEGACY_BANNER_INSTALL_COOKIE);
       banner.classList.remove('in');
       setTimeout(function () {
         if (banner.parentNode) banner.parentNode.removeChild(banner);
@@ -2129,7 +2199,7 @@
    * ------------------------------------------------------------------ */
 
   function removePushBanner() {
-    var banner = document.querySelector('.progressier-push-banner');
+    var banner = document.querySelector('.youge-push-banner') || document.querySelector('.progressier-push-banner');
     if (!banner) return;
     banner.classList.remove('in');
     setTimeout(function () {
@@ -2142,38 +2212,38 @@
     if (!pushSupported()) return null;
     if (Notification.permission === 'denied' && !options.preview) return null;
     if (isStandalone() && Notification.permission === 'granted') return null;
-    if (!options.preview && !bannerAllowed(BANNER_PUSH_COOKIE, options.interval == null ? 7 : options.interval)) return null;
+    if (!options.preview && !bannerAllowed(BANNER_PUSH_COOKIE, LEGACY_BANNER_PUSH_COOKIE, options.interval == null ? 7 : options.interval)) return null;
 
     removePushBanner();
 
-    var banner = make('div', 'progressier-push-banner');
+    var banner = make('div', 'youge-push-banner progressier-push-banner');
     if (wording.rtl()) banner.setAttribute('dir', 'rtl');
 
-    var inner = make('div', 'progressier-push-banner-inner');
-    var details = make('div', 'progressier-push-banner-details');
+    var inner = make('div', 'youge-push-banner-inner progressier-push-banner-inner');
+    var details = make('div', 'youge-push-banner-details progressier-push-banner-details');
 
-    var icon = make('div', 'progressier-push-banner-icon');
+    var icon = make('div', 'youge-push-banner-icon progressier-push-banner-icon');
     var image = document.createElement('img');
     image.src = options.icon || appIcon();
     image.alt = 'app icon';
     icon.appendChild(image);
 
-    var text = make('div', 'progressier-push-banner-text');
+    var text = make('div', 'youge-push-banner-text progressier-push-banner-text');
     text.textContent = options.text || wording.get('wannaShowNotifications');
 
     details.appendChild(icon);
     details.appendChild(text);
 
-    var buttons = make('div', 'progressier-push-banner-btns');
+    var buttons = make('div', 'youge-push-banner-btns progressier-push-banner-btns');
     var notNow = make('button', '', wording.get('notNow'));
     notNow.type = 'button';
-    var subscribe = make('button', 'progressier-subscribe-button', wording.get('allowNotifications'));
+    var subscribe = make('button', 'youge-subscribe-button progressier-subscribe-button', wording.get('allowNotifications'));
     subscribe.type = 'button';
     buttons.appendChild(notNow);
     buttons.appendChild(subscribe);
     details.appendChild(buttons);
 
-    var close = make('div', 'progressier-push-banner-close', ICONS.close);
+    var close = make('div', 'youge-push-banner-close progressier-push-banner-close', ICONS.close);
     close.setAttribute('role', 'button');
     close.setAttribute('tabindex', '0');
 
@@ -2181,11 +2251,17 @@
     inner.appendChild(close);
     banner.appendChild(inner);
 
-    if (options.color) banner.style.setProperty('--progressierAccent', options.color);
-    if (options.btnColor) banner.style.setProperty('--progressierAccentText', options.btnColor);
+    if (options.color) {
+      banner.style.setProperty('--youge-pwa-accent', options.color);
+      banner.style.setProperty('--progressierAccent', options.color);
+    }
+    if (options.btnColor) {
+      banner.style.setProperty('--youge-pwa-accent-text', options.btnColor);
+      banner.style.setProperty('--progressierAccentText', options.btnColor);
+    }
 
     function dismiss() {
-      if (!options.preview) denyBanner(BANNER_PUSH_COOKIE);
+      if (!options.preview) denyBanner(BANNER_PUSH_COOKIE, LEGACY_BANNER_PUSH_COOKIE);
       removePushBanner();
     }
 
@@ -2233,11 +2309,11 @@
     options = options || {};
     if (offlineAlertElement) return offlineAlertElement;
 
-    var alert = make('div', 'progressier-offline-alert');
+    var alert = make('div', 'youge-offline-alert progressier-offline-alert');
     if (wording.rtl()) alert.setAttribute('dir', 'rtl');
 
-    var illustration = make('div', 'progressier-offline-alert-illustration', ICONS.wifiOff);
-    var body = make('div', 'progressier-offline-alert-body');
+    var illustration = make('div', 'youge-offline-alert-illustration progressier-offline-alert-illustration', ICONS.wifiOff);
+    var body = make('div', 'youge-offline-alert-body progressier-offline-alert-body');
     var heading = document.createElement('h2');
     heading.textContent = wording.get('youreOffline');
     var copy = document.createElement('p');
@@ -2245,14 +2321,14 @@
     body.appendChild(heading);
     body.appendChild(copy);
 
-    var wifi = make('div', 'progressier-offline-alert-wifi', ICONS.wifiOff);
+    var wifi = make('div', 'youge-offline-alert-wifi progressier-offline-alert-wifi', ICONS.wifiOff);
 
     alert.appendChild(illustration);
     alert.appendChild(body);
     alert.appendChild(wifi);
 
     if (options.dismissible !== false) {
-      var close = make('div', 'progressier-offline-alert-close', ICONS.close);
+      var close = make('div', 'youge-offline-alert-close progressier-offline-alert-close', ICONS.close);
       close.setAttribute('role', 'button');
       close.setAttribute('aria-label', wording.get('close'));
       close.addEventListener('click', function (event) {
@@ -2297,14 +2373,14 @@
       return null;
     }
 
-    var overlay = make('div', 'progressier-prompt-overlay');
+    var overlay = make('div', 'youge-prompt-overlay progressier-prompt-overlay');
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-label', wording.get('tapToReload'));
     overlay.addEventListener('click', function () {
       window.location.reload();
     });
 
-    var button = make('div', 'progressier-prompt-reload-button');
+    var button = make('div', 'youge-prompt-reload-button progressier-prompt-reload-button');
     button.textContent = options.text || wording.get('tapToReload');
     if (options.color) button.style.background = options.color;
     overlay.appendChild(button);
@@ -2687,8 +2763,14 @@
   }
 
   function qrPalette() {
-    var light = colorToHex(themeValue('--progressierBg', config.themeColor || '#ffffff'), '#ffffff');
-    var dark = colorToHex(themeValue('--progressierTxt', '#142a37'), '#142a37');
+    var light = colorToHex(
+      themeValue('--youge-pwa-bg', themeValue('--progressierBg', config.themeColor || '#ffffff')),
+      '#ffffff'
+    );
+    var dark = colorToHex(
+      themeValue('--youge-pwa-text', themeValue('--progressierTxt', '#142a37')),
+      '#142a37'
+    );
 
     // A QR code must stay dark-on-light even with a dark theme.
     function luminance(hex) {
@@ -2712,7 +2794,8 @@
     var value = url || window.location.href;
     try {
       var parsed = new URL(value, window.location.origin);
-      parsed.searchParams.set('pswutlzoq', 'install');
+      parsed.searchParams.delete('pswutlzoq');
+      parsed.searchParams.set('youge-install', '1');
       return parsed.href;
     } catch (error) {
       return value;
@@ -2815,10 +2898,19 @@
       });
   }
 
+  function isInstallQueryTrigger() {
+    var canonical = getParam('youge-install');
+    if (canonical === '1' || canonical === 'true' || canonical === 'install') return true;
+    return getParam('pswutlzoq') === 'install';
+  }
+
   function cleanInstallParam() {
     try {
       var url = new URL(window.location.href);
-      if (url.searchParams.get('pswutlzoq') !== 'install') return;
+      var hadCanonical = url.searchParams.has('youge-install');
+      var hadLegacy = url.searchParams.get('pswutlzoq') === 'install';
+      if (!hadCanonical && !hadLegacy) return;
+      url.searchParams.delete('youge-install');
       url.searchParams.delete('pswutlzoq');
       window.history.replaceState(null, '', url.pathname + url.search + url.hash);
     } catch (error) {
@@ -2849,7 +2941,7 @@
     header.appendChild(close);
     inner.appendChild(header);
 
-    var qrBox = make('div', 'pwa-flow-qr progressier-qr loading');
+    var qrBox = make('div', 'pwa-flow-qr youge-qr progressier-qr loading');
     inner.appendChild(qrBox);
 
     var body = make('div', 'pwa-flow-body pwa-qr-body');
@@ -2922,26 +3014,30 @@
     });
   }
 
+  function captureQrButton(node) {
+    node.classList.add('pwa-qr-captured', 'captured');
+    node.setAttribute('role', 'button');
+    if (isStandalone() && node.getAttribute('data-hide-standalone') !== 'false') {
+      node.hidden = true;
+      return;
+    }
+    node.addEventListener('click', function (event) {
+      event.preventDefault();
+      var value = node.getAttribute('data-youge-qr') || node.getAttribute('data-pwa-qr');
+      showQrDialog({
+        url: value && value !== 'true' ? value : undefined,
+      });
+    });
+  }
+
   function scanQrButtons() {
     if (config.features && config.features.qr === false) {
+      document.querySelectorAll('[data-youge-qr]').forEach(function (node) { node.hidden = true; });
       document.querySelectorAll('[data-pwa-qr]').forEach(function (node) { node.hidden = true; });
       return;
     }
-    document.querySelectorAll('[data-pwa-qr]:not(.pwa-qr-captured)').forEach(function (node) {
-      node.classList.add('pwa-qr-captured', 'captured');
-      node.setAttribute('role', 'button');
-      if (isStandalone() && node.getAttribute('data-hide-standalone') !== 'false') {
-        node.hidden = true;
-        return;
-      }
-      node.addEventListener('click', function (event) {
-        event.preventDefault();
-        var value = node.getAttribute('data-pwa-qr');
-        showQrDialog({
-          url: value && value !== 'true' ? value : undefined,
-        });
-      });
-    });
+    document.querySelectorAll('[data-youge-qr]:not(.pwa-qr-captured)').forEach(captureQrButton);
+    document.querySelectorAll('[data-pwa-qr]:not(.pwa-qr-captured)').forEach(captureQrButton);
   }
 
   /* ------------------------------------------------------------------ *
@@ -3018,8 +3114,11 @@
     var vertical = tokens.find(function (token) {
       return token === 'top' || token === 'middle';
     });
-    var classes = ['progressier-' + horizontal];
-    if (vertical) classes.push('progressier-' + vertical);
+    var classes = ['youge-pos-' + horizontal, 'progressier-' + horizontal];
+    if (vertical) {
+      classes.push('youge-pos-' + vertical);
+      classes.push('progressier-' + vertical);
+    }
     return classes;
   }
 
@@ -3135,7 +3234,7 @@
     if (!toolboxRoot || !toolboxOptions) return;
 
     toolboxRoot.className =
-      'pwa-toolbox progressier-widget ' + toolboxPositionClasses(toolboxOptions.position).join(' ');
+      'youge-toolbox pwa-toolbox progressier-widget ' + toolboxPositionClasses(toolboxOptions.position).join(' ');
     toolboxButton.style.backgroundColor = toolboxOptions.color;
     toolboxButton.setAttribute('aria-label', wording.get('installTheApp') + ' — ' + toolboxOptions.appName);
     toolboxButton.title = wording.get('installTheApp');
@@ -3188,16 +3287,17 @@
     toolboxManuallyHidden = false;
 
     if (!toolboxRoot) {
-      toolboxRoot = make('div', 'pwa-toolbox progressier-widget');
+      toolboxRoot = make('div', 'youge-toolbox pwa-toolbox progressier-widget');
+      toolboxRoot.setAttribute('data-youge-toolbox', '');
       toolboxRoot.setAttribute('data-pwa-toolbox', '');
 
       toolboxButton = document.createElement('button');
-      toolboxButton.className = 'pwa-toolbox-icon progressier-widget-icon';
+      toolboxButton.className = 'youge-toolbox-icon pwa-toolbox-icon progressier-widget-icon';
       toolboxButton.type = 'button';
       toolboxButton.addEventListener('click', onToolboxClick);
 
       toolboxImage = document.createElement('img');
-      toolboxImage.className = 'pwa-toolbox-logo progressier-widget-logo';
+      toolboxImage.className = 'youge-toolbox-logo pwa-toolbox-logo progressier-widget-logo';
       toolboxImage.alt = '';
       toolboxImage.draggable = false;
       toolboxImage.addEventListener('error', function () {
@@ -3296,7 +3396,8 @@
 
   var PWA = {
     __pwaKit: true,
-    version: '1.1.1',
+    __youGePwaKit: true,
+    version: '1.2.0',
     config: config,
 
     // install
@@ -3339,8 +3440,8 @@
     setBadge: setBadge,
     clearBadge: clearBadge,
 
-    // notification history (legacy `progressierSavedPushNotifications` IndexedDB
-    // store, kept so existing installations retain their history)
+    // notification history (canonical `you-ge-notifications` IndexedDB store,
+    // with automatic worker migration from `progressierSavedPushNotifications`)
     getNotifications: function () {
       return postToWorker({ type: 'GET_NOTIFICATIONS' }).then(function (result) {
         return result && result.notifications ? result.notifications : [];
@@ -3388,6 +3489,7 @@
     runNetworkDiagnostics: runNetworkDiagnostics,
     showWelcome: showWelcome,
     showQRCode: showQRCode,
+    getInstallUrl: installUrl,
     showInstallRequest: showInstallRequest,
     createAppleSplashScreens: createAppleSplashScreens,
     notify: notify,
@@ -3400,11 +3502,12 @@
     arrayBufferToBase64: arrayBufferToBase64,
   };
 
+  window.YouGePWA = PWA;
   window.PWA = PWA;
 
   /* ------------------------------------------------------------------ *
-   * Legacy `window.progressier` compatibility shim for integrations written
-   * before You.Ge Assistant (only if that global isn't already defined)
+   * Temporary `window.progressier` migration compatibility shim
+   * (defined only if absent; canonical surface is `window.YouGePWA`)
    * ------------------------------------------------------------------ */
 
   if (!window.progressier) {
@@ -3511,7 +3614,7 @@
 
   scheduleSplashScreens();
 
-  if (getParam('pswutlzoq') === 'install' && !isStandalone()) {
+  if (isInstallQueryTrigger() && !isStandalone()) {
     setTimeout(function () {
       if (isStandalone()) return;
       if (document.querySelector('.pwa-flow')) return;
@@ -3521,9 +3624,16 @@
 
   if (config.offlineAlert) enableOfflineAlert();
 
-  document.addEventListener('pwa:update', function () {
+  document.addEventListener('youge:pwa:update', function () {
     if (!config.autoUpdate) showReloadPrompt();
   });
+  document.addEventListener('pwa:update', function (event) {
+    if (event && event.__youGeBridged) return;
+    if (!config.autoUpdate) showReloadPrompt();
+  });
+
+  var WELCOME_STORAGE_KEY = 'youge-pwa:welcome';
+  var LEGACY_WELCOME_STORAGE_KEY = 'pwakit:welcome';
 
   window.addEventListener('load', function () {
     if (config.installBanner && domainConfig.features.installation !== false && domainConfig.pwa.enabled !== false && !isStandalone()) {
@@ -3539,14 +3649,18 @@
     if (config.welcome && domainConfig.features.installation !== false && domainConfig.pwa.enabled !== false) {
       var seen = false;
       try {
-        seen = window.localStorage.getItem('pwakit:welcome') === '1';
+        var canonicalSeen = window.localStorage.getItem(WELCOME_STORAGE_KEY) === '1';
+        var legacySeen = !canonicalSeen && window.localStorage.getItem(LEGACY_WELCOME_STORAGE_KEY) === '1';
+        if (legacySeen) window.localStorage.setItem(WELCOME_STORAGE_KEY, '1');
+        seen = canonicalSeen || legacySeen;
       } catch (error) {
         /* ignore */
       }
       if (!seen) {
         setTimeout(function () {
           try {
-            window.localStorage.setItem('pwakit:welcome', '1');
+            window.localStorage.setItem(WELCOME_STORAGE_KEY, '1');
+            window.localStorage.setItem(LEGACY_WELCOME_STORAGE_KEY, '1');
           } catch (error) {
             /* ignore */
           }
@@ -3568,13 +3682,13 @@
   document.addEventListener('click', function (event) {
     var node = event.target;
     if (!node || !node.closest) return;
-    var diagnosticsButton = node.closest('[data-pwa-diagnostics]');
+    var diagnosticsButton = node.closest('[data-youge-diagnostics],[data-pwa-diagnostics]');
     if (diagnosticsButton) {
       event.preventDefault();
       showNetworkDiagnostics();
       return;
     }
-    var button = node.closest('[data-pwa-install]');
+    var button = node.closest('[data-youge-install],[data-pwa-install]');
     if (!button) return;
     event.preventDefault();
     promptInstall();
@@ -3584,7 +3698,7 @@
   // relevant element is added, so chatty apps don't trigger constant rescans.
   if (window.MutationObserver) {
     var pending = null;
-    var selector = '[data-pwa-install],[data-pwa-hide-standalone],[data-pwa-show-standalone]';
+    var selector = '[data-youge-install],[data-pwa-install],[data-youge-hide-standalone],[data-pwa-hide-standalone],[data-youge-show-standalone],[data-pwa-show-standalone]';
     var observer = new MutationObserver(function (mutations) {
       var relevant = mutations.some(function (mutation) {
         if (!mutation.addedNodes || !mutation.addedNodes.length) return false;

@@ -233,7 +233,8 @@ a { color: inherit; }
 .connection-pill.is-offline .connection-dot { background: #d38631; box-shadow: 0 0 0 3px rgba(211, 134, 49, 0.13); }
 .connection-pill.is-offline { color: #936029; }
 
-/* `.progressier-install-button` is the legacy compatibility selector the You.Ge Assistant runtime captures. */
+/* `.youge-install-button` is the canonical selector You.Ge Assistant captures (`.progressier-install-button` kept for compatibility). */
+.youge-install-button.install-button,
 .progressier-install-button.install-button {
   display: inline-flex;
   align-items: center;
@@ -250,10 +251,15 @@ a { color: inherit; }
   transition: background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
 }
 
+.youge-install-button.install-button:hover,
 .progressier-install-button.install-button:hover { background: var(--brand-strong); box-shadow: 0 7px 16px rgba(23, 99, 79, 0.2); transform: translateY(-1px); }
+.youge-install-button.install-button .pwa-btn-inner,
 .progressier-install-button.install-button .pwa-btn-inner { gap: 2px; }
+.youge-install-button.install-button .pwa-btn-icon,
 .progressier-install-button.install-button .pwa-btn-icon { width: 16px; height: 16px; }
+.youge-install-button.install-button .pwa-btn-icon svg,
 .progressier-install-button.install-button .pwa-btn-icon svg { width: 100%; height: 100%; }
+.youge-install-button.install-button .pwa-btn-label,
 .progressier-install-button.install-button .pwa-btn-label { padding: 0 0 0 7px; }
 
 .page-shell { width: min(1080px, calc(100% - 48px)); margin: 0 auto; padding: 34px 0 70px; }
@@ -383,8 +389,11 @@ h1, h2, h3, p { margin-top: 0; }
 .callout-copy .card-kicker { color: #b7d7c4; }
 .callout-copy h2 { margin: 4px 0 1px; font-family: var(--display-font); font-size: 17px; font-weight: 700; letter-spacing: -0.04em; }
 .callout-copy > p:last-child { margin: 0; color: #d0dfd5; font-size: 11px; }
+.youge-install-button.install-button-light,
 .progressier-install-button.install-button-light { flex: none; border-color: #eaf5e9; background: #eaf5e9; color: #164b3b; box-shadow: none; }
+.youge-install-button.install-button-light:hover,
 .progressier-install-button.install-button-light:hover { border-color: #fff; background: #fff; }
+.youge-install-button.install-button-light .pwa-btn-icon svg,
 .progressier-install-button.install-button-light .pwa-btn-icon svg { fill: #164b3b; }
 
 .playground-link { margin: 24px 0 0; color: #758278; font-size: 11px; text-align: center; }
@@ -406,6 +415,7 @@ h1, h2, h3, p { margin-top: 0; }
   .header-inner { width: min(100% - 32px, 520px); min-height: 72px; }
   .main-nav { display: none; }
   .header-actions { margin-left: auto; }
+  .youge-install-button.install-button,
   .progressier-install-button.install-button { min-height: 39px; padding: 0 11px; font-size: 11px; }
   .page-shell { width: min(100% - 32px, 520px); padding-top: 24px; }
   .sample-banner { align-items: flex-start; margin-bottom: 25px; border-radius: 14px; font-size: 10px; }

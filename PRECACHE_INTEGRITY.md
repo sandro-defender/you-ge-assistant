@@ -1,10 +1,11 @@
 # Precache integrity, cache refresh and kit versioning — You.Ge Assistant
 
-How the You.Ge Assistant service worker (`/progressier.js`, a legacy path kept
-for update continuity — see [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md))
-caches the app shell, which precache assets are required and which are optional,
-how installed apps receive new code, what the `precache-integrity` gate enforces,
-and what the kit `1.1.1` cache generation changes for existing installations.
+How the You.Ge Assistant service worker (`/you-ge-sw.js`, with `/progressier.js`
+retained as a subpath-safe `importScripts` compatibility shim — see
+[`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md)) caches the app shell,
+which precache assets are required and which are optional, how installed apps
+receive new code, what the `precache-integrity` gate enforces, and how kit
+`1.2.0` refreshes the precache generation safely.
 
 Everything below was verified with deterministic Node tests against the real
 worker source. **No real-browser or live-deployment verification was performed.**
@@ -14,9 +15,9 @@ worker source. **No real-browser or live-deployment verification was performed.*
 | Step | Source | Notes |
 | --- | --- | --- |
 | SDK sources → `assistant-state.js` | `npm run sync:sdk` (`scripts/sync-sdk-browser.mjs`) | The only generated precached file. `--check` (part of `npm run check`) fails when it is out of date. |
-| Precache manifest | `PRECACHE_ASSETS` in `progressier.js` | 13 scope-relative files, each declared `required: true` or `required: false` (§3). There is no separate manifest file: the worker is the single source, and the gate reads it by running the install handler. |
-| Never cached by the worker | `pwa.js`, `progressier.js` | Always fetched from the network (`fetch` handler returns early). |
-| Kit version | `VERSION` in `progressier.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.1.1`. The gate requires the four source declarations to agree; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.2.0`) is a separate release line (§7). |
+| Precache manifest | `PRECACHE_ASSETS` in `you-ge-sw.js` | 13 scope-relative files, each declared `required: true` or `required: false` (§3). There is no separate manifest file: the worker is the single source, and the gate reads it by running the install handler. |
+| Never cached by the worker | `pwa.js`, `you-ge-sw.js`, `progressier.js` | Always fetched from the network (`fetch` handler returns early). |
+| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.0`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.2.0`) is a separate release line (§7). |
 | Cache names | `you-ge-assistant:<host>:<scope>:static:v<VERSION>` and `…:pages:v<VERSION>` | Host- and scope-isolated. The **kit version is the only cache-invalidation key.** |
 | Deployment | `.github/workflows/pages.yml` | Every push to `main` publishes the runtime to GitHub Pages. |
 
@@ -24,7 +25,7 @@ worker source. **No real-browser or live-deployment verification was performed.*
 
 | Phase | Behaviour |
 | --- | --- |
-| Update detection | The browser installs a new worker when `progressier.js` differs byte for byte (and, per the Service Worker specification, when a script it imports — `domain-registry.js`, `domain-config.js` — differs). `pwa.js` also calls `registration.update()` when the page becomes visible, at most hourly. A change to any other precached file does **not** start an install. |
+| Update detection | The browser installs a new worker when `you-ge-sw.js` (and, per the Service Worker specification, any script it imports — `domain-registry.js`, `domain-config.js` — or `progressier.js` when explicitly configured via `data-sw="/progressier.js"`) differs byte for byte. `pwa.js` also calls `registration.update()` when the page becomes visible, at most hourly. A change to any other precached file does **not** start an install. |
 | `install` | Downloads the whole precache manifest with `cache: 'reload'` (HTTP cache bypassed), reading every body to the end, within one 120 s deadline. Only when every asset is settled (§3) is anything written to `static:v<VERSION>`. Any failure aborts the remaining requests and rejects the install. `skipWaiting()` is never called here. |
 | Waiting | The new worker waits. `pwa.js` reports `hasUpdate`, dispatches `pwa:update`, and the Assistant shows its notice. Nothing is replaced until the page posts `SKIP_WAITING` (`PWA.applyUpdate()` or `data-auto-update`). |
 | `activate` | Copies in-scope entries from the legacy `pwa-static-1.0.4` / `pwa-pages-1.0.4` caches, deletes every other cache in this host+scope namespace, then `clients.claim()`. Caches of other hosts, other scopes, the legacy shared names and third parties are left alone. |
@@ -50,7 +51,7 @@ again on its next update check (navigation, or the hourly visibility check).
 
 ## 3. Required and optional precache assets
 
-Each manifest entry is declared in `progressier.js`. **Required** means the
+Each manifest entry is declared in `you-ge-sw.js`. **Required** means the
 install fails unless the asset is answered with a complete HTTP 200 response.
 **Optional** means the asset may be left out of a deployment; it is skipped only
 when the server states that it is not deployed.
@@ -203,10 +204,11 @@ CI step "Static checks and precache integrity gate") and directly with
 
 Rules:
 
-1. **Synchronization** — `progressier.js` `VERSION`, `pwa.js` `PWA.version`,
+1. **Synchronization** — `you-ge-sw.js` `VERSION`, `pwa.js` `PWA.version`,
    root `package.json` `version` and, when the SDK package is in the repository,
    `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` must
-   exist and be identical. The SDK package version (`SDK_VERSION`,
+   exist and be identical, and `progressier.js` must delegate to `you-ge-sw.js`
+   via `importScripts`. The SDK package version (`SDK_VERSION`,
    `packages/assistant-sdk/package.json`) is not a kit-version declaration and
    is not compared.
 2. **Existence** — every asset the worker lists must exist in the repository.
@@ -330,3 +332,11 @@ cache and a failed upgrade never mixing versions.
   worker until they do.
 
 No migration code is needed.
+
+## 8. Kit version `1.2.0` — canonical technical identity cutover
+
+Authorized by the owner and applied in PR #37 (`1.1.1 → 1.2.0`). `@youge/assistant-sdk` remains `0.2.0`.
+
+- `you-ge-sw.js` becomes the canonical service-worker source (`const VERSION = '1.2.0'`), while `progressier.js` becomes a subpath-safe `importScripts(new URL('you-ge-sw.js', self.location.href).href)` shim verified by `scripts/precache-integrity.mjs`.
+- Both `you-ge-sw.js` and `progressier.js` are excluded from worker precaching and runtime cache storage.
+- Precached files updated in `1.2.0` (`pwa.css`, `assistant-state.js`, `assistant-widget.js`) roll forward into isolated `…:static:v1.2.0` and `…:pages:v1.2.0` caches while `1.1.1` caches are retired on activation.

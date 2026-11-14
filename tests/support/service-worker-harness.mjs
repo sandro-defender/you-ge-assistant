@@ -1,5 +1,6 @@
 // Deterministic Node harness for the You.Ge Assistant service worker
-// (`progressier.js`). It evaluates the real worker source in a VM context with
+// (`you-ge-sw.js`, plus legacy compatibility entry `progressier.js`). It
+// evaluates the real worker source in a VM context with
 // in-memory Cache Storage, a scripted network and the service-worker lifecycle
 // events, so install / activate / fetch / message behaviour can be observed at
 // the worker's public seam: the events it handles and the caches it leaves.
@@ -11,7 +12,8 @@ import vm from 'node:vm';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 
-export const workerSource = read('progressier.js');
+export const workerSource = read('you-ge-sw.js');
+export const legacyWorkerShimSource = read('progressier.js');
 export const workerVersion = /const VERSION = '([^']+)'/.exec(workerSource)[1];
 
 /** The same worker code published under another kit version. */
@@ -211,7 +213,7 @@ export function bootWorker({ caches, network, source = workerSource, scope = 'ht
     navigator: {},
     caches,
     fetch: (input, init) => network.fetch(input, init),
-    location: new URL('progressier.js', scope),
+    location: new URL('you-ge-sw.js', scope),
     registration: { scope },
     clients: {
       claim: async () => { calls.claim += 1; },
@@ -220,15 +222,20 @@ export function bootWorker({ caches, network, source = workerSource, scope = 'ht
     skipWaiting: () => { calls.skipWaiting += 1; return Promise.resolve(); },
     addEventListener: (type, handler) => { listeners[type] = handler; },
     importScripts: (...urls) => {
+      const scopePathname = new URL(scope).pathname;
       for (const url of urls) {
-        vm.runInContext(read(new URL(url).pathname.replace(/^\//, '')), context, { filename: url });
+        const pathname = new URL(url, scope).pathname;
+        const rel = pathname.startsWith(scopePathname)
+          ? pathname.slice(scopePathname.length)
+          : pathname.replace(/^\//, '');
+        vm.runInContext(read(rel), context, { filename: url });
       }
     },
   };
   sandbox.self = sandbox;
   sandbox.globalThis = sandbox;
   const context = vm.createContext(sandbox);
-  vm.runInContext(source, context, { filename: 'progressier.js' });
+  vm.runInContext(source, context, { filename: 'you-ge-sw.js' });
 
   /** Dispatch a lifecycle/message event; resolves or rejects like `waitUntil`. */
   async function dispatch(type, init = {}) {

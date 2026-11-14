@@ -1,7 +1,7 @@
 # Push server example
 
 Minimal Node sender for You.Ge Assistant. It receives browser subscriptions
-and sends notifications that match `progressier.js`'s expected payload.
+and sends notifications that match `you-ge-sw.js`'s expected payload.
 
 ## Run
 

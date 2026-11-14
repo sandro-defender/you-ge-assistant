@@ -60,6 +60,7 @@ const at = (relative) => join(root, relative);
 const requiredFiles = [
   'pwa.js',
   'pwa.css',
+  'you-ge-sw.js',
   'progressier.js',
   'domain-config.js',
   'domain-registry.js',
@@ -93,6 +94,7 @@ for (const file of requiredFiles) {
 section('JavaScript syntax');
 for (const file of [
   'pwa.js',
+  'you-ge-sw.js',
   'progressier.js',
   'offline.js',
   'domain-config.js',
@@ -231,7 +233,8 @@ if (manifest) {
 
 section('Service worker');
 
-const worker = existsSync(at('progressier.js')) ? readFileSync(at('progressier.js'), 'utf8') : '';
+const worker = existsSync(at('you-ge-sw.js')) ? readFileSync(at('you-ge-sw.js'), 'utf8') : '';
+const legacyWorkerShim = existsSync(at('progressier.js')) ? readFileSync(at('progressier.js'), 'utf8') : '';
 const client = existsSync(at('pwa.js')) ? readFileSync(at('pwa.js'), 'utf8') : '';
 const styles = existsSync(at('pwa.css')) ? readFileSync(at('pwa.css'), 'utf8') : '';
 const originalReference = existsSync(at('reference/Script.decompiled.js'))
@@ -241,13 +244,18 @@ const originalReference = existsSync(at('reference/Script.decompiled.js'))
 const workerVersion = /const VERSION = '([^']+)'/.exec(worker);
 const clientVersion = /version:\s*'([^']+)'/.exec(client);
 if (!workerVersion) {
-  fail('progressier.js has no VERSION constant');
+  fail('you-ge-sw.js has no VERSION constant');
 } else if (!clientVersion) {
   fail('pwa.js has no version field');
 } else if (workerVersion[1] !== clientVersion[1]) {
   fail(`version mismatch: worker ${workerVersion[1]} vs client ${clientVersion[1]}`);
 } else {
   pass(`version is ${workerVersion[1]} in both files`);
+}
+if (/importScripts\([^)]*you-ge-sw\.js/.test(legacyWorkerShim)) {
+  pass('progressier.js compatibility shim delegates to canonical you-ge-sw.js');
+} else {
+  fail('progressier.js must delegate to canonical you-ge-sw.js via importScripts');
 }
 
 section('Domain and diagnostics architecture');
@@ -366,7 +374,7 @@ if (precacheIntegrity.status === 'fail') {
 }
 
 for (const name of ['share-target', 'offline.html', 'qrcode.js']) {
-  if (!worker.includes(name)) warn(`progressier.js does not mention ${name}`);
+  if (!worker.includes(name)) warn(`you-ge-sw.js does not mention ${name}`);
 }
 
 /* ------------------------------------------------------------------ *
@@ -454,6 +462,7 @@ if (/base:\s*['"]\.\/['"]/.test(exampleViteConfig)) {
 const sharedRuntimeFiles = new Set([
   'pwa.js',
   'pwa.css',
+  'you-ge-sw.js',
   'progressier.js',
   'qrcode.js',
   'assistant-state.js',
@@ -570,7 +579,7 @@ for (const page of examplePages) {
       fail(`${page.label} runtime manifest resolves to ${configuredManifestUrl.pathname}, expected ${expectedManifestUrl.pathname}`);
     }
 
-    const workerSrc = tagAttribute(pwaTag, 'data-sw') || 'progressier.js';
+    const workerSrc = tagAttribute(pwaTag, 'data-sw') || 'you-ge-sw.js';
     const workerUrl = new URL(workerSrc, pwaUrl);
     const workerPath = pagesFile(workerUrl, `${page.label} service worker`);
     if (workerPath && existsSync(workerPath)) pass(`${page.label} service worker resolves to its deployed worker`);
@@ -705,7 +714,10 @@ const installMarkers = [
   'var(--progressierNote,#475569)',
 ];
 contract(installMarkers.every((token) => client.includes(token)), 'install help sheet keeps its behavior with improved focus/contrast/motion');
-contract(styles.includes('.progressier-install-banner :focus-visible'), 'install banner restores a visible keyboard focus ring');
+contract(
+  styles.includes('.youge-install-banner :focus-visible') && styles.includes('.progressier-install-banner :focus-visible'),
+  'install banner restores a visible keyboard focus ring for canonical and compatibility selectors'
+);
 
 const designSource = existsSync(at('DESIGN_FOUNDATION.md'))
   ? readFileSync(at('DESIGN_FOUNDATION.md'), 'utf8') : '';
@@ -750,7 +762,7 @@ const mainSource = readFileSync(at('example/src/main.jsx'), 'utf8');
 contract(mainSource.includes('<FoundationPreview />'), 'React example mounts the foundation preview');
 
 const runtimeFiles = [
-  'pwa.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',
+  'pwa.js', 'you-ge-sw.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',
   'dns-diagnostics.js', 'manifest-handler.js', 'offline.js', 'example/example.js',
 ];
 const runtimeText = runtimeFiles.map((file) => readFileSync(at(file), 'utf8')).join('\n');

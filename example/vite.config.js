@@ -6,7 +6,7 @@ import { defineConfig } from 'vite';
 const exampleRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(exampleRoot, '..');
 const sharedFiles = new Set([
-  'pwa.js', 'pwa.css', 'progressier.js', 'qrcode.js',
+  'pwa.js', 'pwa.css', 'you-ge-sw.js', 'progressier.js', 'qrcode.js',
   'domain-config.js', 'domain-registry.js', 'dns-diagnostics.js',
   'assistant-state.js', 'assistant-widget.js', 'assistant-widget.css',
   'offline.html', 'offline.css', 'offline.js', 'browserconfig.xml', 'favicon.ico',

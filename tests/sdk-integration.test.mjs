@@ -315,7 +315,7 @@ test('a failed pwa.js diagnostics dialog reaches centralized state as a critical
   assistant.destroy();
 });
 
-test('bridgePwaGlobals + pwa.js preserves single /progressier.js registration and window.PWA / window.progressier contracts', () => {
+test('bridgePwaGlobals + pwa.js registers canonical /you-ge-sw.js and preserves window.YouGePWA / window.PWA / window.progressier contracts', () => {
   const { win } = makeSandboxWindow('https://tenant.example.com/');
   const swRegistrations = [];
   win.navigator.serviceWorker = {
@@ -343,11 +343,12 @@ test('bridgePwaGlobals + pwa.js preserves single /progressier.js registration an
   // Load pwa.js into the same window
   vm.runInContext(readRepo('pwa.js'), win, { filename: 'pwa.js' });
 
-  assert.equal(win.PWA.__pwaKit, true, 'window.PWA preserved');
+  assert.equal(win.YouGePWA.__youGePwaKit, true, 'canonical window.YouGePWA exposed');
+  assert.equal(win.PWA.__pwaKit, true, 'window.PWA alias preserved');
   assert.equal(typeof win.progressier.install, 'function', 'window.progressier compatibility surface preserved');
   assert.equal(typeof win.progressier.push.subscribe, 'function', 'window.progressier.push surface preserved');
   assert.equal(swRegistrations.length, 1, 'exactly one service worker registered');
-  assert.match(swRegistrations[0].swUrl, /progressier\.js$/, 'legacy /progressier.js path preserved');
+  assert.match(swRegistrations[0].swUrl, /you-ge-sw\.js$/, 'canonical /you-ge-sw.js path registered on fresh install');
   assert.equal(bridged.assistant.getState().project.name, 'Tenant Portal');
   // After pwa:ready, installation support transitions from none -> manual-generic
   assert.equal(bridged.assistant.getState().installation.support, 'manual-generic');

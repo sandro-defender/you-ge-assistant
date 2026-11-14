@@ -14,7 +14,8 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const has = (path) => existsSync(new URL(`../${path}`, import.meta.url));
 
 const pwa = read('pwa.js');
-const worker = read('progressier.js');
+const worker = read('you-ge-sw.js');
+const legacyWorkerShim = read('progressier.js');
 const styles = read('pwa.css');
 const offlineHtml = read('offline.html');
 const exampleCss = read('example/example.css');
@@ -27,12 +28,13 @@ function pngSize(path) {
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
-test('static fallback manifest is valid, in-scope and keeps the installed identity', () => {
+test('static fallback manifest is valid, in-scope and uses canonical identity while staff.you.ge preserves its installed id', () => {
   const manifest = JSON.parse(read('manifest.webmanifest'));
   assert.equal(manifest.name, 'You.Ge Assistant');
   assert.equal(manifest.short_name, 'You.Ge');
   assert.equal(manifest.display, 'standalone');
-  assert.equal(manifest.id, '/HIPSBNVemXtM8VMwRfWs', 'legacy manifest id must not change');
+  assert.equal(manifest.id, '/', 'generic static fallback manifest uses canonical "/" id');
+  assert.match(read('domain-registry.js'), /'staff\.you\.ge'[\s\S]*id:\s*'\/HIPSBNVemXtM8VMwRfWs'/, 'staff.you.ge preserves its installed id');
   assert.ok(manifest.start_url.startsWith(manifest.scope), 'start_url stays inside scope');
   assert.ok(Array.isArray(manifest.icons) && manifest.icons.length >= 2);
   assert.ok(manifest.icons.some((icon) => String(icon.purpose).includes('maskable')));
@@ -115,9 +117,11 @@ test('install sheet and banner improvements add accessibility without changing b
   assert.match(styles, /width: 65px/);
 });
 
-test('service worker registration and lifecycle stay on the legacy path', () => {
+test('service worker registration uses clean canonical you-ge-sw.js cutover while keeping progressier.js shim available', () => {
   assert.match(pwa, /\.register\(config\.swUrl, \{ scope: config\.swScope \}\)/);
-  assert.match(pwa, /swUrl: resolveUrl\(dataset\.sw \|\| 'progressier\.js'\)/);
+  assert.match(pwa, /swUrl: resolveUrl\(dataset\.sw \|\| 'you-ge-sw\.js'\)/);
+  assert.doesNotMatch(pwa, /legacy-preserved|swMigrationMode|isLegacyWorkerScriptUrl/);
+  assert.match(legacyWorkerShim, /importScripts\(new URL\('you-ge-sw\.js'/);
   assert.match(pwa, /addEventListener\('controllerchange'/);
   assert.match(pwa, /SKIP_WAITING/);
   for (const event of ['install', 'activate', 'fetch', 'message', 'push', 'notificationclick']) {
@@ -157,7 +161,7 @@ test('domain detection stays injectable and never becomes authentication', () =>
   assert.match(read('domain-registry.js'), /configuration, not an access-control/);
   assert.match(architecture, /Hostname detection is \*\*never authentication\*\*|never authentication/);
   const runtime = [
-    'pwa.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',
+    'pwa.js', 'you-ge-sw.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',
     'dns-diagnostics.js', 'manifest-handler.js', 'offline.js', 'example/example.js',
   ].map(read).join('\n');
   assert.doesNotMatch(runtime, /staff-you-ge\.sandro-1990\.workers\.dev/, 'example backup URL is not a runtime default');

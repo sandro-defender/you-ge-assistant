@@ -9,9 +9,11 @@ the active origin and resolves identity/features from a central public registry,
 with safe defaults for unknown hosts. It requires no account, build step or DNS
 backend. The only built-in external runtime request is the user-triggered
 Cloudflare DoH check; optional push/analytics integrations use the endpoints
-you configure. The former `staff.you.ge` install identity and `/progressier.js` worker
-path remain compatible; that hostname is neither required nor used as a DNS
-test constant.
+you configure. Canonical technical surfaces use You.Ge Assistant names
+(`/you-ge-sw.js`, `window.YouGePWA`, `--youge-pwa-*`, `.youge-*`); the former
+`staff.you.ge` install identity and `/progressier.js` worker shim remain
+compatible during the `1.x` migration window, and that hostname is neither
+required nor used as a DNS test constant.
 
 **Live playground:** <https://sandro-defender.github.io/you-ge-assistant/> — test
 install, toolbox, QR, offline recovery, push, share, caches, theme, wording and
@@ -32,7 +34,7 @@ toolkit remains dependency-free. See [`example/README.md`](example/README.md).
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
 (`@youge/assistant-sdk` v`0.2.0`, also the current npm registry version) while keeping this repository's dependency-free PWA
-toolkit (`window.PWA`, `/progressier.js`, DNS diagnostics, manifest/offline
+toolkit (`window.YouGePWA` / `window.PWA`, `/you-ge-sw.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
 production failover engine or `staff.you.ge` modification is implemented here.
 The reusable **Intelligent Floating Assistant** widget shares the exact same
@@ -63,7 +65,7 @@ GitHub to start from a clean copy).
 CRA, SvelteKit):
 
 ```
-pwa.js  pwa.css  progressier.js  manifest.webmanifest  qrcode.js
+pwa.js  pwa.css  you-ge-sw.js  progressier.js  manifest.webmanifest  qrcode.js
 domain-config.js  domain-registry.js  dns-diagnostics.js  manifest-handler.js
 offline.html  offline.css  offline.js  browserconfig.xml  favicon.ico  icons/
 ```
@@ -86,6 +88,7 @@ the worker without aggressive caching:
 
 ```
 /manifest.webmanifest   Content-Type: application/manifest+json
+/you-ge-sw.js           Cache-Control: no-cache
 /progressier.js         Cache-Control: no-cache
 ```
 
@@ -116,7 +119,7 @@ worker, render a widget, poll, or make hidden network requests.
 
 Use the SDK when an application needs the Assistant state/API in its own code,
 React, or a custom UI. The existing You.Ge Assistant runtime (`pwa.js`,
-`/progressier.js`, `dns-diagnostics.js`) remains responsible for browser PWA
+`/you-ge-sw.js`, `dns-diagnostics.js`) remains responsible for browser PWA
 registration, install prompts, offline caching, push and the built-in PWA UI.
 The Classic toolkit remains suitable for static pages that want script-tag
 integration without an npm build. The SDK can share that runtime through
@@ -405,9 +408,10 @@ domain-registry.js        Public per-domain/subdomain customization
 manifest-handler.js       Validated host-aware manifest response helper
 functions/                Cloudflare Pages Functions manifest adapter
 dns-diagnostics.js        On-demand Cloudflare DoH diagnostics
-progressier.js            Service worker (kept at /progressier.js for update continuity)
-pwa.js                    Client runtime — PWA controls, install flows and domain-aware UI
-pwa.css                   Component stylesheet (with preserved compatibility variables)
+you-ge-sw.js              Canonical service worker (offline cache, push, share target, badge)
+progressier.js            Temporary compatibility shim delegating to you-ge-sw.js
+pwa.js                    Client runtime (`window.YouGePWA`) — PWA controls, install flows and domain-aware UI
+pwa.css                   Component stylesheet (`--youge-pwa-*` tokens, `.youge-*` selectors, compatibility aliases)
 assistant-state.js        Centralized Assistant state synchronized from @youge/assistant-sdk
 assistant-widget.js/.css  Dependency-free floating Assistant DOM renderer
 qrcode.js                 Vendored MIT QR generator (QR install dialog)
@@ -436,6 +440,7 @@ Copy the runtime files to your web root, keeping the paths above:
 
 ```
 / manifest.webmanifest
+/ you-ge-sw.js
 / progressier.js
 / pwa.js
 / pwa.css
@@ -447,9 +452,10 @@ Copy the runtime files to your web root, keeping the paths above:
 / icons/...
 ```
 
-Keep the service worker at **`/progressier.js`** when migrating an existing
-site so already-registered browsers update it in place without creating a
-duplicate worker.
+Fresh and default registrations always register **`/you-ge-sw.js`** (resolved
+relative to `pwa.js` on subpaths). **`/progressier.js`** remains deployed as a
+thin `importScripts('you-ge-sw.js')` compatibility shim during the `1.x`
+compatibility period for explicit `data-sw="/progressier.js"` integrations.
 
 ### 2. Add the `<head>` tags
 
@@ -503,12 +509,12 @@ For existing migrations, legacy install and push-subscribe markup continues to
 work automatically (150 ms DOM scan, wiring `.captured` and `.initialized`):
 
 ```html
-<button type="button" class="progressier-install-button"
+<button type="button" class="youge-install-button"
         data-icons="true"
         data-install="Install"
         data-installed="Launch the app"></button>
 
-<button type="button" class="progressier-subscribe-button"
+<button type="button" class="youge-subscribe-button"
         data-icons="true"
         data-eligible="Get notifications"
         data-subscribed="Notifications enabled"
@@ -652,7 +658,7 @@ without changes.
 <script
   src="/pwa.js"
   defer
-  data-sw="/progressier.js"
+  data-sw="/you-ge-sw.js"
   data-manifest="/manifest.webmanifest"
   data-analytics="/api/pwa-events"
   data-push-endpoint="/api/push/subscribe"
@@ -663,7 +669,7 @@ without changes.
 
 | Attribute | Default | Purpose |
 | --- | --- | --- |
-| `data-sw` | `progressier.js` | Service worker URL (next to `pwa.js`) |
+| `data-sw` | `you-ge-sw.js` | Service worker URL (next to `pwa.js`; `progressier.js` shim also available) |
 | `data-sw-scope` | resolved app scope, bounded by worker directory | Service worker scope |
 | `data-base-path` | directory serving `pwa.js` | Explicit app base path for a subpath deployment |
 | `data-manifest` | `manifest.webmanifest` | Manifest URL (also injected if missing) |
@@ -706,7 +712,8 @@ If your site uses a strict CSP without `'unsafe-inline'`, pass a nonce with
 
 ## JavaScript API
 
-`window.PWA` is always available. `window.progressier` gets a compatibility shim
+`window.YouGePWA` is the canonical client global (`window.PWA` is its supported
+alias). `window.progressier` is a temporary migration compatibility shim
 (`install`, `prompt`, `isStandalone`, `checkIfStandalone`, `register`, `ready`,
 `setAppBadge`, `clearAppBadge`, `track`, `wording`, `detection`, `push`, banner
 helpers) so existing calls keep working.
@@ -748,8 +755,8 @@ helpers) so existing calls keep working.
 | `PWA.createAppleSplashScreens()` | Regenerate iOS splash links for the current screen |
 | `PWA.notify(message, options)` | Small toast |
 | `PWA.wording.get(key)` / `PWA.wording.setLanguage('fr')` | UI wording |
-| `PWA.applyTheme({ background, text, accent, ... })` | Set preserved `pwa.css` component CSS variables |
-| `PWA.scanButtons()` | Re-scan `.progressier-*` compatibility buttons |
+| `PWA.applyTheme({ background, text, accent, ... })` | Set `--youge-pwa-*` component CSS variables (and temporary `--progressier*` aliases) |
+| `PWA.scanButtons()` | Re-scan `.youge-*` (and legacy `.progressier-*`) rendered buttons |
 
 ### Wording
 
@@ -951,7 +958,7 @@ allowed; set `data-allow-external-protocol` if the app must handle external link
 - Responses with `Cache-Control: no-store` or `private`, and requests carrying an
   `Authorization` header, are never cached.
 - The kit version is the cache key. When a precached file changes, bump
-  `VERSION` in `progressier.js`, `PWA.version` in `pwa.js`, `version` in
+  `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in
   `package.json` and the SDK's `KIT_COMPAT_VERSION` together; `npm run check`
   enforces this against the merge base
   ([`PRECACHE_INTEGRITY.md`](PRECACHE_INTEGRITY.md)).
@@ -1010,8 +1017,8 @@ location = /manifest.webmanifest {
     add_header Cache-Control "no-cache";
 }
 
-# Service worker: never cache aggressively.
-location = /progressier.js {
+# Service worker (canonical + compatibility shim): never cache aggressively.
+location ~ ^/(you-ge-sw|progressier)\.js$ {
     default_type application/javascript;
     add_header Cache-Control "no-cache";
 }
@@ -1045,7 +1052,7 @@ location = /offline.js {
 AddType application/manifest+json .webmanifest
 AddType application/javascript .js
 
-<FilesMatch "^(progressier|pwa)\.js$">
+<FilesMatch "^(you-ge-sw|progressier|pwa)\.js$">
     Header set Cache-Control "no-cache"
 </FilesMatch>
 
@@ -1079,7 +1086,7 @@ GitHub Pages is static and uses the example's static manifest; it cannot execute
 the host-aware manifest function.
 
 The project site is served from `/you-ge-assistant/`. `pwa.js` resolves its files
-relative to its own URL, and `progressier.js` resolves precache assets against
+relative to its own URL, and `you-ge-sw.js` resolves precache assets against
 the registered app scope, so their paths remain inside that base. Both manifests use
 relative `scope` and `start_url` values so each install has its own identity and
 launch path. The example build copies the icons into `/example/icons/` so the
@@ -1121,9 +1128,13 @@ At a domain root, nothing needs rewriting.
 When migrating an existing site off a legacy hosted setup, see
 [`INTEGRATION.md`](INTEGRATION.md) for the step-by-step upload order, header
 setup, and rollback checklist. In short: remove legacy `progressier.app` tags,
-keep `/progressier.js` at its existing path, preserve legacy manifest `id` and
-IndexedDB store names (`progressierSavedPushNotifications`,
-`progressiersharedfiles`), and deploy `/pwa.js` + `/manifest.webmanifest`.
+deploy both `/you-ge-sw.js` (default registration) and the `/progressier.js`
+compatibility shim (for explicit `data-sw="/progressier.js"` setups if needed),
+preserve the existing host manifest `id`, and let `you-ge-sw.js` copy existing
+`progressierSavedPushNotifications` and `progressiersharedfiles` IndexedDB
+records into canonical `you-ge-notifications` and `you-ge-shared-files` stores
+non-destructively. See [`COMPATIBILITY_CONTRACTS.md`](COMPATIBILITY_CONTRACTS.md)
+for the `1.x` compatibility period and `2.0.0` removal policy.
 
 ---
 
@@ -1154,15 +1165,15 @@ implement:
 
 | Capability | Status in You.Ge Assistant |
 | --- | --- |
-| Install prompt, `[data-pwa-install]`, iOS instructions | Included |
-| Legacy `.progressier-*` button classes and attributes | Included (compatibility) |
+| Install prompt, `[data-youge-install]` / `[data-pwa-install]`, iOS instructions | Included |
+| Rendered `.youge-install-button` / `.youge-subscribe-button` (plus legacy `.progressier-*` aliases) | Included |
 | Install banner / push banner | Included |
 | Welcome, flow and install modals | Included |
 | Offline alert and reload prompt | Included |
 | Offline caching (`you-ge-assistant:*` scoped caches) | Included |
 | Web Share Target | Included |
 | Push notifications | Included — supply your own VAPID keys and sender |
-| Push history (`progressierSavedPushNotifications`) | Included (preserved store name) |
+| Push history (`you-ge-notifications`, migrated from `progressierSavedPushNotifications`) | Included |
 | App badge & protocol handlers | Included |
 | Component theming, adaptive Assistant themes, 10 languages | Included |
 | Apple splash screens, Windows tiles, favicon | Included |

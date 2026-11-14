@@ -1,9 +1,9 @@
 /*!
  * pwa.css — You.Ge Assistant PWA UI components
  * ------------------------------------------------------------------------
- * Layout dimensions, selectors, and CSS variables maintain backward
- * compatibility with existing integrations, with enlarged touch targets for
- * accessibility:
+ * Canonical CSS custom properties (`--youge-pwa-*`) and selectors (`.youge-*`)
+ * are paired with temporary migration compatibility aliases (`--progressier*`,
+ * `.progressier-*`) so existing integrations keep working without layout shift:
  *   toolbox icon     65px (52px under 350px) / bottom 17px / z 2147483643
  *   install banner   100vw / 45px icon / 44px close + action targets / z 2147483644
  *   push banner      510px -> 450px -> 95vw / 70px icon / z 2147483645
@@ -13,41 +13,53 @@
  */
 
 :root {
-  --progressierBg: #ffffff;
-  --progressierTxt: #051b2c;
-  --progressierFont: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif;
-  --progressierTextFontWeight: 400;
-  --progressierBtnFontWeight: 600;
-  --progressierHeadingFontWeight: 600;
-  --progressierLetterSpacing: 0;
-  --progressierHover: rgba(0, 0, 0, 0.06);
-  --progressierElement: #f5f5f5;
-  --progressierBorderColor: rgba(0, 0, 0, 0.09);
-  --progressierBoxShadow: 0 10px 40px rgba(0, 0, 0, 0.12);
-  --progressierAccent: #1a73e8;
-  --progressierAccentText: #ffffff;
+  --youge-pwa-bg: var(--progressierBg, #ffffff);
+  --youge-pwa-text: var(--progressierTxt, #051b2c);
+  --youge-pwa-font: var(--progressierFont, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif);
+  --youge-pwa-text-weight: var(--progressierTextFontWeight, 400);
+  --youge-pwa-btn-weight: var(--progressierBtnFontWeight, 600);
+  --youge-pwa-heading-weight: var(--progressierHeadingFontWeight, 600);
+  --youge-pwa-letter-spacing: var(--progressierLetterSpacing, 0);
+  --youge-pwa-hover: var(--progressierHover, rgba(0, 0, 0, 0.06));
+  --youge-pwa-element: var(--progressierElement, #f5f5f5);
+  --youge-pwa-border: var(--progressierBorderColor, rgba(0, 0, 0, 0.09));
+  --youge-pwa-shadow: var(--progressierBoxShadow, 0 10px 40px rgba(0, 0, 0, 0.12));
+  --youge-pwa-accent: var(--progressierAccent, #1a73e8);
+  --youge-pwa-accent-text: var(--progressierAccentText, #ffffff);
+  --youge-pwa-focus: var(--progressierFocus, #2563eb);
+  --youge-pwa-note: var(--progressierNote, #475569);
 }
 
 /* ---------------------------------------------------------------- *
  * Install / subscribe buttons
  * ---------------------------------------------------------------- */
 
+.youge-install-button,
+.youge-subscribe-button,
 .progressier-install-button,
 .progressier-subscribe-button {
   cursor: pointer;
 }
 
+.youge-install-button.captured,
+.youge-subscribe-button.captured,
 .progressier-install-button.captured,
 .progressier-subscribe-button.captured {
   cursor: pointer;
 }
 
+.youge-install-button.is-disabled,
+.youge-subscribe-button.is-disabled,
 .progressier-install-button.is-disabled,
 .progressier-subscribe-button.is-disabled {
   pointer-events: none !important;
   opacity: 0.4 !important;
 }
 
+.youge-install-button[hidden],
+.youge-subscribe-button[hidden],
+.youge-install-button.is-hidden,
+.youge-subscribe-button.is-hidden,
 .progressier-install-button[hidden],
 .progressier-subscribe-button[hidden],
 .progressier-install-button.is-hidden,
@@ -57,6 +69,8 @@
   opacity: 0 !important;
 }
 
+.youge-install-button .pwa-btn-inner,
+.youge-subscribe-button .pwa-btn-inner,
 .progressier-install-button .pwa-btn-inner,
 .progressier-subscribe-button .pwa-btn-inner {
   display: flex;
@@ -65,6 +79,8 @@
   height: 100%;
 }
 
+.youge-install-button .pwa-btn-icon,
+.youge-subscribe-button .pwa-btn-icon,
 .progressier-install-button .pwa-btn-icon,
 .progressier-subscribe-button .pwa-btn-icon {
   object-fit: contain;
@@ -76,6 +92,8 @@
   flex: none;
 }
 
+.youge-install-button .pwa-btn-label,
+.youge-subscribe-button .pwa-btn-label,
 .progressier-install-button .pwa-btn-label,
 .progressier-subscribe-button .pwa-btn-label {
   padding: 0 15px;
@@ -85,12 +103,14 @@
  * Floating install toolbox (app-icon launcher; legacy placement classes preserved)
  * ---------------------------------------------------------------- */
 
+.youge-toolbox,
 .pwa-toolbox {
   position: fixed;
   z-index: 2147483643;
   pointer-events: none;
 }
 
+.youge-toolbox *,
 .pwa-toolbox * {
   -webkit-tap-highlight-color: transparent !important;
   outline: 0 !important;
@@ -103,6 +123,9 @@ body.force-fixed {
   overflow: hidden !important;
 }
 
+.youge-toolbox[hidden],
+.youge-toolbox.off,
+.youge-toolbox.off *,
 .pwa-toolbox[hidden],
 .pwa-toolbox.off,
 .pwa-toolbox.off * {
@@ -111,6 +134,7 @@ body.force-fixed {
   opacity: 0 !important;
 }
 
+.youge-toolbox .youge-toolbox-icon,
 .pwa-toolbox .pwa-toolbox-icon {
   position: fixed;
   right: 20px;
@@ -135,15 +159,18 @@ body.force-fixed {
   appearance: none;
 }
 
+.youge-toolbox .youge-toolbox-icon:hover,
 .pwa-toolbox .pwa-toolbox-icon:hover {
   transform: scale(1.08) !important;
 }
 
+.youge-toolbox .youge-toolbox-icon:focus-visible,
 .pwa-toolbox .pwa-toolbox-icon:focus-visible {
-  outline: 3px solid var(--progressierAccent, #1a73e8) !important;
+  outline: 3px solid var(--youge-pwa-accent, #1a73e8) !important;
   outline-offset: 4px;
 }
 
+.youge-toolbox .youge-toolbox-logo,
 .pwa-toolbox .pwa-toolbox-logo {
   display: block;
   width: 100%;
@@ -154,36 +181,48 @@ body.force-fixed {
   color: transparent !important;
 }
 
+.youge-toolbox .youge-toolbox-logo[hidden],
 .pwa-toolbox .pwa-toolbox-logo[hidden] {
   display: none !important;
 }
 
+.youge-toolbox.youge-pos-left .youge-toolbox-icon,
+.pwa-toolbox.youge-pos-left .pwa-toolbox-icon,
 .pwa-toolbox.progressier-left .pwa-toolbox-icon {
   right: auto;
   left: 20px;
 }
 
+.youge-toolbox.youge-pos-right .youge-toolbox-icon,
+.pwa-toolbox.youge-pos-right .pwa-toolbox-icon,
 .pwa-toolbox.progressier-right .pwa-toolbox-icon {
   right: 20px;
   left: auto;
 }
 
+.youge-toolbox.youge-pos-center .youge-toolbox-icon,
+.pwa-toolbox.youge-pos-center .pwa-toolbox-icon,
 .pwa-toolbox.progressier-center .pwa-toolbox-icon {
   right: auto;
   left: calc(50% - 32px);
 }
 
+.youge-toolbox.youge-pos-top .youge-toolbox-icon,
+.pwa-toolbox.youge-pos-top .pwa-toolbox-icon,
 .pwa-toolbox.progressier-top .pwa-toolbox-icon {
   top: 17px;
   bottom: auto !important;
 }
 
+.youge-toolbox.youge-pos-middle .youge-toolbox-icon,
+.pwa-toolbox.youge-pos-middle .pwa-toolbox-icon,
 .pwa-toolbox.progressier-middle .pwa-toolbox-icon {
   top: calc(50% - 32px) !important;
   bottom: auto !important;
 }
 
 @media (max-width: 350px) {
+  .youge-toolbox .youge-toolbox-icon,
   .pwa-toolbox .pwa-toolbox-icon {
     width: 52px;
     height: 52px;
@@ -191,7 +230,9 @@ body.force-fixed {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .youge-toolbox .youge-toolbox-icon,
   .pwa-toolbox .pwa-toolbox-icon,
+  .youge-install-banner-close,
   .progressier-install-banner-close {
     transition: none;
     -webkit-transition: none;
@@ -202,12 +243,13 @@ body.force-fixed {
  * Install banner (top, full width)
  * ---------------------------------------------------------------- */
 
+.youge-install-banner,
 .progressier-install-banner {
   position: fixed;
   top: -200px;
   width: 100vw !important;
-  background: var(--progressierBg);
-  box-shadow: var(--progressierBoxShadow) !important;
+  background: var(--youge-pwa-bg);
+  box-shadow: var(--youge-pwa-shadow) !important;
   transition: top 0.3s ease-in-out;
   -webkit-transition: top 0.3s ease-in-out;
   padding: 10px 0 !important;
@@ -217,35 +259,38 @@ body.force-fixed {
   left: 0 !important;
 }
 
+.youge-install-banner *,
 .progressier-install-banner * {
   -webkit-tap-highlight-color: transparent !important;
   outline: 0 !important;
 }
 
+.youge-install-banner.in,
 .progressier-install-banner.in {
   top: 0;
 }
 
+.youge-install-banner *,
 .progressier-install-banner * {
-  font-family: var(--progressierFont) !important;
-  letter-spacing: var(--progressierLetterSpacing) !important;
-  font-weight: var(--progressierTextFontWeight) !important;
+  font-family: var(--youge-pwa-font) !important;
+  letter-spacing: var(--youge-pwa-letter-spacing) !important;
+  font-weight: var(--youge-pwa-text-weight) !important;
   font-size: 15px !important;
 }
 
 /* The legacy banner suppresses all outlines; restore a visible keyboard focus
    ring without changing the banner's original sizing or placement. */
+.youge-install-banner :focus-visible,
+.youge-install-banner button:focus-visible,
+.youge-install-banner [role="button"]:focus-visible,
 .progressier-install-banner :focus-visible,
 .progressier-install-banner button:focus-visible,
 .progressier-install-banner [role="button"]:focus-visible {
-  outline: 3px solid var(--progressierFocus, #2563eb) !important;
+  outline: 3px solid var(--youge-pwa-focus, #2563eb) !important;
   outline-offset: 3px !important;
 }
 
-.progressier-install-banner-close {
-  transition: background-color 160ms ease;
-}
-
+.youge-install-banner-inner,
 .progressier-install-banner-inner {
   width: 100%;
   display: flex;
@@ -254,6 +299,7 @@ body.force-fixed {
   height: 100%;
 }
 
+.youge-install-banner-close,
 .progressier-install-banner-close {
   margin-right: 20px;
   font-size: 16px;
@@ -265,49 +311,59 @@ body.force-fixed {
   cursor: pointer;
   border-radius: 50%;
   flex: none;
+  transition: background-color 160ms ease;
 }
 
+.youge-install-banner[dir="rtl"] .youge-install-banner-close,
 .progressier-install-banner[dir="rtl"] .progressier-install-banner-close {
   margin-left: 20px;
   margin-right: 0;
 }
 
+.youge-install-banner-close:hover,
 .progressier-install-banner-close:hover {
-  background: var(--progressierHover);
+  background: var(--youge-pwa-hover);
 }
 
+.youge-install-banner-close svg,
 .progressier-install-banner-close svg {
   width: 20px;
   height: 20px;
   flex: none;
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
 }
 
+.youge-install-banner-close svg *,
 .progressier-install-banner-close svg * {
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
 }
 
+.youge-install-banner-details,
 .progressier-install-banner-details {
   display: flex;
   align-items: center;
   margin-left: 15px;
 }
 
+.youge-install-banner[dir="rtl"] .youge-install-banner-details,
 .progressier-install-banner[dir="rtl"] .progressier-install-banner-details {
   margin-left: 0;
   margin-right: 15px;
 }
 
+.youge-install-banner-icon,
 .progressier-install-banner-icon {
   flex: none !important;
 }
 
+.youge-install-banner-text,
 .progressier-install-banner-text {
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
   line-height: 22px !important;
   word-break: break-word;
 }
 
+.youge-install-banner-icon img,
 .progressier-install-banner-icon img {
   width: 45px;
   height: 45px;
@@ -317,27 +373,33 @@ body.force-fixed {
   position: relative !important;
 }
 
+.youge-install-banner[dir="rtl"] .youge-install-banner-icon img,
 .progressier-install-banner[dir="rtl"] .progressier-install-banner-icon img {
   margin-left: 0;
   margin-right: 20px;
 }
 
+.youge-install-banner-btns,
 .progressier-install-banner-btns {
   display: flex;
   align-items: center;
   margin-left: 30px;
 }
 
+.youge-install-banner[dir="rtl"] .youge-install-banner-btns,
 .progressier-install-banner[dir="rtl"] .progressier-install-banner-btns {
   margin-right: 30px;
   margin-left: 0;
 }
 
+.youge-install-banner-btns,
+.youge-install-banner-btns *,
 .progressier-install-banner-btns,
 .progressier-install-banner-btns * {
-  font-weight: var(--progressierBtnFontWeight) !important;
+  font-weight: var(--youge-pwa-btn-weight) !important;
 }
 
+.youge-install-banner-btns button,
 .progressier-install-banner-btns button {
   padding: 0 30px !important;
   margin: 0 5px !important;
@@ -355,94 +417,115 @@ body.force-fixed {
   box-sizing: border-box !important;
 }
 
+.youge-install-banner-btns button:after,
+.youge-install-banner-btns button:before,
 .progressier-install-banner-btns button:after,
 .progressier-install-banner-btns button:before {
   display: none !important;
 }
 
+.youge-install-banner-btns button:nth-child(2),
 .progressier-install-banner-btns button:nth-child(2) {
   background: transparent !important;
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
 }
 
+.youge-install-banner-btns button:nth-child(2):hover,
 .progressier-install-banner-btns button:nth-child(2):hover {
-  background: var(--progressierHover) !important;
+  background: var(--youge-pwa-hover) !important;
 }
 
+.youge-install-banner-btns button:first-child,
 .progressier-install-banner-btns button:first-child {
-  background: var(--progressierAccent) !important;
-  color: var(--progressierAccentText) !important;
+  background: var(--youge-pwa-accent) !important;
+  color: var(--youge-pwa-accent-text) !important;
 }
 
+.youge-install-banner-btns button:first-child *,
 .progressier-install-banner-btns button:first-child * {
-  color: var(--progressierAccentText) !important;
+  color: var(--youge-pwa-accent-text) !important;
 }
 
+.youge-install-banner-btns button:first-child:hover,
 .progressier-install-banner-btns button:first-child:hover {
   filter: brightness(0.9) !important;
 }
 
+.youge-install-banner-btns button.disabled,
 .progressier-install-banner-btns button.disabled {
   pointer-events: none !important;
   opacity: 1 !important;
 }
 
 @media (min-width: 992px) {
+  .youge-install-banner,
   .progressier-install-banner {
     max-height: 100px;
   }
 }
 
 @media (max-width: 800px) {
+  .youge-install-banner-btns,
   .progressier-install-banner-btns {
     flex-direction: column !important;
     margin: 0 10px !important;
   }
+  .youge-install-banner-details,
   .progressier-install-banner-details {
     width: 100%;
     justify-content: space-between;
   }
+  .youge-install-banner-btns button,
   .progressier-install-banner-btns button {
     width: 100% !important;
     height: 44px !important;
     max-width: 120px !important;
   }
+  .youge-install-banner-close,
   .progressier-install-banner-close {
     position: absolute;
     margin-right: 10px;
   }
+  .youge-install-banner[dir="rtl"] .youge-install-banner-close,
   .progressier-install-banner[dir="rtl"] .progressier-install-banner-close {
     margin-left: 10px;
     margin-right: 0;
   }
+  .youge-install-banner-icon,
   .progressier-install-banner-icon {
     margin-left: 20px;
   }
+  .youge-install-banner[dir="rtl"] .youge-install-banner-icon,
   .progressier-install-banner[dir="rtl"] .progressier-install-banner-icon {
     margin-left: 0;
     margin-right: 20px;
   }
+  .youge-install-banner,
   .progressier-install-banner {
     height: auto !important;
     padding: 10px 0 !important;
   }
+  .youge-install-banner-btns button:nth-child(2),
   .progressier-install-banner-btns button:nth-child(2) {
     display: none !important;
   }
+  .youge-install-banner-text,
   .progressier-install-banner-text {
     line-height: 18px !important;
   }
 }
 
 @media (max-width: 550px) {
+  .youge-install-banner *,
   .progressier-install-banner * {
     font-size: 13px !important;
   }
 }
 
 @media (prefers-color-scheme: dark) {
-  body:not([data-progressier-forced-theme="light"]) .progressier-install-banner-btns button:nth-child(2) {
-    color: var(--progressierTxt) !important;
+  body:not([data-youge-pwa-forced-theme="light"]):not([data-progressier-forced-theme="light"]) .youge-install-banner-btns button:nth-child(2),
+  body:not([data-youge-pwa-forced-theme="light"]):not([data-progressier-forced-theme="light"]) .progressier-install-banner-btns button:nth-child(2) {
+    color: var(--youge-pwa-text) !important;
   }
 }
 
@@ -450,16 +533,17 @@ body.force-fixed {
  * Push banner (top, centered)
  * ---------------------------------------------------------------- */
 
+.youge-push-banner,
 .progressier-push-banner {
   position: fixed;
   top: -500px;
   width: 510px;
-  background: var(--progressierBg);
+  background: var(--youge-pwa-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   left: calc(50% - 255px);
-  box-shadow: var(--progressierBoxShadow) !important;
+  box-shadow: var(--youge-pwa-shadow) !important;
   color: #051b2c;
   border-bottom-left-radius: 30px;
   border-bottom-right-radius: 30px;
@@ -468,22 +552,26 @@ body.force-fixed {
   z-index: 2147483645 !important;
 }
 
+.youge-push-banner *,
 .progressier-push-banner * {
   -webkit-tap-highlight-color: transparent !important;
   outline: 0 !important;
 }
 
+.youge-push-banner.in,
 .progressier-push-banner.in {
   top: 0;
 }
 
+.youge-push-banner *,
 .progressier-push-banner * {
-  font-family: var(--progressierFont) !important;
-  font-weight: var(--progressierTextFontWeight) !important;
+  font-family: var(--youge-pwa-font) !important;
+  font-weight: var(--youge-pwa-text-weight) !important;
   font-size: 15px !important;
-  letter-spacing: var(--progressierLetterSpacing) !important;
+  letter-spacing: var(--youge-pwa-letter-spacing) !important;
 }
 
+.youge-push-banner-inner,
 .progressier-push-banner-inner {
   width: 100%;
   display: flex;
@@ -493,28 +581,33 @@ body.force-fixed {
   padding: 20px;
 }
 
+.youge-push-banner-icon,
 .progressier-push-banner-icon {
   flex: none !important;
 }
 
+.youge-push-banner-text,
 .progressier-push-banner-text {
   margin-left: 20px !important;
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
   line-height: 22px !important;
   word-break: break-word;
   text-align: left;
 }
 
+.youge-push-banner[dir="rtl"] .youge-push-banner-text,
 .progressier-push-banner[dir="rtl"] .progressier-push-banner-text {
   margin-left: 0;
   margin-right: 20px;
 }
 
+.youge-push-banner-details,
 .progressier-push-banner-details {
   display: flex;
   width: 100%;
 }
 
+.youge-push-banner-details img,
 .progressier-push-banner-details img {
   width: 70px;
   height: 70px;
@@ -523,6 +616,7 @@ body.force-fixed {
   border-radius: 15px;
 }
 
+.youge-push-banner-btns,
 .progressier-push-banner-btns {
   width: 100%;
   display: flex;
@@ -530,11 +624,14 @@ body.force-fixed {
   justify-content: flex-end;
 }
 
+.youge-push-banner-btns,
+.youge-push-banner-btns *,
 .progressier-push-banner-btns,
 .progressier-push-banner-btns * {
-  font-weight: var(--progressierBtnFontWeight) !important;
+  font-weight: var(--youge-pwa-btn-weight) !important;
 }
 
+.youge-push-banner-btns button,
 .progressier-push-banner-btns button {
   padding: 0 20px !important;
   margin-left: 15px !important;
@@ -549,52 +646,64 @@ body.force-fixed {
   box-sizing: border-box !important;
 }
 
+.youge-push-banner-btns button:after,
+.youge-push-banner-btns button:before,
 .progressier-push-banner-btns button:after,
 .progressier-push-banner-btns button:before {
   display: none !important;
 }
 
+.youge-push-banner-btns button:first-child,
 .progressier-push-banner-btns button:first-child {
   background: transparent !important;
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
 }
 
+.youge-push-banner-btns button:first-child:hover,
 .progressier-push-banner-btns button:first-child:hover {
-  background: var(--progressierHover) !important;
+  background: var(--youge-pwa-hover) !important;
 }
 
+.youge-push-banner-btns button:nth-child(2),
 .progressier-push-banner-btns button:nth-child(2) {
-  background: var(--progressierAccent) !important;
-  color: var(--progressierAccentText) !important;
+  background: var(--youge-pwa-accent) !important;
+  color: var(--youge-pwa-accent-text) !important;
 }
 
+.youge-push-banner-btns button:nth-child(2) *,
 .progressier-push-banner-btns button:nth-child(2) * {
-  color: var(--progressierAccentText) !important;
+  color: var(--youge-pwa-accent-text) !important;
 }
 
+.youge-push-banner-btns button:nth-child(2):hover,
 .progressier-push-banner-btns button:nth-child(2):hover {
   filter: brightness(0.9) !important;
 }
 
+.youge-push-banner-btns button.disabled,
 .progressier-push-banner-btns button.disabled {
   pointer-events: none !important;
   opacity: 1 !important;
 }
 
 @media (min-width: 992px) {
+  .youge-push-banner-text,
   .progressier-push-banner-text {
     padding-bottom: 20px !important;
   }
+  .youge-push-banner-close,
   .progressier-push-banner-close {
     display: none;
   }
 }
 
 @media (max-width: 991px) {
+  .youge-push-banner-btns,
   .progressier-push-banner-btns {
     flex-direction: column-reverse !important;
     margin-top: 20px;
   }
+  .youge-push-banner-btns button,
   .progressier-push-banner-btns button {
     width: 100% !important;
     min-height: 40px !important;
@@ -602,37 +711,45 @@ body.force-fixed {
     margin: 0 !important;
     border-radius: 30px !important;
   }
+  .youge-push-banner-details img,
   .progressier-push-banner-details img {
     width: 50px;
     height: 50px;
     margin-right: 0;
   }
+  .youge-push-banner-btns button:first-child,
   .progressier-push-banner-btns button:first-child {
     display: none !important;
   }
+  .youge-push-banner-text,
   .progressier-push-banner-text {
     width: calc(100% - 130px);
     line-height: 22px !important;
   }
+  .youge-push-banner-close,
   .progressier-push-banner-close {
     position: absolute;
     right: 20px;
     top: 20px;
   }
+  .youge-push-banner[dir="rtl"] .youge-push-banner-close,
   .progressier-push-banner[dir="rtl"] .progressier-push-banner-close {
     right: unset;
     left: 20px;
   }
+  .youge-push-banner-close svg,
   .progressier-push-banner-close svg {
     width: 20px;
     height: 20px;
     flex: none;
-    color: var(--progressierTxt) !important;
+    color: var(--youge-pwa-text) !important;
   }
+  .youge-push-banner.in,
   .progressier-push-banner.in {
     top: 2.5vw;
     margin-top: max(0px, env(safe-area-inset-top));
   }
+  .youge-push-banner,
   .progressier-push-banner {
     border-radius: 30px !important;
     width: 450px;
@@ -641,16 +758,21 @@ body.force-fixed {
 }
 
 @media (max-width: 550px) {
+  .youge-push-banner *,
   .progressier-push-banner * {
     font-size: 14px !important;
   }
+  .youge-push-banner,
   .progressier-push-banner {
     width: 95vw;
     left: 2.5vw;
   }
+  .youge-push-banner-inner,
   .progressier-push-banner-inner {
     width: 100% !important;
   }
+  .youge-push-banner-btns button,
+  .youge-push-banner-btns button *,
   .progressier-push-banner-btns button,
   .progressier-push-banner-btns button * {
     font-size: 14px !important;
@@ -658,8 +780,9 @@ body.force-fixed {
 }
 
 @media (prefers-color-scheme: dark) {
-  body:not([data-progressier-forced-theme="light"]) .progressier-push-banner-btns button:first-child {
-    color: var(--progressierTxt) !important;
+  body:not([data-youge-pwa-forced-theme="light"]):not([data-progressier-forced-theme="light"]) .youge-push-banner-btns button:first-child,
+  body:not([data-youge-pwa-forced-theme="light"]):not([data-progressier-forced-theme="light"]) .progressier-push-banner-btns button:first-child {
+    color: var(--youge-pwa-text) !important;
   }
 }
 
@@ -667,6 +790,7 @@ body.force-fixed {
  * Offline alert
  * ---------------------------------------------------------------- */
 
+.youge-offline-alert,
 .progressier-offline-alert {
   position: fixed !important;
   bottom: 10px !important;
@@ -685,14 +809,16 @@ body.force-fixed {
   cursor: pointer;
   display: flex;
   align-items: center;
-  font-family: var(--progressierFont) !important;
+  font-family: var(--youge-pwa-font) !important;
   box-sizing: border-box;
 }
 
+.youge-offline-alert[hidden],
 .progressier-offline-alert[hidden] {
   display: none !important;
 }
 
+.youge-offline-alert-illustration,
 .progressier-offline-alert-illustration {
   background: #f5f5f5;
   height: 100%;
@@ -705,6 +831,7 @@ body.force-fixed {
   width: 130px;
 }
 
+.youge-offline-alert-illustration svg,
 .progressier-offline-alert-illustration svg {
   transform: scale(0.75);
   margin-top: -25%;
@@ -712,6 +839,7 @@ body.force-fixed {
   height: 96px;
 }
 
+.youge-offline-alert-body,
 .progressier-offline-alert-body {
   padding-left: 30px;
   padding-right: 30px;
@@ -724,22 +852,25 @@ body.force-fixed {
   justify-content: center;
 }
 
+.youge-offline-alert h2,
 .progressier-offline-alert h2 {
   color: #535353;
   font-size: 18px;
   margin: 0 0 5px;
-  font-family: var(--progressierFont) !important;
+  font-family: var(--youge-pwa-font) !important;
   font-weight: 600;
 }
 
+.youge-offline-alert p,
 .progressier-offline-alert p {
   margin: 0;
   color: #858585;
   font-size: 14px;
   font-weight: 300;
-  font-family: var(--progressierFont) !important;
+  font-family: var(--youge-pwa-font) !important;
 }
 
+.youge-offline-alert-wifi,
 .progressier-offline-alert-wifi {
   width: 22px;
   height: 22px;
@@ -750,6 +881,7 @@ body.force-fixed {
   color: #b3b3b3;
 }
 
+.youge-offline-alert-close,
 .progressier-offline-alert-close {
   position: absolute;
   top: 0;
@@ -761,12 +893,14 @@ body.force-fixed {
   cursor: pointer;
 }
 
+.youge-offline-alert-close svg,
 .progressier-offline-alert-close svg {
   width: 20px;
   height: 20px;
 }
 
 @media (max-width: 991px) {
+  .youge-offline-alert,
   .progressier-offline-alert {
     width: calc(100vw - 20px) !important;
     height: 170px !important;
@@ -777,6 +911,7 @@ body.force-fixed {
  * Reload prompt
  * ---------------------------------------------------------------- */
 
+.youge-prompt-overlay,
 .progressier-prompt-overlay {
   display: flex;
   position: fixed;
@@ -788,16 +923,17 @@ body.force-fixed {
   background: rgba(0, 0, 0, 0.33);
   align-items: center;
   justify-content: center;
-  font-family: var(--progressierFont) !important;
+  font-family: var(--youge-pwa-font) !important;
 }
 
+.youge-prompt-reload-button,
 .progressier-prompt-reload-button {
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  background: var(--progressierAccent);
+  background: var(--youge-pwa-accent);
   position: fixed;
   bottom: 20px;
   padding: 10px 20px;
@@ -806,6 +942,7 @@ body.force-fixed {
   font-weight: 600;
 }
 
+.youge-prompt-reload-button:hover,
 .progressier-prompt-reload-button:hover {
   filter: brightness(0.9);
 }
@@ -834,7 +971,7 @@ body.force-fixed {
 .pwa-flow .pwa-flow-inner {
   overflow: hidden;
   position: relative;
-  background: var(--progressierBg);
+  background: var(--youge-pwa-bg);
   width: 100%;
   max-width: 500px;
   max-height: 500px;
@@ -844,7 +981,7 @@ body.force-fixed {
   display: flex;
   flex-direction: column;
   min-height: 250px;
-  border: 1px solid var(--progressierBorderColor);
+  border: 1px solid var(--youge-pwa-border);
   transition: transform 0.3s cubic-bezier(0, 0, 0.23, 1);
   box-sizing: border-box;
 }
@@ -863,10 +1000,10 @@ body.force-fixed {
 
 .pwa-flow * {
   text-align: start;
-  color: var(--progressierTxt) !important;
-  font-family: var(--progressierFont) !important;
-  font-weight: var(--progressierTextFontWeight);
-  letter-spacing: var(--progressierLetterSpacing);
+  color: var(--youge-pwa-text) !important;
+  font-family: var(--youge-pwa-font) !important;
+  font-weight: var(--youge-pwa-text-weight);
+  letter-spacing: var(--youge-pwa-letter-spacing);
   line-height: 26px;
   font-size: 15px !important;
   box-sizing: border-box !important;
@@ -898,7 +1035,7 @@ body.force-fixed {
 .pwa-flow-close:hover,
 .pwa-flow-close:active,
 .pwa-flow-close:focus {
-  background: var(--progressierHover);
+  background: var(--youge-pwa-hover);
 }
 
 .pwa-flow[dir="rtl"] .pwa-flow-close {
@@ -909,11 +1046,11 @@ body.force-fixed {
 .pwa-flow-close svg {
   width: 20px;
   height: 20px;
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
 }
 
 .pwa-flow-title {
-  font-weight: var(--progressierHeadingFontWeight) !important;
+  font-weight: var(--youge-pwa-heading-weight) !important;
   font-size: 17px !important;
 }
 
@@ -921,11 +1058,11 @@ body.force-fixed {
   display: flex;
   align-items: center;
   width: calc(90% - 40px);
-  border: 1px solid var(--progressierBorderColor);
+  border: 1px solid var(--youge-pwa-border);
   justify-content: flex-start;
   padding: 20px;
   border-radius: 30px;
-  background: var(--progressierElement);
+  background: var(--youge-pwa-element);
   box-sizing: border-box;
 }
 
@@ -948,7 +1085,7 @@ body.force-fixed {
 
 .pwa-flow-text > div:nth-child(2) {
   font-size: 13px !important;
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
   opacity: 0.7;
 }
 
@@ -964,7 +1101,7 @@ body.force-fixed {
 }
 
 .pwa-network-diagnostics .pwa-diagnostics-detail {
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
   opacity: 0.75;
   font-size: 13px !important;
 }
@@ -973,10 +1110,10 @@ body.force-fixed {
   width: calc(90% - 40px);
   margin: 0 0 24px;
   padding: 13px 15px;
-  border: 1px solid var(--progressierBorderColor);
+  border: 1px solid var(--youge-pwa-border);
   border-radius: 14px;
-  color: var(--progressierTxt);
-  background: var(--progressierElement);
+  color: var(--youge-pwa-text);
+  background: var(--youge-pwa-element);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -988,12 +1125,12 @@ body.force-fixed {
 
 .pwa-diagnostics-recovery summary:focus-visible,
 .pwa-diagnostics-recovery a:focus-visible {
-  outline: 3px solid var(--progressierAccent);
+  outline: 3px solid var(--youge-pwa-accent);
   outline-offset: 3px;
 }
 
 .pwa-diagnostics-recovery a {
-  color: var(--progressierAccent);
+  color: var(--youge-pwa-accent);
   overflow-wrap: anywhere;
 }
 
@@ -1023,8 +1160,8 @@ body.force-fixed {
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  background: var(--progressierElement);
-  border: 1px solid var(--progressierBorderColor);
+  background: var(--youge-pwa-element);
+  border: 1px solid var(--youge-pwa-border);
 }
 
 .pwa-flow-actions {
@@ -1044,26 +1181,26 @@ body.force-fixed {
   padding: 0 20px;
   border: 0;
   border-radius: 30px;
-  background: var(--progressierAccent);
-  color: var(--progressierAccentText) !important;
-  font-family: var(--progressierFont) !important;
-  font-weight: var(--progressierBtnFontWeight);
+  background: var(--youge-pwa-accent);
+  color: var(--youge-pwa-accent-text) !important;
+  font-family: var(--youge-pwa-font) !important;
+  font-weight: var(--youge-pwa-btn-weight);
   font-size: 15px;
   cursor: pointer;
   box-sizing: border-box;
 }
 
 .pwa-flow-btn * {
-  color: var(--progressierAccentText) !important;
+  color: var(--youge-pwa-accent-text) !important;
 }
 
 .pwa-flow-btn.secondary {
   background: transparent;
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
 }
 
 .pwa-flow-btn.secondary * {
-  color: var(--progressierTxt) !important;
+  color: var(--youge-pwa-text) !important;
 }
 
 .pwa-flow-btn:hover {
@@ -1095,6 +1232,7 @@ body.force-fixed {
   padding-top: 0;
 }
 
+.youge-qr,
 .pwa-flow-qr {
   width: 250px;
   height: 250px;
@@ -1106,6 +1244,8 @@ body.force-fixed {
   flex: none;
 }
 
+.youge-qr canvas,
+.youge-qr img,
 .pwa-flow-qr canvas,
 .pwa-flow-qr img {
   width: 250px;
@@ -1114,17 +1254,18 @@ body.force-fixed {
   position: relative;
 }
 
+.youge-qr.loading::after,
 .pwa-flow-qr.loading::after {
   content: "";
   position: absolute;
   height: 210px;
   width: 210px;
-  background: var(--progressierElement);
+  background: var(--youge-pwa-element);
   background-image: linear-gradient(
     to right,
-    var(--progressierElement) 10%,
-    var(--progressierBorderColor) 18%,
-    var(--progressierElement) 33%
+    var(--youge-pwa-element) 10%,
+    var(--youge-pwa-border) 18%,
+    var(--youge-pwa-element) 33%
   );
   background-size: 800px 230px;
   animation: pwa-qr-placeholder 1.25s linear infinite;
@@ -1148,6 +1289,7 @@ body.force-fixed {
   margin-top: 16px;
 }
 
+.youge-qr.error,
 .pwa-flow-qr.error {
   flex-direction: column;
   text-align: center;
@@ -1187,7 +1329,7 @@ body.force-fixed {
   color: #fff;
   border-radius: 12px;
   padding: 12px 18px;
-  font: 600 13.5px/1.4 var(--progressierFont);
+  font: 600 13.5px/1.4 var(--youge-pwa-font);
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.3);
   z-index: 2147483647;
   opacity: 0;
@@ -1203,6 +1345,8 @@ body.force-fixed {
 
 /* Hidden by install state, usable from your own CSS */
 
+html.pwa-standalone .youge-hide-standalone,
+html.pwa-installed .youge-hide-installed,
 html.pwa-standalone .pwa-hide-standalone,
 html.pwa-installed .pwa-hide-installed {
   display: none !important;

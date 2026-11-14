@@ -114,8 +114,8 @@ async function main() {
       warn('no <link rel="manifest"> in the HTML (pwa.js injects one, but explicit is better)');
     }
 
-    if (/\/progressier\.js/.test(html) && /<script[^>]+progressier\.js/i.test(html)) {
-      warn('HTML loads /progressier.js as a page script; it should only be the service worker');
+    if (/\/(?:you-ge-sw|progressier)\.js/.test(html) && /<script[^>]+(?:you-ge-sw|progressier)\.js/i.test(html)) {
+      warn('HTML loads the service worker as a page script; it should only be registered as a service worker');
     }
     if (/theme-color/i.test(html)) pass('theme-color meta is present');
   }
@@ -228,28 +228,37 @@ async function main() {
   }
 
   section('Service worker');
-  const sw = await checkAsset('/progressier.js', 'javascript', 'service worker');
+  const sw = await checkAsset('/you-ge-sw.js', 'javascript', 'canonical service worker');
   if (sw) {
     const source = sw.toString('utf8');
-    if (source.includes('pwa-static-') || source.includes('__pwaKit')) {
-      pass('service worker is the You.Ge Assistant worker (not a legacy hosted worker)');
+    if (source.includes('CACHE_NAMESPACE') || source.includes('you-ge:')) {
+      pass('canonical service worker (/you-ge-sw.js) is the You.Ge Assistant worker');
     } else {
-      fail('service worker does not look like the You.Ge Assistant worker');
+      fail('canonical service worker (/you-ge-sw.js) does not look like the You.Ge Assistant worker');
     }
     try {
-      const response = await request('/progressier.js');
+      const response = await request('/you-ge-sw.js');
       const allowed = response.headers.get('service-worker-allowed') || '';
-      if (allowed.includes('/')) pass('Service-Worker-Allowed header is set');
-      else warn('Service-Worker-Allowed header is missing (needed if the worker is not at the root)');
+      if (allowed.includes('/')) pass('Service-Worker-Allowed header is set on /you-ge-sw.js');
+      else warn('Service-Worker-Allowed header is missing on /you-ge-sw.js (needed if the worker is not at the root)');
 
       const cacheControl = (response.headers.get('cache-control') || '').toLowerCase();
       if (!cacheControl || /max-age=0|no-cache|no-store/.test(cacheControl)) {
-        pass('service worker is not cached long-term');
+        pass('canonical service worker is not cached long-term');
       } else {
-        warn('service worker cache-control is "' + cacheControl + '"; use no-cache');
+        warn('canonical service worker cache-control is "' + cacheControl + '"; use no-cache');
       }
     } catch (error) {
       /* already reported */
+    }
+  }
+  const legacyShim = await checkAsset('/progressier.js', 'javascript', 'legacy service worker compatibility shim');
+  if (legacyShim) {
+    const shimSource = legacyShim.toString('utf8');
+    if (shimSource.includes('you-ge-sw.js') || shimSource.includes('CACHE_NAMESPACE')) {
+      pass('legacy compatibility worker (/progressier.js) delegates to You.Ge Assistant');
+    } else {
+      warn('legacy /progressier.js does not delegate to you-ge-sw.js');
     }
   }
 
