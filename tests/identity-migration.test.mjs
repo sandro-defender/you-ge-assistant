@@ -363,7 +363,10 @@ test('Phase 1: worker migrates legacy IndexedDB stores idempotently while keepin
 test('Phase 1: precache integrity gate passes with kit 1.2.1 across you-ge-sw.js, pwa.js, package.json, and SDK constants', async () => {
   const verdict = await runPrecacheIntegrity({ root });
   assert.equal(verdict.status, 'pass', verdict.report);
-  assert.match(verdict.summary, /kit version 1\.2\.0 → 1\.2\.1 synchronized/);
+  // The gate reports the arrow only when the base actually differs; on a clone
+  // checked out at the tip (or a push to main) it reports the same version as
+  // unchanged. Both forms must pass, and the status above must be `pass`.
+  assert.match(verdict.summary, /kit version (?:1\.2\.0 → )?1\.2\.1 synchronized/);
 });
 
 /* ------------------------------------------------------------------ *
