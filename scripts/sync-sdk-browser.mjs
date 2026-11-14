@@ -26,6 +26,7 @@ const targetFile = join(rootDir, 'src', 'assistant', 'assistant-state.js');
 
 const SOURCE_MODULES = [
   'core/constants.js',
+  'core/capabilities.js',
   'core/sanitize.js',
   'theme/index.js',
   'domain/index.js',
@@ -95,6 +96,13 @@ ${sections.join('\n\n')}
     EVENT_NAMES: EVENT_NAMES,
     create: createAssistant,
     attach: attachAssistant,
+    // Module capability policy: one mapping shared by every classic renderer
+    // and runtime file, so a gated capability cannot be re-enabled locally.
+    GATED_CAPABILITIES: GATED_CAPABILITIES,
+    isCapabilityEnabled: isCapabilityEnabled,
+    capabilityForAction: capabilityForAction,
+    capabilitiesRecord: capabilitiesRecord,
+    disabledDiagnosticsResult: disabledDiagnosticsResult,
     getGlobal: getGlobalAssistant,
     resolveDomain: resolveDomain,
     detectRuntimeHostname: detectRuntimeHostname,

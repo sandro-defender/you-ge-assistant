@@ -67,6 +67,124 @@
   };
   Object.freeze(STORAGE_PREFIXES);
 
+  /* --- core/capabilities.js --- */
+
+  /** Capabilities a project can switch off with `modules.<name>: false`. */
+  const GATED_CAPABILITIES = ['diagnostics', 'recovery', 'failover', 'help'];
+  Object.freeze(GATED_CAPABILITIES);
+
+  /**
+   * Action id → capability. Ids are the documented action contract published in
+   * `state.availableActions`, so a notice action and a panel action with the same
+   * id are gated identically.
+   */
+  const CAPABILITY_ACTION_IDS = Object.freeze({
+    diagnostics: 'diagnostics',
+    recovery: 'recovery',
+    'backup-status': 'failover',
+    help: 'help',
+  });
+
+  /** Action `kind` → capability, for project-supplied actions with a new id. */
+  const CAPABILITY_ACTION_KINDS = Object.freeze({
+    diagnostics: 'diagnostics',
+    recovery: 'recovery',
+    backup: 'failover',
+    help: 'help',
+  });
+
+  /**
+   * Notification id → capability the notice *is* (as opposed to a notice that
+   * merely links to a gated action). Disabling the capability removes the notice.
+   */
+  const CAPABILITY_NOTICE_IDS = Object.freeze({
+    'api:backup-active': 'failover',
+  });
+
+  /**
+   * Is `capability` enabled in a resolved `modules` record?
+   *
+   * Unknown names and a missing record are enabled: the helpers are also used by
+   * renderers holding partial or hand-built state, where the documented default
+   * is "on".
+   */
+  function isCapabilityEnabled(modules, capability) {
+    const name = String(capability == null ? '' : capability);
+    if (GATED_CAPABILITIES.indexOf(name) === -1) return true;
+    const record = modules && typeof modules === 'object' ? modules : null;
+    return !record || record[name] !== false;
+  }
+
+  /** Resolve the capability that an action id (and optional kind) belongs to. */
+  function capabilityForAction(actionOrId, kind) {
+    if (actionOrId && typeof actionOrId === 'object') {
+      const byId = CAPABILITY_ACTION_IDS[String(actionOrId.id || '')];
+      if (byId) return byId;
+      return CAPABILITY_ACTION_KINDS[String(actionOrId.kind || '')] || null;
+    }
+    const id = String(actionOrId == null ? '' : actionOrId);
+    const byId = CAPABILITY_ACTION_IDS[id];
+    if (byId) return byId;
+    return CAPABILITY_ACTION_KINDS[String(kind == null ? '' : kind)] || null;
+  }
+
+  /** Is this action (id + kind, or an action object) allowed by `modules`? */
+  function isActionAllowed(modules, actionOrId, kind) {
+    const capability = capabilityForAction(actionOrId, kind);
+    return !capability || isCapabilityEnabled(modules, capability);
+  }
+
+  /** Filter a list of actions down to the capabilities `modules` allows. */
+  function gateActions(modules, actions) {
+    if (!Array.isArray(actions)) return [];
+    return actions.filter(function (action) { return isActionAllowed(modules, action); });
+  }
+
+  /**
+   * Gate one notification.
+   *
+   * - a notice that *is* gated capability UI is removed (`null`);
+   * - a notice whose linked action is gated keeps its content but loses
+   *   `actionId`, so a critical connectivity notice still reports the real
+   *   condition without exposing an unreachable action;
+   * - everything else is returned unchanged (the original object identity).
+   */
+  function gateNotification(modules, notification) {
+    if (!notification || typeof notification !== 'object') return null;
+    const noticeCapability = CAPABILITY_NOTICE_IDS[String(notification.id || '')];
+    if (noticeCapability && !isCapabilityEnabled(modules, noticeCapability)) return null;
+    if (!notification.actionId) return notification;
+    if (isActionAllowed(modules, notification.actionId)) return notification;
+    const copy = Object.assign({}, notification);
+    delete copy.actionId;
+    return copy;
+  }
+
+  /** Gate a list of notifications. */
+  function gateNotifications(modules, notifications) {
+    if (!Array.isArray(notifications)) return [];
+    return notifications.map(function (notification) {
+      return gateNotification(modules, notification);
+    }).filter(Boolean);
+  }
+
+  /**
+   * The published `state.capabilities` record. Shape is unchanged from the
+   * documented 0.x/0.2 contract: a boolean per module key.
+   */
+  function capabilitiesRecord(modules) {
+    const record = modules && typeof modules === 'object' ? modules : {};
+    return {
+      installation: record.installation !== false,
+      diagnostics: record.diagnostics !== false,
+      recovery: record.recovery !== false,
+      failover: record.failover !== false,
+      help: record.help !== false,
+      updates: record.updates !== false,
+      chromeHandoff: record.chromeHandoff !== false,
+    };
+  }
+
   /* --- core/sanitize.js --- */
 
   function isUnsafeKey(key) {
@@ -2243,6 +2361,21 @@
       String(dns.status || '').toLowerCase() === 'cancelled' ||
       String(dns.classification || '').toLowerCase() === 'cancelled';
   }
+
+  /**
+   * One shape for "the project disabled diagnostics".
+   *
+   * Shared by the SDK API boundary and the adapter's live gate so a disabled
+   * capability always reports the same thing, without touching the network.
+   */
+  function disabledDiagnosticsResult(message) {
+    return {
+      status: 'disabled',
+      classification: 'disabled',
+      message: safeText(message, 240) || 'Network diagnostics are disabled for this project.',
+      failed: false,
+    };
+  }
   function cancelledDiagnosticsResult(reason) {
     return {
       status: 'cancelled',
@@ -2323,6 +2456,13 @@
     const opts = options || {};
     const AbortImpl = opts.AbortController || (typeof AbortController !== 'undefined' ? AbortController : null);
     let inFlight = null;
+    // Live capability gate. `opts.isEnabled` is evaluated before the runner is
+    // invoked and again before a result is published, so a run started while the
+    // capability was enabled can never publish after it was disabled — and no
+    // network work starts for a disabled capability, even asynchronously.
+    function enabled() {
+      return typeof opts.isEnabled === 'function' ? opts.isEnabled() !== false : true;
+    }
     // Per-run ownership record: the run that started last owns the controller,
     // its abort listeners and its detach function. A run's finalizer retires
     // only its own record, so a stale run can never detach a newer run's
@@ -2334,6 +2474,11 @@
 
     function run(runOptions) {
       if (inFlight) return inFlight;
+      if (!enabled()) {
+        const disabled = disabledDiagnosticsResult();
+        if (typeof opts.onResult === 'function') opts.onResult(disabled);
+        return Promise.resolve(disabled);
+      }
       const runOpts = Object.assign({}, runOptions || {});
       const callerSignal = resolveRunSignal(runOpts.signal);
       if (callerSignal && callerSignal.aborted) {
@@ -2395,6 +2540,10 @@
         .then(function () {
           // Cancelled before the runner started: skip the network work entirely.
           if (cancelled) throw Object.assign(new Error('Diagnostics were cancelled.'), { kind: 'cancelled' });
+          // The capability may have been disabled between the API call and this
+          // microtask (a synchronous `configure()` can do that): never start the
+          // runner for a disabled capability.
+          if (!enabled()) throw Object.assign(new Error('Network diagnostics are disabled for this project.'), { kind: 'disabled' });
           return runner(runOpts);
         })
         .then(function (result) {
@@ -2404,6 +2553,12 @@
             const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
             if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
             return stopped;
+          }
+          // Disabled while the runner was in flight: the late result is dropped.
+          if (!enabled()) {
+            const disabled = disabledDiagnosticsResult();
+            if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
+            return disabled;
           }
           const safeResult = result && typeof result === 'object' ? result : {};
           if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(safeResult);
@@ -2415,6 +2570,13 @@
             const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
             if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
             return stopped;
+          }
+          // A capability disabled before or during the run is a state, not a
+          // failure: it must not raise a critical connectivity notice.
+          if ((error && error.kind === 'disabled') || !enabled()) {
+            const disabled = disabledDiagnosticsResult();
+            if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
+            return disabled;
           }
           const failed = {
             classification: 'error',
@@ -2948,6 +3110,16 @@
       return root.YouGeDns || null;
     }
 
+    /**
+     * The single capability check for this instance. Everything that can activate
+     * a gated capability — the public API, generated actions, project-supplied
+     * actions, notifications and the diagnostics adapter — goes through it, so
+     * the current resolved configuration is always the authority.
+     */
+    function capabilityEnabled(capability) {
+      return isCapabilityEnabled(config.modules, capability);
+    }
+
     let rawOptionsState = Object.assign(
       {},
       useGlobalConfig && root.YOU_GE_ASSISTANT_CONFIG && typeof root.YOU_GE_ASSISTANT_CONFIG === 'object'
@@ -3187,8 +3359,14 @@
 
       function add(notification, conditionKey) {
         activeKeys.add(conditionKey);
-        if (isSuppressed(project.id, notification.id, notification.critical)) return;
-        out.push(notification);
+        // Capability enforcement happens here, before suppression bookkeeping, so
+        // a gated notice is tracked as resolved and cannot reappear through the
+        // dismissed/acknowledged state. A notice that merely links to a gated
+        // action keeps its content and loses only the action.
+        const gated = gateNotification(config.modules, notification);
+        if (!gated) return;
+        if (isSuppressed(project.id, gated.id, gated.critical)) return;
+        out.push(gated);
       }
 
       if (!network.online) {
@@ -3295,14 +3473,14 @@
         if (actions.some(function (entry) { return entry.id === action.id; })) return;
         actions.push(action);
       }
-      if (config.modules.diagnostics) {
+      if (capabilityEnabled('diagnostics')) {
         add({
           id: 'diagnostics', label: 'Run network diagnostics', icon: 'diagnostics',
           priority: notifications.some(function (n) { return n.critical; }) ? 1 : 5,
           kind: 'diagnostics', event: EVENT_NAMES.action, message: 'Check connectivity, DNS and app origin.',
         });
       }
-      if (config.modules.recovery && (!network.online || dnsFailure(network.dns) ||
+      if (capabilityEnabled('recovery') && (!network.online || dnsFailure(network.dns) ||
           connectivityFailure(network.dns) || endpointFailure(network.endpoints))) {
         add({
           id: 'recovery', label: 'Recovery guidance', icon: 'recovery', priority: 1,
@@ -3316,7 +3494,7 @@
           message: installation.support === 'manual-ios' ? 'Safari: Share → Add to Home Screen.' : 'Open the browser install prompt or instructions.',
         });
       }
-      if (config.modules.failover && (network.endpoints.backup === 'active' || network.endpoints.active === 'backup')) {
+      if (capabilityEnabled('failover') && (network.endpoints.backup === 'active' || network.endpoints.active === 'backup')) {
         add({
           id: 'backup-status', label: 'Backup connection', icon: 'backup', priority: 3,
           kind: 'backup', event: EVENT_NAMES.action, message: 'The project is using its backup endpoint.',
@@ -3328,7 +3506,12 @@
           kind: 'update', event: EVENT_NAMES.action, message: 'Activate the waiting service worker update.',
         });
       }
-      config.actions.forEach(function (action) { add(action); });
+      // Project-supplied actions are data, but they can address a gated
+      // capability (`id: 'diagnostics'` or `kind: 'help'`): gate them through the
+      // same policy so configuration can never expose what the flag disabled.
+      config.actions.forEach(function (action) {
+        if (isActionAllowed(config.modules, action)) add(action);
+      });
       actions.sort(function (a, b) { return a.priority - b.priority; });
       return actions;
     }
@@ -3383,15 +3566,7 @@
         project: project,
         installation: installation,
         network: network,
-        capabilities: {
-          installation: config.modules.installation,
-          diagnostics: config.modules.diagnostics,
-          recovery: config.modules.recovery,
-          failover: config.modules.failover,
-          help: config.modules.help,
-          updates: config.modules.updates,
-          chromeHandoff: config.modules.chromeHandoff !== false,
-        },
+        capabilities: capabilitiesRecord(config.modules),
         notifications: notifications,
         availableActions: availableActions,
         badge: {
@@ -3471,6 +3646,9 @@
     }
 
     const diagnosticsController = createDiagnosticsIntegration({
+      // Live gate for asynchronous safety: the adapter re-checks it before the
+      // runner starts and before a result is published.
+      isEnabled: function () { return !destroyed && capabilityEnabled('diagnostics'); },
       get services() { return services; },
       getPwa: getPwa,
       getDns: getDns,
@@ -3557,6 +3735,15 @@
       config = resolvedBundle.config;
       configMeta = resolvedBundle.meta;
       services = config.services;
+      // Disabling diagnostics while a run is in flight aborts it and retires its
+      // result (generation-checked in the adapter), so a disabled capability can
+      // never publish a verdict or a critical notice afterwards.
+      if (!capabilityEnabled('diagnostics')) {
+        diagnosticsController.clear();
+        if (conditions.dns.status === 'running') {
+          conditions.dns = normalizeDnsResult(disabledDiagnosticsResult(), DateCtor);
+        }
+      }
       persistPublishedLkgIfDerivedProject();
       // A DNS verdict belongs to one project on one hostname: when either
       // changes, the previous result is stale. Unrelated updates keep it.
@@ -3662,8 +3849,8 @@
       if (destroyed) {
         return Promise.resolve({ classification: 'unknown', message: 'Assistant instance is destroyed.', status: 'unavailable' });
       }
-      if (!config.modules.diagnostics) {
-        const disabled = { classification: 'disabled', message: 'Network diagnostics are disabled for this project.', status: 'disabled' };
+      if (!capabilityEnabled('diagnostics')) {
+        const disabled = disabledDiagnosticsResult();
         setDnsResult(disabled);
         return Promise.resolve(disabled);
       }
@@ -3834,6 +4021,9 @@
       setDnsResult: setDnsResult,
       setUpdateAvailable: setUpdateAvailable,
       runDiagnostics: runDiagnostics,
+      // Read-only capability introspection, used by renderers and by the classic
+      // runtime files that delegate to the toolkit (pwa.js, offline.js, DoH).
+      isCapabilityEnabled: function (capability) { return capabilityEnabled(capability); },
       requestInstall: requestInstall,
       applyUpdate: applyUpdate,
       dismiss: dismiss,
@@ -3892,6 +4082,13 @@
     EVENT_NAMES: EVENT_NAMES,
     create: createAssistant,
     attach: attachAssistant,
+    // Module capability policy: one mapping shared by every classic renderer
+    // and runtime file, so a gated capability cannot be re-enabled locally.
+    GATED_CAPABILITIES: GATED_CAPABILITIES,
+    isCapabilityEnabled: isCapabilityEnabled,
+    capabilityForAction: capabilityForAction,
+    capabilitiesRecord: capabilitiesRecord,
+    disabledDiagnosticsResult: disabledDiagnosticsResult,
     getGlobal: getGlobalAssistant,
     resolveDomain: resolveDomain,
     detectRuntimeHostname: detectRuntimeHostname,

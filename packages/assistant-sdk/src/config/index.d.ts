@@ -15,6 +15,9 @@ export interface AssistantOffsets {
   y: number;
 }
 
+/** The four capabilities the SDK enforces (CD-1 module capability enforcement). */
+export type AssistantCapabilityName = 'diagnostics' | 'recovery' | 'failover' | 'help';
+
 export interface AssistantModulesConfig {
   installation: boolean;
   diagnostics: boolean;

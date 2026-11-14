@@ -38,6 +38,21 @@ export function isCancelledResult(dns) {
     String(dns.classification || '').toLowerCase() === 'cancelled';
 }
 
+/**
+ * One shape for "the project disabled diagnostics".
+ *
+ * Shared by the SDK API boundary and the adapter's live gate so a disabled
+ * capability always reports the same thing, without touching the network.
+ */
+export function disabledDiagnosticsResult(message) {
+  return {
+    status: 'disabled',
+    classification: 'disabled',
+    message: safeText(message, 240) || 'Network diagnostics are disabled for this project.',
+    failed: false,
+  };
+}
+
 export function cancelledDiagnosticsResult(reason) {
   return {
     status: 'cancelled',
@@ -123,6 +138,13 @@ export function createDiagnosticsIntegration(options) {
   const opts = options || {};
   const AbortImpl = opts.AbortController || (typeof AbortController !== 'undefined' ? AbortController : null);
   let inFlight = null;
+  // Live capability gate. `opts.isEnabled` is evaluated before the runner is
+  // invoked and again before a result is published, so a run started while the
+  // capability was enabled can never publish after it was disabled — and no
+  // network work starts for a disabled capability, even asynchronously.
+  function enabled() {
+    return typeof opts.isEnabled === 'function' ? opts.isEnabled() !== false : true;
+  }
   // Per-run ownership record: the run that started last owns the controller,
   // its abort listeners and its detach function. A run's finalizer retires
   // only its own record, so a stale run can never detach a newer run's
@@ -134,6 +156,11 @@ export function createDiagnosticsIntegration(options) {
 
   function run(runOptions) {
     if (inFlight) return inFlight;
+    if (!enabled()) {
+      const disabled = disabledDiagnosticsResult();
+      if (typeof opts.onResult === 'function') opts.onResult(disabled);
+      return Promise.resolve(disabled);
+    }
     const runOpts = Object.assign({}, runOptions || {});
     const callerSignal = resolveRunSignal(runOpts.signal);
     if (callerSignal && callerSignal.aborted) {
@@ -195,6 +222,10 @@ export function createDiagnosticsIntegration(options) {
       .then(function () {
         // Cancelled before the runner started: skip the network work entirely.
         if (cancelled) throw Object.assign(new Error('Diagnostics were cancelled.'), { kind: 'cancelled' });
+        // The capability may have been disabled between the API call and this
+        // microtask (a synchronous `configure()` can do that): never start the
+        // runner for a disabled capability.
+        if (!enabled()) throw Object.assign(new Error('Network diagnostics are disabled for this project.'), { kind: 'disabled' });
         return runner(runOpts);
       })
       .then(function (result) {
@@ -204,6 +235,12 @@ export function createDiagnosticsIntegration(options) {
           const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
           if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
           return stopped;
+        }
+        // Disabled while the runner was in flight: the late result is dropped.
+        if (!enabled()) {
+          const disabled = disabledDiagnosticsResult();
+          if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
+          return disabled;
         }
         const safeResult = result && typeof result === 'object' ? result : {};
         if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(safeResult);
@@ -215,6 +252,13 @@ export function createDiagnosticsIntegration(options) {
           const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
           if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
           return stopped;
+        }
+        // A capability disabled before or during the run is a state, not a
+        // failure: it must not raise a critical connectivity notice.
+        if ((error && error.kind === 'disabled') || !enabled()) {
+          const disabled = disabledDiagnosticsResult();
+          if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
+          return disabled;
         }
         const failed = {
           classification: 'error',

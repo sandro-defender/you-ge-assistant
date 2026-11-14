@@ -13,6 +13,12 @@ import {
   TONE,
 } from '../core/constants.js';
 import {
+  capabilitiesRecord,
+  gateNotification,
+  isActionAllowed,
+  isCapabilityEnabled,
+} from '../core/capabilities.js';
+import {
   clone,
   safeSameOriginIcon,
   safeText,
@@ -26,6 +32,7 @@ import {
 import {
   connectivityFailure,
   createDiagnosticsIntegration,
+  disabledDiagnosticsResult,
   dnsFailure,
   normalizeDnsResult,
 } from '../diagnostics/index.js';
@@ -131,6 +138,16 @@ export function createAssistant(initialOptions, envOverrides) {
     if (envIn.dns !== undefined) return envIn.dns;
     if (rawInit.dns !== undefined) return rawInit.dns;
     return root.YouGeDns || null;
+  }
+
+  /**
+   * The single capability check for this instance. Everything that can activate
+   * a gated capability — the public API, generated actions, project-supplied
+   * actions, notifications and the diagnostics adapter — goes through it, so
+   * the current resolved configuration is always the authority.
+   */
+  function capabilityEnabled(capability) {
+    return isCapabilityEnabled(config.modules, capability);
   }
 
   let rawOptionsState = Object.assign(
@@ -372,8 +389,14 @@ export function createAssistant(initialOptions, envOverrides) {
 
     function add(notification, conditionKey) {
       activeKeys.add(conditionKey);
-      if (isSuppressed(project.id, notification.id, notification.critical)) return;
-      out.push(notification);
+      // Capability enforcement happens here, before suppression bookkeeping, so
+      // a gated notice is tracked as resolved and cannot reappear through the
+      // dismissed/acknowledged state. A notice that merely links to a gated
+      // action keeps its content and loses only the action.
+      const gated = gateNotification(config.modules, notification);
+      if (!gated) return;
+      if (isSuppressed(project.id, gated.id, gated.critical)) return;
+      out.push(gated);
     }
 
     if (!network.online) {
@@ -480,14 +503,14 @@ export function createAssistant(initialOptions, envOverrides) {
       if (actions.some(function (entry) { return entry.id === action.id; })) return;
       actions.push(action);
     }
-    if (config.modules.diagnostics) {
+    if (capabilityEnabled('diagnostics')) {
       add({
         id: 'diagnostics', label: 'Run network diagnostics', icon: 'diagnostics',
         priority: notifications.some(function (n) { return n.critical; }) ? 1 : 5,
         kind: 'diagnostics', event: EVENT_NAMES.action, message: 'Check connectivity, DNS and app origin.',
       });
     }
-    if (config.modules.recovery && (!network.online || dnsFailure(network.dns) ||
+    if (capabilityEnabled('recovery') && (!network.online || dnsFailure(network.dns) ||
         connectivityFailure(network.dns) || endpointFailure(network.endpoints))) {
       add({
         id: 'recovery', label: 'Recovery guidance', icon: 'recovery', priority: 1,
@@ -501,7 +524,7 @@ export function createAssistant(initialOptions, envOverrides) {
         message: installation.support === 'manual-ios' ? 'Safari: Share → Add to Home Screen.' : 'Open the browser install prompt or instructions.',
       });
     }
-    if (config.modules.failover && (network.endpoints.backup === 'active' || network.endpoints.active === 'backup')) {
+    if (capabilityEnabled('failover') && (network.endpoints.backup === 'active' || network.endpoints.active === 'backup')) {
       add({
         id: 'backup-status', label: 'Backup connection', icon: 'backup', priority: 3,
         kind: 'backup', event: EVENT_NAMES.action, message: 'The project is using its backup endpoint.',
@@ -513,7 +536,12 @@ export function createAssistant(initialOptions, envOverrides) {
         kind: 'update', event: EVENT_NAMES.action, message: 'Activate the waiting service worker update.',
       });
     }
-    config.actions.forEach(function (action) { add(action); });
+    // Project-supplied actions are data, but they can address a gated
+    // capability (`id: 'diagnostics'` or `kind: 'help'`): gate them through the
+    // same policy so configuration can never expose what the flag disabled.
+    config.actions.forEach(function (action) {
+      if (isActionAllowed(config.modules, action)) add(action);
+    });
     actions.sort(function (a, b) { return a.priority - b.priority; });
     return actions;
   }
@@ -568,15 +596,7 @@ export function createAssistant(initialOptions, envOverrides) {
       project: project,
       installation: installation,
       network: network,
-      capabilities: {
-        installation: config.modules.installation,
-        diagnostics: config.modules.diagnostics,
-        recovery: config.modules.recovery,
-        failover: config.modules.failover,
-        help: config.modules.help,
-        updates: config.modules.updates,
-        chromeHandoff: config.modules.chromeHandoff !== false,
-      },
+      capabilities: capabilitiesRecord(config.modules),
       notifications: notifications,
       availableActions: availableActions,
       badge: {
@@ -656,6 +676,9 @@ export function createAssistant(initialOptions, envOverrides) {
   }
 
   const diagnosticsController = createDiagnosticsIntegration({
+    // Live gate for asynchronous safety: the adapter re-checks it before the
+    // runner starts and before a result is published.
+    isEnabled: function () { return !destroyed && capabilityEnabled('diagnostics'); },
     get services() { return services; },
     getPwa: getPwa,
     getDns: getDns,
@@ -742,6 +765,15 @@ export function createAssistant(initialOptions, envOverrides) {
     config = resolvedBundle.config;
     configMeta = resolvedBundle.meta;
     services = config.services;
+    // Disabling diagnostics while a run is in flight aborts it and retires its
+    // result (generation-checked in the adapter), so a disabled capability can
+    // never publish a verdict or a critical notice afterwards.
+    if (!capabilityEnabled('diagnostics')) {
+      diagnosticsController.clear();
+      if (conditions.dns.status === 'running') {
+        conditions.dns = normalizeDnsResult(disabledDiagnosticsResult(), DateCtor);
+      }
+    }
     persistPublishedLkgIfDerivedProject();
     // A DNS verdict belongs to one project on one hostname: when either
     // changes, the previous result is stale. Unrelated updates keep it.
@@ -847,8 +879,8 @@ export function createAssistant(initialOptions, envOverrides) {
     if (destroyed) {
       return Promise.resolve({ classification: 'unknown', message: 'Assistant instance is destroyed.', status: 'unavailable' });
     }
-    if (!config.modules.diagnostics) {
-      const disabled = { classification: 'disabled', message: 'Network diagnostics are disabled for this project.', status: 'disabled' };
+    if (!capabilityEnabled('diagnostics')) {
+      const disabled = disabledDiagnosticsResult();
       setDnsResult(disabled);
       return Promise.resolve(disabled);
     }
@@ -1019,6 +1051,9 @@ export function createAssistant(initialOptions, envOverrides) {
     setDnsResult: setDnsResult,
     setUpdateAvailable: setUpdateAvailable,
     runDiagnostics: runDiagnostics,
+    // Read-only capability introspection, used by renderers and by the classic
+    // runtime files that delegate to the toolkit (pwa.js, offline.js, DoH).
+    isCapabilityEnabled: function (capability) { return capabilityEnabled(capability); },
     requestInstall: requestInstall,
     applyUpdate: applyUpdate,
     dismiss: dismiss,

@@ -17,6 +17,13 @@ import {
   TONE,
 } from './core/constants.js';
 import {
+  GATED_CAPABILITIES,
+  capabilitiesRecord,
+  capabilityForAction,
+  isActionAllowed,
+  isCapabilityEnabled,
+} from './core/capabilities.js';
+import {
   BUNDLED_DEFAULTS,
   lkgStorageKey,
   loadLastKnownGood,
@@ -45,6 +52,7 @@ import {
 import {
   connectivityFailure,
   createDiagnosticsIntegration,
+  disabledDiagnosticsResult,
   dnsFailure,
   normalizeDnsResult,
   resolveDiagnosticsRunner,
@@ -141,6 +149,12 @@ export {
   EVENT_NAMES,
   STORAGE_PREFIXES,
   BUNDLED_DEFAULTS,
+  GATED_CAPABILITIES,
+  isCapabilityEnabled,
+  capabilityForAction,
+  isActionAllowed,
+  capabilitiesRecord,
+  disabledDiagnosticsResult,
   normalizeActions,
   normalizeFeatures,
   normalizeConfig,

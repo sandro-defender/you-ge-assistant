@@ -49,6 +49,12 @@ export interface DiagnosticsIntegrationOptions {
   getContext?: () => DiagnosticsContext;
   onStart?: () => void;
   onResult?: (result: Record<string, unknown>) => void;
+  /**
+   * Live capability gate. Re-evaluated before the runner starts and before a
+   * result is published, so a run started while diagnostics were enabled cannot
+   * publish or continue after they were disabled.
+   */
+  isEnabled?: (() => boolean) | null;
 }
 
 export interface DiagnosticsController {
@@ -60,6 +66,8 @@ export interface DiagnosticsController {
 
 export declare function isCancelledResult(dns?: Partial<DnsDiagnosticSnapshot> | null): boolean;
 export declare function cancelledDiagnosticsResult(reason?: string): DnsDiagnosticSnapshot;
+/** `{ status: 'disabled', classification: 'disabled', ... }` — no network work. */
+export declare function disabledDiagnosticsResult(message?: string): DnsDiagnosticSnapshot;
 export declare function resolveRunSignal(
   signal?: AbortSignalLike | { signal?: AbortSignalLike | null } | null
 ): AbortSignalLike | null;
