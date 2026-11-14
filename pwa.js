@@ -16,7 +16,8 @@
  *   <script src="/pwa.js" defer></script>
  *
  * Configuration through data attributes on the script tag:
- *   data-sw="/progressier.js"      service worker URL
+ *   data-sw="/you-ge-sw.js"        service worker URL (defaults to you-ge-sw.js;
+ *                                  preserves active /progressier.js installs)
  *   data-sw-scope="/"              service worker scope
  *   data-manifest="/manifest.webmanifest"
  *   data-analytics="/api/pwa-events"   optional beacon endpoint
@@ -25,16 +26,17 @@
  *   data-toolbox                   show the floating install launcher
  *   data-toolbox-position="right"  position the floating launcher
  *   data-no-meta                   don't inject manifest/apple meta tags
- *   data-allow-external-protocol   allow web+pwa: redirects to other origins
+ *   data-allow-external-protocol   allow web+youge: / web+pwa: redirects to other origins
  *   data-csp-nonce="..."           nonce for the injected stylesheet
  *   data-debug                     verbose logging
  *
- * Public API: window.PWA (see README.md)
+ * Public API: window.YouGePWA (canonical), window.PWA (supported alias),
+ *             window.progressier (temporary migration compatibility shim)
  */
 (function () {
   'use strict';
 
-  if (window.PWA && window.PWA.__pwaKit) return;
+  if ((window.YouGePWA && window.YouGePWA.__youGePwaKit) || (window.PWA && window.PWA.__pwaKit)) return;
 
   /* ------------------------------------------------------------------ *
    * Configuration
@@ -88,7 +90,11 @@
 
   var config = {
     baseUrl: baseUrl,
-    swUrl: resolveUrl(dataset.sw || 'progressier.js'),
+    canonicalSwUrl: resolveUrl('you-ge-sw.js'),
+    legacySwUrl: resolveUrl('progressier.js'),
+    explicitSw: Boolean(dataset.sw),
+    swMigrationMode: dataset.sw ? 'explicit' : 'canonical',
+    swUrl: resolveUrl(dataset.sw || 'you-ge-sw.js'),
     swScope: '',
     manifestUrl: resolveUrl(dataset.manifest || 'manifest.webmanifest'),
     cssUrl: resolveUrl(dataset.css || 'pwa.css'),
@@ -299,12 +305,22 @@
   function refreshDom() {
     var standalone = isStandalone();
     var isInstalled = installed || standalone;
+    var installDisabled = isInstalled || domainConfig.features.installation === false || domainConfig.pwa.enabled === false;
 
+    document.querySelectorAll('[data-youge-install]').forEach(function (element) {
+      if (installDisabled) element.hidden = true;
+    });
     document.querySelectorAll('[data-pwa-install]').forEach(function (element) {
-      if (isInstalled || domainConfig.features.installation === false || domainConfig.pwa.enabled === false) element.hidden = true;
+      if (installDisabled) element.hidden = true;
+    });
+    document.querySelectorAll('[data-youge-hide-standalone]').forEach(function (element) {
+      if (standalone) element.hidden = true;
     });
     document.querySelectorAll('[data-pwa-hide-standalone]').forEach(function (element) {
       if (standalone) element.hidden = true;
+    });
+    document.querySelectorAll('[data-youge-show-standalone]').forEach(function (element) {
+      if (!standalone) element.hidden = true;
     });
     document.querySelectorAll('[data-pwa-show-standalone]').forEach(function (element) {
       if (!standalone) element.hidden = true;
@@ -335,7 +351,14 @@
 
   function dispatch(name, detail) {
     try {
-      document.dispatchEvent(new CustomEvent('pwa:' + name, { detail: detail }));
+      document.dispatchEvent(new CustomEvent('youge:pwa:' + name, { detail: detail }));
+    } catch (error) {
+      /* ignore */
+    }
+    try {
+      var legacyEvent = new CustomEvent('pwa:' + name, { detail: detail });
+      legacyEvent.__youGeBridged = true;
+      document.dispatchEvent(legacyEvent);
     } catch (error) {
       /* ignore */
     }
@@ -680,24 +703,19 @@
     readyResolve = resolve;
   });
 
-  function register() {
-    if (domainConfig.pwa.enabled === false) {
-      readyResolve(null);
-      return;
+  function isLegacyWorkerScriptUrl(rawUrl) {
+    try {
+      var parsed = new URL(String(rawUrl || ''), window.location.origin);
+      if (parsed.origin !== window.location.origin) return false;
+      return /(?:^|\/)progressier\.js$/i.test(parsed.pathname);
+    } catch (error) {
+      return false;
     }
-    if (!('serviceWorker' in navigator)) {
-      log('service workers are not supported');
-      readyResolve(null);
-      return;
-    }
-    if (!window.isSecureContext) {
-      log('service workers require HTTPS (or localhost)');
-      readyResolve(null);
-      return;
-    }
+  }
 
+  function performSwRegistration(targetSwUrl) {
     navigator.serviceWorker
-      .register(config.swUrl, { scope: config.swScope })
+      .register(targetSwUrl, { scope: config.swScope })
       .then(function (reg) {
         registration = reg;
         readyResolve(reg);
@@ -735,6 +753,50 @@
         log('service worker registration failed', error);
         readyResolve(null);
       });
+  }
+
+  function register() {
+    if (domainConfig.pwa.enabled === false) {
+      readyResolve(null);
+      return readyPromise;
+    }
+    if (!('serviceWorker' in navigator)) {
+      log('service workers are not supported');
+      readyResolve(null);
+      return readyPromise;
+    }
+    if (!window.isSecureContext) {
+      log('service workers require HTTPS (or localhost)');
+      readyResolve(null);
+      return readyPromise;
+    }
+
+    if (!config.explicitSw && typeof navigator.serviceWorker.getRegistration === 'function') {
+      var lookup;
+      try {
+        lookup = Promise.resolve(navigator.serviceWorker.getRegistration(config.swScope));
+      } catch (error) {
+        lookup = Promise.resolve(null);
+      }
+      lookup
+        .then(function (existing) {
+          var existingWorker = existing && (existing.active || existing.waiting || existing.installing);
+          var existingScriptUrl = existingWorker && existingWorker.scriptURL ? String(existingWorker.scriptURL) : '';
+          if (existingScriptUrl && isLegacyWorkerScriptUrl(existingScriptUrl)) {
+            config.swUrl = existingScriptUrl;
+            config.swMigrationMode = 'legacy-preserved';
+          } else {
+            config.swMigrationMode = 'canonical';
+          }
+          performSwRegistration(config.swUrl);
+        })
+        .catch(function () {
+          config.swMigrationMode = 'canonical';
+          performSwRegistration(config.swUrl);
+        });
+    } else {
+      performSwRegistration(config.swUrl);
+    }
 
     if (!swListenersBound) {
       swListenersBound = true;
@@ -780,6 +842,7 @@
         }).catch(function () {});
       });
     }
+    return readyPromise;
   }
 
   var lastUpdateCheck = Date.now();
@@ -1247,15 +1310,22 @@
 
   /* ------------------------------------------------------------------ *
    * Shared file (Web Share Target)
+   * Canonical DB/store: you-ge-shared-files / shared-files
+   * Temporary migration fallback: progressiersharedfiles / progressiersharedfiles
    * ------------------------------------------------------------------ */
 
-  function openShareDB() {
+  var CANONICAL_SHARE_DB = 'you-ge-shared-files';
+  var CANONICAL_SHARE_STORE = 'shared-files';
+  var LEGACY_SHARE_DB = 'progressiersharedfiles';
+  var LEGACY_SHARE_STORE = 'progressiersharedfiles';
+
+  function openNamedShareDB(dbName, storeName) {
     return new Promise(function (resolve, reject) {
-      var request = indexedDB.open('progressiersharedfiles', 1);
+      var request = indexedDB.open(dbName, 1);
       request.onupgradeneeded = function () {
         var db = request.result;
-        if (!db.objectStoreNames.contains('progressiersharedfiles')) {
-          db.createObjectStore('progressiersharedfiles', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: 'id' });
         }
       };
       request.onsuccess = function () {
@@ -1267,11 +1337,11 @@
     });
   }
 
-  function readSharedRecord(id) {
-    return openShareDB().then(function (db) {
+  function consumeShareFromDB(dbName, storeName, id) {
+    return openNamedShareDB(dbName, storeName).then(function (db) {
       return new Promise(function (resolve, reject) {
-        var tx = db.transaction('progressiersharedfiles', 'readwrite');
-        var store = tx.objectStore('progressiersharedfiles');
+        var tx = db.transaction(storeName, 'readwrite');
+        var store = tx.objectStore(storeName);
         var request = store.get(id);
         request.onsuccess = function () {
           var record = request.result || null;
@@ -1289,6 +1359,19 @@
         };
       });
     });
+  }
+
+  function readSharedRecord(id) {
+    return consumeShareFromDB(CANONICAL_SHARE_DB, CANONICAL_SHARE_STORE, id)
+      .catch(function () {
+        return null;
+      })
+      .then(function (record) {
+        if (record) return record;
+        return consumeShareFromDB(LEGACY_SHARE_DB, LEGACY_SHARE_STORE, id).catch(function () {
+          return null;
+        });
+      });
   }
 
   function cleanSharedParams() {
@@ -1369,10 +1452,12 @@
   });
 
   /* ------------------------------------------------------------------ *
-   * Protocol handler redirect (web+pwa:...)
+   * Protocol handler redirect (web+youge:... / web+pwa:...)
+   * Canonical params: ?youge-protocol-redirect=<url>, ?youge-redirect=<base64url>
+   * Legacy migration aliases: ?pwaprotocolredirect=<url>, ?pwaredirect=<base64url>
    * ------------------------------------------------------------------ */
 
-  var protocolRedirect = getParam('pwaprotocolredirect');
+  var protocolRedirect = getParam('youge-protocol-redirect') || getParam('pwaprotocolredirect');
   if (protocolRedirect) {
     try {
       var target = new URL(protocolRedirect, window.location.origin);
@@ -1386,9 +1471,7 @@
     }
   }
 
-  // Legacy compatibility contract: ?pwaredirect=<base64 url> links issued
-  // before the You.Ge Assistant migration keep resolving.
-  var base64Redirect = getParam('pwaredirect');
+  var base64Redirect = getParam('youge-redirect') || getParam('pwaredirect');
   if (base64Redirect) {
     try {
       var decoded = window.atob(base64Redirect.replace(/-/g, '+').replace(/_/g, '/'));
@@ -1399,7 +1482,7 @@
           : false;
       if (redirectAllowed) window.location.replace(redirect.href);
     } catch (error) {
-      log('invalid pwaredirect', error);
+      log('invalid redirect parameter', error);
     }
   }
 
@@ -1747,8 +1830,11 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Cookies (banner dismissal). The `progressier*` cookie names are a legacy
-   * compatibility contract: renaming them would re-show dismissed banners.
+   * Cookies (banner dismissal).
+   * Canonical prefixes: `youge_install_banner_`, `youge_push_banner_`
+   * Temporary migration compatibility prefixes: `progressierinstallbanner`,
+   * `progressierpushbanner` (promoted on read and mirrored on write for safe
+   * rollback during the compatibility period).
    * ------------------------------------------------------------------ */
 
   function cookieKey(base) {
@@ -1777,16 +1863,28 @@
     }
   }
 
-  function bannerAllowed(base, days) {
-    var value = readCookie(cookieKey(base));
+  function bannerAllowed(canonicalBase, legacyBase, days) {
+    var canonicalKey = cookieKey(canonicalBase);
+    var value = readCookie(canonicalKey);
+    var fromLegacy = false;
+    if (!value && legacyBase) {
+      value = readCookie(cookieKey(legacyBase));
+      fromLegacy = Boolean(value);
+    }
     if (!value) return true;
     var time = Date.parse(value);
     if (!time) return true;
-    return Date.now() - time > (Number(days) || 0) * 864e5;
+    var expired = Date.now() - time > (Number(days) || 0) * 864e5;
+    if (!expired && fromLegacy) {
+      writeCookie(canonicalKey, value, 365);
+    }
+    return expired;
   }
 
-  function denyBanner(base) {
-    writeCookie(cookieKey(base), new Date().toISOString(), 365);
+  function denyBanner(canonicalBase, legacyBase) {
+    var nowIso = new Date().toISOString();
+    if (legacyBase) writeCookie(cookieKey(legacyBase), nowIso, 365);
+    writeCookie(cookieKey(canonicalBase), nowIso, 365);
   }
 
   /* ------------------------------------------------------------------ *
@@ -2029,7 +2127,9 @@
   }
 
   function scanButtons() {
+    document.querySelectorAll('.youge-install-button:not(.captured)').forEach(initInstallButton);
     document.querySelectorAll('.progressier-install-button:not(.captured)').forEach(initInstallButton);
+    document.querySelectorAll('.youge-subscribe-button:not(.captured)').forEach(initSubscribeButton);
     document.querySelectorAll('.progressier-subscribe-button:not(.captured)').forEach(initSubscribeButton);
     scanQrButtons();
   }
@@ -2038,11 +2138,13 @@
    * Install banner
    * ------------------------------------------------------------------ */
 
-  var BANNER_INSTALL_COOKIE = 'progressierinstallbanner';
-  var BANNER_PUSH_COOKIE = 'progressierpushbanner';
+  var BANNER_INSTALL_COOKIE = 'youge_install_banner_';
+  var LEGACY_BANNER_INSTALL_COOKIE = 'progressierinstallbanner';
+  var BANNER_PUSH_COOKIE = 'youge_push_banner_';
+  var LEGACY_BANNER_PUSH_COOKIE = 'progressierpushbanner';
 
   function removeInstallBanner() {
-    var banner = document.querySelector('.progressier-install-banner');
+    var banner = document.querySelector('.youge-install-banner') || document.querySelector('.progressier-install-banner');
     if (!banner) return;
     banner.classList.remove('in');
     setTimeout(function () {
@@ -2062,7 +2164,7 @@
     var platforms = options.platforms || 'all';
     if (platforms === 'mobile' && !isMobile()) return null;
     if (platforms === 'desktop' && isMobile()) return null;
-    if (!options.preview && !bannerAllowed(BANNER_INSTALL_COOKIE, options.interval == null ? 7 : options.interval)) return null;
+    if (!options.preview && !bannerAllowed(BANNER_INSTALL_COOKIE, LEGACY_BANNER_INSTALL_COOKIE, options.interval == null ? 7 : options.interval)) return null;
 
     removeInstallBanner();
 
@@ -2103,7 +2205,7 @@
     if (options.btnColor) banner.style.setProperty('--progressierAccentText', options.btnColor);
 
     function dismiss() {
-      if (!options.preview) denyBanner(BANNER_INSTALL_COOKIE);
+      if (!options.preview) denyBanner(BANNER_INSTALL_COOKIE, LEGACY_BANNER_INSTALL_COOKIE);
       banner.classList.remove('in');
       setTimeout(function () {
         if (banner.parentNode) banner.parentNode.removeChild(banner);
@@ -2129,7 +2231,7 @@
    * ------------------------------------------------------------------ */
 
   function removePushBanner() {
-    var banner = document.querySelector('.progressier-push-banner');
+    var banner = document.querySelector('.youge-push-banner') || document.querySelector('.progressier-push-banner');
     if (!banner) return;
     banner.classList.remove('in');
     setTimeout(function () {
@@ -2142,7 +2244,7 @@
     if (!pushSupported()) return null;
     if (Notification.permission === 'denied' && !options.preview) return null;
     if (isStandalone() && Notification.permission === 'granted') return null;
-    if (!options.preview && !bannerAllowed(BANNER_PUSH_COOKIE, options.interval == null ? 7 : options.interval)) return null;
+    if (!options.preview && !bannerAllowed(BANNER_PUSH_COOKIE, LEGACY_BANNER_PUSH_COOKIE, options.interval == null ? 7 : options.interval)) return null;
 
     removePushBanner();
 
@@ -2185,7 +2287,7 @@
     if (options.btnColor) banner.style.setProperty('--progressierAccentText', options.btnColor);
 
     function dismiss() {
-      if (!options.preview) denyBanner(BANNER_PUSH_COOKIE);
+      if (!options.preview) denyBanner(BANNER_PUSH_COOKIE, LEGACY_BANNER_PUSH_COOKIE);
       removePushBanner();
     }
 
@@ -2712,7 +2814,8 @@
     var value = url || window.location.href;
     try {
       var parsed = new URL(value, window.location.origin);
-      parsed.searchParams.set('pswutlzoq', 'install');
+      parsed.searchParams.delete('pswutlzoq');
+      parsed.searchParams.set('youge-install', '1');
       return parsed.href;
     } catch (error) {
       return value;
@@ -2815,10 +2918,19 @@
       });
   }
 
+  function isInstallQueryTrigger() {
+    var canonical = getParam('youge-install');
+    if (canonical === '1' || canonical === 'true' || canonical === 'install') return true;
+    return getParam('pswutlzoq') === 'install';
+  }
+
   function cleanInstallParam() {
     try {
       var url = new URL(window.location.href);
-      if (url.searchParams.get('pswutlzoq') !== 'install') return;
+      var hadCanonical = url.searchParams.has('youge-install');
+      var hadLegacy = url.searchParams.get('pswutlzoq') === 'install';
+      if (!hadCanonical && !hadLegacy) return;
+      url.searchParams.delete('youge-install');
       url.searchParams.delete('pswutlzoq');
       window.history.replaceState(null, '', url.pathname + url.search + url.hash);
     } catch (error) {
@@ -2922,26 +3034,30 @@
     });
   }
 
+  function captureQrButton(node) {
+    node.classList.add('pwa-qr-captured', 'captured');
+    node.setAttribute('role', 'button');
+    if (isStandalone() && node.getAttribute('data-hide-standalone') !== 'false') {
+      node.hidden = true;
+      return;
+    }
+    node.addEventListener('click', function (event) {
+      event.preventDefault();
+      var value = node.getAttribute('data-youge-qr') || node.getAttribute('data-pwa-qr');
+      showQrDialog({
+        url: value && value !== 'true' ? value : undefined,
+      });
+    });
+  }
+
   function scanQrButtons() {
     if (config.features && config.features.qr === false) {
+      document.querySelectorAll('[data-youge-qr]').forEach(function (node) { node.hidden = true; });
       document.querySelectorAll('[data-pwa-qr]').forEach(function (node) { node.hidden = true; });
       return;
     }
-    document.querySelectorAll('[data-pwa-qr]:not(.pwa-qr-captured)').forEach(function (node) {
-      node.classList.add('pwa-qr-captured', 'captured');
-      node.setAttribute('role', 'button');
-      if (isStandalone() && node.getAttribute('data-hide-standalone') !== 'false') {
-        node.hidden = true;
-        return;
-      }
-      node.addEventListener('click', function (event) {
-        event.preventDefault();
-        var value = node.getAttribute('data-pwa-qr');
-        showQrDialog({
-          url: value && value !== 'true' ? value : undefined,
-        });
-      });
-    });
+    document.querySelectorAll('[data-youge-qr]:not(.pwa-qr-captured)').forEach(captureQrButton);
+    document.querySelectorAll('[data-pwa-qr]:not(.pwa-qr-captured)').forEach(captureQrButton);
   }
 
   /* ------------------------------------------------------------------ *
@@ -3340,8 +3456,8 @@
     setBadge: setBadge,
     clearBadge: clearBadge,
 
-    // notification history (legacy `progressierSavedPushNotifications` IndexedDB
-    // store, kept so existing installations retain their history)
+    // notification history (canonical `you-ge-notifications` IndexedDB store,
+    // with automatic worker migration from `progressierSavedPushNotifications`)
     getNotifications: function () {
       return postToWorker({ type: 'GET_NOTIFICATIONS' }).then(function (result) {
         return result && result.notifications ? result.notifications : [];
@@ -3389,6 +3505,7 @@
     runNetworkDiagnostics: runNetworkDiagnostics,
     showWelcome: showWelcome,
     showQRCode: showQRCode,
+    getInstallUrl: installUrl,
     showInstallRequest: showInstallRequest,
     createAppleSplashScreens: createAppleSplashScreens,
     notify: notify,
@@ -3401,11 +3518,12 @@
     arrayBufferToBase64: arrayBufferToBase64,
   };
 
+  window.YouGePWA = PWA;
   window.PWA = PWA;
 
   /* ------------------------------------------------------------------ *
-   * Legacy `window.progressier` compatibility shim for integrations written
-   * before You.Ge Assistant (only if that global isn't already defined)
+   * Temporary `window.progressier` migration compatibility shim
+   * (defined only if absent; canonical surface is `window.YouGePWA`)
    * ------------------------------------------------------------------ */
 
   if (!window.progressier) {
@@ -3512,7 +3630,7 @@
 
   scheduleSplashScreens();
 
-  if (getParam('pswutlzoq') === 'install' && !isStandalone()) {
+  if (isInstallQueryTrigger() && !isStandalone()) {
     setTimeout(function () {
       if (isStandalone()) return;
       if (document.querySelector('.pwa-flow')) return;
@@ -3522,9 +3640,16 @@
 
   if (config.offlineAlert) enableOfflineAlert();
 
-  document.addEventListener('pwa:update', function () {
+  document.addEventListener('youge:pwa:update', function () {
     if (!config.autoUpdate) showReloadPrompt();
   });
+  document.addEventListener('pwa:update', function (event) {
+    if (event && event.__youGeBridged) return;
+    if (!config.autoUpdate) showReloadPrompt();
+  });
+
+  var WELCOME_STORAGE_KEY = 'youge-pwa:welcome';
+  var LEGACY_WELCOME_STORAGE_KEY = 'pwakit:welcome';
 
   window.addEventListener('load', function () {
     if (config.installBanner && domainConfig.features.installation !== false && domainConfig.pwa.enabled !== false && !isStandalone()) {
@@ -3540,14 +3665,18 @@
     if (config.welcome && domainConfig.features.installation !== false && domainConfig.pwa.enabled !== false) {
       var seen = false;
       try {
-        seen = window.localStorage.getItem('pwakit:welcome') === '1';
+        var canonicalSeen = window.localStorage.getItem(WELCOME_STORAGE_KEY) === '1';
+        var legacySeen = !canonicalSeen && window.localStorage.getItem(LEGACY_WELCOME_STORAGE_KEY) === '1';
+        if (legacySeen) window.localStorage.setItem(WELCOME_STORAGE_KEY, '1');
+        seen = canonicalSeen || legacySeen;
       } catch (error) {
         /* ignore */
       }
       if (!seen) {
         setTimeout(function () {
           try {
-            window.localStorage.setItem('pwakit:welcome', '1');
+            window.localStorage.setItem(WELCOME_STORAGE_KEY, '1');
+            window.localStorage.setItem(LEGACY_WELCOME_STORAGE_KEY, '1');
           } catch (error) {
             /* ignore */
           }
@@ -3569,13 +3698,13 @@
   document.addEventListener('click', function (event) {
     var node = event.target;
     if (!node || !node.closest) return;
-    var diagnosticsButton = node.closest('[data-pwa-diagnostics]');
+    var diagnosticsButton = node.closest('[data-youge-diagnostics],[data-pwa-diagnostics]');
     if (diagnosticsButton) {
       event.preventDefault();
       showNetworkDiagnostics();
       return;
     }
-    var button = node.closest('[data-pwa-install]');
+    var button = node.closest('[data-youge-install],[data-pwa-install]');
     if (!button) return;
     event.preventDefault();
     promptInstall();
@@ -3585,7 +3714,7 @@
   // relevant element is added, so chatty apps don't trigger constant rescans.
   if (window.MutationObserver) {
     var pending = null;
-    var selector = '[data-pwa-install],[data-pwa-hide-standalone],[data-pwa-show-standalone]';
+    var selector = '[data-youge-install],[data-pwa-install],[data-youge-hide-standalone],[data-pwa-hide-standalone],[data-youge-show-standalone],[data-pwa-show-standalone]';
     var observer = new MutationObserver(function (mutations) {
       var relevant = mutations.some(function (mutation) {
         if (!mutation.addedNodes || !mutation.addedNodes.length) return false;

@@ -1,5 +1,5 @@
 {
-  "id": "/HIPSBNVemXtM8VMwRfWs",
+  "id": "/",
   "name": "You.Ge Assistant",
   "short_name": "You.Ge",
   "description": "Your installable, offline-ready web assistant.",
@@ -30,7 +30,8 @@
     }
   },
   "protocol_handlers": [
-    { "protocol": "web+pwa", "url": "/?launchedfrom=homescreen&pwaprotocolredirect=%s" },
+    { "protocol": "web+youge", "url": "/?launchedfrom=homescreen&youge-protocol-redirect=%s" },
+    { "protocol": "web+pwa", "url": "/?launchedfrom=homescreen&youge-protocol-redirect=%s" },
     { "protocol": "web+loldwyhv", "url": "/?launchedfrom=homescreen&pwaprotocolredirect=%s" }
   ],
   "launch_handler": { "client_mode": ["navigate-existing", "auto"] }

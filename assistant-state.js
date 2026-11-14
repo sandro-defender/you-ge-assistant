@@ -49,6 +49,11 @@
     endpointStatus: 'youge:endpoint-status',
     sessionStatus: 'youge:session-status',
     dnsResult: 'youge:dns-result',
+    yougePwaReady: 'youge:pwa:ready',
+    yougePwaInstallable: 'youge:pwa:installable',
+    yougePwaInstalled: 'youge:pwa:installed',
+    yougePwaUpdate: 'youge:pwa:update',
+    yougePwaDiagnostics: 'youge:pwa:diagnostics',
     pwaReady: 'pwa:ready',
     pwaInstallable: 'pwa:installable',
     pwaInstalled: 'pwa:installed',
@@ -2934,7 +2939,7 @@
     function getPwa() {
       if (envIn.pwa !== undefined) return envIn.pwa;
       if (rawInit.pwa !== undefined) return rawInit.pwa;
-      return root.PWA || null;
+      return root.YouGePWA || root.PWA || null;
     }
 
     function getDns() {
@@ -3729,11 +3734,16 @@
       endpoint: function (event) { setEndpointStatus(event && event.detail); },
       session: function (event) { setSessionStatus(event && event.detail); },
       dns: function (event) { setDnsResult((event && event.detail) || {}); },
-      pwaReady: function () { syncPwaSubscription(); emit(); },
-      installable: function () { syncPwaSubscription(); emit(); },
-      installed: function () { syncPwaSubscription(); emit(); },
-      update: function () { conditions.updateAvailable = true; emit(); },
-      diagnostics: function (event) { setDnsResult((event && event.detail) || {}); },
+      pwaReady: function (event) { if (event && event.__youGeBridged) return; syncPwaSubscription(); emit(); },
+      installable: function (event) { if (event && event.__youGeBridged) return; syncPwaSubscription(); emit(); },
+      installed: function (event) { if (event && event.__youGeBridged) return; syncPwaSubscription(); emit(); },
+      update: function (event) { if (event && event.__youGeBridged) return; conditions.updateAvailable = true; emit(); },
+      diagnostics: function (event) { if (event && event.__youGeBridged) return; setDnsResult((event && event.detail) || {}); },
+      yougePwaReady: function () { syncPwaSubscription(); emit(); },
+      yougeInstallable: function () { syncPwaSubscription(); emit(); },
+      yougeInstalled: function () { syncPwaSubscription(); emit(); },
+      yougeUpdate: function () { conditions.updateAvailable = true; emit(); },
+      yougeDiagnostics: function (event) { setDnsResult((event && event.detail) || {}); },
       action: function () { /* widgets dispatch actions; host apps listen. No state change. */ },
       storage: function (event) {
         if (!event || !event.key || event.key.indexOf(STORAGE_PREFIXES.notices) !== 0) return;
@@ -3756,6 +3766,11 @@
         doc.addEventListener(EVENT_NAMES.endpointStatus, handlers.endpoint);
         doc.addEventListener(EVENT_NAMES.sessionStatus, handlers.session);
         doc.addEventListener(EVENT_NAMES.dnsResult, handlers.dns);
+        doc.addEventListener(EVENT_NAMES.yougePwaReady, handlers.yougePwaReady);
+        doc.addEventListener(EVENT_NAMES.yougePwaInstallable, handlers.yougeInstallable);
+        doc.addEventListener(EVENT_NAMES.yougePwaInstalled, handlers.yougeInstalled);
+        doc.addEventListener(EVENT_NAMES.yougePwaUpdate, handlers.yougeUpdate);
+        doc.addEventListener(EVENT_NAMES.yougePwaDiagnostics, handlers.yougeDiagnostics);
         doc.addEventListener(EVENT_NAMES.pwaReady, handlers.pwaReady);
         doc.addEventListener(EVENT_NAMES.pwaInstallable, handlers.installable);
         doc.addEventListener(EVENT_NAMES.pwaInstalled, handlers.installed);
@@ -3781,6 +3796,11 @@
           doc.removeEventListener(EVENT_NAMES.endpointStatus, handlers.endpoint);
           doc.removeEventListener(EVENT_NAMES.sessionStatus, handlers.session);
           doc.removeEventListener(EVENT_NAMES.dnsResult, handlers.dns);
+          doc.removeEventListener(EVENT_NAMES.yougePwaReady, handlers.yougePwaReady);
+          doc.removeEventListener(EVENT_NAMES.yougePwaInstallable, handlers.yougeInstallable);
+          doc.removeEventListener(EVENT_NAMES.yougePwaInstalled, handlers.yougeInstalled);
+          doc.removeEventListener(EVENT_NAMES.yougePwaUpdate, handlers.yougeUpdate);
+          doc.removeEventListener(EVENT_NAMES.yougePwaDiagnostics, handlers.yougeDiagnostics);
           doc.removeEventListener(EVENT_NAMES.pwaReady, handlers.pwaReady);
           doc.removeEventListener(EVENT_NAMES.pwaInstallable, handlers.installable);
           doc.removeEventListener(EVENT_NAMES.pwaInstalled, handlers.installed);

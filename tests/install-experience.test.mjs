@@ -580,7 +580,7 @@ test('unsupported browsers receive generic manual instructions, not a programmat
   assert.match(text, /Install You.Ge Assistant/);
 });
 
-test('install banner dismissal is persisted with the legacy cookie name', () => {
+test('install banner dismissal is persisted with the canonical cookie name', () => {
   const harness = createContext();
   const banner = harness.win.PWA.showInstallBanner({});
   assert.ok(banner, 'banner is displayed for an eligible browser');
@@ -589,18 +589,18 @@ test('install banner dismissal is persisted with the legacy cookie name', () => 
   assert.equal(buttons.length, 2, 'install and Not now actions');
   buttons[1].dispatch('click');
 
-  assert.match(harness.doc.cookie, /progressierinstallbanner/, 'dismissal is stored');
+  assert.match(harness.doc.cookie, /youge_install_banner_/, 'dismissal is stored');
   assert.equal(harness.win.PWA.showInstallBanner({}), null, 'dismissed banner is not shown again immediately');
 });
 
-test('registers the legacy worker path with a computed same-origin scope', async () => {
+test('registers the canonical worker path with a computed same-origin scope on fresh installs', async () => {
   const harness = createContext();
   const ready = harness.win.PWA.register();
   await ready;
 
   assert.equal(harness.serviceWorker.registerCalls.length, 1);
   const [url, options] = harness.serviceWorker.registerCalls[0];
-  assert.equal(url, 'https://example.test/progressier.js', '/progressier.js worker path is preserved');
+  assert.equal(url, 'https://example.test/you-ge-sw.js', '/you-ge-sw.js canonical worker path is registered by default');
   assert.equal(options.scope, '/', 'scope is computed from the manifest/worker directory');
 });
 

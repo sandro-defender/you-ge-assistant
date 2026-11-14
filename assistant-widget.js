@@ -845,15 +845,16 @@
   }
 
   function handleAction(id, kind) {
+    var pwaRuntime = root.YouGePWA || root.PWA;
     dispatchAction(id, kind);
-    if (id === 'diagnostics' && (!root.PWA || typeof root.PWA.showNetworkDiagnostics !== 'function')) {
+    if (id === 'diagnostics' && (!pwaRuntime || typeof pwaRuntime.showNetworkDiagnostics !== 'function')) {
       api.runDiagnostics();
     }
     if (id === 'update') {
       if (api && typeof api.applyUpdate === 'function') {
         try { Promise.resolve(api.applyUpdate()).catch(function () {}); } catch (error) { /* ignore */ }
-      } else if (root.PWA && typeof root.PWA.applyUpdate === 'function') {
-        try { Promise.resolve(root.PWA.applyUpdate()).catch(function () {}); } catch (error) { /* ignore */ }
+      } else if (pwaRuntime && typeof pwaRuntime.applyUpdate === 'function') {
+        try { Promise.resolve(pwaRuntime.applyUpdate()).catch(function () {}); } catch (error) { /* ignore */ }
       }
     }
     // `install` is handled by pwa.js through [data-pwa-install]; calling

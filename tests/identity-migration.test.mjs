@@ -7,6 +7,8 @@ import vm from 'node:vm';
 
 import { createCacheStorage, createNetwork } from './support/service-worker-harness.mjs';
 import { runPrecacheIntegrity } from '../scripts/precache-integrity.mjs';
+import { createAssistant } from '../packages/assistant-sdk/src/index.js';
+import { readToolkitSummary } from '../packages/assistant-sdk/src/adapters/pwa-kit.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -343,4 +345,525 @@ test('Phase 1: precache integrity gate passes with kit 1.2.0 across you-ge-sw.js
   const verdict = await runPrecacheIntegrity({ root });
   assert.equal(verdict.status, 'pass', verdict.report);
   assert.match(verdict.summary, /kit version 1\.1\.1 → 1\.2\.0 synchronized/);
+});
+
+/* ------------------------------------------------------------------ *
+ * Phase 2 — Client runtime, SDK bridge, SW cutover, storage, URLs & manifests
+ * ------------------------------------------------------------------ */
+
+function createCookieJar(initialCookies = {}) {
+  const store = new Map(Object.entries(initialCookies));
+  return {
+    get() {
+      return [...store.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+    },
+    set(raw) {
+      const firstPair = String(raw || '').split(';')[0] || '';
+      const eq = firstPair.indexOf('=');
+      if (eq === -1) return;
+      const key = firstPair.slice(0, eq).trim();
+      const val = firstPair.slice(eq + 1).trim();
+      store.set(key, val);
+    },
+    map: store,
+  };
+}
+
+class DomNode {
+  constructor(tag = 'div') {
+    this.tagName = tag.toUpperCase();
+    this.nodeType = 1;
+    this.children = [];
+    this.parentNode = null;
+    this.attributes = new Map();
+    this.dataset = {};
+    this._classSet = new Set();
+    this._className = '';
+    this.style = {
+      props: new Map(),
+      setProperty(k, v) { this.props.set(k, String(v)); },
+      getPropertyValue(k) { return this.props.get(k) || ''; },
+      removeProperty(k) { this.props.delete(k); },
+    };
+    this.listeners = new Map();
+    this.textContent = '';
+    this.innerHTML = '';
+    this.hidden = false;
+    this.shadow = null;
+  }
+
+  get className() { return this._className; }
+  set className(val) {
+    this._className = String(val || '');
+    this._classSet = new Set(this._className.split(/\s+/).filter(Boolean));
+  }
+
+  get classList() {
+    const sync = () => { this._className = [...this._classSet].join(' '); };
+    return {
+      add: (...names) => { names.forEach((n) => n && this._classSet.add(n)); sync(); },
+      remove: (...names) => { names.forEach((n) => this._classSet.delete(n)); sync(); },
+      contains: (n) => this._classSet.has(n),
+      toggle: (n, force) => {
+        const next = force === undefined ? !this._classSet.has(n) : Boolean(force);
+        if (next) this._classSet.add(n);
+        else this._classSet.delete(n);
+        sync();
+        return next;
+      },
+    };
+  }
+
+  setAttribute(k, v) { this.attributes.set(k, String(v)); }
+  getAttribute(k) { return this.attributes.has(k) ? this.attributes.get(k) : null; }
+  hasAttribute(k) { return this.attributes.has(k); }
+  appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
+  removeChild(child) { this.children = this.children.filter((c) => c !== child); child.parentNode = null; return child; }
+  attachShadow() { this.shadow = new DomNode('shadow-root'); return this.shadow; }
+  addEventListener(type, fn) {
+    const arr = this.listeners.get(type) || [];
+    arr.push(fn);
+    this.listeners.set(type, arr);
+  }
+  removeEventListener(type, fn) {
+    this.listeners.set(type, (this.listeners.get(type) || []).filter((item) => item !== fn));
+  }
+  click() {
+    for (const fn of this.listeners.get('click') || []) {
+      fn({ target: this, preventDefault() {}, stopPropagation() {} });
+    }
+  }
+  matches(selector) {
+    return String(selector || '')
+      .split(',')
+      .some((part) => {
+        const s = part.trim();
+        if (!s) return false;
+        if (s.startsWith('.')) {
+          const [cls, pseudo] = s.slice(1).split(':not(');
+          if (!this._classSet.has(cls)) return false;
+          if (pseudo && pseudo.startsWith('.')) {
+            const excluded = pseudo.replace(/\)$/, '').slice(1);
+            if (this._classSet.has(excluded)) return false;
+          }
+          return true;
+        }
+        const attr = /^\[([^\]=]+)(?:="([^"]*)")?\]$/.exec(s);
+        if (attr) {
+          if (!this.hasAttribute(attr[1])) return false;
+          return attr[2] === undefined ? true : this.getAttribute(attr[1]) === attr[2];
+        }
+        return this.tagName.toLowerCase() === s.toLowerCase();
+      });
+  }
+  closest(selector) {
+    let cur = this;
+    while (cur) {
+      if (cur.matches && cur.matches(selector)) return cur;
+      cur = cur.parentNode;
+    }
+    return null;
+  }
+  querySelectorAll(selector) {
+    const out = [];
+    const walk = (n) => {
+      for (const child of n.children || []) {
+        if (child.matches(selector)) out.push(child);
+        walk(child);
+      }
+    };
+    walk(this);
+    return out;
+  }
+  querySelector(selector) {
+    return this.querySelectorAll(selector)[0] || null;
+  }
+}
+
+function bootPwaClient({
+  href = 'https://example.test/',
+  dataset = {},
+  cookies = {},
+  localStorageSeed = {},
+  indexedDB = createFakeIndexedDB(),
+  getRegistration = undefined,
+  notificationPermission = 'default',
+  readyState = 'loading',
+} = {}) {
+  const url = new URL(href);
+  const jar = createCookieJar(cookies);
+  const storageMap = new Map(Object.entries(localStorageSeed));
+  const docEvents = [];
+  const docListeners = new Map();
+  const winListeners = new Map();
+  const registerCalls = [];
+  let replacedHref = null;
+  let historyStateUrl = null;
+  const timers = [];
+
+  const head = new DomNode('head');
+  const body = new DomNode('body');
+  const documentElement = new DomNode('html');
+  documentElement.appendChild(head);
+  documentElement.appendChild(body);
+
+  const script = new DomNode('script');
+  script.src = new URL('pwa.js', url.origin + '/').href;
+  script.dataset = { ...dataset };
+
+  const doc = {
+    currentScript: script,
+    head,
+    body,
+    documentElement,
+    readyState,
+    visibilityState: 'visible',
+    referrer: '',
+    createElement: (tag) => new DomNode(tag),
+    createDocumentFragment: () => new DomNode('fragment'),
+    querySelector: (sel) => documentElement.querySelector(sel),
+    querySelectorAll: (sel) => documentElement.querySelectorAll(sel),
+    addEventListener(type, fn) {
+      const list = docListeners.get(type) || [];
+      list.push(fn);
+      docListeners.set(type, list);
+    },
+    removeEventListener(type, fn) {
+      docListeners.set(type, (docListeners.get(type) || []).filter((f) => f !== fn));
+    },
+    dispatchEvent(event) {
+      docEvents.push(event);
+      for (const fn of docListeners.get(event.type) || []) fn(event);
+      return true;
+    },
+  };
+  Object.defineProperty(doc, 'cookie', {
+    get: () => jar.get(),
+    set: (val) => jar.set(val),
+  });
+
+  const swRegistration = {
+    scope: url.origin + '/',
+    installing: null,
+    waiting: null,
+    active: {},
+    addEventListener() {},
+    pushManager: { getSubscription: async () => null },
+  };
+  const serviceWorker = {
+    controller: null,
+    ready: Promise.resolve(swRegistration),
+    register(swUrl, opts) {
+      registerCalls.push({ swUrl, opts });
+      return Promise.resolve(swRegistration);
+    },
+    addEventListener() {},
+  };
+  if (getRegistration !== undefined) {
+    serviceWorker.getRegistration = getRegistration;
+  }
+
+  class CustomEventPolyfill {
+    constructor(type, init = {}) {
+      this.type = type;
+      this.detail = init.detail;
+    }
+  }
+
+  const location = {
+    href: url.href,
+    origin: url.origin,
+    protocol: url.protocol,
+    hostname: url.hostname,
+    pathname: url.pathname,
+    search: url.search,
+    hash: url.hash,
+    replace(next) { replacedHref = next; },
+    reload() {},
+  };
+
+  const sandbox = {
+    URL, URLSearchParams, Promise, Uint8Array, ArrayBuffer, Blob, File,
+    CustomEvent: CustomEventPolyfill,
+    atob, btoa, encodeURIComponent, decodeURIComponent, console, queueMicrotask,
+    indexedDB,
+    localStorage: {
+      getItem: (k) => (storageMap.has(k) ? storageMap.get(k) : null),
+      setItem: (k, v) => storageMap.set(k, String(v)),
+      removeItem: (k) => storageMap.delete(k),
+    },
+    Notification: {
+      permission: notificationPermission,
+      requestPermission: async () => notificationPermission,
+    },
+    PushManager: function PushManager() {},
+    document: doc,
+    navigator: {
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/124.0.0.0 Safari/537.36',
+      language: 'en-US',
+      onLine: true,
+      serviceWorker,
+    },
+    location,
+    history: {
+      replaceState(_state, _title, nextUrl) {
+        historyStateUrl = nextUrl;
+        const resolved = new URL(nextUrl, url.origin);
+        location.href = resolved.href;
+        location.pathname = resolved.pathname;
+        location.search = resolved.search;
+        location.hash = resolved.hash;
+      },
+    },
+    screen: { width: 1280, height: 800 },
+    isSecureContext: true,
+    getComputedStyle: (el) => ({
+      getPropertyValue: (prop) => el.style.getPropertyValue(prop),
+    }),
+    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    setTimeout(fn, ms) {
+      timers.push({ fn, ms });
+      return timers.length;
+    },
+    clearTimeout() {},
+    requestAnimationFrame(fn) {
+      timers.push({ fn, ms: 16 });
+      return timers.length;
+    },
+    cancelAnimationFrame() {},
+    setInterval: () => 1,
+    clearInterval() {},
+    addEventListener(type, fn) {
+      const list = winListeners.get(type) || [];
+      list.push(fn);
+      winListeners.set(type, list);
+    },
+    removeEventListener() {},
+  };
+  sandbox.window = sandbox;
+  sandbox.self = sandbox;
+  sandbox.top = sandbox;
+  sandbox.globalThis = sandbox;
+
+  const context = vm.createContext(sandbox);
+  vm.runInContext(read('pwa.js'), context, { filename: 'pwa.js' });
+
+  return {
+    win: sandbox,
+    doc,
+    body,
+    jar,
+    storageMap,
+    docEvents,
+    registerCalls,
+    timers,
+    getReplacedHref: () => replacedHref,
+    getHistoryStateUrl: () => historyStateUrl,
+    fireWindowLoad() {
+      for (const fn of winListeners.get('load') || []) fn();
+    },
+    flushTimers() {
+      const copy = timers.splice(0, timers.length);
+      for (const item of copy) item.fn();
+    },
+  };
+}
+
+test('Phase 2: pwa.js exposes canonical window.YouGePWA alongside window.PWA and binds cleanly in @youge/assistant-sdk', () => {
+  const client = bootPwaClient();
+  assert.ok(client.win.YouGePWA, 'window.YouGePWA is defined as canonical global');
+  assert.equal(client.win.YouGePWA.__youGePwaKit, true);
+  assert.equal(client.win.YouGePWA, client.win.PWA, 'window.PWA aliases window.YouGePWA');
+  assert.ok(client.win.progressier, 'legacy window.progressier migration shim remains available');
+
+  // SDK binds cleanly when ONLY window.YouGePWA is present (no window.PWA)
+  const youGeOnlyRoot = {
+    YouGePWA: {
+      __youGePwaKit: true,
+      version: '1.2.0',
+      getState: () => ({ standalone: false, installed: false, canInstall: true, hasUpdate: false }),
+      onChange: () => () => {},
+    },
+    location: { href: 'https://app.you.ge/', origin: 'https://app.you.ge', hostname: 'app.you.ge', protocol: 'https:', pathname: '/' },
+  };
+  const summary = readToolkitSummary(youGeOnlyRoot);
+  assert.equal(summary.hasPwaToolkit, true, 'readToolkitSummary recognizes window.YouGePWA');
+  assert.equal(summary.pwaVersion, '1.2.0');
+
+  const assistant = createAssistant({ projectId: 'youge-only' }, { root: youGeOnlyRoot, bindEvents: false });
+  assert.equal(assistant.getState().installation.canInstall, true, 'SDK reads install capability from window.YouGePWA');
+  assistant.destroy();
+});
+
+test('Phase 2: SW registration defaults to you-ge-sw.js on fresh installs, preserves active progressier.js URLs, and recovers if getRegistration fails', async () => {
+  // 1. Fresh install: no prior registration -> registers canonical you-ge-sw.js
+  const fresh = bootPwaClient({
+    getRegistration: async () => undefined,
+  });
+  await fresh.win.YouGePWA.register();
+  assert.equal(fresh.registerCalls.length, 1);
+  assert.equal(fresh.registerCalls[0].swUrl, 'https://example.test/you-ge-sw.js');
+  assert.equal(fresh.win.YouGePWA.config.swMigrationMode, 'canonical');
+
+  // 2. Existing legacy installation at /progressier.js -> preserves /progressier.js in place
+  const legacyUpgrade = bootPwaClient({
+    getRegistration: async () => ({
+      scope: 'https://example.test/',
+      active: { scriptURL: 'https://example.test/progressier.js', state: 'activated' },
+    }),
+  });
+  await legacyUpgrade.win.YouGePWA.register();
+  assert.equal(legacyUpgrade.registerCalls.length, 1);
+  assert.equal(legacyUpgrade.registerCalls[0].swUrl, 'https://example.test/progressier.js');
+  assert.equal(legacyUpgrade.win.YouGePWA.config.swMigrationMode, 'legacy-preserved');
+
+  // 3. Explicit data-sw="/you-ge-sw.js" overrides legacy preservation
+  const explicitCutover = bootPwaClient({
+    dataset: { sw: '/you-ge-sw.js' },
+    getRegistration: async () => ({
+      scope: 'https://example.test/',
+      active: { scriptURL: 'https://example.test/progressier.js', state: 'activated' },
+    }),
+  });
+  await explicitCutover.win.YouGePWA.register();
+  assert.equal(explicitCutover.registerCalls[0].swUrl, 'https://example.test/you-ge-sw.js');
+
+  // 4. Failure recovery: getRegistration rejects -> falls back to canonical you-ge-sw.js
+  const brokenLookup = bootPwaClient({
+    getRegistration: async () => { throw new Error('SecurityError'); },
+  });
+  await brokenLookup.win.YouGePWA.register();
+  assert.equal(brokenLookup.registerCalls.length, 1);
+  assert.equal(brokenLookup.registerCalls[0].swUrl, 'https://example.test/you-ge-sw.js');
+});
+
+test('Phase 2: banner cookies and welcome localStorage migrate legacy dismissals and mirror writes for rollback safety', () => {
+  const recentIso = encodeURIComponent(new Date().toISOString());
+
+  // Existing legacy install-banner cookie suppresses banner and promotes to canonical cookie
+  const migrated = bootPwaClient({
+    cookies: {
+      'progressierinstallbannerexample.test/': recentIso,
+    },
+    dataset: { welcome: '' },
+    localStorageSeed: { 'pwakit:welcome': '1' },
+  });
+  assert.equal(migrated.win.YouGePWA.showInstallBanner({}), null, 'legacy cookie dismissal honored');
+  assert.equal(migrated.jar.map.has('youge_install_banner_example.test/'), true, 'legacy cookie promoted to canonical cookie');
+
+  migrated.fireWindowLoad();
+  migrated.flushTimers();
+  assert.equal(migrated.storageMap.get('youge-pwa:welcome'), '1', 'legacy pwakit:welcome promoted to youge-pwa:welcome');
+  assert.equal(migrated.body.querySelector('.pwa-flow'), null, 'welcome dialog suppressed after legacy migration');
+
+  // Fresh dismissal writes canonical cookie AND mirrors legacy cookie for safe rollback to 1.1.1
+  const fresh = bootPwaClient({ notificationPermission: 'default' });
+  const installBanner = fresh.win.YouGePWA.showInstallBanner({});
+  assert.ok(installBanner, 'install banner shown when undismissed');
+  const buttons = installBanner.querySelectorAll('button');
+  buttons[1].click(); // "Not now"
+  assert.equal(fresh.jar.map.has('youge_install_banner_example.test/'), true, 'canonical install cookie written');
+  assert.equal(fresh.jar.map.has('progressierinstallbannerexample.test/'), true, 'legacy install cookie mirrored for rollback');
+
+  const pushBanner = fresh.win.YouGePWA.showPushBanner({});
+  assert.ok(pushBanner, 'push banner shown when undismissed');
+  pushBanner.querySelectorAll('button')[0].click(); // "Not now"
+  assert.equal(fresh.jar.map.has('youge_push_banner_example.test/'), true, 'canonical push cookie written');
+  assert.equal(fresh.jar.map.has('progressierpushbannerexample.test/'), true, 'legacy push cookie mirrored for rollback');
+});
+
+test('Phase 2: pwa.js consumeSharedFile reads canonical you-ge-shared-files first and falls back to legacy progressiersharedfiles', async () => {
+  // 1. Canonical DB hit
+  const canonicalIdb = createFakeIndexedDB({
+    'you-ge-shared-files': {
+      'shared-files': [
+        { id: 'canon-1', title: 'Canonical Share', url: 'https://example.test/a', text: 'canon' },
+      ],
+    },
+  });
+  const c1 = bootPwaClient({
+    href: 'https://example.test/?launchedfrom=share&fileid=canon-1',
+    indexedDB: canonicalIdb,
+    readyState: 'complete',
+  });
+  c1.flushTimers();
+  const sharedCanon = await c1.win.YouGePWA.consumeSharedFile();
+  assert.equal(sharedCanon.title, 'Canonical Share');
+  assert.equal(canonicalIdb.dump('you-ge-shared-files', 'shared-files').length, 0, 'consumed record removed');
+
+  // 2. Legacy in-flight DB fallback (share written by 1.1.1 worker right before client upgraded)
+  const legacyIdb = createFakeIndexedDB({
+    progressiersharedfiles: {
+      progressiersharedfiles: [
+        { id: 'leg-1', title: 'In-flight Legacy Share', url: 'https://example.test/b', text: 'legacy' },
+      ],
+    },
+  });
+  const c2 = bootPwaClient({
+    href: 'https://example.test/?launchedfrom=share&fileid=leg-1',
+    indexedDB: legacyIdb,
+    readyState: 'complete',
+  });
+  c2.flushTimers();
+  const sharedLegacy = await c2.win.YouGePWA.consumeSharedFile();
+  assert.equal(sharedLegacy.title, 'In-flight Legacy Share');
+  assert.equal(legacyIdb.dump('progressiersharedfiles', 'progressiersharedfiles').length, 0, 'consumed legacy record removed');
+});
+
+test('Phase 2: canonical events, query parameters, declarative attributes, and manifest IDs/protocols work alongside legacy aliases', () => {
+  // 1. Canonical youge:pwa:ready emitted alongside pwa:ready without duplicate SDK triggers
+  const client = bootPwaClient();
+  const eventTypes = client.docEvents.map((e) => e.type);
+  assert.ok(eventTypes.includes('youge:pwa:ready'), 'canonical youge:pwa:ready dispatched');
+  assert.ok(eventTypes.includes('pwa:ready'), 'legacy pwa:ready dispatched');
+
+  const assistant = createAssistant({ projectId: 'dedup-check' }, {
+    root: client.win,
+    document: client.doc,
+  });
+  let emissions = 0;
+  assistant.subscribe(() => { emissions += 1; });
+  emissions = 0;
+  const canonUpdate = new client.win.CustomEvent('youge:pwa:update', { detail: {} });
+  const bridgedLegacyUpdate = new client.win.CustomEvent('pwa:update', { detail: {} });
+  bridgedLegacyUpdate.__youGeBridged = true;
+  client.doc.dispatchEvent(canonUpdate);
+  client.doc.dispatchEvent(bridgedLegacyUpdate);
+  assert.equal(emissions, 1, 'bridged legacy pwa:update does not double-emit after canonical youge:pwa:update');
+  assistant.destroy();
+
+  // 2. Canonical ?youge-install=1 QR parameter + legacy ?pswutlzoq=install support
+  const canonQr = bootPwaClient({ href: 'https://example.test/?youge-install=1' });
+  canonQr.flushTimers();
+  assert.ok(canonQr.body.querySelector('.pwa-flow'), '?youge-install=1 opens install request flow');
+  assert.equal(canonQr.getHistoryStateUrl(), '/', '?youge-install=1 cleaned from URL after opening');
+  assert.equal(canonQr.win.YouGePWA.getInstallUrl('https://example.test/'), 'https://example.test/?youge-install=1');
+
+  const legacyQr = bootPwaClient({ href: 'https://example.test/?pswutlzoq=install' });
+  legacyQr.flushTimers();
+  assert.ok(legacyQr.body.querySelector('.pwa-flow'), 'legacy ?pswutlzoq=install still opens install request flow');
+  assert.equal(legacyQr.getHistoryStateUrl(), '/', 'legacy ?pswutlzoq=install cleaned from URL after opening');
+
+  // 3. Canonical ?youge-protocol-redirect and ?youge-redirect alongside legacy params
+  const protoClient = bootPwaClient({
+    href: 'https://example.test/?launchedfrom=homescreen&youge-protocol-redirect=%2Ftasks%2F42',
+  });
+  assert.equal(protoClient.getReplacedHref(), 'https://example.test/tasks/42');
+
+  const b64 = btoa('https://example.test/inbox').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const redirectClient = bootPwaClient({
+    href: `https://example.test/?youge-redirect=${b64}`,
+  });
+  assert.equal(redirectClient.getReplacedHref(), 'https://example.test/inbox');
+
+  // 4. Generic fallback manifest.webmanifest vs staff.you.ge registry manifest id
+  const fallbackManifest = JSON.parse(read('manifest.webmanifest'));
+  assert.equal(fallbackManifest.id, '/', 'generic root fallback manifest uses canonical "/" id');
+  const protocols = (fallbackManifest.protocol_handlers || []).map((p) => p.protocol);
+  assert.ok(protocols.includes('web+youge'), 'canonical web+youge protocol handler declared');
+  assert.ok(protocols.includes('web+pwa'), 'web+pwa protocol handler declared');
+  assert.ok(protocols.includes('web+loldwyhv'), 'legacy web+loldwyhv handler retained during compatibility window');
+
+  const registrySource = read('domain-registry.js');
+  assert.match(registrySource, /'staff\.you\.ge'[\s\S]*id:\s*'\/HIPSBNVemXtM8VMwRfWs'/, 'staff.you.ge preserves its installed app id');
 });
