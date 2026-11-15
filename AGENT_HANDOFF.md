@@ -1,3 +1,33 @@
+# Agent Handoff — Diagnostics Phase 2 real-world verification
+
+**Date:** 2026-11-15  
+**Branch:** `arena/2914f4d7-you-ge-assistant`, based on `main` at `bb3041ce60952b398110246dc88552d0f28e3a81` (merged PR #42).  
+**PR and commit:** See the current branch PR and `git log -1`; this record is part of that commit.  
+**Working tree:** see `git status`; no generated build artifacts are tracked.  
+**Versions:** kit `1.2.2`, SDK package `0.2.0`, unchanged.
+
+## Outcome
+
+Reviewed the Phase 2 engine, SDK integration and diagnostics tests. No reproducible implementation bug was found in the scenarios below; no production source or regression tests were changed. The browser exercise used a temporary Node HTTP server and headless Chromium driven by Playwright, with browser web security enabled. It called the real `YouGeDns` API and displayed its message in a minimal test page, not the product widget. The server recorded requests. Browser and harness dependencies were installed outside the repository and are not shipped.
+
+- `localhost`, `127.0.0.1`, `[::1]`, and the sandbox's `169.254.0.21` link-local interface: same-origin manifest succeeded, correctly classified localhost/loopback/private and skipped public DoH. The link-local interface is not a separate LAN device or RFC1918 network.
+- Root and `/app/` bases and an encoded space were requested at the expected URLs. Encoded `..`, encoded slash and root-relative escape fell back to the in-base manifest; the invalid backend was omitted. Invalid encoded base, mismatched origin and invalid hostname made no requests.
+- Same-origin and cross-origin HTTP redirects were rejected, and server logs showed no request to their `/escaped` targets. The cross-origin target was a different loopback origin on the same server.
+- Slow response headers timed out. For DNS JSON, the harness rerouted the Cloudflare endpoint to a real local HTTP response: malformed JSON produced `invalid_response`; a body kept open mid-JSON timed out; complete empty answers were parsed. This exercises Chromium fetch and body streaming but does not verify Cloudflare itself.
+- A 404 was reported as `http_error`; CSP `connect-src 'none'` blocked a probe with `network_or_cors` and no server request; stopping the server after loading the page produced `network_or_cors`. Messages were returned to the test page. Redirects and blocked connections are intentionally indistinguishable from other network failures in browser Fetch.
+
+## Checks
+
+`npm run build` passed. Example `npm ci`, `npm run typecheck`, and `npm run build` passed (Vite classic-script warnings). `npm run check` passed 545/545 after building the example; the first run had 544/545 because the example dist prerequisite was absent. `npm run check:precache` passed with all 13 precached assets unchanged and kit `1.2.2` synchronized.
+
+## Remaining limitations and next action
+
+Not verified: an actual remote RFC1918 LAN host/device, a live deployment or real Cloudflare DoH (outbound access is restricted), a deployed reverse proxy's decoding/rewrite behavior, product widget rendering, other browsers, TLS/CORS failures against remote servers, or real device DNS behavior. The local server saw URL paths as sent by Chromium, not all possible production server decoding policies. Verify those on the target deployment/network when available; do not imply they passed. Do not merge, deploy, publish, tag, release, bump versions or weaken the precache gate without separate authorization.
+
+---
+
+## Historical handoff (PR #42; superseded by current status above)
+
 # Agent Handoff — Diagnostics Phase 2, Stage 2
 
 **Date:** 2026-11-14
