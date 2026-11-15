@@ -137,10 +137,10 @@ test('distinguishes browser offline state and a configured backend health failur
   const backendCheck = create({ fetch: async (input) => {
     const url = new URL(input);
     if (url.href.startsWith(endpoint)) return response(dnsAnswer(url));
-    if (url.pathname === '/health') return response({}, 503);
+    if (url.pathname === '/app/health') return response({}, 503);
     return response({});
   }, retries: 0 });
-  const backend = await backendCheck.check(browserContext({ backendProbePath: '/health' }));
+  const backend = await backendCheck.check(browserContext({ backendProbePath: '/app/health' }));
   assert.equal(backend.classification, 'backend_unavailable');
   assert.equal(backend.app.ok, true);
 });
@@ -187,9 +187,6 @@ test('resolves a relative backend probe path against the configured base path', 
   const relative = await probePaths('health');
   assert.deepEqual(relative.map((call) => call.path), ['/app/manifest.webmanifest', '/app/health']);
   assert.ok(relative.every((call) => call.mode === 'same-origin' && call.credentials === 'omit'));
-
-  const rootRelative = await probePaths('/health');
-  assert.deepEqual(rootRelative.map((call) => call.path), ['/app/manifest.webmanifest', '/health']);
 
   const appRelative = await probePaths('/app/health?probe=1');
   assert.deepEqual(appRelative.map((call) => call.path), ['/app/manifest.webmanifest', '/app/health']);
@@ -288,10 +285,10 @@ test('keeps offline and backend-failure precedence when DoH also fails', async (
   const backendCheck = create({ fetch: async (input) => {
     const url = new URL(input);
     if (url.href.startsWith(endpoint)) throw new TypeError('Failed to fetch');
-    if (url.pathname === '/health') return response({}, 503);
+    if (url.pathname === '/app/health') return response({}, 503);
     return response({});
   }, retries: 0 });
-  const backend = await backendCheck.check(browserContext({ backendProbePath: '/health' }));
+  const backend = await backendCheck.check(browserContext({ backendProbePath: '/app/health' }));
   assert.equal(backend.classification, 'backend_unavailable', 'a responsive app host still outranks a DoH failure');
 });
 
@@ -525,5 +522,100 @@ test('rejects malformed host values without issuing any probe', async () => {
       .check(browserContext({ hostname, origin: 'https://portal.example.test' }));
     assert.equal(result.classification, 'unknown', `${String(hostname)} is rejected`);
     assert.equal(requests, 0, `${String(hostname)} issues no request`);
+  }
+});
+
+test('confines probes to the deployment base, including encoded segments', async () => {
+  const cases = [
+    ['/', 'health', '/health'],
+    ['/', '/health', '/health'],
+    ['/portal', 'health?check=1', '/portal/health?check=1'],
+    ['/portal/', '/portal/health', '/portal/health'],
+    ['/my%20app', 'api/v%32/health', '/my%20app/api/v%32/health'],
+  ];
+  for (const [basePath, backendProbePath, expected] of cases) {
+    const calls = [];
+    const result = await create({ retries: 0, fetch: async (input, init) => {
+      const url = new URL(input);
+      if (url.href.startsWith(endpoint)) return response(dnsAnswer(url));
+      assert.equal(init.redirect, 'error');
+      calls.push(url.pathname + url.search);
+      return response({});
+    }}).check(browserContext({ basePath, backendProbePath }));
+    assert.equal(result.backend.ok, true);
+    assert.equal(calls[1], expected);
+  }
+});
+
+test('rejects cross-origin, traversal, encoded separators and base escapes without unsafe requests', async () => {
+  for (const path of ['/health', '/app2/health', '../health', '%2e%2e/health', 'x%2f..%2fhealth', 'x%5c..', '%252e%252e/health', '//evil.test/x', 'https://evil.test/x', 'http+foo:x', '%zz']) {
+    const calls = [];
+    const result = await create({ retries: 0, fetch: async (input) => {
+      const url = new URL(input);
+      if (url.href.startsWith(endpoint)) return response(dnsAnswer(url));
+      calls.push(url.href);
+      return response({});
+    }}).check(browserContext({ backendProbePath: path, appProbePath: path }));
+    assert.equal(result.backend, null, path);
+    assert.deepEqual(calls, ['https://portal.example.test/app/manifest.webmanifest'], path);
+  }
+  for (const basePath of ['//evil.test/', '/app/../', '/app%2felse/', '/app?x', '/%zz']) {
+    let count = 0;
+    const result = await create({ retries: 0, fetch: async () => { count++; return response({}); } }).check(browserContext({ basePath }));
+    assert.equal(result.classification, 'unknown', basePath);
+    assert.equal(count, 0, basePath);
+  }
+});
+
+test('caller cancellation aborts stalled JSON bodies without leaving signal listeners', async () => {
+  const signal = fakeSignal();
+  let bodies = 0;
+  let aborted = 0;
+  const check = create({ retries: 0, timeoutMs: 1000, fetch: async (input, init) => {
+    if (!String(input).startsWith(endpoint)) return response({});
+    init.signal.addEventListener('abort', () => { aborted++; }, { once: true });
+    return { ok: true, status: 200, json: () => { bodies++; return new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })); } };
+  }});
+  const promise = check.check(browserContext(), { signal });
+  while (bodies < 2) await new Promise((resolve) => setTimeout(resolve, 0));
+  signal.abort();
+  const result = await promise;
+  assert.equal(result.classification, 'cancelled');
+  assert.equal(aborted, 2);
+  assert.equal(signal.listenerCount, 0);
+});
+
+test('classifies synchronous and asynchronous JSON failures as invalid responses', async () => {
+  for (const json of [() => { throw new Error('broken'); }, () => Promise.reject(new Error('broken'))]) {
+    const result = await create({ retries: 0, fetch: async (input) => String(input).startsWith(endpoint) ? { ok: true, status: 200, json } : response({}) }).check(browserContext());
+    assert.deepEqual(result.dnsErrors.map((error) => error.kind), ['invalid_response', 'invalid_response']);
+  }
+});
+
+test('canonicalizes IPv6 loopback and preserves active private LAN origin', async () => {
+  for (const [hostname, origin, kind] of [['[0:0:0:0:0:0:0:1]', 'http://[::1]:8080', 'loopback'], ['192.168.1.8', 'http://192.168.1.8:8080', 'private'], ['[fd00::1]', 'http://[fd00::1]:8080', 'private']]) {
+    const calls = [];
+    const result = await create({ retries: 0, fetch: async (input) => { calls.push(input); return response({}); } }).check(browserContext({ hostname, origin, basePath: '/app', backendProbePath: 'health' }));
+    assert.equal(result.hostKind, kind);
+    assert.equal(result.dohSkipped, true);
+    assert.deepEqual(calls, [origin + '/app/manifest.webmanifest', origin + '/app/health']);
+  }
+});
+
+test('relative origin is resolved only against the active browser origin', async () => {
+  const previous = globalThis.location;
+  globalThis.location = { href: 'http://localhost:5173/app/page', origin: 'http://localhost:5173', hostname: 'localhost' };
+  try {
+    const calls = [];
+    const engine = create({ retries: 0, fetch: async (input) => { calls.push(input); return response({}); } });
+    const result = await engine.check({ hostname: 'localhost', origin: '/app/', basePath: '/app', backendProbePath: 'health' });
+    assert.equal(result.classification, 'normal_connectivity');
+    assert.deepEqual(calls, ['http://localhost:5173/app/manifest.webmanifest', 'http://localhost:5173/app/health']);
+    const rejected = await engine.check({ hostname: 'localhost', origin: 'http://localhost:9999', basePath: '/app' });
+    assert.equal(rejected.classification, 'unknown');
+    assert.equal(calls.length, 2);
+  } finally {
+    if (previous === undefined) delete globalThis.location;
+    else globalThis.location = previous;
   }
 });

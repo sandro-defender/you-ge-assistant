@@ -167,14 +167,14 @@
 
   function normalizePath(value, fallback) {
     var path = String(value || fallback || '/').trim();
-    if (!path || path.charAt(0) !== '/') return null;
+    if (!path || path.charAt(0) !== '/' || path.charAt(1) === '/' || /[?#]/.test(path)) return null;
     if (path.indexOf('\\') !== -1 || /[\u0000-\u001f]/.test(path)) return null;
     var normalized = path.replace(/\/+/g, '/');
     var parts = normalized.split('/');
     if (parts.some(function (part) {
       try {
         var decoded = decodeURIComponent(part);
-        return decoded === '.' || decoded === '..' || decoded.indexOf('/') !== -1 || decoded.indexOf(String.fromCharCode(92)) !== -1;
+        return decoded === '.' || decoded === '..' || decoded.indexOf('/') !== -1 || decoded.indexOf(String.fromCharCode(92)) !== -1 || /[%\u0000-\u001f\u007f]/.test(decoded);
       } catch (error) { return true; }
     })) return null;
     return normalized.charAt(normalized.length - 1) === '/' ? normalized : normalized + '/';
@@ -210,25 +210,28 @@
   // Diagnostics probes run same-origin without credentials, so a configured path
   // must stay a plain relative or root-relative path: cross-origin URLs, network
   // paths (//host), script schemes, backslashes and .. traversal are rejected.
-  function safeDiagnosticsProbePath(value) {
-    if (typeof value !== 'string') return false;
-    var probe = value.trim();
-    if (!probe || probe !== value) return false;
-    if (probe.charAt(0) === '?' || probe.charAt(0) === '#') return false;
-    if (/^(?:[a-z]+:|\/\/)/i.test(probe) || probe.indexOf(String.fromCharCode(92)) !== -1 || /[\u0000-\u001f]/.test(probe)) return false;
-    var path = probe.split(/[?#]/)[0];
-    try { path = decodeURIComponent(path); } catch (error) { return false; }
-    return !path.split('/').some(function (part) { return part === '..'; });
+  function safeDiagnosticsProbePath(value, basePath) {
+    if (typeof value !== 'string' || !value || value.trim() !== value ||
+        /[\u0000-\u001f\u007f\\]/.test(value) || /^(?:[a-z][a-z0-9+.-]*:|\/\/|[?#])/i.test(value)) return false;
+    var path = value.split(/[?#]/)[0];
+    try {
+      if (path.split('/').some(function (part) {
+        var decoded = decodeURIComponent(part);
+        return decoded === '..' || /[\/\\%\u0000-\u001f\u007f]/.test(decoded);
+      })) return false;
+      var base = new URL(basePath || '/', 'https://diagnostics.invalid');
+      var resolved = new URL(value, base);
+      return resolved.origin === base.origin && resolved.pathname.indexOf(base.pathname) === 0;
+    } catch (error) { return false; }
   }
-
-  function sanitizeDiagnosticsConfig(value) {
+  function sanitizeDiagnosticsConfig(value, basePath) {
     var safe = {};
     if (!isRecord(value)) return safe;
     Object.keys(value).forEach(function (key) {
       if (DIAGNOSTICS_PROBE_KEYS.indexOf(key) === -1) safe[key] = clone(value[key]);
     });
     DIAGNOSTICS_PROBE_KEYS.forEach(function (key) {
-      if (safeDiagnosticsProbePath(value[key])) safe[key] = value[key];
+      if (safeDiagnosticsProbePath(value[key], basePath)) safe[key] = value[key];
     });
     return safe;
   }
@@ -307,7 +310,7 @@
       }
       return safe;
     }) : [];
-    config.diagnostics = sanitizeDiagnosticsConfig(config.diagnostics);
+    config.diagnostics = sanitizeDiagnosticsConfig(config.diagnostics, config.pwa.basePath || '/');
     config.features = merge(clone(DEFAULTS.features), config.features || {});
     Object.keys(DEFAULTS.features).forEach(function (key) { config.features[key] = config.features[key] !== false; });
     config.pwa.enabled = config.pwa.enabled !== false;
@@ -409,7 +412,7 @@
       } else if (isRecord(source.diagnostics)) {
         DIAGNOSTICS_PROBE_KEYS.forEach(function (key) {
           var value = source.diagnostics[key];
-          if (value !== undefined && !safeDiagnosticsProbePath(value)) {
+          if (value !== undefined && !safeDiagnosticsProbePath(value, (source.pwa && normalizePath(source.pwa.basePath, '/')) || '/')) {
             add('invalid_diagnostics_probe', 'diagnostics.' + key,
               'Diagnostics probe paths must be safe same-origin relative or root-relative paths.');
           }

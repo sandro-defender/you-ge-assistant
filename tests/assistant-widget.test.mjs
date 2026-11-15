@@ -1445,7 +1445,7 @@ function useRegistry(ctx, basePath, diagnostics) {
 
 test('the classic bundle invalidates a DNS verdict when the effective probe identity changes (D6 parity)', () => {
   const ctx = createContext({ config: { projectId: 'dns-parity-project' } });
-  useRegistry(ctx, '/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' });
+  useRegistry(ctx, '/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: 'health' });
   assert.equal(ctx.api.getState().project.basePath, '/portal/');
 
   const setVerdict = () => ctx.api.setDnsResult({
@@ -1474,14 +1474,14 @@ test('the classic bundle invalidates a DNS verdict when the effective probe iden
   ctx.api.configure({});
   assertKept('repeating an unchanged identity keeps the verdict');
 
-  useRegistry(ctx, '/portal/', { appProbePath: './manifest.webmanifest', backendProbePath: '/health' });
+  useRegistry(ctx, '/portal/', { appProbePath: './manifest.webmanifest', backendProbePath: 'health' });
   assertKept('an equivalent probe path spelling keeps the verdict');
 
-  useRegistry(ctx, '/portal/', { appProbePath: 'probe.json', backendProbePath: '/health' });
+  useRegistry(ctx, '/portal/', { appProbePath: 'probe.json', backendProbePath: 'health' });
   assertReset('changing the app probe path');
 
   setVerdict();
-  useRegistry(ctx, '/portal/', { appProbePath: 'probe.json', backendProbePath: '/healthz' });
+  useRegistry(ctx, '/portal/', { appProbePath: 'probe.json', backendProbePath: 'healthz' });
   assertReset('changing the backend probe path');
 
   setVerdict();

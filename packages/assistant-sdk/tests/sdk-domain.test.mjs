@@ -515,3 +515,14 @@ test('validates diagnostics probe paths and keeps only safe same-origin probes',
   assert.ok(notAnObject.issues.some((issue) => issue.code === 'invalid_diagnostics' && issue.path === 'diagnostics'));
   assert.deepEqual(notAnObject.config.diagnostics, {});
 });
+
+test('diagnostics path validation respects explicit subpath and encoded traversal', () => {
+  for (const path of ['/health', '/app2/health', '%2e%2e/health', 'a%2fb', 'a%5cb', '%252e%252e', '%zz']) {
+    const result = validateDomainConfigDetailed({ pwa: { basePath: '/app/' }, diagnostics: { backendProbePath: path } });
+    assert.equal(result.valid, false, path);
+    assert.equal(result.config.diagnostics.backendProbePath, undefined, path);
+  }
+  for (const path of ['health', '/app/health', 'api%20v1/health']) {
+    assert.equal(validateDomainConfigDetailed({ pwa: { basePath: '/app' }, diagnostics: { backendProbePath: path } }).valid, true, path);
+  }
+});

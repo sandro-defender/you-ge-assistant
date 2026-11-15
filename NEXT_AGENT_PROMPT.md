@@ -1,8 +1,8 @@
-# Next Agent Prompt — Diagnostics Stage 2 blocked
+# Next Agent Prompt — Review Diagnostics Stage 2
 
-On `arena/ca1b6b72-you-ge-assistant`, Part A's stale precache assertion is fixed and verified in a separate focused change. See the current section of `AGENT_HANDOFF.md` for results and the earlier example-build prerequisite. The historical PR #40 guidance below is superseded.
+Read `AGENTS.md` and the current section of `AGENT_HANDOFF.md`. PR #42 on `arena/ca1b6b72-you-ge-assistant` contains the stale CI assertion correction and Diagnostics Phase 2 Stage 2, with the owner-authorized synchronized kit `1.2.1 → 1.2.2` bump. SDK package remains `0.2.0`. Check current PR/CI status and review the scoped changes and recorded verification. Do not merge, deploy, publish, release or tag without explicit approval.
 
-Before implementing Diagnostics Phase 2 Stage 2, obtain explicit owner authorization for a future synchronized kit-version bump: `dns-diagnostics.js` and `domain-config.js` are precached, so changing them requires a synchronized kit-version bump under the integrity gate, but the request explicitly prohibits changing kit `1.2.1` or weakening the gate. Do not bypass the gate. Once the conflict is resolved explicitly, complete the requested path confinement, bounded JSON consumption, local-address behavior and configuration validation, add focused regressions, rerun all required verification, and submit Stage 2 separately without merging unless explicitly authorized. Keep the SDK package at `0.2.0`; do not publish, tag, release or deploy.
+The next recommended task is separately authorized real-browser and local-network verification of root/subpath probes, stalled bodies, redirects, and server behavior for encoded path segments. DNS-over-HTTPS cannot establish the device resolver's actual answers or reliably detect hostnames resolving to private addresses. Do not weaken the precache integrity gate.
 
 ---
 

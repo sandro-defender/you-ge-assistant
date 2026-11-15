@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.2 (kit) — Diagnostics Phase 2, Stage 2
+
+- Confine application and backend probe paths to the same-origin deployment base; reject traversal, ambiguous encoded separators and redirects. Invalid app paths use the base-relative manifest; unsafe backend paths are omitted.
+- Keep fetch and DNS JSON body consumption under one timeout and abort scope; classify synchronous JSON failures as invalid responses.
+- Accept canonicalizable IPv6 literals and preserve same-origin localhost and private-LAN diagnostics. Public DoH cannot establish the browser's actual DNS resolution.
+- Synchronize the authorized kit cache generation to `1.2.2`; SDK package remains `0.2.0`.
+
+
 ## 1.2.1 (kit) — 2026-11-14 · CD-1 module capability enforcement
 
 Kit `1.2.0 → 1.2.1` (`you-ge-sw.js` `VERSION`, `PWA.version`, root
