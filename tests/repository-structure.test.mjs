@@ -133,6 +133,31 @@ test('the release verification job builds the example exactly once', () => {
   );
 });
 
+test('every workflow job that runs the precache integrity gate checks out full history', () => {
+  // `npm run check` runs scripts/precache-integrity.mjs, which diffs against
+  // `git merge-base <default branch> HEAD`. In a shallow checkout that merge
+  // base does not exist, so the gate reports `skipped` and
+  // tests/identity-migration.test.mjs fails asserting a `pass` verdict. Any job
+  // running the suite therefore needs `fetch-depth: 0`, like check.yml.
+  for (const workflowFile of ['check.yml', 'pages.yml', 'sdk-release-prep.yml']) {
+    const jobs = workflowJobs(read(`.github/workflows/${workflowFile}`));
+
+    for (const [jobName, steps] of jobs) {
+      if (!steps.some(isValidationStep)) continue;
+
+      const checkout = steps.find((step) => /uses:\s*actions\/checkout@/.test(step));
+      const context = `${workflowFile} job "${jobName}"`;
+      assert.ok(checkout, `${context} runs repository validation but has no checkout step`);
+      assert.match(
+        checkout,
+        /^\s*fetch-depth:\s*0\s*$/m,
+        `${context} must check out full history (fetch-depth: 0) so the precache ` +
+          'integrity gate finds a merge base instead of reporting skipped',
+      );
+    }
+  }
+});
+
 test('source files are organized under src/ and public/ while build output preserves all root public URLs', () => {
   const publicFiles = [
     'you-ge-sw.js', 'progressier.js', 'pwa.js', 'pwa.css',

@@ -117,6 +117,13 @@ jobs:
     if: github.event.inputs.action != 'Verify OIDC trusted publishing'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: `npm run check` runs the precache integrity gate,
+          # which diffs the working tree against `git merge-base <default
+          # branch> HEAD`. A shallow checkout has no merge base with `main`,
+          # so the gate reports `skipped` instead of `pass` and
+          # tests/identity-migration.test.mjs fails. Same as check.yml.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
