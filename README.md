@@ -324,7 +324,11 @@ The PWA toolkit owns service-worker registration, waiting-worker detection,
 state through `PWA.onChange()` and emits `pwa:update` after it detects a waiting
 worker. On detection, the toolkit refreshes its state before dispatching
 `pwa:update`; after `SKIP_WAITING`, `controllerchange` refreshes state and
-reloads once. A disappeared/redundant waiting worker clears toolkit state.
+reloads once. If that event is missed, the three-second fallback reloads only
+when the requested waiting worker is already the controller; otherwise the page
+stays put and the update can be retried. A disappeared/redundant waiting worker
+clears toolkit state. A successful apply result means the request was sent, not
+that activation is guaranteed. See the [PWA implementation audit](docs/architecture/PWA_IMPLEMENTATION_AUDIT.md) for detection and host-worker limitations.
 
 `pwa:ready` means `pwa.js` initialized and exposed its API; it is dispatched
 synchronously during script initialization. It does **not** mean service-worker

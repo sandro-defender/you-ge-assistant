@@ -1,3 +1,11 @@
+# Next Agent Prompt — review PWA audit and fallback
+
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1`, `git status`, and the current branch PR for commit, working-tree and PR status. Kit remains `1.2.2`, SDK `0.2.0`. Review the scoped reload-loop fix and CI, then separately assess the documented update-detection gaps and real-browser/host-worker behavior. Preserve existing public contracts and host worker ownership. Do not merge, deploy, publish, tag, release, bump versions or weaken the precache gate without authorization.
+
+---
+
+## Historical prompt (superseded)
+
 # Next Agent Prompt — deployment verification follow-up
 
 Read `AGENTS.md` and the current section of `AGENT_HANDOFF.md`. Diagnostics Phase 2 browser verification was performed on branch `arena/2914f4d7-you-ge-assistant` based on merged PR #42; see its PR and `git log -1` for the current commit, and `git status` for the working tree. Kit remains `1.2.2`, SDK package `0.2.0`. Review the PR and its verification evidence; do not merge, deploy, publish, release or tag without explicit approval.

@@ -833,7 +833,10 @@
       reloadFallbackTimer = null;
       if (reloading) {
         reloading = false;
-        window.location.reload();
+        // A worker may ignore SKIP_WAITING or fail to activate. Reloading while
+        // it is still waiting can loop indefinitely with auto-update enabled.
+        // Only recover a missed controllerchange once this worker controls us.
+        if (navigator.serviceWorker.controller === waiting) window.location.reload();
       }
     }, 3000);
 

@@ -359,8 +359,13 @@ waiting-worker lifecycle. It detects a waiting worker, exposes
 `PWA.getState().hasUpdate`, publishes changes through `PWA.onChange()`, and
 emits `pwa:update` after refreshing its state. Applying an update delegates to
 `PWA.applyUpdate()`; the waiting worker receives `SKIP_WAITING`, and the toolkit
-clears availability after the worker activates/disappears. The SDK never
-registers a second worker.
+clears availability after the worker activates/disappears. If `controllerchange`
+is missed, the toolkit's fallback reloads only when the requested worker has
+actually taken control; otherwise the update remains retryable. An applied
+result confirms the request was sent, not that activation succeeded. The SDK never
+registers a second worker. The classic toolkit does register its configured worker
+on load; hosts with an existing same-scope worker must plan that integration
+rather than assume the toolkit is passive. See the [PWA implementation audit](../../docs/architecture/PWA_IMPLEMENTATION_AUDIT.md).
 
 `pwa:ready` is dispatched synchronously when `pwa.js` has initialized its API;
 it does not indicate that registration completed. Registration is started at

@@ -802,6 +802,8 @@ test('applyUpdate triggers a 3000ms fallback reload if controllerchange never fi
 
   assert.equal(await harness.win.PWA.applyUpdate(), true);
   assert.equal(harness.reloadCalls, 0);
+  reg.waiting = null;
+  harness.serviceWorker.controller = waiting; // control changed, but no event arrived
   harness.advanceTime(3000);
   assert.equal(harness.reloadCalls, 1, '3000ms safety net reloads if controllerchange does not arrive');
   harness.advanceTime(5000);
@@ -964,4 +966,24 @@ test('showNetworkDiagnostics manages click trigger, singleton reuse, dnsRecovery
   flow3.dispatch('click', { target: flow3 });
   harness.advanceTime(300);
   assert.equal(harness.doc.querySelector('[data-pwa-diagnostics-dialog]'), null, 'backdrop click removes dialog');
+});
+
+test('update fallback does not reload while the old controller still owns the page', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const controller = { state: 'activated' };
+  const harness = createContext({ controller, registration: reg, fakeTimers: true, dataset: { autoUpdate: 'true' } });
+  await harness.win.PWA.register();
+  assert.equal(waiting.messages.length, 1);
+  harness.advanceTime(3000);
+  assert.equal(harness.reloadCalls, 0, 'an unactivated worker must not cause an auto-update reload loop');
+  assert.equal(harness.win.PWA.hasUpdate(), true, 'the waiting update remains available for retry');
+  assert.equal(await harness.win.PWA.applyUpdate(), true);
+  assert.equal(waiting.messages.length, 2, 'retry is possible');
+  harness.serviceWorker.controller = waiting;
+  reg.waiting = null;
+  harness.advanceTime(3000);
+  assert.equal(harness.reloadCalls, 1, 'fallback reloads once if control changed without an event');
+  harness.serviceWorker.dispatch('controllerchange');
+  assert.equal(harness.reloadCalls, 1);
 });

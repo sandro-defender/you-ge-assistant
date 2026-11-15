@@ -1,3 +1,27 @@
+# Agent Handoff — PWA implementation audit and update fallback
+
+**Date:** 2026-11-15
+**Branch:** `arena/9a7feeea-you-ge-assistant`, based on `main` at `302c338417ebc1421795c187014413e1f03d85b9`.
+**Commit and PR:** See `git log -1` and the current branch PR.
+**Working tree:** See `git status`; build outputs and dependencies are ignored.
+**Versions:** kit `1.2.2`, SDK `0.2.0`, unchanged.
+
+## Completed
+
+Audited existing install, worker, update, diagnostics and SDK integration behavior in `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. The only implementation change is the three-second update fallback: it reloads only if the requested worker controls the page, preventing repeated reloads when a waiting worker ignores or fails `SKIP_WAITING`. Normal controllerchange handling and public APIs remain unchanged. Regression tests cover no takeover, retry, missed controllerchange and no duplicate reload. The SDK remains worker-passive; the classic toolkit still automatically registers its configured worker and must not be pointed at a host-owned scope without an integration plan.
+
+## Checks and limitations
+
+Focused install and SDK integration tests: 35/35. `npm run check`: 546/546 after preparing example dist; the initial run failed only because that dist was absent (545/546). `npm run build`, `npm run check:precache`, `node scripts/sync-sdk-browser.mjs --check`, and example `npm ci`, `npm run typecheck`, `npm run build` passed; Vite warned about classic scripts. No real-browser or deployed-worker verification was performed. The audit records remaining installation heuristics, in-progress-worker detection and event limitations. If activation occurs only after the fallback expires, a later unsolicited controllerchange does not force a reload.
+
+## Next action
+
+Review the change and CI. Separately investigate the documented update-detection gaps and test with actual browsers and host-owned worker configurations before proposing changes. Do not merge, deploy, publish, tag, release, change versions or weaken the precache gate without authorization.
+
+---
+
+## Historical handoff (superseded)
+
 # Agent Handoff — Diagnostics Phase 2 real-world verification
 
 **Date:** 2026-11-15  
