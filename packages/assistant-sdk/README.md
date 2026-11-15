@@ -354,26 +354,19 @@ isolation layers are described in [`../../THEMING.md`](../../docs/guides/THEMING
 
 ## Update lifecycle and state ownership
 
-The existing PWA toolkit owns service-worker registration and the actual
-waiting-worker lifecycle. It detects a waiting worker, exposes
-`PWA.getState().hasUpdate`, publishes changes through `PWA.onChange()`, and
-emits `pwa:update` after refreshing its state. Applying an update delegates to
-`PWA.applyUpdate()`; the waiting worker receives `SKIP_WAITING`, and the toolkit
-clears availability after the worker activates/disappears. If `controllerchange`
-is missed, the toolkit's fallback reloads only when the requested worker has
-actually taken control; otherwise the update remains retryable. An applied
-result confirms the request was sent, not that activation succeeded. The SDK never
-registers a second worker. The classic toolkit does register its configured worker
-on load; hosts with an existing same-scope worker must plan that integration
-rather than assume the toolkit is passive. See the [PWA implementation audit](../../docs/architecture/PWA_IMPLEMENTATION_AUDIT.md).
+The host owns its service worker. Neither the SDK nor `pwa.js` registers or
+replaces it. Custom worker updates can be connected through an injected `pwa`
+adapter implementing the existing `getState`, `onChange` and `applyUpdate`
+contracts; the host controls its own update mechanism. For the optional
+host-registered Assistant worker, `data-assistant-worker` opts the classic
+runtime into the existing update protocol. See the [ownership audit and migration guide](../../docs/architecture/PWA_IMPLEMENTATION_AUDIT.md).
 
-`pwa:ready` is dispatched synchronously when `pwa.js` has initialized its API;
-it does not indicate that registration completed. Registration is started at
-window `load` (or immediately for a complete document); await `PWA.ready` for
-the registration attempt. The Assistant binds to an already-present `window.PWA`
-or listens for `pwa:ready` when the toolkit is loaded later. After toolkit
-detection, `refreshState()` notifies `PWA.onChange()` subscribers before the
-`pwa:update` document event is dispatched.
+`pwa:ready` is dispatched synchronously when `pwa.js` initializes its API; it
+does not indicate worker lookup completed. At window `load` (or immediately for
+a complete document), `PWA.ready` resolves to the opted-in matching registration
+or `null`. `PWA.register()` is now a lookup, never a registration. A successful
+update request does not guarantee activation. The fallback reloads only if the
+requested worker has taken control; otherwise the update is retryable.
 
 The SDK's `network.updateAvailable` is a reconciled view, not a second worker
 owner. A boolean toolkit snapshot/change is authoritative; `pwa:update` and

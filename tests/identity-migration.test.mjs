@@ -721,63 +721,20 @@ test('Phase 2: pwa.js exposes canonical window.YouGePWA alongside window.PWA and
   assistant.destroy();
 });
 
-test('Phase 2: SW registration uses clean canonical cutover to you-ge-sw.js (root and subpath) while keeping explicit data-sw="/progressier.js" compatibility', async () => {
-  const pwaSource = read('src/runtime/pwa.js');
-  assert.doesNotMatch(pwaSource, /legacy-preserved|swMigrationMode|isLegacyWorkerScriptUrl/, 'pwa.js contains no automatic legacy-worker preservation logic');
-
-  // 1. Fresh/default install -> registers canonical you-ge-sw.js directly without getRegistration lookup
-  let getRegistrationCalled = false;
-  const fresh = bootPwaClient({
-    getRegistration: async () => {
-      getRegistrationCalled = true;
-      return undefined;
-    },
-  });
-  await fresh.win.YouGePWA.register();
-  assert.equal(getRegistrationCalled, false, 'default registration does not probe getRegistration to preserve legacy workers');
-  assert.equal(fresh.registerCalls.length, 1);
-  assert.equal(fresh.registerCalls[0].swUrl, 'https://example.test/you-ge-sw.js');
-  assert.equal(fresh.registerCalls[0].opts.scope, '/');
-  assert.equal('swMigrationMode' in fresh.win.YouGePWA.config, false);
-
-  // 2. Clean canonical cutover: even if a prior /progressier.js worker exists on scope, omitted data-sw registers /you-ge-sw.js
-  const cutover = bootPwaClient({
-    getRegistration: async () => ({
-      scope: 'https://example.test/',
-      active: { scriptURL: 'https://example.test/progressier.js', state: 'activated' },
-    }),
-  });
-  await cutover.win.YouGePWA.register();
-  assert.equal(cutover.registerCalls.length, 1);
-  assert.equal(cutover.registerCalls[0].swUrl, 'https://example.test/you-ge-sw.js', 'default registration always uses canonical you-ge-sw.js');
-
-  // 3. Subpath deployment -> resolves you-ge-sw.js and scope relative to pwa.js directory
-  const subpath = bootPwaClient({
-    href: 'https://example.test/portal/dashboard',
-    scriptSrc: 'https://example.test/portal/pwa.js',
-  });
-  await subpath.win.YouGePWA.register();
-  assert.equal(subpath.registerCalls.length, 1);
-  assert.equal(subpath.registerCalls[0].swUrl, 'https://example.test/portal/you-ge-sw.js');
-  assert.equal(subpath.registerCalls[0].opts.scope, '/portal/');
-
-  // 4. Explicit data-sw="/progressier.js" (and subpath data-sw="progressier.js") still registers the compatibility shim
-  const explicitLegacy = bootPwaClient({
-    dataset: { sw: '/progressier.js' },
-  });
-  await explicitLegacy.win.YouGePWA.register();
-  assert.equal(explicitLegacy.registerCalls.length, 1);
-  assert.equal(explicitLegacy.registerCalls[0].swUrl, 'https://example.test/progressier.js');
-
-  const subpathLegacy = bootPwaClient({
-    href: 'https://example.test/portal/',
-    scriptSrc: 'https://example.test/portal/pwa.js',
-    dataset: { sw: 'progressier.js' },
-  });
-  await subpathLegacy.win.YouGePWA.register();
-  assert.equal(subpathLegacy.registerCalls.length, 1);
-  assert.equal(subpathLegacy.registerCalls[0].swUrl, 'https://example.test/portal/progressier.js');
-  assert.equal(subpathLegacy.registerCalls[0].opts.scope, '/portal/');
+test('worker URL compatibility configuration never replaces existing registrations', async () => {
+  for (const [href, scriptSrc, dataset, expected] of [
+    ['https://example.test/', undefined, {}, 'https://example.test/you-ge-sw.js'],
+    ['https://example.test/portal/', 'https://example.test/portal/pwa.js', {}, 'https://example.test/portal/you-ge-sw.js'],
+    ['https://example.test/', undefined, { sw: '/progressier.js' }, 'https://example.test/progressier.js'],
+    ['https://example.test/portal/', 'https://example.test/portal/pwa.js', { sw: 'progressier.js' }, 'https://example.test/portal/progressier.js'],
+  ]) {
+    const client = bootPwaClient({ href, scriptSrc, dataset, getRegistration: async () => ({
+      scope: new URL(href).origin + '/', active: { scriptURL: 'https://example.test/custom-sw.js' },
+    }) });
+    assert.equal(await client.win.YouGePWA.register(), null);
+    assert.equal(client.registerCalls.length, 0);
+    assert.equal(client.win.YouGePWA.config.swUrl, expected);
+  }
 });
 
 test('Phase 2: banner cookies and welcome localStorage migrate legacy dismissals and mirror writes for rollback safety', () => {

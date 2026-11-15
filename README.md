@@ -319,23 +319,27 @@ browser, network and Cloudflare availability still constrain results. See
 
 ### G. Updates and lifecycle
 
-The PWA toolkit owns service-worker registration, waiting-worker detection,
-`PWA.getState().hasUpdate`, and application of the waiting worker. It publishes
-state through `PWA.onChange()` and emits `pwa:update` after it detects a waiting
-worker. On detection, the toolkit refreshes its state before dispatching
-`pwa:update`; after `SKIP_WAITING`, `controllerchange` refreshes state and
-reloads once. If that event is missed, the three-second fallback reloads only
-when the requested waiting worker is already the controller; otherwise the page
-stays put and the update can be retried. A disappeared/redundant waiting worker
-clears toolkit state. A successful apply result means the request was sent, not
-that activation is guaranteed. See the [PWA implementation audit](docs/architecture/PWA_IMPLEMENTATION_AUDIT.md) for detection and host-worker limitations.
+The host owns all service-worker registration and updates. Neither the SDK nor
+`pwa.js` registers, replaces, or unregisters a worker. Existing custom workers
+keep their own caches and update lifecycle; integrate their state and update
+method via an injected SDK PWA adapter (see the [ownership guide](docs/architecture/PWA_IMPLEMENTATION_AUDIT.md)).
 
-`pwa:ready` means `pwa.js` initialized and exposed its API; it is dispatched
-synchronously during script initialization. It does **not** mean service-worker
-registration succeeded or completed. Registration starts at window `load` (or
-immediately if the document is already complete); await `PWA.ready` for that
-registration attempt. The SDK listens for `pwa:ready` to bind when the runtime
-loads later, and also reads an already-present `window.PWA` snapshot.
+For a host that explicitly registers the optional Assistant worker itself,
+`data-assistant-worker` opts the toolkit into connecting to the existing matching
+worker. Then `PWA.getState().hasUpdate`, `PWA.onChange()`, `pwa:update` and
+`PWA.applyUpdate()` retain the toolkit update flow. After `SKIP_WAITING`, only
+control by the requested worker triggers a reload; the three-second fallback
+also reloads only if that worker already controls the page. Otherwise the page
+stays put and the update can be retried. An applied result means the request was
+sent, not that activation is guaranteed.
+
+`pwa:ready` means the API initialized, not that a worker was found. At window
+`load` (or immediately for a complete document), `PWA.ready` resolves to an
+opted-in matching registration or `null`. `PWA.register()` retains its signature
+but now initiates the same lookup, never a browser registration. Ensure the host
+has registered its optional worker before this lookup. Existing deployments that
+relied on automatic registration must migrate; without a host registration,
+worker-dependent offline/push/update features are unavailable.
 
 The SDK's `network.updateAvailable` is a synchronized view: a boolean
 `PWA.getState().hasUpdate`/`PWA.onChange()` snapshot is authoritative; the
@@ -472,10 +476,10 @@ Copy the runtime files to your web root, keeping the paths above:
 / icons/...
 ```
 
-Fresh and default registrations always register **`/you-ge-sw.js`** (resolved
-relative to `pwa.js` on subpaths). **`/progressier.js`** remains deployed as a
-thin `importScripts('you-ge-sw.js')` compatibility shim during the `1.x`
-compatibility period for explicit `data-sw="/progressier.js"` integrations.
+The optional Assistant worker is **`/you-ge-sw.js`** (relative to `pwa.js` on
+subpaths). The host must deliberately register it only where doing so will not
+replace an existing worker; the toolkit never registers it. The temporary
+compatibility shim remains available for existing deployments.
 
 ### 2. Add the `<head>` tags
 
@@ -689,8 +693,9 @@ without changes.
 
 | Attribute | Default | Purpose |
 | --- | --- | --- |
-| `data-sw` | `you-ge-sw.js` | Service worker URL (next to `pwa.js`; `progressier.js` shim also available) |
-| `data-sw-scope` | resolved app scope, bounded by worker directory | Service worker scope |
+| `data-assistant-worker` | off | Opt in to the existing host-registered Assistant worker protocol |
+| `data-sw` | `you-ge-sw.js` | Expected Assistant worker URL, not a registration command |
+| `data-sw-scope` | resolved app scope | Compatibility configuration only; host controls registration scope |
 | `data-base-path` | directory serving `pwa.js` | Explicit app base path for a subpath deployment |
 | `data-manifest` | `manifest.webmanifest` | Manifest URL (also injected if missing) |
 | `data-css` | `pwa.css` | Component stylesheet URL |
@@ -750,7 +755,7 @@ helpers) so existing calls keep working.
 | `PWA.config.domain` | Resolved active domain/origin/subdomain/root/base path |
 | `PWA.onChange(fn)` | Subscribe to state changes; returns unsubscribe |
 | `PWA.refresh()` | Re-apply hidden states to the DOM |
-| `PWA.ready` | Promise resolving to the service worker registration |
+| `PWA.ready` | Promise resolving to the opted-in matching host registration, or `null` |
 | `PWA.applyUpdate()` | Activate a waiting service worker and reload |
 | `PWA.hasUpdate()` | Update is waiting |
 | `PWA.subscribePush({ vapidPublicKey, endpoint })` | Ask permission, subscribe, POST to server |
@@ -1086,7 +1091,7 @@ AddType application/javascript .js
 ```
 
 If the worker lives in a subdirectory but must control the root, set
-`Service-Worker-Allowed: /` and register with `data-sw-scope="/"`.
+`Service-Worker-Allowed: /`; the host must configure its own registration scope. Never replace a host worker.
 
 ---
 
@@ -1147,8 +1152,8 @@ At a domain root, nothing needs rewriting.
 When migrating an existing site off a legacy hosted setup, see
 [`INTEGRATION.md`](docs/guides/INTEGRATION.md) for the step-by-step upload order, header
 setup, and rollback checklist. In short: remove legacy `progressier.app` tags,
-deploy both `/you-ge-sw.js` (default registration) and the `/progressier.js`
-compatibility shim (for explicit `data-sw="/progressier.js"` setups if needed),
+preserve the existing host worker and, only when appropriate, deploy the optional
+Assistant worker and compatibility shim for host-managed installations,
 preserve the existing host manifest `id`, and let `you-ge-sw.js` copy existing
 `progressierSavedPushNotifications` and `progressiersharedfiles` IndexedDB
 records into canonical `you-ge-notifications` and `you-ge-shared-files` stores

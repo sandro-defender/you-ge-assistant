@@ -315,7 +315,7 @@ test('a failed pwa.js diagnostics dialog reaches centralized state as a critical
   assistant.destroy();
 });
 
-test('bridgePwaGlobals + pwa.js registers canonical /you-ge-sw.js and preserves window.YouGePWA / window.PWA / window.progressier contracts', () => {
+test('bridgePwaGlobals + pwa.js preserves globals without registering a service worker', () => {
   const { win } = makeSandboxWindow('https://tenant.example.com/');
   const swRegistrations = [];
   win.navigator.serviceWorker = {
@@ -347,8 +347,7 @@ test('bridgePwaGlobals + pwa.js registers canonical /you-ge-sw.js and preserves 
   assert.equal(win.PWA.__pwaKit, true, 'window.PWA alias preserved');
   assert.equal(typeof win.progressier.install, 'function', 'window.progressier compatibility surface preserved');
   assert.equal(typeof win.progressier.push.subscribe, 'function', 'window.progressier.push surface preserved');
-  assert.equal(swRegistrations.length, 1, 'exactly one service worker registered');
-  assert.match(swRegistrations[0].swUrl, /you-ge-sw\.js$/, 'canonical /you-ge-sw.js path registered on fresh install');
+  assert.equal(swRegistrations.length, 0, 'the toolkit does not register a service worker');
   assert.equal(bridged.assistant.getState().project.name, 'Tenant Portal');
   // After pwa:ready, installation support transitions from none -> manual-generic
   assert.equal(bridged.assistant.getState().installation.support, 'manual-generic');
@@ -391,12 +390,14 @@ test('end-to-end pwa.js and YouGeAssistant stay synchronized across updatefound,
   win.location.reload = () => { reloadCalls += 1; };
   win.matchMedia = () => ({ matches: false, addEventListener() {} });
   win.MutationObserver = class { observe() {} disconnect() {} };
+  win.document.currentScript = { src: 'https://app.example.com/pwa.js', dataset: { assistantWorker: '' } };
 
   const swListeners = new Map();
   const makeWorker = (state) => {
     const workerListeners = new Map();
     return {
       state,
+      scriptURL: 'https://app.example.com/you-ge-sw.js',
       messages: [],
       postMessage(msg) { this.messages.push(msg); },
       addEventListener(type, fn) {
@@ -414,6 +415,7 @@ test('end-to-end pwa.js and YouGeAssistant stay synchronized across updatefound,
   const initialWaiting = makeWorker('installed');
   const reg = {
     scope: 'https://app.example.com/',
+    active: { scriptURL: 'https://app.example.com/you-ge-sw.js' },
     waiting: initialWaiting,
     installing: null,
     addEventListener(type, fn) {
@@ -429,7 +431,8 @@ test('end-to-end pwa.js and YouGeAssistant stay synchronized across updatefound,
   win.navigator.serviceWorker = {
     controller: { state: 'activated' },
     ready: Promise.resolve(reg),
-    register() { return Promise.resolve(reg); },
+    register() { throw new Error("must not register"); },
+    getRegistration() { return Promise.resolve(reg); },
     addEventListener(type, fn) {
       if (!swListeners.has(type)) swListeners.set(type, []);
       swListeners.get(type).push(fn);
@@ -645,5 +648,26 @@ test('a public IP-literal host reaches the real engine as an IP target, never as
   assert.match(result.message, /IP address 93\.184\.216\.34/);
   assert.equal(assistant.getState().network.dns.classification, 'normal_connectivity');
 
+  assistant.destroy();
+});
+
+test('SDK delegates a custom host worker update through the existing injected PWA adapter', async () => {
+  const { win } = makeSandboxWindow('https://host.example/');
+  let available = true;
+  let listener;
+  let applies = 0;
+  let registrations = 0;
+  win.navigator.serviceWorker = { register() { registrations++; throw new Error('must not register'); } };
+  const hostAdapter = {
+    getState() { return { hasUpdate: available }; },
+    onChange(callback) { listener = callback; return () => {}; },
+    applyUpdate() { applies++; available = false; listener({ hasUpdate: false }); return true; },
+  };
+  const assistant = YouGeAssistant.create({ projectId: 'host-sw' }, { root: win, pwa: hostAdapter });
+  assert.equal(assistant.getState().network.updateAvailable, true);
+  assert.equal((await assistant.applyUpdate()).applied, true);
+  assert.equal(applies, 1);
+  assert.equal(assistant.getState().network.updateAvailable, false);
+  assert.equal(registrations, 0);
   assistant.destroy();
 });

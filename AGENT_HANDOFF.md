@@ -8,15 +8,17 @@
 
 ## Completed
 
-Audited existing install, worker, update, diagnostics and SDK integration behavior in `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. The only implementation change is the three-second update fallback: it reloads only if the requested worker controls the page, preventing repeated reloads when a waiting worker ignores or fails `SKIP_WAITING`. Normal controllerchange handling and public APIs remain unchanged. Regression tests cover no takeover, retry, missed controllerchange and no duplicate reload. The SDK remains worker-passive; the classic toolkit still automatically registers its configured worker and must not be pointed at a host-owned scope without an integration plan.
+Audited install, update, diagnostics and SDK integration in `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. Corrected the reload fallback to reload only when the requested worker controls the page. Following the additional permanent host-worker requirement, the classic runtime no longer calls service-worker registration: `PWA.register()` and `ready` resolve an explicitly opted-in, already host-registered Assistant worker or `null`. Custom workers are not messaged or updated, and their lifecycle can be integrated via the existing SDK PWA adapter. `data-assistant-worker` is an explicit host assertion and worker URLs must match the Assistant or compatibility shim. `AGENTS.md` records the permanent rule.
+
+This is a necessary lifecycle behavior change: deployments relying on automatic kit registration must migrate registration to their host and opt in; without it, worker-dependent features are unavailable. A lookup resolving `null` does not retry automatically after later host registration. Do not claim custom workers can be detected by URL alone; opt-in is a host assertion. Kit `1.2.2` and SDK `0.2.0` remain unchanged.
 
 ## Checks and limitations
 
-Focused install and SDK integration tests: 35/35. `npm run check`: 546/546 after preparing example dist; the initial run failed only because that dist was absent (545/546). `npm run build`, `npm run check:precache`, `node scripts/sync-sdk-browser.mjs --check`, and example `npm ci`, `npm run typecheck`, `npm run build` passed; Vite warned about classic scripts. No real-browser or deployed-worker verification was performed. The audit records remaining installation heuristics, in-progress-worker detection and event limitations. If activation occurs only after the fallback expires, a later unsolicited controllerchange does not force a reload.
+Focused install, SDK integration, identity and foundation tests: 68/68. `npm run check`: 552/552; `npm run build`, `npm run check:precache`, browser bundle sync check, and example `npm ci`, typecheck and build passed (Vite classic-script warnings). No real-browser or deployed-host-worker verification was performed. The audit records installation heuristics and update-detection limitations. The initial PR creation attempt was interrupted; check `gh pr list --head arena/9a7feeea-you-ge-assistant` for current PR state. No merge, deployment, release or publishing was performed.
 
 ## Next action
 
-Review the change and CI. Separately investigate the documented update-detection gaps and test with actual browsers and host-owned worker configurations before proposing changes. Do not merge, deploy, publish, tag, release, change versions or weaken the precache gate without authorization.
+Review ownership and migration changes, CI and browser integration with a real custom worker and host-managed Assistant worker. Confirm PR state before creating one. Do not merge, deploy, publish, tag, release, change versions or weaken the precache gate without authorization.
 
 ---
 

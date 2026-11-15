@@ -1,10 +1,11 @@
 # You.Ge Assistant integration and migration guide
 
 This checklist applies to any host or subdomain. Use examples such as
-`app.example.com` or `/portal/`; no domain is assumed by the runtime. Fresh
-installations register canonical `/you-ge-sw.js`; existing installations remain
-compatible via the `/progressier.js` shim and automatic non-destructive storage
-migration (`../reference/COMPATIBILITY_CONTRACTS.md`).
+`app.example.com` or `/portal/`; no domain is assumed by the runtime. The host
+owns its service worker. The toolkit never registers or replaces one; optional
+Assistant-worker integration requires explicit host registration and opt-in.
+Existing compatibility migrations are described in
+[`COMPATIBILITY_CONTRACTS.md`](../reference/COMPATIBILITY_CONTRACTS.md).
 
 ## 1. Upload files
 
@@ -114,10 +115,11 @@ routes with your existing session middleware. Use your own contact address for
 
 ## 7. Updating and rollback
 
-- Deploy canonical `/you-ge-sw.js` alongside `/progressier.js`. Fresh and default
-  registrations always use `/you-ge-sw.js`; `/progressier.js` remains available
-  as a thin `importScripts('you-ge-sw.js')` shim for explicit
-  `data-sw="/progressier.js"` compatibility during the `1.x` window.
+- Never replace an existing host worker. The host owns registration and update
+  policy. An optional Assistant worker may be host-registered explicitly only
+  when there is no competing worker; opt into the toolkit protocol with
+  `data-assistant-worker`. See [the ownership guide](../architecture/PWA_IMPLEMENTATION_AUDIT.md).
+  The existing compatibility shim remains available during the `1.x` window.
   Saved share and notification records in legacy IndexedDB stores are copied
   non-destructively into canonical `you-ge-shared-files` and `you-ge-notifications`
   stores while leaving legacy databases intact for rollback.

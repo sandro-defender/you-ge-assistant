@@ -1,7 +1,8 @@
 <!--
   You.Ge Assistant PWA integration.
-  Canonical service worker path: /you-ge-sw.js (default when data-sw is omitted;
-  /progressier.js remains available as a temporary importScripts shim).
+  The host owns service-worker registration. This snippet never registers a worker.
+  Use data-assistant-worker only after the host has explicitly registered the
+  optional Assistant worker; do not replace an existing host worker.
   Load the public domain registry and resolver before pwa.js.
 -->
 <link rel="manifest" href="/manifest.webmanifest" />

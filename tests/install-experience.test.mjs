@@ -166,7 +166,7 @@ function createContext(options = {}) {
   const doc = {
     currentScript: Object.assign(new FakeNode('script'), {
       src: 'https://example.test/pwa.js',
-      dataset: options.dataset || {},
+      dataset: { ...(options.hostOwned ? {} : { assistantWorker: '' }), ...options.dataset },
     }),
     head: new FakeNode('head'),
     body: new FakeNode('body'),
@@ -225,6 +225,7 @@ function createContext(options = {}) {
     registerCalls: [],
     controller: options.controller !== undefined ? options.controller : null,
     ready: Promise.resolve(defaultRegistration),
+    getRegistration() { return Promise.resolve(defaultRegistration); },
     register(url, opts) {
       serviceWorker.registerCalls.push([url, opts]);
       if (options.registerError) return Promise.reject(options.registerError);
@@ -392,6 +393,7 @@ function createFakeWorker(initialState = 'installing') {
   const messages = [];
   return {
     state: initialState,
+    scriptURL: 'https://example.test/you-ge-sw.js',
     messages,
     postMessage(msg) { messages.push(msg); },
     addEventListener(type, fn) {
@@ -412,7 +414,7 @@ function createFakeRegistration(overrides = {}) {
     scope: 'https://example.test/',
     waiting: null,
     installing: null,
-    active: null,
+    active: { scriptURL: 'https://example.test/you-ge-sw.js' },
     updateCalls: 0,
     addEventListener(type, fn) {
       const list = listeners.get(type) || [];
@@ -443,7 +445,7 @@ function deferredPrompt(outcome = 'accepted') {
   };
 }
 
-test('pwa:ready means the runtime API initialized, before load starts service-worker registration', async () => {
+test('pwa:ready means the runtime API initialized, before load connects the opted-in worker', async () => {
   const harness = createContext({ controller: null });
   const ready = harness.events.find((event) => event.type === 'pwa:ready');
   assert.ok(ready, 'the initialization event is dispatched synchronously');
@@ -457,7 +459,8 @@ test('pwa:ready means the runtime API initialized, before load starts service-wo
 
   harness.win.dispatch('load');
   await harness.win.PWA.ready;
-  assert.equal(harness.serviceWorker.registerCalls.length, 1);
+  assert.equal(harness.serviceWorker.registerCalls.length, 0);
+  assert.equal(await harness.win.PWA.ready, harness.registration);
 });
 
 test('captures beforeinstallprompt and triggers the native browser prompt on a user action', async () => {
@@ -593,15 +596,12 @@ test('install banner dismissal is persisted with the canonical cookie name', () 
   assert.equal(harness.win.PWA.showInstallBanner({}), null, 'dismissed banner is not shown again immediately');
 });
 
-test('registers the canonical worker path with a computed same-origin scope on fresh installs', async () => {
+test('connects an explicitly opted-in, host-registered Assistant worker without registering', async () => {
   const harness = createContext();
-  const ready = harness.win.PWA.register();
-  await ready;
-
-  assert.equal(harness.serviceWorker.registerCalls.length, 1);
-  const [url, options] = harness.serviceWorker.registerCalls[0];
-  assert.equal(url, 'https://example.test/you-ge-sw.js', '/you-ge-sw.js canonical worker path is registered by default');
-  assert.equal(options.scope, '/', 'scope is computed from the manifest/worker directory');
+  assert.equal(await harness.win.PWA.register(), harness.registration);
+  assert.equal(harness.serviceWorker.registerCalls.length, 0);
+  assert.equal(harness.win.PWA.config.swUrl, 'https://example.test/you-ge-sw.js');
+  assert.equal(harness.win.PWA.config.swScope, '/');
 });
 
 /* ------------------------------------------------------------------ *
@@ -812,6 +812,7 @@ test('applyUpdate triggers a 3000ms fallback reload if controllerchange never fi
   // postMessage error keeps waiting update available and returns false without reloading
   const brokenWorker = {
     state: 'installed',
+    scriptURL: 'https://example.test/you-ge-sw.js',
     postMessage() { throw new Error('channel closed'); },
     addEventListener() {},
   };
@@ -986,4 +987,73 @@ test('update fallback does not reload while the old controller still owns the pa
   assert.equal(harness.reloadCalls, 1, 'fallback reloads once if control changed without an event');
   harness.serviceWorker.dispatch('controllerchange');
   assert.equal(harness.reloadCalls, 1);
+});
+
+test('existing host worker remains entirely host-owned even with automatic update configured', async () => {
+  const waiting = createFakeWorker('installed');
+  waiting.scriptURL = 'https://example.test/custom-sw.js';
+  const host = createFakeRegistration({ waiting, active: { scriptURL: 'https://example.test/custom-sw.js' } });
+  const harness = createContext({ dataset: { autoUpdate: 'true' }, hostOwned: true, controller: host.active, registration: host, fakeTimers: true, fakeClock: true });
+  harness.serviceWorker.getRegistration = async () => host;
+  await harness.win.PWA.register();
+  harness.win.dispatch('load');
+  harness.advanceTime(3600001);
+  harness.doc.dispatch('visibilitychange');
+  assert.equal(harness.serviceWorker.registerCalls.length, 0);
+  assert.equal(host.updateCalls, 0);
+  assert.equal(waiting.messages.length, 0);
+  assert.equal(await harness.win.PWA.applyUpdate(), false);
+  harness.serviceWorker.dispatch('controllerchange');
+  harness.advanceTime(5000);
+  assert.equal(harness.reloadCalls, 0);
+});
+
+test('without a worker the toolkit does not register or wait indefinitely', async () => {
+  const harness = createContext({ hostOwned: true });
+  harness.serviceWorker.getRegistration = async () => undefined;
+  assert.equal(await harness.win.PWA.register(), null);
+  assert.equal(harness.serviceWorker.registerCalls.length, 0);
+  assert.equal(await harness.win.PWA.applyUpdate(), false);
+});
+
+test('opt-in never connects a custom worker or sends it Assistant update messages', async () => {
+  const waiting = createFakeWorker('installed');
+  waiting.scriptURL = 'https://example.test/custom-sw.js';
+  const reg = createFakeRegistration({ waiting, active: { scriptURL: waiting.scriptURL } });
+  const harness = createContext({ registration: reg, controller: reg.active, dataset: { autoUpdate: 'true', sw: '/custom-sw.js' }, fakeTimers: true });
+  assert.equal(await harness.win.PWA.register(), null);
+  assert.equal(await harness.win.PWA.applyUpdate(), false);
+  assert.equal(await harness.win.PWA.postToWorker({ type: 'TEST' }), null);
+  assert.equal(reg.updateCalls, 0);
+  assert.equal(waiting.messages.length, 0);
+  assert.equal(harness.serviceWorker.registerCalls.length, 0);
+});
+
+test('a host replacement during an Assistant update does not trigger a reload or message the replacement', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const harness = createContext({ registration: reg, controller: reg.active, fakeTimers: true });
+  await harness.win.PWA.register();
+  assert.equal(await harness.win.PWA.applyUpdate(), true);
+  const host = createFakeWorker('activated');
+  host.scriptURL = 'https://example.test/custom-sw.js';
+  reg.active = host;
+  reg.waiting = null;
+  harness.serviceWorker.controller = host;
+  harness.serviceWorker.dispatch('controllerchange');
+  harness.advanceTime(3000);
+  assert.equal(harness.reloadCalls, 0);
+  assert.equal(harness.win.PWA.hasUpdate(), false);
+  assert.equal(await harness.win.PWA.postToWorker({ type: 'TEST' }), null);
+  assert.equal(host.messages.length, 0);
+});
+
+test('opted-in integration degrades safely when lookup is unavailable, empty, or rejected', async () => {
+  for (const lookup of [undefined, async () => undefined, async () => { throw new Error('blocked'); }]) {
+    const harness = createContext();
+    harness.serviceWorker.getRegistration = lookup;
+    assert.equal(await harness.win.PWA.register(), null);
+    assert.equal(harness.serviceWorker.registerCalls.length, 0);
+    assert.equal(await harness.win.PWA.applyUpdate(), false);
+  }
 });

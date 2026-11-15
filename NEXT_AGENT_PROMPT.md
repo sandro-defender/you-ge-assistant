@@ -1,6 +1,6 @@
-# Next Agent Prompt — review PWA audit and fallback
+# Next Agent Prompt — review PWA worker ownership
 
-Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1`, `git status`, and the current branch PR for commit, working-tree and PR status. Kit remains `1.2.2`, SDK `0.2.0`. Review the scoped reload-loop fix and CI, then separately assess the documented update-detection gaps and real-browser/host-worker behavior. Preserve existing public contracts and host worker ownership. Do not merge, deploy, publish, tag, release, bump versions or weaken the precache gate without authorization.
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1`, `git status`, and `gh pr list --head arena/9a7feeea-you-ge-assistant` for commit, working-tree and PR state (the initial PR creation attempt was interrupted). Kit remains `1.2.2`, SDK `0.2.0`. Review the worker-ownership migration and run real-browser tests with custom and host-registered Assistant workers. Preserve host worker source, scope and update lifecycle. Do not merge, deploy, publish, tag, release, bump versions or weaken the precache gate without authorization.
 
 ---
 

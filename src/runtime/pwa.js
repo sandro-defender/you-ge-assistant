@@ -2,7 +2,7 @@
  * pwa.js — You.Ge Assistant self-hosted PWA client
  * ------------------------------------------------------------------------
  * Features:
- *   - service worker registration + update flow
+ *   - opt-in integration with a host-registered Assistant worker
  *   - install prompt capture, `[data-pwa-install]` buttons, iOS instructions
  *   - optional floating app-icon install toolbox (legacy compatibility preserved)
  *   - standalone / installed detection
@@ -16,7 +16,8 @@
  *   <script src="/pwa.js" defer></script>
  *
  * Configuration through data attributes on the script tag:
- *   data-sw="/you-ge-sw.js"        service worker URL (defaults to you-ge-sw.js)
+ *   data-assistant-worker          opt in to an existing Assistant worker
+ *   data-sw="/you-ge-sw.js"        expected worker URL (defaults to you-ge-sw.js)
  *   data-sw-scope="/"              service worker scope
  *   data-manifest="/manifest.webmanifest"
  *   data-analytics="/api/pwa-events"   optional beacon endpoint
@@ -110,6 +111,7 @@
     itunesAppId: dataset.itunesAppId || '',
     viewportFit: 'viewportFit' in dataset,
     autoUpdate: 'autoUpdate' in dataset,
+    assistantWorker: 'assistantWorker' in dataset && dataset.assistantWorker !== 'false',
     noMeta: 'noMeta' in dataset,
     noCss: 'noCss' in dataset,
     noSplash: 'noSplash' in dataset,
@@ -212,12 +214,29 @@
   var watchedWorkers = [];
   var registration = null;
   var reloading = false;
+  var applyingWorker = null;
   var reloadFallbackTimer = null;
   var swListenersBound = false;
+  var registrationAttempt = null;
   var installed = isStandalone();
   var launchSource = getParam('launchedfrom') || 'browser';
 
   if (launchSource === 'homescreen') installed = true;
+
+  // Integrate only with the explicitly opted-in Assistant worker. Never act on
+  // a registration whose script changes to a host-owned worker later.
+  function isAssistantWorker(worker) {
+    return Boolean(worker && worker.scriptURL === config.swUrl);
+  }
+
+  function isAssistantRegistration(reg) {
+    if (!reg || !config.assistantWorker) return false;
+    // An arbitrary data-sw URL is not evidence that a custom worker supports
+    // the Assistant's messages or update protocol.
+    if (config.swUrl !== resolveUrl('you-ge-sw.js') && config.swUrl !== resolveUrl('progressier.js')) return false;
+    var workers = [reg.active, reg.waiting, reg.installing].filter(Boolean);
+    return workers.length > 0 && workers.every(isAssistantWorker);
+  }
 
   function isWaitingWorker(worker) {
     return Boolean(worker && worker.state !== 'redundant' && worker.state !== 'activated');
@@ -246,6 +265,10 @@
   // This read reconciles the local sentinel with ServiceWorkerRegistration;
   // it may update internal bookkeeping but deliberately does not notify listeners.
   function isUpdateAvailable() {
+    if (registration && !isAssistantRegistration(registration)) {
+      clearUpdateState(false);
+      return false;
+    }
     var waiting = registration && registration.waiting;
     if (isWaitingWorker(waiting)) {
       sawWaitingWorker = true;
@@ -714,13 +737,22 @@
       return readyPromise;
     }
 
-    navigator.serviceWorker
-      .register(config.swUrl, { scope: config.swScope })
+    if (!config.assistantWorker || typeof navigator.serviceWorker.getRegistration !== 'function') {
+      readyResolve(null);
+      return readyPromise;
+    }
+    if (registrationAttempt) return readyPromise;
+    registrationAttempt = Promise.resolve()
+      .then(function () { return navigator.serviceWorker.getRegistration(window.location.href); })
       .then(function (reg) {
+        if (!isAssistantRegistration(reg)) {
+          readyResolve(null);
+          return;
+        }
         registration = reg;
         readyResolve(reg);
         renderToolbox();
-        log('service worker registered', reg.scope);
+        log('host-registered Assistant worker connected', reg.scope);
 
         if (isWaitingWorker(reg.waiting) && navigator.serviceWorker.controller) {
           updateAvailable = true;
@@ -734,10 +766,10 @@
 
         reg.addEventListener('updatefound', function () {
           var worker = reg.installing;
-          if (!worker) return;
+          if (!isAssistantRegistration(reg) || !isAssistantWorker(worker)) return;
           watchWorkerLifecycle(reg, worker);
           worker.addEventListener('statechange', function () {
-            if (worker.state !== 'installed') return;
+            if (worker.state !== 'installed' || !isAssistantRegistration(reg)) return;
             if (!navigator.serviceWorker.controller) return; // first install
             updateAvailable = true;
             updateWorker = reg.waiting || worker;
@@ -750,20 +782,21 @@
         });
       })
       .catch(function (error) {
-        log('service worker registration failed', error);
+        log('service worker lookup failed', error);
         readyResolve(null);
       });
 
     if (!swListenersBound) {
       swListenersBound = true;
       navigator.serviceWorker.addEventListener('controllerchange', function () {
-        var wasReloading = reloading;
+        var wasReloading = reloading && navigator.serviceWorker.controller === applyingWorker;
         reloading = false;
+        applyingWorker = null;
         if (reloadFallbackTimer) {
           clearTimeout(reloadFallbackTimer);
           reloadFallbackTimer = null;
         }
-        var nextWaiting = registration && registration.waiting;
+        var nextWaiting = isAssistantRegistration(registration) && registration.waiting;
         if (isWaitingWorker(nextWaiting)) {
           updateAvailable = true;
           updateWorker = nextWaiting;
@@ -777,13 +810,13 @@
       });
 
       document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState !== 'visible' || !registration) return;
+        if (document.visibilityState !== 'visible' || !isAssistantRegistration(registration)) return;
         var now = Date.now();
         if (now - lastUpdateCheck < 60 * 60 * 1000) return;
         lastUpdateCheck = now;
         registration.update().then(function () {
           if (reloading) return;
-          var waiting = registration && registration.waiting;
+          var waiting = isAssistantRegistration(registration) && registration.waiting;
           if (isWaitingWorker(waiting)) {
             if (!updateAvailable) {
               updateAvailable = true;
@@ -804,7 +837,7 @@
   var lastUpdateCheck = Date.now();
 
   function applyUpdate() {
-    if (!registration) {
+    if (!isAssistantRegistration(registration)) {
       clearUpdateState(true);
       return Promise.resolve(false);
     }
@@ -819,11 +852,13 @@
     if (reloading) return Promise.resolve(true);
 
     reloading = true;
+    applyingWorker = waiting;
     try {
       // Must target the waiting worker: registration.active is the old one.
       waiting.postMessage({ type: 'SKIP_WAITING' });
     } catch (error) {
       reloading = false;
+      applyingWorker = null;
       return Promise.resolve(false);
     }
 
@@ -833,6 +868,7 @@
       reloadFallbackTimer = null;
       if (reloading) {
         reloading = false;
+        applyingWorker = null;
         // A worker may ignore SKIP_WAITING or fail to activate. Reloading while
         // it is still waiting can loop indefinitely with auto-update enabled.
         // Only recover a missed controllerchange once this worker controls us.
@@ -846,20 +882,11 @@
   function postToWorker(message) {
     if (!('serviceWorker' in navigator)) return Promise.resolve(null);
 
-    var getRegistration = registration
-      ? Promise.resolve(registration)
-      : Promise.race([
-          navigator.serviceWorker.ready,
-          new Promise(function (resolve) {
-            setTimeout(function () {
-              resolve(null);
-            }, 3000);
-          }),
-        ]);
+    var getRegistration = Promise.resolve(isAssistantRegistration(registration) ? registration : null);
 
     return getRegistration
       .then(function (reg) {
-        if (!reg) return null;
+        if (!isAssistantRegistration(reg)) return null;
         var worker = reg.active || reg.waiting || reg.installing;
         if (!worker) return null;
         return new Promise(function (resolve) {
@@ -1173,7 +1200,8 @@
         if (permission !== 'granted') {
           return { ok: false, permission: permission };
         }
-        return navigator.serviceWorker.ready.then(function (reg) {
+        return readyPromise.then(function (reg) {
+          if (!isAssistantRegistration(reg) || !reg.pushManager) return { ok: false, reason: 'unsupported' };
           return reg.pushManager
             .getSubscription()
             .then(function (existing) {
@@ -1218,7 +1246,8 @@
     options = options || {};
     if (!pushSupported()) return Promise.resolve({ ok: false, reason: 'unsupported' });
 
-    return navigator.serviceWorker.ready.then(function (reg) {
+    return readyPromise.then(function (reg) {
+      if (!isAssistantRegistration(reg) || !reg.pushManager) return { ok: false, reason: 'unsupported' };
       return reg.pushManager.getSubscription().then(function (subscription) {
         if (!subscription) return { ok: true, removed: false };
 
@@ -1975,10 +2004,10 @@
   function getPushStatus() {
     if (!pushSupported()) return Promise.resolve('incompatible');
     if (Notification.permission === 'denied') return Promise.resolve('denied');
-    if (!navigator.serviceWorker || !navigator.serviceWorker.ready) return Promise.resolve('incompatible');
+    if (!navigator.serviceWorker || !config.assistantWorker) return Promise.resolve('incompatible');
 
     return Promise.race([
-      navigator.serviceWorker.ready,
+      readyPromise,
       new Promise(function (resolve) {
         setTimeout(function () {
           resolve(null);
@@ -1986,7 +2015,7 @@
       }),
     ])
       .then(function (reg) {
-        if (!reg || !reg.pushManager) return 'incompatible';
+        if (!isAssistantRegistration(reg) || !reg.pushManager) return 'incompatible';
         return reg.pushManager.getSubscription().then(function (subscription) {
           return subscription ? 'subscribed' : 'eligible';
         });
