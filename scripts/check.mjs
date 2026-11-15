@@ -435,9 +435,9 @@ const examplePages = [
   },
   {
     label: 'user-facing example',
-    html: 'examples/example/index.html',
+    html: 'examples/example/workspace.html',
     manifest: 'examples/example/manifest.webmanifest',
-    publishedHtml: 'example/index.html',
+    publishedHtml: 'example/workspace.html',
     publishedManifest: 'example/manifest.webmanifest',
     viteBase: './',
   },
@@ -760,7 +760,7 @@ for (const name of ['SpotlightCard', 'GlareHover', 'LatticeLoader']) {
   contract(noticeSource.includes(name), `third-party notices list ${name}`);
 }
 
-const exampleHtmlSource = readFileSync(at('examples/example/index.html'), 'utf8');
+const exampleHtmlSource = readFileSync(at('examples/example/workspace.html'), 'utf8');
 contract(exampleHtmlSource.includes('id="assistant-foundation-root"') && exampleHtmlSource.includes('<article class="foundation-card">'), 'foundation preview has a no-JS static fallback');
 const mainSource = readFileSync(at('examples/example/src/main.jsx'), 'utf8');
 contract(mainSource.includes('<FoundationPreview />'), 'React example mounts the foundation preview');
@@ -790,7 +790,7 @@ const themeSource = readFileSync(at('packages/assistant-sdk/src/theme/index.js')
 const sdkConfigSource = readFileSync(at('packages/assistant-sdk/src/config/index.js'), 'utf8');
 const sdkAssistantSource = readFileSync(at('packages/assistant-sdk/src/assistant/index.js'), 'utf8');
 const demoHtmlSource = readFileSync(at('examples/demo/index.html'), 'utf8');
-const exampleHtmlSource2 = readFileSync(at('examples/example/index.html'), 'utf8');
+const exampleHtmlSource2 = readFileSync(at('examples/example/workspace.html'), 'utf8');
 const offlineHtmlSource = readFileSync(at('offline.html'), 'utf8');
 const snippetHtmlSource = readFileSync(at('docs/guides/snippet.html'), 'utf8');
 const mainJsxSource = readFileSync(at('examples/example/src/main.jsx'), 'utf8');

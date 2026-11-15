@@ -2,318 +2,596 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#f4f7f4" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#fafaff" />
     <meta
       name="description"
-      content="A polished, installable sample staff workspace powered by You.Ge Assistant."
+      content="A small SDK. A more capable web app. Add installation guidance, actionable status and on-demand diagnostics with You.Ge Assistant. Integration guide for SDK 0.3.0."
     />
-    <title>Staff Space — Example</title>
-
+    <title>You.Ge Assistant — A more capable web app</title>
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" href="favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="example.css" />
-
+    <link rel="icon" type="image/svg+xml" href="assistant-symbol.svg" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="assistant-widget.css" />
+    <script>
+      window.YOU_GE_ASSISTANT_CONFIG = {
+        projectId: "youge-product-guide",
+        branding: {
+          name: "You.Ge Assistant",
+          shortName: "Assistant",
+          icon: "assistant-symbol.svg",
+          themeColor: "#6942d6",
+        },
+        theme: "light",
+        modules: { autoUpdate: false },
+      };
+    </script>
     <script src="domain-registry.js" defer></script>
     <script src="domain-config.js" defer></script>
     <script src="dns-diagnostics.js" defer></script>
     <script
       src="pwa.js"
       defer
-      data-sw-scope="./"
       data-manifest="manifest.webmanifest"
-      data-app-name="Staff Space"
-      data-theme-color="#f4f7f4"
-      data-icon="icons/icon-192.png"
-      data-splash-icon="icons/icon-512.png"
-      data-start-url="?launchedfrom=homescreen"
-      data-offline-alert
-      data-auto-update
+      data-app-name="You.Ge Assistant"
+      data-theme-color="#6942d6"
+      data-icon="assistant-symbol.svg"
+      data-start-url="./"
     ></script>
-    <!-- Centralized, data-only widget configuration. No dashboard is needed
-         after these scripts initialize. The React renderer below consumes
-         window.YouGeAssistant instead of owning a second state model. -->
-    <script>
-      window.YOU_GE_ASSISTANT_CONFIG = {
-        projectId: 'staff-space-example',
-        position: 'bottom-right',
-        offsets: { x: 16, y: 16 },
-        branding: {
-          name: 'Staff Space',
-          shortName: 'Staff Space',
-          icon: 'icons/icon-192.png',
-          themeColor: '#17634f'
-        },
-        theme: 'light',
-        modules: {
-          installation: true,
-          diagnostics: true,
-          recovery: true,
-          failover: true,
-          help: true,
-          updates: true
-        },
-        notifications: {
-          dismissible: true,
-          suppressRepeats: true,
-          criticalPersistent: true
-        }
-      };
-    </script>
     <script src="assistant-state.js" defer></script>
-    <script src="example.js" defer></script>
-  </head>
-
+    <script src="assistant-widget.js" defer></script>
+  <link rel="stylesheet" href="product.css" />
+<script src="product.js" defer></script>
+</head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-
-    <header class="site-header">
-      <div class="header-inner">
-        <a class="brand" href="./" aria-label="Staff Space home">
-          <span class="brand-copy">
-            <strong>Staff Space</strong>
-            <span>TEAM WORKSPACE</span>
-          </span>
-        </a>
-
-        <nav class="main-nav" aria-label="Main navigation">
-          <a href="#today" aria-current="page">My day</a>
-          <a href="#updates">Team updates</a>
-        </nav>
-
-        <div class="header-actions">
-          <button type="button" data-pwa-diagnostics aria-label="Open network diagnostics">Network help</button>
-          <span class="connection-pill" id="connection-status" role="status" aria-live="polite">
-            <span class="connection-dot" aria-hidden="true"></span>
-            <span id="connection-label">Checking connection</span>
-          </span>
-          <span class="app-mode-pill" data-pwa-show-standalone>
-            <span class="connection-dot" aria-hidden="true"></span> Installed app
-          </span>
-          <!-- `.youge-install-button` is the canonical selector: You.Ge Assistant renders and localizes the button. -->
-          <button
-            class="youge-install-button install-button"
-            type="button"
-            data-icons="true"
-            data-install="Install app"
-            data-installed="Open app"
+    <header class="product-header" data-product-header>
+  <div class="product-width product-row">
+    <a class="product-brand" href="./"><img src="assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
+    <nav class="product-nav" id="product-navigation" aria-label="Main navigation">
+      <a href="./" aria-current="page">Product</a>
+      <a href="./#features">Features</a>
+      <a href="./#integration">Documentation</a>
+      <a href="../">Examples</a>
+      <a href="https://github.com/sandro-defender/you-ge-assistant">GitHub ↗</a>
+    </nav>
+    <a class="product-start" href="./#quickstart">Get started <span aria-hidden="true">↗</span></a>
+    <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden>Menu</button>
+  </div>
+</header>
+    <main id="main">
+      <section class="hero container">
+        <div class="hero-copy">
+          <a
+            class="release-pill"
+            href="https://www.npmjs.com/package/@youge/assistant-sdk/v/0.3.0"
+            ><span class="status-dot"></span> SDK 0.3.0
+            <span class="pill-divider">/</span> Built for the open web ↗</a
           >
-            Install app
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <main id="main" class="page-shell">
-      <div class="sample-banner">
-        <span class="sample-mark" aria-hidden="true">S</span>
-        <span><strong>Sample workspace</strong> — interactions on this page are stored on this device only.</span>
-      </div>
-
-      <section class="welcome-layout" id="today" aria-labelledby="welcome-title">
-        <div class="welcome-copy">
-          <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span><span id="today-date">YOUR WORKSPACE</span></p>
-          <h1 id="welcome-title">Good morning,<br /><span>your team is here.</span></h1>
-          <p class="welcome-text">
-            Your shift, team updates and daily checklist — together in one simple place, even when your connection drops.
+          <h1>
+            Your web app.<br />With a little<br /><em>more possibility.</em>
+          </h1>
+          <p class="hero-description">
+            Help people install your app, understand its status, and find a way
+            forward when things go wrong. One small Assistant. Your application
+            stays in control.
           </p>
-          <div class="welcome-note">
-            <span class="note-check" aria-hidden="true">✓</span>
-            <span>Install Staff Space for quick access from your home screen.</span>
+          <div class="actions">
+            <a class="button" href="#quickstart"
+              >Get started <span aria-hidden="true">→</span></a
+            ><a class="text-link" href="https://github.com/sandro-defender/you-ge-assistant">Explore GitHub ↗</a>
           </div>
-        </div>
-
-        <article class="shift-card" aria-labelledby="shift-title">
-          <div class="shift-card-top">
-            <div>
-              <p class="card-kicker">YOUR NEXT SHIFT</p>
-              <h2 id="shift-title">Today’s schedule</h2>
-            </div>
-            <span class="shift-state" id="shift-state">Not checked in</span>
+          <div class="install-command">
+            <code>npm install @youge/assistant-sdk</code
+            ><button
+              type="button"
+              data-copy-install
+              aria-label="Copy npm install command"
+              hidden
+            >
+              Copy
+            </button>
           </div>
-
-          <div class="shift-time">
-            <time datetime="09:00">09:00</time>
-            <span aria-hidden="true">—</span>
-            <time datetime="17:00">17:00</time>
-          </div>
-          <p class="shift-location"><span aria-hidden="true">⌖</span> Central office <span class="location-divider">·</span> Front desk</p>
-
-          <button class="check-in-button" id="shift-toggle" type="button" aria-pressed="false">
-            Check in
-            <span aria-hidden="true">→</span>
-          </button>
-          <p class="shift-footnote" id="shift-footnote">Sample action — nothing is sent to a server.</p>
-        </article>
-      </section>
-
-      <section class="content-grid" aria-label="Your workspace">
-        <article class="panel checklist-panel" aria-labelledby="checklist-title">
-          <div class="panel-heading">
-            <div>
-              <p class="card-kicker">A FEW THINGS TO GET STARTED</p>
-              <h2 id="checklist-title">Today’s checklist</h2>
-            </div>
-            <span class="count-badge" id="task-count">0 of 3 done</span>
-          </div>
-
-          <div class="progress-track" id="task-progress" role="progressbar" aria-label="Checklist progress" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0">
-            <span id="task-progress-fill"></span>
-          </div>
-
-          <ul class="task-list">
-            <li>
-              <label class="task-row" for="task-handover">
-                <input id="task-handover" type="checkbox" data-checklist-item="handover" />
-                <span class="task-copy"><strong>Review the handover</strong><span>Catch up on the latest team notes</span></span>
-                <span class="task-check" aria-hidden="true">✓</span>
-              </label>
-            </li>
-            <li>
-              <label class="task-row" for="task-briefing">
-                <input id="task-briefing" type="checkbox" data-checklist-item="briefing" />
-                <span class="task-copy"><strong>Check today’s briefing</strong><span>Know what’s happening across the team</span></span>
-                <span class="task-check" aria-hidden="true">✓</span>
-              </label>
-            </li>
-            <li>
-              <label class="task-row" for="task-priorities">
-                <input id="task-priorities" type="checkbox" data-checklist-item="priorities" />
-                <span class="task-copy"><strong>Set your priorities</strong><span>Choose what matters most today</span></span>
-                <span class="task-check" aria-hidden="true">✓</span>
-              </label>
-            </li>
-          </ul>
-          <p class="panel-footnote">Your checklist is saved privately in this browser.</p>
-        </article>
-
-        <article class="panel update-panel" id="updates" aria-labelledby="updates-title">
-          <div class="panel-heading">
-            <div>
-              <p class="card-kicker">FROM YOUR TEAM</p>
-              <h2 id="updates-title">Latest update</h2>
-            </div>
-            <span class="update-icon" aria-hidden="true">✦</span>
-          </div>
-
-          <div class="update-meta"><span class="update-dot" aria-hidden="true"></span> Team note <span>·</span> Today</div>
-          <h3>A little more breathing room</h3>
-          <p class="update-copy">
-            The weekly team catch-up is now at 10:30. Please add any handover points to your notes before then.
+          <p class="hero-footnote">
+            Framework-independent <span>·</span> Zero core runtime dependencies
+            <span>·</span> TypeScript ready
           </p>
-          <div class="update-author">
-            <span class="author-avatar" aria-hidden="true">T</span>
-            <span><strong>Team lead</strong><span>Shared with everyone</span></span>
-          </div>
-        </article>
-      </section>
-
-      <section class="install-callout" aria-labelledby="install-title">
-        <div class="callout-icon" aria-hidden="true">↗</div>
-        <div class="callout-copy">
-          <p class="card-kicker">READY WHEN YOU ARE</p>
-          <h2 id="install-title">Make this your own space.</h2>
-          <p>Add the sample to your home screen for a focused, app-like experience.</p>
         </div>
-        <button
-          class="youge-install-button install-button install-button-light"
-          type="button"
-          data-icons="true"
-          data-install="Install Staff Space"
-          data-installed="Open Staff Space"
+        <div
+          class="hero-visual"
+          role="img"
+          aria-label="Illustration of an application connected to Assistant installation, connectivity and update modules. This is an illustration, not live status."
         >
-          Install Staff Space
-        </button>
+          <div class="visual-grid"></div>
+          <span class="visual-eyebrow">A GOOD EXPERIENCE, BUILT IN</span>
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="app-window">
+            <div class="window-bar">
+              <span>● ● ●</span><span>your-app.com</span><span>↗</span>
+            </div>
+            <div class="app-content">
+              <div class="app-sidebar"><i></i><i></i><i></i></div>
+              <div class="app-skeleton">
+                <span class="skeleton-label">YOUR APPLICATION</span
+                ><strong>Make yourself at home.</strong>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line short"></div>
+                <div class="mini-cards"><i></i><i></i><i></i></div>
+              </div>
+            </div>
+          </div>
+          <div class="visual-notice install-notice">
+            <span class="visual-icon">↓</span>
+            <div>
+              <b>A place on their home screen.</b
+              ><small>Installation guidance, made simple.</small>
+            </div>
+            <span>↗</span>
+          </div>
+          <div class="visual-notice status-notice">
+            <span class="status-dot"></span>
+            <div>
+              <b>Clarity in every state.</b
+              ><small>Connectivity · Updates · Recovery</small>
+            </div>
+          </div>
+          <div class="visual-launcher">
+            <img class="brand-symbol" src="assistant-symbol.svg" width="36" height="36" alt="" /><span class="launcher-count">1</span>
+          </div>
+          <span class="visual-caption"
+            >YOUR BRAND. YOUR APP. A HELPFUL COMPANION.</span
+          >
+        </div>
       </section>
-
-      <section class="foundation-section" id="foundation" aria-labelledby="foundation-title">
-        <div class="foundation-head">
-          <p class="card-kicker">PLATFORM FOUNDATION</p>
-          <h2 id="foundation-title">One toolkit, many independent projects.</h2>
-          <p class="foundation-intro">
-            A read-only preview of the future You.Ge Assistant dashboard. Nothing here registers
-            projects or publishes configuration yet — the existing install prompt below still works.
+      <div class="principles">
+        <div class="container">
+          <span
+            >Designed for developers.<br /><b>Built around your users.</b></span
+          ><strong>Any framework</strong><strong>Your service worker</strong
+          ><strong>Modular by design</strong><strong>Open source · MIT</strong>
+        </div>
+      </div>
+      <section id="features" class="section container">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">SMALL TOOLKIT. THOUGHTFUL CAPABILITIES.</p>
+            <h2>The missing layer between<br />your app and its users.</h2>
+          </div>
+          <p>
+            For teams shipping web apps, PWAs, and multi-domain experiences.
+            Give every visitor useful guidance without building another state
+            system.
           </p>
         </div>
-
-        <div id="assistant-foundation-root">
-          <!-- Static fallback: the same information remains readable without React or JS. -->
-          <div class="foundation-preview" aria-busy="false">
-            <p class="foundation-status" role="status">
-              <span class="foundation-status-dot" aria-hidden="true"></span>
-              <span><strong>Platform reference</strong> · Active origin shown by your browser</span>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-art install-art" aria-hidden="true">
+              <span class="phone-outline">y<span>＋</span></span>
+              <div class="art-label">Web → Home screen</div>
+            </div>
+            <span class="feature-tag">INSTALLATION</span>
+            <h3>Less friction. More returning users.</h3>
+            <p>
+              Delegate install prompts to the PWA toolkit, with manual iOS
+              guidance and QR sharing when a native prompt isn’t available.
             </p>
-            <div class="foundation-grid">
-              <article class="foundation-card">
-                <div class="foundation-card-inner">
-                  <p class="card-kicker">INSTALLATION</p>
-                  <h3>One install experience, many brands</h3>
-                  <p class="foundation-card-body">Native prompts, iOS Safari steps and desktop QR are driven by browser events and project-specific copy.</p>
-                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Preserved in this toolkit</p>
-                </div>
-              </article>
-              <article class="foundation-card">
-                <div class="foundation-card-inner">
-                  <p class="card-kicker">OFFLINE &amp; DNS</p>
-                  <h3>Scoped caches and honest diagnostics</h3>
-                  <p class="foundation-card-body">Host and scope isolated caches, a precached offline fallback and user-triggered DNS checks.</p>
-                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Bundled in this toolkit</p>
-                </div>
-              </article>
-              <article class="foundation-card">
-                <div class="foundation-card-inner">
-                  <p class="card-kicker">RESILIENCE</p>
-                  <h3>Projects work on their own</h3>
-                  <p class="foundation-card-body">Assistant configuration is optional at runtime. Each project keeps its own authentication and business logic.</p>
-                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Architecture principle</p>
-                </div>
-              </article>
+            <span class="layer-label">SDK + optional browser toolkit</span>
+          </article>
+          <article class="feature-card">
+            <div class="feature-art state-art" aria-hidden="true">
+              <span>Connected <i></i></span><span>Update available <i></i></span
+              ><span>Guidance when needed <i></i></span>
             </div>
-            <div class="foundation-empty" role="status">
-              <div class="foundation-empty-copy">
-                <strong>No projects registered yet</strong>
-                <p>Project registration, domain verification and configuration publishing arrive with the standalone dashboard.</p>
+            <span class="feature-tag">CENTRALIZED STATE</span>
+            <h3>Useful signals. One source of truth.</h3>
+            <p>
+              Bring connectivity, host-reported endpoint and session status,
+              install state, and prioritized notices into one subscribable
+              snapshot.
+            </p>
+            <span class="layer-label">Framework-independent SDK core</span>
+          </article>
+          <article class="feature-card">
+            <div class="feature-art module-art" aria-hidden="true">
+              <span>diagnostics</span><span>theme</span><span>updates</span
+              ><span>domains</span>
+            </div>
+            <span class="feature-tag">CONTROL & COMPOSABILITY</span>
+            <h3>Your app makes the decisions.</h3>
+            <p>
+              Choose capabilities, adapt the theme, resolve public domain
+              branding, and run diagnostics on demand. No automatic worker
+              registration.
+            </p>
+            <span class="layer-label"
+              >Validated configuration + host adapters</span
+            >
+          </article>
+        </div>
+        <p class="section-note">
+          The SDK is headless: it does not render a widget or provide an offline
+          cache by itself. Add the repository’s optional UI and PWA toolkit, or
+          build your own interface.
+        </p>
+      </section>
+      <section id="architecture" class="architecture-band">
+        <div class="container section architecture-layout">
+          <div>
+            <p class="eyebrow">COMPOSABLE, NOT COMPETING</p>
+            <h2>An Assistant.<br />Not a takeover.</h2>
+            <p>
+              Your app owns authentication, business logic, network requests,
+              and its service worker. Assistant connects the useful pieces and
+              presents actionable state.
+            </p>
+            <a class="text-link" href="#service-worker"
+              >Understand worker ownership →</a
+            >
+          </div>
+          <div
+            class="architecture-diagram"
+            role="img"
+            aria-label="Your host application passes configuration and events to the Assistant SDK. The SDK connects state, modules and optional UI. A host-owned adapter connects the PWA toolkit to the host-owned service worker; the SDK does not register it."
+          >
+            <div class="diagram-node host-node">
+              <span>01 / YOUR APPLICATION</span
+              ><b>Identity · UI · Auth · Business logic</b>
+            </div>
+            <div class="diagram-arrow">
+              ↓ <span>configuration & events</span>
+            </div>
+            <div class="diagram-node sdk-node">
+              <span>02 / ASSISTANT SDK</span
+              ><b>Validated config + shared state</b>
+              <div class="diagram-modules">
+                <span>Install</span><span>Diagnostics</span><span>Updates</span
+                ><span>Theme</span>
               </div>
-              <button class="foundation-empty-action" type="button" disabled>Register a project</button>
             </div>
-            <div class="foundation-actions">
-              <p class="foundation-actions-copy">Installation still uses the existing You.Ge Assistant prompt flow.</p>
-              <button class="foundation-cta" type="button" data-pwa-install>Install You.Ge Assistant</button>
+            <div class="diagram-arrow">
+              ↕ <span>optional UI / PWA toolkit + explicit host adapter</span>
+            </div>
+            <div class="diagram-node worker-node">
+              <span>03 / HOST-OWNED SERVICE WORKER</span
+              ><b>Your registration. Your scope. Your lifecycle.</b>
             </div>
           </div>
         </div>
       </section>
+      <section id="integration" class="section container integration-layout">
+        <aside class="guide-sidebar">
+          <p class="eyebrow">DEVELOPER GUIDE</p>
+          <h2>From install<br />to integrated.</h2>
+          <nav aria-label="Integration guide">
+            <a href="#quickstart">01 / Install & initialize</a
+            ><a href="#configure">02 / Configure modules</a
+            ><a href="#existing-app">03 / Connect your app</a
+            ><a href="#service-worker">04 / Service worker</a
+            ><a href="#disable">05 / Disable safely</a>
+          </nav>
+          <a
+            class="text-link"
+            href="https://github.com/sandro-defender/you-ge-assistant/tree/main/packages/assistant-sdk#readme"
+            >Full SDK reference ↗</a
+          >
+        </aside>
+        <div class="guide-content">
+          <article id="quickstart">
+            <p class="step-label">01 / QUICK START</p>
+            <h3>A small addition to your stack.</h3>
+            <p>
+              Install the ESM package with paired TypeScript declarations. These
+              examples target <strong>SDK 0.3.0</strong>; use
+              <code>@0.3.0</code> for a reproducible pin.
+            </p>
+            <div class="code-block">
+              <div class="code-header"><span>Terminal</span></div>
+              <pre tabindex="0" role="region" aria-label="Code example"><code>npm install @youge/assistant-sdk</code></pre>
+            </div>
+            <p>
+              Use a modern ESM-aware browser bundler, or Node.js 18+ for server-side use. React is an optional peer, not a core dependency. Browser installation and worker features require a secure context (HTTPS, or localhost for development).</p><p>Create an isolated instance for your own UI. Import and call this
+              setup once at your app’s client entry point; call the returned
+              cleanup when it unmounts.
+            </p>
+            <!-- guide:basicIntegration --><div class="code-block"><div class="code-header">TypeScript / JavaScript · @youge/assistant-sdk</div><pre tabindex="0" role="region" aria-label="Code example"><code>import { YouGeAssistant } from '@youge/assistant-sdk';
 
-      <div id="assistant-theme-studio">
-        <!-- Static fallback: the theme documentation stays readable without React. -->
-        <section class="theme-studio" aria-labelledby="theme-studio-fallback-title">
-          <p class="card-kicker">ADAPTIVE THEMING</p>
-          <h2 id="theme-studio-fallback-title">One Assistant, four modes.</h2>
-          <p class="theme-studio-intro">
-            Auto follows the host page and the OS while keeping the You.Ge identity; light and dark pin
-            one theme; custom accepts validated tokens. Enable JavaScript to try each mode, preview
-            light and dark, compare two custom palettes, copy a host website's theme and inspect all
-            five notification levels.
-          </p>
-        </section>
-      </div>
+function basicIntegration() {
+  const assistant = YouGeAssistant.create({
+    project: { id: "my-web-app" },
+    theme: "auto",
+    position: "bottom-right",
+    branding: { name: "My web app", themeColor: "#6942d6" },
+    modules: {
+      installation: true,
+      diagnostics: true,
+      updates: true,
+      autoUpdate: false,
+      userUpdate: true,
+    },
+  });
 
-      <p class="playground-link">
-        Looking for the feature test page? <a href="../">Open the You.Ge Assistant playground</a>.
-      </p>
+  const unsubscribe = assistant.subscribe((state) =&gt; {
+    console.log("Assistant notices:", state.badge.count);
+  });
+
+  // Call when this isolated integration unmounts.
+  return () =&gt; {
+    unsubscribe();
+    assistant.destroy();
+  };
+}</code></pre></div><!-- /guide:basicIntegration -->
+            <p class="callout">
+              Core initialization does not install a worker, display a widget,
+              or fetch your endpoints. To share state with classic scripts and
+              the optional widget, use
+              <code>YouGeAssistant.attach()</code> instead of
+              <code>create()</code>.
+            </p>
+          </article>
+          <article id="configure">
+            <p class="step-label">02 / CONFIGURATION</p>
+            <h3>Enable only what you need.</h3>
+            <p>
+              Modules include installation detection and guidance, update
+              detection and notifications, automatic or user-controlled updates,
+              offline and cache diagnostics, recovery, failover, help, and
+              Chrome handoff. Browser support and connected toolkit/adapters
+              determine which actions are available.
+            </p>
+            <p>
+              <code>configure()</code> updates the existing instance
+              synchronously. Nested overrides such as <code>modules</code> are
+              replaced, not deep-merged: preserve the resolved settings when
+              changing individual flags.
+            </p>
+            <!-- guide:updateConfiguration --><div class="code-block"><div class="code-header">TypeScript / JavaScript · @youge/assistant-sdk</div><pre tabindex="0" role="region" aria-label="Code example"><code>import { YouGeAssistant } from '@youge/assistant-sdk';
+
+function updateConfiguration() {
+  // Use attach() when sharing state with the classic toolkit/widget.
+  const assistant = YouGeAssistant.attach();
+  assistant.configure({
+    theme: "dark",
+    modules: {
+      ...assistant.getConfig().modules,
+      updateNotifications: false,
+      cacheDiagnostics: false,
+    },
+  });
+}</code></pre></div><!-- /guide:updateConfiguration -->
+            <p>
+              Runtime overrides are not persisted or synchronized. Save
+              authoritative settings through your host’s authenticated backend,
+              validate an allowlist, and apply them on startup. If loading
+              classic <code>pwa.js</code>, set the same initial policy in
+              <code>window.YOU_GE_ASSISTANT_CONFIG</code> before that script can
+              act.
+            </p>
+            <p>
+              Disabling a capability gates future Assistant-managed actions; it
+              cannot undo an activation or other work already started.
+            </p>
+          </article>
+          <article id="existing-app">
+            <p class="step-label">03 / EXISTING APPLICATIONS</p>
+            <h3>Keep your logic. Connect the signals.</h3>
+            <p>
+              Call these setters from your existing health and session handlers
+              using their real results. The values below illustrate a healthy
+              response, not an SDK health check. Subscriptions let any UI
+              framework render the same state.
+            </p>
+            <!-- guide:existingApplication --><div class="code-block"><div class="code-header">TypeScript / JavaScript · @youge/assistant-sdk</div><pre tabindex="0" role="region" aria-label="Code example"><code>import { YouGeAssistant } from '@youge/assistant-sdk';
+
+function existingApplication() {
+  const assistant = YouGeAssistant.attach();
+  // Feed results from YOUR host's health/auth logic; the SDK doesn't fetch them.
+  assistant.setEndpointStatus({ primary: "healthy", backup: "inactive" });
+  assistant.setSessionStatus({ state: "ok" });
+  const unsubscribe = assistant.subscribe((state) =&gt; {
+    document
+      .querySelector("[data-assistant-status]")
+      ?.setAttribute("aria-label", state.badge.label);
+  });
+  return unsubscribe; // Remove this view's subscription on unmount.
+}</code></pre></div><!-- /guide:existingApplication -->
+            <p>
+              React 18+ can use <code>createUseAssistant</code> from
+              <code>@youge/assistant-sdk/react</code> with the host’s
+              <code>useSyncExternalStore</code>. Keep the instance getter
+              stable; do not call <code>attach({ …options })</code> on every
+              render. Domain matching selects public branding, never
+              authorization.
+            </p>
+          </article>
+          <article id="service-worker">
+            <p class="step-label">04 / HOST-OWNED WORKERS</p>
+            <h3>Your worker remains yours.</h3>
+            <div class="ownership-options">
+              <div>
+                <b>Already have a worker?</b>
+                <p>
+                  Keep its script, scope, registration, caches, handlers and
+                  framework update flow. Use an explicit host-owned adapter via
+                  the existing runtime bridge. Do not point Assistant worker
+                  messages at a custom worker.
+                </p>
+              </div>
+              <div>
+                <b>No worker yet?</b>
+                <p>
+                  The host may independently choose the optional repository
+                  <code>you-ge-sw.js</code>. Copy the toolkit’s runtime and
+                  precache assets together; serve over HTTPS and register it
+                  explicitly in host code.
+                </p>
+              </div>
+            </div>
+            <p>
+              The following is an
+              <strong>optional new-host setup only</strong> for an app without
+              an existing worker, hosted at <code>/portal/</code>. It is not
+              required for the SDK. Adjust the path to your deployment; never
+              run both a framework registration and this registration.
+            </p>
+            <div class="code-block">
+              <div class="code-header">
+                <span>Host entry point · not an SDK API</span>
+              </div>
+              <pre tabindex="0" role="region" aria-label="Code example"><code>if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/portal/you-ge-sw.js', {
+    scope: '/portal/',
+  });
+}</code></pre>
+            </div>
+            <p>
+              Separately, the host must opt the classic PWA runtime into that
+              exact Assistant worker. No opt-in means no Assistant worker
+              messaging or lifecycle management.
+            </p>
+            <div class="code-block">
+              <div class="code-header">
+                <span>Host HTML · optional toolkit assets</span>
+              </div>
+              <pre tabindex="0" role="region" aria-label="Code example"><code>&lt;script src="/portal/pwa.js" defer
+  data-assistant-worker
+  data-sw="/portal/you-ge-sw.js"
+  data-sw-scope="/portal/"&gt;&lt;/script&gt;</code></pre>
+            </div>
+            <p>
+              These assets come from this repository’s toolkit build, not from
+              an npm SDK widget export. Follow the
+              <a
+                href="https://github.com/sandro-defender/you-ge-assistant/blob/main/docs/guides/INTEGRATION.md"
+                >complete asset and hosting checklist</a
+              >
+              before deploying. Cache diagnostics may return
+              <code>unavailable</code> without a compatible opted-in worker or
+              adapter.
+            </p>
+            <details>
+              <summary>Migrating from automatic worker registration</summary>
+              <p>
+                Move registration into host-owned code only if you deliberately
+                selected the optional Assistant worker. Set explicit opt-in on
+                <code>pwa.js</code>. If you have a custom/framework worker,
+                retain it and integrate through its own adapter. Do not
+                unregister workers or clear caches as part of migration. Legacy
+                compatibility shims remain migration-only.
+              </p>
+            </details>
+          </article>
+          <article id="disable">
+            <p class="step-label">05 / SAFE TEARDOWN</p>
+            <h3>Easy to add. Safe to switch off.</h3>
+            <!-- guide:disableAssistant --><div class="code-block"><div class="code-header">TypeScript / JavaScript · @youge/assistant-sdk</div><pre tabindex="0" role="region" aria-label="Code example"><code>import { YouGeAssistant } from '@youge/assistant-sdk';
+
+function disableAssistant() {
+  const assistant = YouGeAssistant.attach();
+  assistant.configure({ enabled: false });
+  // Host worker, caches and host update lifecycle are unchanged.
+  // Re-enable with assistant.configure({ enabled: true }).
+  // Only the application owner should destroy a shared singleton at teardown.
+}</code></pre></div><!-- /guide:disableAssistant -->
+            <p>
+              Remove view subscriptions when they unmount. Use
+              <code>destroy()</code> for an isolated instance or
+              application-owned shared teardown to remove Assistant listeners.
+              Neither operation unregisters the host’s worker, deletes its
+              caches, or disables its offline handling.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section id="try" class="try-band">
+        <div class="container section try-layout">
+          <div>
+            <p class="eyebrow">REAL SDK. REAL STATE.</p>
+            <h2>Meet your<br />new Assistant.</h2>
+            <p>
+              This page runs the SDK with the repository’s DOM widget and PWA
+              toolkit. Open the floating Assistant in the lower corner, or use
+              the actions here. Installation depends on your browser; no worker
+              is registered by this demo.
+            </p>
+            <div class="actions">
+              <button class="button" type="button" data-pwa-install>
+                Try installation guidance ↗</button
+              ><button
+                class="secondary-button"
+                type="button"
+                data-pwa-diagnostics
+              >
+                Run network diagnostics
+              </button>
+            </div>
+            <p class="section-note">
+              Diagnostics are user-triggered and may contact Cloudflare DNS.
+              Offline/cache diagnostics need a connected runtime; unavailable is
+              an expected result.
+            </p>
+            <a class="text-link" href="./workspace.html"
+              >Explore the full workspace & theme studio →</a
+            >
+          </div>
+          <div class="live-panel">
+            <div class="live-panel-header">
+              <span class="status-dot"></span>LIVE SDK SNAPSHOT
+              <span class="mono">0.3.0</span>
+            </div>
+            <dl>
+              <div>
+                <dt>Project</dt>
+                <dd id="live-project">Enable JavaScript</dd>
+              </div>
+              <div>
+                <dt>Connectivity</dt>
+                <dd id="live-connectivity">Not connected</dd>
+              </div>
+              <div>
+                <dt>Notices</dt>
+                <dd id="live-notices">—</dd>
+              </div>
+              <div>
+                <dt>Theme</dt>
+                <dd id="live-theme">—</dd>
+              </div>
+            </dl>
+            <label class="theme-control" for="demo-theme"
+              >Widget appearance<select id="demo-theme" disabled>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="auto">Auto</option>
+              </select></label
+            >
+            <p id="demo-feedback" role="status">
+              The widget and this panel subscribe to the same instance.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section class="section container next-section">
+        <p class="eyebrow">MAKE THE WEB FEEL MORE LIKE HOME</p>
+        <h2>Build something worth coming back to.</h2>
+        <p>Start with the SDK. Add the capabilities your application needs.</p>
+        <div class="actions">
+          <a class="button" href="#quickstart">Start integrating →</a
+          ><a
+            class="secondary-button"
+            href="https://github.com/sandro-defender/you-ge-assistant"
+            >Explore the source ↗</a
+          ><a class="text-link" href="../">Open PWA playground ↗</a>
+        </div>
+      </section>
     </main>
-
-    <footer class="site-footer">
-      <div class="footer-inner">
-        <span>Staff Space is a sample interface. Check-ins and checklist items are local to this browser.</span>
-        <span>Powered by You.Ge Assistant</span>
-        <span class="footer-attribution">React Bits components · <a href="./THIRD_PARTY_NOTICES.md">Third-party notices</a></span>
-      </div>
-    </footer>
-
-    <div id="assistant-floating-root"></div>
-    <script type="module" src="./src/main.jsx"></script>
+    <footer class="product-footer"><div class="product-width">
+  <a class="product-brand" href="./"><img src="assistant-symbol.svg" width="30" height="30" alt="" />You.Ge <b>Assistant</b></a>
+  <span class="footer-caption">Open source. Thoughtfully connected.</span>
+  <nav aria-label="Footer"><a href="./#integration">Documentation</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE">MIT license</a><a href="https://github.com/sandro-defender/you-ge-assistant/issues">Issues</a><a href="https://www.npmjs.com/package/@youge/assistant-sdk">npm ↗</a></nav>
+</div></footer>
+    <script type="module" src="./src/landing.ts"></script>
   </body>
 </html>

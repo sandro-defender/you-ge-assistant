@@ -6,7 +6,7 @@
     <title>You.Ge Assistant — PWA playground</title>
 
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="assistant-symbol.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
     <meta name="theme-color" content="#ffffff" />
@@ -182,6 +182,40 @@
       }
 
       footer { margin-top: 40px; color: var(--muted); font-size: 12.5px; }
+      /* Shared product identity; runtime controls remain unchanged. */
+      :root { --bg: #fafaff; --panel: #ffffff; --text: #171b30; --muted: #62677c; --border: #e5e5ef; --accent: #6942d6; --accent-text: #fff; --radius: 10px; color-scheme: light; }
+      body { padding: 0; } main { padding: 36px 24px 64px; }
+      main { max-width: 1100px; }
+      header img { border-radius: 13px; }
+      .links { border-block: 1px solid var(--border); padding-block: 17px; margin-top: 25px; gap: 22px; }
+      .links a { color: #6942d6; text-underline-offset: 4px; }
+      .product-intro { padding: 34px 0 42px; max-width: 750px; }
+      .intro-kicker { font: 10px monospace; letter-spacing: 1.8px; color: #655e86; }
+      .product-intro h1 { color: #171b30; text-transform: none; font-size: clamp(30px, 5vw, 48px); font-weight: 500; line-height: 1.15; letter-spacing: -1.8px; margin: 22px 0; }
+      .product-intro>p:not(.intro-kicker) { color: var(--muted); max-width: 610px; line-height: 1.8; }
+      .intro-cta { display: inline-flex; min-height: 48px; padding: 13px 20px; border-radius: 7px; color: white; background: #6942d6; text-decoration: none; margin-top: 12px; font-weight: 600; font-size: 13px; }
+      .product-intro .intro-note { font-size: 11px; margin-top: 18px; }
+      button, .btn { min-height: 44px; touch-action: manipulation; }
+      :focus-visible { outline: 3px solid #584b98; outline-offset: 4px; }
+      @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+      .root-hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 42px; align-items: center; padding-block: 25px 55px; }
+      .root-product-visual { display: block; width: 100%; height: auto; }
+      .root-hero .product-intro { padding: 15px 0; }
+      .root-hero .product-intro h1 { font-size: clamp(30px, 3.4vw, 46px); }
+      .root-actions { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+      .root-actions>a:last-child { font-size: 12px; font-weight: 600; text-decoration: none; }
+      .root-actions .intro-cta { background: #6942d6; margin: 0; }
+      .root-benefits { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; padding-block: 0 40px; }
+      .root-benefits article { border: 1px solid #e5e5ef; background: white; border-radius: 9px; padding: 22px; }
+      .root-benefits span { font: 9px monospace; color: #7754b5; letter-spacing: 1px; }
+      .root-benefits h2 { color: #171b30; text-transform: none; font-size: 19px; margin: 16px 0 10px; letter-spacing: -.5px; }
+      .root-benefits p { color: #62677c; font-size: 12px; line-height: 1.9; margin: 0; }
+      .root-install { border: 1px solid #33324d; background: #141829; color: #f5f2ff; padding: 26px 30px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 55px; }
+      .root-install h2 { text-transform: none; color: white; font-size: 20px; margin: 0 0 8px; letter-spacing: -.5px; }
+      .root-install p { color: #b4b6ce; font-size: 11px; margin: 0; }
+      .root-install code { display: block; color: #d1bfff; padding: 0; background: none; font-size: 12px; overflow-wrap: anywhere; }
+      .root-install a { display: inline-block; margin-top: 10px; font-size: 11px; color: #d1bfff; }
+      @media (max-width: 760px) { .root-hero, .root-benefits { grid-template-columns: minmax(0,1fr); } .root-hero { gap: 24px; padding-bottom: 40px; } .root-product-visual { max-width: 540px; margin-inline: auto; } .root-install { flex-direction: column; align-items: start; padding: 24px; } }
     </style>
 
     <!--
@@ -209,8 +243,8 @@
         branding: {
           name: 'You.Ge Assistant',
           shortName: 'You.Ge',
-          icon: 'icons/icon-192.png',
-          themeColor: '#155eef'
+          icon: 'assistant-symbol.svg',
+          themeColor: '#6942d6'
         },
         theme: 'auto',
         features: [
@@ -224,25 +258,41 @@
     </script>
     <script src="assistant-state.js" defer></script>
     <script src="assistant-widget.js" defer></script>
-  </head>
+  <link rel="stylesheet" href="product.css" />
+<script src="product.js" defer></script>
+</head>
 
-  <body>
+  <body><header class="product-header" data-product-header>
+  <div class="product-width product-row">
+    <a class="product-brand" href="example/"><img src="assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
+    <nav class="product-nav" id="product-navigation" aria-label="Main navigation">
+      <a href="example/">Product</a>
+      <a href="example/#features">Features</a>
+      <a href="example/#integration">Documentation</a>
+      <a href="./" aria-current="page">Examples</a>
+      <a href="https://github.com/sandro-defender/you-ge-assistant">GitHub ↗</a>
+    </nav>
+    <a class="product-start" href="example/#quickstart">Get started <span aria-hidden="true">↗</span></a>
+    <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden>Menu</button>
+  </div>
+</header>
     <main>
-      <header>
-        <img src="icons/icon-192.png" alt="" width="56" height="56" />
-        <div>
-          <h1>You.Ge Assistant</h1>
-          <p class="sub">PWA playground · <span id="current-domain"></span></p>
-        </div>
-      </header>
 
-      <nav class="links">
-        <a href="https://github.com/sandro-defender/you-ge-assistant">Repository</a>
-        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/AGENTS.md">AGENTS.md</a>
-        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/README.md">README</a>
-        <a href="example/">User-facing example</a>
-      </nav>
 
+      <div class="root-hero"><section class="product-intro" aria-labelledby="intro-title">
+        <p class="intro-kicker">THE YOU.GE ASSISTANT PLAYGROUND · <span id="current-domain"></span></p>
+        <h1 id="intro-title">A more capable web app.<br />A clearer experience.</h1>
+        <p>Try the real PWA toolkit: installation guidance, sharing, network diagnostics, and actionable app status. Your application keeps control of its service worker.</p>
+        <div class="root-actions"><a class="intro-cta" href="example/#quickstart">Get started →</a><a href="https://github.com/sandro-defender/you-ge-assistant">Explore GitHub ↗</a></div>
+        <p class="intro-note">SDK 0.3.0 · Framework-independent · Open source</p>
+      </section>
+      <img class="root-product-visual" src="integration-preview.svg" width="540" height="410" alt="Your application connects to the official You.Ge Assistant SDK for installation, diagnostics and app status. Your framework and worker remain under your control." /></div>
+      <section class="root-benefits" aria-label="Product capabilities">
+        <article><span>01 / GUIDE</span><h2>Help users feel at home.</h2><p>Installation prompts and manual guidance through the optional PWA toolkit. One clearer path from browser to home screen.</p></article>
+        <article><span>02 / CONNECT</span><h2>Make app state useful.</h2><p>Connectivity, host-reported endpoint and session signals, and prioritized notices in one subscribable SDK state.</p></article>
+        <article><span>03 / COMPOSE</span><h2>Keep your architecture.</h2><p>Configure only the modules you need. Keep your existing service worker, caching strategy, and host update lifecycle.</p></article>
+      </section>
+      <div class="root-install"><div><h2>Start with one package.</h2><p>ESM, TypeScript declarations, zero core runtime dependencies.</p></div><div><code>npm install @youge/assistant-sdk</code><a href="example/#integration">Read the practical integration guide →</a></div></div>
       <h2>Live state</h2>
       <div class="grid">
         <div class="card"><div class="label">Standalone</div><div class="value" id="s-standalone">—</div></div>
@@ -342,7 +392,13 @@
       <footer>
         MIT licensed. Icons are sample artwork — replace them in your own project.
       </footer>
-    </main>
+    <nav class="links">
+        <a href="https://github.com/sandro-defender/you-ge-assistant">Repository</a>
+        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/AGENTS.md">Contributor guide</a>
+        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/README.md">Documentation</a>
+        <a href="example/">Product & integration guide →</a>
+      </nav>
+</main>
 
     <script>
       // pwa.js is deferred, so the demo waits for DOMContentLoaded (which fires
@@ -652,5 +708,9 @@
         });
       });
     </script>
-  </body>
+  <footer class="product-footer"><div class="product-width">
+  <a class="product-brand" href="example/"><img src="assistant-symbol.svg" width="30" height="30" alt="" />You.Ge <b>Assistant</b></a>
+  <span class="footer-caption">Open source. Thoughtfully connected.</span>
+  <nav aria-label="Footer"><a href="example/#integration">Documentation</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE">MIT license</a><a href="https://github.com/sandro-defender/you-ge-assistant/issues">Issues</a><a href="https://www.npmjs.com/package/@youge/assistant-sdk">npm ↗</a></nav>
+</div></footer></body>
 </html>

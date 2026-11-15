@@ -1,6 +1,11 @@
 # GitHub Pages example
 
-This is the user-facing Staff Space sample at the GitHub Pages `/example/` route.
+The GitHub Pages `/example/` route is the You.Ge Assistant product landing page
+and SDK 0.3.0 integration guide. It includes original CSS illustrations, an
+accessible architecture diagram, typechecked code samples and a real SDK state
+panel connected to the optional DOM widget. No worker is registered by the page.
+
+The preserved Staff Space sample is at `/example/workspace.html`.
 A fixed circular floating button shows the You.Ge Assistant icon and opens the
 **Intelligent Floating Assistant** panel. The launcher shows one simple static zoomed mark — the animated
 logo was removed — so the assistant never moves while idle; the button fill turns the toolkit's red while
@@ -47,3 +52,15 @@ They are not runtime dependencies of the You.Ge Assistant PWA toolkit or
 `FoundationPreview.tsx`, and the `.d.ts` declarations exported by
 `@youge/assistant-sdk`; it is also a CI gate. Both `@youge/assistant-sdk` and
 the core PWA toolkit remain dependency-free at runtime.
+
+## Landing page maintenance
+
+Edit `src/guide-examples.ts`, then run `node scripts/sync-pages-examples.mjs`
+from the repository root. The script renders the same typechecked source into
+HTML so the guide works without JavaScript; tests detect drift. `src/landing.ts`
+only wires the live SDK panel, appearance selector and clipboard feedback.
+`src/landing.css` owns the product site identity, separate from the sample app.
+
+The example deliberately retains its local `file:` SDK dependency: CI builds
+it before root assembly, using buildless SDK exports. Public snippets were
+verified against the npm 0.3.0 tarball; no SDK implementation is copied here.

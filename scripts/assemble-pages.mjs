@@ -85,6 +85,11 @@ export function assemblePages({
     cpSync(join(rootDir, 'examples/example', file), join(exampleOutDir, file));
   }
 
+  // Shared product chrome is copied to both scopes; the Vite public dir supplies /example/.
+  for (const file of ['product.css', 'product.js', 'assistant-symbol.svg', 'integration-preview.svg']) {
+    cpSync(join(rootDir, 'examples/example/public', file), join(safeOutputDir, file));
+  }
+
   // 3. Scope-specific browserconfig.xml tile paths
   const normalizedBase = basePath.replace(/\/+$/, '');
   const rootBrowserConfigPath = join(safeOutputDir, 'browserconfig.xml');

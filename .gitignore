@@ -14,3 +14,7 @@ subscriptions.json
 Thumbs.db
 .idea/
 .vscode/
+
+# Local Pages assembly and audit tooling
+_site/
+.cache/

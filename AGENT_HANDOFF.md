@@ -1,3 +1,51 @@
+# Agent Handoff — premium product website redesign
+
+**Date:** 2026-11-15
+**Branch:** `arena/34c9ca4e-you-ge-assistant`, based on `5f87833de5666ddfc42489169481ce1f946f64bc` (see `git merge-base HEAD main` for authoritative base).
+**Commit / PR:** See `git log -1` and `gh pr view arena/34c9ca4e-you-ge-assistant`; one focused PR against main.
+**Working tree:** Website implementation is ready for commit; local build/browser tooling is ignored.
+**Versions:** SDK 0.3.0 and kit 1.2.3 unchanged. npm registry confirms existing 0.3.0 publication; this task publishes nothing.
+
+## Completed
+
+Premium light-first navy/violet product site at `/example/`, coordinated homepage
+at `/`, original modular SVG symbol/favicon and integration artwork, shared
+responsive navigation/footer, real SDK state/theme/install demonstrations and
+five-step guide. Staff Space and the theme studio are preserved at
+`/example/workspace.html` in the same scope. Deployment workflow and runtime
+ownership/compatibility contracts are unchanged. No SDK code was duplicated.
+
+Published npm 0.3.0 source is byte-identical to repository SDK src. All displayed
+SDK functions typecheck against downloaded declarations and were executed against
+the downloaded package; nested module overrides preserve independent flags.
+Current installation/migration docs correct stale unpublished banners.
+
+## Verification
+
+`npm run check`: 572/572 tests plus static/package validation. Example clean
+install, typecheck/build, Pages assembly, SDK sync, precache gate, syntax loop and
+package dry-run pass. All 13 precached assets unchanged. Chromium checks cover all
+three routes at 360/390/768/1024/1440px, clipboard, theme, offline/online, install
+guidance, widget/menu Escape, and JS-disabled documentation. No page/asset errors
+or horizontal overflow; no demo worker registered. axe A/AA reports zero issues
+on homepage/guide desktop and mobile, plus workspace mobile. Screenshots and audit:
+`docs/design-system/you-ge-assistant/pages/product-website.md` and
+`docs/architecture/PAGES_REDESIGN_AUDIT.md`.
+
+## Limits and exact next action
+
+Open/update the current branch's single PR, inspect GitHub check results, and
+record its URL/status here. Do not merge/deploy/publish/tag/version-bump. Physical
+mobile hardware, other browser engines, real install acceptance, production
+Cloudflare DNS/push, and host-owned worker adapters remain separate integration
+checks. Seven GitHub URLs returned 200; npm frontend URLs are allowlist-blocked,
+while the actual package was verified through the registry. No release or Pages
+workflow should be manually dispatched.
+
+---
+
+## Historical handoff (superseded)
+
 # Agent Handoff — PWA management and SDK 0.3.0 preparation
 
 **Date:** 2026-11-15

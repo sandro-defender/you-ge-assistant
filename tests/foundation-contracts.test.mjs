@@ -206,7 +206,7 @@ test('adopted React Bits sources are TypeScript, dependency-free and reduced-mot
 });
 
 test('foundation preview keeps essential UI usable without animation or React', () => {
-  const html = read('examples/example/index.html');
+  const html = read('examples/example/workspace.html');
   assert.match(html, /id="assistant-foundation-root"/);
   assert.match(html, /<article class="foundation-card">/, 'static no-JS fallback');
   assert.match(html, /data-pwa-install/, 'fallback keeps the existing install hook');

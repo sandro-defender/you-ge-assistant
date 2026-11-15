@@ -1,0 +1,85 @@
+import { YouGeAssistant } from "@youge/assistant-sdk";
+import "./landing.css";
+
+const copy = document.querySelector<HTMLButtonElement>("[data-copy-install]");
+if (copy && navigator.clipboard) {
+  copy.hidden = false;
+  copy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText("npm install @youge/assistant-sdk");
+      copy.textContent = "Copied!";
+    } catch {
+      copy.textContent = "Select to copy";
+    }
+    window.setTimeout(() => {
+      copy.textContent = "Copy";
+    }, 2200);
+  });
+}
+
+// Deferred classic scripts initialize the configured singleton first.
+function connectDemo() {
+  const assistant = YouGeAssistant.attach();
+  const put = (id: string, value: string) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = value;
+  };
+  const render = () => {
+    const state = assistant.getState();
+    put("live-project", state.project.name);
+    put("live-connectivity", state.network.online ? "Online" : "Offline");
+    put("live-notices", String(state.badge.count));
+    put("live-theme", state.appearance.theme);
+  };
+  render();
+  let unsubscribe = assistant.subscribe(render);
+  const theme = document.querySelector<HTMLSelectElement>("#demo-theme");
+  if (theme) {
+    theme.disabled = false;
+    theme.addEventListener("change", () => {
+      if (
+        theme.value === "light" ||
+        theme.value === "dark" ||
+        theme.value === "auto"
+      ) {
+        assistant.configure({ theme: theme.value });
+        put("demo-feedback", `Widget appearance changed to ${theme.value}.`);
+      }
+    });
+  }
+  window.addEventListener("pagehide", () => unsubscribe());
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      unsubscribe = assistant.subscribe(render);
+      render();
+    }
+  });
+}
+if (document.readyState === "loading")
+  document.addEventListener("DOMContentLoaded", connectDemo, { once: true });
+else connectDemo();
+
+if (navigator.clipboard) {
+  for (const block of document.querySelectorAll<HTMLElement>(".code-block")) {
+    const code = block.querySelector("code");
+    const header = block.querySelector(".code-header");
+    if (!code || !header) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "copy-code";
+    button.textContent = "Copy";
+    button.setAttribute("aria-label", "Copy code example");
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(code.textContent || "");
+        button.textContent = "Copied!";
+      } catch {
+        button.textContent = "Select code to copy";
+      }
+      window.setTimeout(() => {
+        button.textContent = "Copy";
+      }, 2200);
+    });
+    header.append(button);
+  }
+}
