@@ -287,3 +287,14 @@ test('classic resolver validates registry diagnostics probe paths safely', () =>
 
   assert.equal(domain.validateConfigDetailed({ diagnostics: [] }).valid, false);
 });
+
+test('diagnostic configuration confines root paths to an explicit deployment base', () => {
+  for (const path of ['/health', '/app2/health', '%2e%2e/health', 'a%2fb', 'a%5cb', '%252e%252e', '%zz']) {
+    const result = domain.validateConfigDetailed({ pwa: { basePath: '/app/' }, diagnostics: { backendProbePath: path } });
+    assert.equal(result.valid, false, path);
+    assert.equal(result.config.diagnostics.backendProbePath, undefined, path);
+  }
+  for (const path of ['health', '/app/health', 'api%20v1/health']) {
+    assert.equal(domain.validateConfigDetailed({ pwa: { basePath: '/app' }, diagnostics: { backendProbePath: path } }).valid, true, path);
+  }
+});

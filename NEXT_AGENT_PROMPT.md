@@ -1,3 +1,13 @@
+# Next Agent Prompt — Review Diagnostics Stage 2
+
+Read `AGENTS.md` and the current section of `AGENT_HANDOFF.md`. PR #42 on `arena/ca1b6b72-you-ge-assistant` contains the stale CI assertion correction and Diagnostics Phase 2 Stage 2, with the owner-authorized synchronized kit `1.2.1 → 1.2.2` bump. SDK package remains `0.2.0`. Check current PR/CI status and review the scoped changes and recorded verification. Do not merge, deploy, publish, release or tag without explicit approval.
+
+The next recommended task is separately authorized real-browser and local-network verification of root/subpath probes, stalled bodies, redirects, and server behavior for encoded path segments. DNS-over-HTTPS cannot establish the device resolver's actual answers or reliably detect hostnames resolving to private addresses. Do not weaken the precache integrity gate.
+
+---
+
+## Historical prompt (superseded)
+
 # Next Agent Prompt — CD-1 complete, PR #40 awaiting owner review
 
 CD-1 (module capability enforcement) plus the owner-authorized kit `1.2.0 →

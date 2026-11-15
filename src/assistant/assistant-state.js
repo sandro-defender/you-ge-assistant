@@ -22,7 +22,7 @@
   /* --- core/constants.js --- */
 
   const SDK_VERSION = '0.2.0';
-  const KIT_COMPAT_VERSION = '1.2.1';
+  const KIT_COMPAT_VERSION = '1.2.2';
   const SCHEMA_VERSION = 1;
   const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
   Object.freeze(PRIORITY);
@@ -1244,14 +1244,14 @@
   }
   function normalizePath(value, fallback) {
     const path = String(value || fallback || '/').trim();
-    if (!path || path.charAt(0) !== '/') return null;
+    if (!path || path.charAt(0) !== '/' || path.charAt(1) === '/' || /[?#]/.test(path)) return null;
     if (path.indexOf('\\') !== -1 || /[\u0000-\u001f]/.test(path)) return null;
     const normalized = path.replace(/\/+/g, '/');
     const parts = normalized.split('/');
     if (parts.some(function (part) {
       try {
         const decoded = decodeURIComponent(part);
-        return decoded === '.' || decoded === '..' || decoded.indexOf('/') !== -1 || decoded.indexOf(String.fromCharCode(92)) !== -1;
+        return decoded === '.' || decoded === '..' || decoded.indexOf('/') !== -1 || decoded.indexOf(String.fromCharCode(92)) !== -1 || /[%\u0000-\u001f\u007f]/.test(decoded);
       } catch (error) {
         return true;
       }
@@ -1296,22 +1296,28 @@
    * must stay a plain relative or root-relative path: cross-origin URLs, network
    * paths (`//host`), script schemes, backslashes and `..` traversal are rejected.
    */
-  function safeDiagnosticsProbePath(value) {
-    if (typeof value !== 'string') return false;
-    const probe = value.trim();
-    if (!probe || probe !== value) return false;
-    if (probe.charAt(0) === '?' || probe.charAt(0) === '#') return false;
-    return safeRelativeUrl(probe);
+  function safeDiagnosticsProbePath(value, basePath) {
+    if (typeof value !== 'string' || !value || value.trim() !== value ||
+        /[\u0000-\u001f\u007f\\]/.test(value) || /^(?:[a-z][a-z0-9+.-]*:|\/\/|[?#])/i.test(value)) return false;
+    var path = value.split(/[?#]/)[0];
+    try {
+      if (path.split('/').some(function (part) {
+        var decoded = decodeURIComponent(part);
+        return decoded === '..' || /[\/\\%\u0000-\u001f\u007f]/.test(decoded);
+      })) return false;
+      var base = new URL(basePath || '/', 'https://diagnostics.invalid');
+      var resolved = new URL(value, base);
+      return resolved.origin === base.origin && resolved.pathname.indexOf(base.pathname) === 0;
+    } catch (error) { return false; }
   }
-
-  function sanitizeDiagnosticsConfig(value) {
+  function sanitizeDiagnosticsConfig(value, basePath) {
     const safe = {};
     if (!isRecord(value)) return safe;
     Object.keys(value).forEach(function (key) {
       if (DIAGNOSTICS_PROBE_KEYS.indexOf(key) === -1) safe[key] = clone(value[key]);
     });
     DIAGNOSTICS_PROBE_KEYS.forEach(function (key) {
-      if (safeDiagnosticsProbePath(value[key])) safe[key] = value[key];
+      if (safeDiagnosticsProbePath(value[key], basePath)) safe[key] = value[key];
     });
     return safe;
   }
@@ -1413,7 +1419,7 @@
       return safe;
     }) : [];
 
-    config.diagnostics = sanitizeDiagnosticsConfig(config.diagnostics);
+    config.diagnostics = sanitizeDiagnosticsConfig(config.diagnostics, config.pwa.basePath || '/');
 
     config.features = merge(clone(DOMAIN_DEFAULTS.features), config.features || {});
     Object.keys(DOMAIN_DEFAULTS.features).forEach(function (key) {
@@ -1517,7 +1523,7 @@
       } else if (isRecord(source.diagnostics)) {
         DIAGNOSTICS_PROBE_KEYS.forEach(function (key) {
           const value = source.diagnostics[key];
-          if (value !== undefined && !safeDiagnosticsProbePath(value)) {
+          if (value !== undefined && !safeDiagnosticsProbePath(value, (source.pwa && normalizePath(source.pwa.basePath, '/')) || '/')) {
             add('invalid_diagnostics_probe', 'diagnostics.' + key,
               'Diagnostics probe paths must be safe same-origin relative or root-relative paths.');
           }

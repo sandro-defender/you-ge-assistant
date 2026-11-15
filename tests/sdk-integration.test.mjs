@@ -497,7 +497,7 @@ function probeRegistry(basePath, diagnostics) {
 function identityAssistant(extra) {
   return YouGeAssistant.create(Object.assign({
     location: 'https://app.example.com/portal/',
-    domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }),
+    domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: 'health' }),
     bindEvents: false,
   }, extra || {}));
 }
@@ -518,7 +518,7 @@ test('a base-path change on the same host and project invalidates the DNS verdic
   setVerdict(assistant);
   assert.equal(assistant.getState().network.dns.classification, 'normal_connectivity');
 
-  assistant.configure({ domainRegistry: probeRegistry('/other/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }) });
+  assistant.configure({ domainRegistry: probeRegistry('/other/', { appProbePath: 'manifest.webmanifest', backendProbePath: 'health' }) });
 
   const state = assistant.getState();
   assert.equal(state.project.basePath, '/other/', 'the effective base path moved');
@@ -533,8 +533,8 @@ test('a base-path change on the same host and project invalidates the DNS verdic
 
 test('changed app or backend probe paths invalidate the DNS verdict (D6)', () => {
   const cases = [
-    { label: 'app probe path', diagnostics: { appProbePath: 'probe.json', backendProbePath: '/health' } },
-    { label: 'backend probe path', diagnostics: { appProbePath: 'manifest.webmanifest', backendProbePath: '/healthz' } },
+    { label: 'app probe path', diagnostics: { appProbePath: 'probe.json', backendProbePath: 'health' } },
+    { label: 'backend probe path', diagnostics: { appProbePath: 'manifest.webmanifest', backendProbePath: 'healthz' } },
     { label: 'backend probe removed', diagnostics: { appProbePath: 'manifest.webmanifest' } },
   ];
 
@@ -566,14 +566,14 @@ test('unrelated configuration changes and repeated identical configuration keep 
   assert.equal(state.network.dns.checkedAt, '2026-11-14T00:00:00.000Z');
 
   // Repeating the very same identity is not a change.
-  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }) });
-  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }) });
+  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: 'health' }) });
+  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: 'manifest.webmanifest', backendProbePath: 'health' }) });
   state = assistant.getState();
   assert.equal(state.network.dns.classification, 'normal_connectivity', 'an unchanged identity does not reset state');
   assert.equal(state.network.dns.status, 'complete');
 
   // A path-equivalent probe declaration is also the same identity.
-  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: './manifest.webmanifest', backendProbePath: '/health' }) });
+  assistant.configure({ domainRegistry: probeRegistry('/portal/', { appProbePath: './manifest.webmanifest', backendProbePath: 'health' }) });
   assert.equal(assistant.getState().network.dns.classification, 'normal_connectivity', 'equivalent probe paths are not a change');
 
   assistant.destroy();
@@ -606,7 +606,7 @@ test('a stale in-flight diagnostics run cannot publish after the diagnostic iden
   assert.ok(runnerSignal && runnerSignal.aborted === false);
 
   // Same host, same project id, different base path: a different app target.
-  assistant.configure({ domainRegistry: probeRegistry('/other/', { appProbePath: 'manifest.webmanifest', backendProbePath: '/health' }) });
+  assistant.configure({ domainRegistry: probeRegistry('/other/', { appProbePath: 'manifest.webmanifest', backendProbePath: 'health' }) });
 
   assert.equal(runnerSignal.aborted, true, 'obsolete in-flight work is cancelled');
   assert.equal(assistant.getState().network.dns.status, 'idle', 'the stale run no longer owns published state');

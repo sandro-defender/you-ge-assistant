@@ -1,3 +1,30 @@
+# Agent Handoff — Diagnostics Phase 2, Stage 2
+
+**Date:** 2026-11-14
+**Branch:** `arena/ca1b6b72-you-ge-assistant`, based on `main` at `9876c267d595c6af54daf3d59c67efca67ca4dcb`.
+**PR:** #42, expanded from the assertion fix to include the owner-authorized Stage 2 work; do not merge without approval. See Git history and PR for current commit and CI state.
+**Versions:** kit `1.2.2` (owner-authorized synchronized precache bump); SDK package `0.2.0` (unchanged, not published).
+
+## Completed
+
+- Corrected the obsolete identity-migration precache summary assertion. It accepts both an unchanged base and a synchronized `1.2.1 → 1.2.2` update, while retaining the integrity verdict check.
+- Diagnostics use URL resolution against a validated, slash-terminated deployment base. Relative probes stay within that base; root-relative paths must already be within it. Cross-origin, traversal, encoded separators, double-encoded percent escapes and malformed paths are rejected. Invalid app paths fall back to the base-relative manifest; invalid backend paths are omitted. Invalid bases cause no requests. Probe redirects fail rather than escaping the base. Classic and SDK domain validators check configured paths against an explicit `pwa.basePath`; runtime also checks the effective base when configuration does not specify one.
+- The existing request deadline already covers DoH `response.json()` as well as fetch, aborting on timeout/cancellation and cleaning up timers/listeners. Synchronous JSON exceptions now also classify as `invalid_response`; HTTP, network, timeout and cancellation distinctions remain. Application/backend health probes do not parse JSON.
+- Localhost, loopback, private LAN and IP-literal hosts retain same-origin probes and skip public DoH. Noncanonical IPv6 literals are normalized. Ordinary hostnames still use DoH; browser JavaScript cannot determine their actual local resolver results or reliably detect that they resolve to a local address. The configured origin must match the host and, in a browser, the active origin.
+- Added path, encoded-segment, invalid-base, redirect policy, JSON stall/abort/error, private-LAN, IPv6 and classic/SDK configuration regressions; adjusted existing identity tests to use in-base probes.
+
+## Verification
+
+Focused identity, diagnostics, classic domain and SDK domain suites: 87/87. `npm test`: 545/545; `npm run check`: passed, 545/545; `npm run test:sdk`: 129/129; `npm run sync:sdk -- --check`, `npm run build`, and `npm run check:precache`: passed. Example build was prepared first (classic-script bundling warnings only). The gate reports three changed precached assets and `1.2.1 → 1.2.2` synchronized. No browser or live deployment verification was performed. Earlier full runs before the example build failed because `examples/example/dist` was missing; reruns after building passed.
+
+## Next action
+
+Review PR #42 and CI; with separate authorization, perform real-browser/local-network verification, especially redirect handling and server treatment of encoded path segments. Do not merge, deploy, publish, release or tag without explicit approval.
+
+---
+
+## Historical handoff (PR #40; superseded by current status above)
+
 # Agent Handoff — You.Ge Assistant
 
 **Last updated:** 2026-11-14

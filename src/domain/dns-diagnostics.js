@@ -161,6 +161,34 @@
     return 'This is a local development host, so public Cloudflare DNS checks were skipped. ';
   }
 
+  // Validate path segments before URL normalization (including encoded separators).
+  function safeProbePath(value, base) {
+    if (typeof value !== 'string' || !value || value.trim() !== value ||
+        /[\u0000-\u001f\u007f\\]/.test(value) || /^(?:[a-z][a-z0-9+.-]*:|\/\/|[?#])/i.test(value)) return null;
+    try {
+      var path = value.split(/[?#]/)[0];
+      if (path.split('/').some(function (part) {
+        var decoded = decodeURIComponent(part);
+        return decoded === '..' || /[\/\\%\u0000-\u001f\u007f]/.test(decoded);
+      })) return null;
+      var url = new URL(value, base);
+      return url.origin === base.origin && url.pathname.indexOf(base.pathname) === 0 ? url.href : null;
+    } catch (error) { return null; }
+  }
+
+  function safeProbeBase(value, origin) {
+    if (typeof value !== 'string' || !value || value.trim() !== value || value.charAt(0) !== '/' ||
+        value.charAt(1) === '/' || /[?#\\\u0000-\u001f\u007f]/.test(value)) return null;
+    try {
+      if (value.split('/').some(function (part) {
+        var decoded = decodeURIComponent(part);
+        return decoded === '.' || decoded === '..' || /[\/\\%\u0000-\u001f\u007f]/.test(decoded);
+      })) return null;
+      var base = new URL(value.charAt(value.length - 1) === '/' ? value : value + '/', origin);
+      return base.origin === origin ? base : null;
+    } catch (error) { return null; }
+  }
+
   // The response consumer (including body parsing) runs inside the same timeout
   // and AbortController scope as the request itself, so a stalled body cannot
   // outlive `timeoutMs`. An optional caller signal rides the same controller:
@@ -290,7 +318,7 @@
     }
 
     function parseDnsBody(type, response) {
-      return response.json().catch(function () {
+      return Promise.resolve().then(function () { return response.json(); }).catch(function () {
         throw makeError('invalid_response', 'Cloudflare returned invalid JSON.');
       }).then(function (body) {
         if (!body || !Number.isInteger(body.Status) || body.Status < 0 || body.Status > 5 || !Array.isArray(body.Answer || [])) {
@@ -325,6 +353,7 @@
       return fetchWithRetry(url, {
         method: 'GET',
         mode: 'same-origin',
+        redirect: 'error',
         credentials: 'omit',
         cache: 'no-store',
         headers: { Accept: 'application/manifest+json, application/json, */*' },
@@ -398,6 +427,9 @@
         return Promise.resolve(cancelledResult(host, context.origin || (root.location && root.location.origin),
           context.online !== false, 'Diagnostics were cancelled before any request was made.'));
       }
+      if (IPV6_BRACKET_PATTERN.test(host)) {
+        try { host = new URL('http://' + host).hostname.toLowerCase(); } catch (error) { /* rejected below */ }
+      }
       var kind = hostKind(host);
       if (!kind && !HOST_PATTERN.test(host)) {
         return Promise.resolve({ hostname: host, classification: 'unknown', hostKind: 'invalid', message: 'The current hostname is not a valid DNS name.' });
@@ -405,7 +437,9 @@
       var localHost = skipsPublicDoh(kind);
       var origin;
       try {
-        origin = new URL(context.origin || root.location.origin).origin;
+        var originUrl = new URL(context.origin || root.location.origin, root.location && root.location.href);
+        if ((originUrl.protocol !== 'http:' && originUrl.protocol !== 'https:') || originUrl.username || originUrl.password) throw new Error('Invalid origin');
+        origin = originUrl.origin;
         if (new URL(origin).hostname.toLowerCase() !== host) throw new Error('Origin hostname mismatch');
         if (root.location && root.location.hostname &&
             (host !== root.location.hostname.toLowerCase().replace(/\.$/, '') || origin !== root.location.origin)) {
@@ -414,26 +448,15 @@
       } catch (error) {
         return Promise.resolve({ hostname: host, classification: 'unknown', message: 'The current origin could not be validated.' });
       }
-      var basePath = String(context.basePath || '/');
-      if (basePath.charAt(0) !== '/' || basePath.indexOf('..') !== -1 || basePath.indexOf('\\') !== -1) basePath = '/';
-      if (basePath.charAt(basePath.length - 1) !== '/') basePath += '/';
-      var probeBaseUrl = new URL(basePath, origin);
-      var appProbeUrl;
-      try {
-        appProbeUrl = new URL(context.appProbePath || 'manifest.webmanifest', probeBaseUrl).href;
-        if (new URL(appProbeUrl).origin !== origin) throw new Error('cross-origin probe');
-      } catch (error) {
-        appProbeUrl = new URL('manifest.webmanifest', origin).href;
+      var probeBaseUrl = safeProbeBase(context.basePath || '/', origin);
+      if (!probeBaseUrl) {
+        return Promise.resolve({ hostname: host, classification: 'unknown', message: 'The deployment base path could not be validated.' });
       }
-      var backendProbeUrl = '';
-      if (context.backendProbePath) {
-        try {
-          // Relative backend paths follow the configured base path like the app
-          // probe; root-relative paths still resolve against the origin.
-          backendProbeUrl = new URL(context.backendProbePath, probeBaseUrl).href;
-          if (new URL(backendProbeUrl).origin !== origin) backendProbeUrl = '';
-        } catch (error) { backendProbeUrl = ''; }
-      }
+      var basePath = probeBaseUrl.pathname;
+      // Invalid app paths fall back within the deployment, never the origin root.
+      var appProbeUrl = safeProbePath(context.appProbePath || 'manifest.webmanifest', probeBaseUrl) ||
+        new URL('manifest.webmanifest', probeBaseUrl).href;
+      var backendProbeUrl = context.backendProbePath ? safeProbePath(context.backendProbePath, probeBaseUrl) || '' : '';
       var key = [host, origin, basePath, appProbeUrl, backendProbeUrl, context.online !== false,
         timeoutMs, retries, fetchIdentity(fetchImpl), fetchIdentity(AbortControllerImpl)].join('|');
       var buildCancelled = function () {

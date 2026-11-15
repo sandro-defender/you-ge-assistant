@@ -20,7 +20,7 @@ This is a structural refactor only. Source files live in organized `src/` and `p
 | `NEXT_AGENT_PROMPT.md` | Essential agent handoff | Canonical next-task prompt expected at root. |
 | `PARITY.md` | Protected reference documentation | Owner-protected parity record; explicitly retained at root. |
 | `README.md` | Essential project documentation | Repository landing page. |
-| `package.json` | Essential project/build manifest | Root npm scripts (`build`, `check`, `test`, `sync:sdk`, `verify`) and kit version (`1.2.1`). |
+| `package.json` | Essential project/build manifest | Root npm scripts (`build`, `check`, `test`, `sync:sdk`, `verify`) and kit version (`1.2.2`). |
 
 ## Organized source and output architecture
 
