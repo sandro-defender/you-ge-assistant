@@ -6,7 +6,7 @@ fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
 > **Package status:** SDK `0.3.0` is published on npm (registry verified
-> 2026-11-15). The compatible repository toolkit is `1.2.3`.
+> 2026-11-15). The compatible repository toolkit is `1.2.4`.
 > See [`MIGRATION.md`](MIGRATION.md) for host-owned worker integration and
 > [`RELEASE.md`](RELEASE.md) for the authorization-gated release runbook.
 

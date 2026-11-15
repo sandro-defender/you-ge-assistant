@@ -186,23 +186,220 @@ test('storage failures are reported instead of claiming sample changes were save
   assert.equal(page.nodes['task-count'].textContent, '1 of 3 done');
 });
 
-test('React notice actions reuse the toolkit hooks instead of being inert', () => {
-  const jsx = readFileSync(new URL('../examples/example/src/main.jsx', import.meta.url), 'utf8');
-  const controls = /<div className="assistant-notice-controls">[\s\S]*?<\/div>/.exec(jsx);
+/* ------------------------------------------------------------------ *
+ * Duplicated-UI audit (2026-11-15): one entry point per action.
+ *
+ * The React sample drew "Network diagnostics" on every connection notice and
+ * again as a panel action, and "Recovery guidance" was a button that announced
+ * `youge:action` and showed nothing. Placement is now decided by
+ * `planPanelActions` (examples/example/src/panel-actions.js), the same rule the
+ * DOM widget follows: diagnostics and recovery have one entry each, connection
+ * notices only explain, and installation keeps its card button plus its panel
+ * entry (owner decision). These tests drive the rule with real SDK state.
+ * ------------------------------------------------------------------ */
+
+const mainJsx = readFileSync(new URL('../examples/example/src/main.jsx', import.meta.url), 'utf8');
+const { planPanelActions, RECOVERY_STEPS } = await import('../examples/example/src/panel-actions.js');
+const sdk = await import('../packages/assistant-sdk/src/index.js');
+
+/* Real SDK state, driven through the SDK's own environment seams: a `pwa`
+ * object reports installability and `navigator.onLine` reports connectivity. */
+function sdkState(options = {}) {
+  const pwaState = Object.assign({ installed: false, standalone: false, canInstall: false, ios: false, safari: false }, options.pwa || {});
+  const pwa = {
+    getState: () => Object.assign({}, pwaState),
+    isInstalled: () => pwaState.installed || pwaState.standalone,
+    canInstall: () => pwaState.canInstall,
+    isIOS: () => pwaState.ios,
+    isSafari: () => pwaState.safari,
+  };
+  const assistant = sdk.YouGeAssistant.create(
+    Object.assign({ project: { id: 'panel-plan' } }, options.config || {}),
+    { pwa, navigator: { onLine: options.online !== false }, bindEvents: false },
+  );
+  if (options.drive) options.drive(assistant);
+  const state = assistant.getState();
+  assistant.destroy();
+  return state;
+}
+
+function sdkActionEnabled(state) {
+  return (id, kind) => {
+    const capability = sdk.capabilityForAction(id, kind);
+    return !capability || !state.capabilities || state.capabilities[capability] !== false;
+  };
+}
+
+function plan(state) {
+  return planPanelActions(state, sdkActionEnabled(state));
+}
+
+/* Every place the React panel would render a control for an action id. */
+function placements(state, id) {
+  const result = plan(state);
+  const places = [];
+  if (id === 'diagnostics' && result.showDiagnostics) places.push('panel:diagnostics');
+  if (id === 'install' && result.showInstall) places.push('panel:install');
+  if (id === 'recovery' && result.showRecovery) places.push('panel:recovery');
+  (state.notifications || []).forEach((notice) => {
+    if (notice.actionId === id && result.noticesWithAction.has(notice.id)) places.push(`notice:${notice.id}`);
+  });
+  result.extraActions.forEach((action) => { if (action.id === id) places.push('extra'); });
+  return places;
+}
+
+test('React panel: installation keeps its card and its entry; diagnostics has exactly one entry point', () => {
+  const state = sdkState();
+  assert.equal(state.installation.status, 'available', 'a browser that is not installed can be offered installation');
+  assert.ok(state.notifications.some((notice) => notice.actionId === 'install'), 'the SDK still reports the install notice');
+  assert.ok(state.availableActions.some((action) => action.id === 'install'), 'and still publishes the install action');
+
+  assert.deepEqual(placements(state, 'install'), ['panel:install', 'notice:install:available'],
+    'install is offered on its card and as the panel entry, and nowhere else');
+  assert.deepEqual(placements(state, 'diagnostics'), ['panel:diagnostics'], 'diagnostics is offered once, as the panel entry');
+  assert.deepEqual([...plan(state).noticesWithAction], ['install:available'], 'only the install card carries an action');
+});
+
+test('React panel: a connection problem adds notices and guidance, not second controls', () => {
+  const state = sdkState({
+    online: false,
+    drive: (assistant) => assistant.setEndpointStatus({ primary: 'failed', backup: 'active', active: 'backup' }),
+  });
+  const referring = state.notifications.filter((notice) => notice.actionId === 'diagnostics');
+  assert.ok(referring.length >= 1, 'offline and primary-failure notices refer to diagnostics');
+
+  assert.deepEqual(placements(state, 'diagnostics'), ['panel:diagnostics']);
+  assert.deepEqual(placements(state, 'recovery'), ['panel:recovery'], 'recovery guidance is one disclosure, not also a button');
+  assert.deepEqual(placements(state, 'install'), ['panel:install', 'notice:install:available']);
+  for (const notice of referring) {
+    assert.equal(plan(state).noticesWithAction.has(notice.id), false, `${notice.id} explains without repeating the diagnostics button`);
+  }
+  assert.equal(plan(state).extraActions.some((action) => action.id === 'recovery'), false);
+});
+
+test('React panel: an action with no entry of its own stays once, on its notice, then moves to the list', () => {
+  const state = sdkState({
+    drive: (assistant) => assistant.setEndpointStatus({ primary: 'failed', backup: 'active', active: 'backup' }),
+  });
+  assert.ok(state.availableActions.some((action) => action.id === 'backup-status'), 'the SDK publishes backup-status');
+  const places = placements(state, 'backup-status');
+  assert.equal(places.length, 1, 'backup-status is offered exactly once');
+  assert.match(places[0], /^notice:/, 'on the notice that reports it');
+
+  // Without that notice (dismissed), the action is still reachable — once.
+  const dismissed = Object.assign({}, state, {
+    notifications: state.notifications.filter((notice) => notice.actionId !== 'backup-status'),
+  });
+  assert.deepEqual(placements(dismissed, 'backup-status'), ['extra']);
+});
+
+test('React panel: repeated ids render once and a disabled capability renders nothing', () => {
+  const base = sdkState({ pwa: { canInstall: true } });
+  const repeated = Object.assign({}, base, {
+    notifications: [
+      { id: 'feature:a', priority: 5, tone: 'info', title: 'A', message: 'A', actionId: 'open-report' },
+      { id: 'feature:b', priority: 5, tone: 'info', title: 'B', message: 'B', actionId: 'open-report' },
+    ],
+    availableActions: base.availableActions.concat([
+      { id: 'open-report', label: 'Open report', kind: 'custom' },
+      { id: 'open-report', label: 'Open report', kind: 'custom' },
+      { id: 'export', label: 'Export', kind: 'custom' },
+      { id: 'export', label: 'Export', kind: 'custom' },
+    ]),
+  });
+  assert.deepEqual(placements(repeated, 'open-report'), ['notice:feature:a'], 'the first notice owns a shared action');
+  assert.deepEqual(placements(repeated, 'export'), ['extra'], 'a repeated list entry renders once');
+
+  const twoInstallCards = Object.assign({}, base, {
+    notifications: [
+      { id: 'install:available', priority: 4, tone: 'install', title: 'Installation available', message: 'Install.', actionId: 'install' },
+      { id: 'feature:install-tip', priority: 5, tone: 'info', title: 'Tip', message: 'Install for offline use.', actionId: 'install' },
+    ],
+  });
+  assert.deepEqual(placements(twoInstallCards, 'install'), ['panel:install', 'notice:install:available'],
+    'a second notice naming install does not add a third button');
+
+  const gated = sdkState({ online: false, config: { modules: { diagnostics: false, recovery: false, installation: false } } });
+  const gatedPlan = plan(gated);
+  assert.equal(gatedPlan.showDiagnostics, false);
+  assert.equal(gatedPlan.showRecovery, false);
+  assert.equal(gatedPlan.showInstall, false);
+  assert.equal(gatedPlan.noticesWithAction.size, 0, 'a notice never offers an action whose capability is off');
+  assert.deepEqual(placements(gated, 'diagnostics'), []);
+});
+
+test('React panel: recovery guidance is never an empty list', () => {
+  assert.ok(RECOVERY_STEPS.length > 0);
+  for (const step of RECOVERY_STEPS) assert.ok(typeof step === 'string' && step.trim().length > 0, 'every step has text');
+
+  const calm = sdkState({ pwa: { installed: true, standalone: true } });
+  assert.equal(plan(calm).showRecovery, false, 'no guidance section while there is nothing to recover from');
+  assert.equal(plan(calm).showInstall, false, 'no install entry in an installed app');
+  assert.deepEqual(plan(calm).extraActions, [], 'and no empty extra-action list');
+});
+
+test('React widget renders from the plan and keeps every remaining control wired', () => {
+  assert.match(mainJsx, /from '\.\/panel-actions\.js'/, 'the widget imports the placement rule');
+  assert.match(mainJsx, /planPanelActions\(state, \(id, kind\) => actionEnabled\(state, id, kind\)\)/, 'driven by the SDK capability policy');
+
+  const controls = /<div className="assistant-notice-controls">[\s\S]*?<\/div>/.exec(mainJsx);
   assert.ok(controls, 'the notice controls still render');
-  assert.match(
-    controls[0],
-    /'data-pwa-install': ''/,
-    'an install notice triggers the real install flow through the delegated hook',
-  );
-  assert.match(
-    controls[0],
-    /'data-pwa-diagnostics': ''/,
-    'a diagnostics notice opens the toolkit diagnostics dialog',
-  );
+  assert.match(controls[0], /panelPlan\.noticesWithAction\.has\(notice\.id\)/, 'a notice action renders only when the plan gives it to the notice');
+  // A notice that is the single entry point still performs the action: the
+  // toolkit hooks come from one shared helper, not a per-button copy.
+  assert.match(controls[0], /\{\.\.\.toolkitHook\(notice\.actionId\)\}/, 'the notice button carries the delegated toolkit hook');
   assert.match(controls[0], /noticeActionLabel\(state, notice\)/, 'the label says what the button does');
-  assert.match(jsx, /const NOTICE_ACTION_LABELS = \{/, 'fallback wording lives beside the widget');
-  assert.match(jsx, /NOTICE_ACTION_LABELS\[notice\.actionId\] \|\| 'Open'/, 'an unknown action still reads as Open');
+  assert.match(mainJsx, /const NOTICE_ACTION_LABELS = \{/, 'fallback wording lives beside the widget');
+  assert.match(mainJsx, /NOTICE_ACTION_LABELS\[notice\.actionId\] \|\| 'Open'/, 'an unknown action still reads as Open');
+  assert.match(mainJsx, /install: \{ 'data-pwa-install': '' \}/, 'install reuses the toolkit install flow');
+  assert.match(mainJsx, /diagnostics: \{ 'data-pwa-diagnostics': '' \}/, 'diagnostics reuses the toolkit dialog');
+
+  // One JSX element per toolkit-hooked panel entry.
+  assert.equal((mainJsx.match(/\bdata-pwa-install\b(?!')/g) || []).length, 1, 'one hard-wired install entry');
+  assert.equal((mainJsx.match(/\bdata-pwa-diagnostics\b(?!')/g) || []).length, 1, 'one hard-wired diagnostics entry');
+  assert.match(mainJsx, /\{capabilities\.diagnostics !== false && panelPlan\.showDiagnostics \? \(/);
+  assert.match(mainJsx, /\{panelPlan\.showInstall \? \(/);
+  assert.match(mainJsx, /\{panelPlan\.extraActions\.map\(/);
+  assert.doesNotMatch(mainJsx, /action\.id !== 'diagnostics' && action\.id !== 'install'/, 'the old two-id filter is gone');
+
+  // Recovery guidance is a native disclosure with real steps, skipped when empty.
+  const recovery = /\{panelPlan\.showRecovery \? \([\s\S]*?\) : null\}/.exec(mainJsx);
+  assert.ok(recovery, 'recovery guidance renders from the plan');
+  assert.match(recovery[0], /<details className="assistant-panel-recovery"/);
+  assert.match(recovery[0], /<summary>Recovery guidance<\/summary>/);
+  assert.match(recovery[0], /RECOVERY_STEPS\.map\(\(step\) => <li key=\{step\}>\{step\}<\/li>\)/);
+});
+
+test('React widget leaves Escape to an open toolkit dialog', () => {
+  const handler = /function closeOnEscape\(event\) \{[\s\S]*?\n    \}/.exec(mainJsx);
+  assert.ok(handler, 'the Escape handler exists');
+  assert.match(handler[0], /document\.querySelector\('\.pwa-flow'\)/, 'an open install/diagnostics dialog owns Escape');
+});
+
+test('React widget keeps focus in the panel when the focused control leaves it', () => {
+  assert.match(mainJsx, /ref=\{panelRef\}\s+onFocus=\{trackPanelFocus\}\s+onBlur=\{trackPanelFocus\}/, 'the panel tracks whether focus is inside it');
+  assert.match(mainJsx, /ref=\{closeRef\}/, 'the close button is the fallback focus target');
+  const effect = /useEffect\(\(\) => \{\s*const panel = panelRef\.current;[\s\S]*?\n  \}\);/.exec(mainJsx);
+  assert.ok(effect, 'focus is checked after every render');
+  assert.match(effect[0], /if \(panel\.contains\(document\.activeElement\)\) return;/, 'focus that is still in the panel is left alone');
+  assert.match(effect[0], /focusWasInPanel\.current && document\.activeElement === document\.body/, 'only focus that fell to <body> is recovered, never focus the user moved');
+  assert.match(effect[0], /closeRef\.current\.focus\(\{ preventScroll: true \}\)/);
+});
+
+test('React notice controls sit under the notice text, not in the icon column', () => {
+  const css = readFileSync(new URL('../examples/example/example.css', import.meta.url), 'utf8');
+  assert.match(css, /\.assistant-notice \{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\)/, 'the notice is icon + text');
+  assert.match(css, /\.assistant-notice-controls \{[^}]*grid-column:\s*2;/, 'controls are placed in the text column');
+});
+
+test('the offline alert never covers the Assistant button on a narrow screen', () => {
+  const css = readFileSync(new URL('../examples/example/example.css', import.meta.url), 'utf8');
+  const rule = /@media \(max-width: 991px\) \{\s*body:has\(\.youge-offline-alert:not\(\[hidden\]\)\) \.assistant-widget \{([^}]*)\}/.exec(css);
+  assert.ok(rule, 'the widget moves while the alert is visible');
+  assert.match(rule[1], /bottom:\s*calc\(190px/, 'by lifting it above the alert (10px offset + 170px tall + 10px gap)');
+  // The breakpoint is the alert's own: below it the alert spans the viewport.
+  const pwaCss = readFileSync(new URL('../src/runtime/pwa.css', import.meta.url), 'utf8');
+  assert.match(pwaCss, /@media \(max-width: 991px\) \{\s*\.youge-offline-alert,[\s\S]*?height: 170px !important;/);
 });
 
 /* ------------------------------------------------------------------ *

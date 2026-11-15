@@ -203,6 +203,46 @@ application listens for that event and owns the business logic. Built-in
 `install` and `diagnostics` actions instead delegate to `pwa.js`, preventing
 duplicate prompts and duplicate network checks.
 
+### Where each action is offered
+
+The state deliberately names an action in more than one place: a notice carries
+the `actionId` that resolves it and `availableActions` lists everything the
+project can do. Drawing all of them repeated the same button up to three times,
+so the renderer places each action id by claim order:
+
+1. **Its own section** — `install` in *Installation* (rendered only while
+   `installation.status` is `available`), `diagnostics` and `recovery` in
+   *Diagnostics & recovery*.
+2. **The first notice that refers to it**, when no section offers it
+   (`backup-status`, `update`, `help`, project actions).
+3. **More actions**, for anything published in `availableActions` that has no
+   control yet — for example `update` after its notice was dismissed. The
+   section is not rendered when it would be empty.
+
+One deliberate exception: the **Installation available** card keeps its install
+button beside the *Installation* section. The card is the invitation; the
+section is what remains after the card is dismissed. Installation therefore has
+two entry points while the card is showing, and never a third.
+
+Connection notices (offline, DNS, primary API) explain the condition and keep
+Dismiss / Acknowledge, but do not repeat *Run network diagnostics*; that button
+lives only in *Diagnostics & recovery*. Every control for `install` and
+`diagnostics`, wherever it is rendered, carries the toolkit hook
+(`data-pwa-install`, `data-pwa-diagnostics`); none is an inert label. A section
+with nothing actionable is omitted rather than rendered empty, and the recovery
+steps are only rendered when there are steps to show.
+
+The React example follows the same rule through
+`examples/example/src/panel-actions.js` (`planPanelActions`), which is plain
+data in and out so it is covered by `tests/example-ui.test.mjs`.
+
+A state update re-renders the open panel without disturbing the user: an opened
+*Recovery guidance* or *Adjust icon* disclosure stays open, keyboard focus stays
+on the same control (the install button on the card and the one in the section
+are told apart), and when the focused control leaves with its notice
+(Dismiss, Acknowledge) focus moves to the panel's close button instead of
+falling to the page. Focus outside the panel is never taken.
+
 ---
 
 ## 4.1 Capability enforcement
@@ -238,10 +278,12 @@ is honored by `pwa.js`, the DoH engine and the offline shell (see
   one keypress never closes two layers at once.
 - The panel shows identity/branding, connection status, prioritized notices,
   installation assistance, network diagnostics, recovery guidance and
-  app-specific help. Notice actions reuse the toolkit's delegated hooks
-  (`data-pwa-install`, `data-pwa-diagnostics`) and carry the action's own
-  wording, so a notice button performs the same flow as the section below it
-  instead of being an inert label.
+  app-specific help. Actions are not repeated (see *Where each action is
+  offered* above): a notice shows an action only when no section offers it —
+  the install card being the one deliberate exception — and a notice action
+  reuses the toolkit's delegated hooks (`data-pwa-install`,
+  `data-pwa-diagnostics`) and the action's own wording, so it is never an inert
+  label.
 - Subtle count/tone badge, never a flashing decoration. A visually hidden
   `role="status" aria-live="polite"` region announces a complete contextual
   phrase without moving focus.

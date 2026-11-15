@@ -689,8 +689,12 @@
   .youge-assistant-widget[data-theme="auto"] .youge-btn { color: #0b1220; }
 }
 
-.youge-recovery { border: var(--youge-border-width) solid var(--youge-line); border-radius: var(--youge-radius-small); background: var(--youge-surface-soft); }
-.youge-recovery summary { min-height: 44px; display: flex; align-items: center; padding: 10px 12px; cursor: pointer; font-size: 12.5px; font-weight: 650; }
+/* The panel's two disclosures state every box and type property a host page is
+   likely to set on bare `details` / `summary`. Without this a host rule such as
+   `details { padding: 17px; font-size: 12px; border: 1px solid }` reshaped
+   "Recovery guidance" and "Adjust icon" on that host only. */
+.youge-recovery { margin: 0; padding: 0; font-size: inherit; line-height: inherit; border: var(--youge-border-width) solid var(--youge-line); border-radius: var(--youge-radius-small); background: var(--youge-surface-soft); }
+.youge-recovery summary { min-height: 44px; display: flex; align-items: center; padding: 10px 12px; cursor: pointer; font-size: 12.5px; font-weight: 650; line-height: 1.5; }
 .youge-recovery summary:focus-visible { outline: 3px solid var(--youge-focus); outline-offset: -3px; border-radius: var(--youge-radius-small); }
 .youge-steps { margin: 0; padding: 0 12px 12px 32px; display: grid; gap: 6px; font-size: 12.5px; line-height: 1.45; color: var(--youge-muted); }
 
@@ -810,13 +814,15 @@
  * Native range inputs keep keyboard, touch and pointer on one code path;     *
  * 44px targets and touch-action keep them comfortable on phones.            *
  * -------------------------------------------------------------------------- */
-.youge-adjust { display: grid; gap: 8px; }
+.youge-adjust { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; border-radius: 0; font-size: inherit; line-height: inherit; }
 .youge-adjust > summary {
   display: flex;
   align-items: center;
   min-height: 44px;
   padding: 0;
+  font-size: inherit;
   font-weight: 600;
+  line-height: 1.5;
   cursor: pointer;
 }
 .youge-adjust > summary:focus-visible {

@@ -91,6 +91,12 @@ behavior; they are outside CD-1 and unchanged.
 5. **Renderer enforcement.** The widget and the React example render sections,
    buttons and notice actions only when the capability is enabled, resolve the
    action→capability mapping through the SDK, and re-check before dispatching.
+   Since the 2026-11-15 duplicated-UI audit an enabled action is also not
+   repeated across the panel (section, else notice, else "More actions"; the
+   install card keeps its button — see [`../guides/WIDGET.md`](../guides/WIDGET.md),
+   *Where each action is offered*). Connection notices therefore no longer carry
+   a diagnostics button, so the audit rows above that mention one describe the
+   surface before that change; the gate itself is unchanged.
 
 6. **Runtime backstop.** Because the widget delegates diagnostics to `pwa.js`,
    the toolkit consults the Assistant as well:

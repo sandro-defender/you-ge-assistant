@@ -55,13 +55,29 @@
     update: 'Apply app update',
   };
 
-  // Toolkit hooks delegated by pwa.js. Without the matching attribute a notice
-  // button would only dispatch `youge:action` and appear dead on pages that
-  // rely on the toolkit's own install/diagnostics handling.
-  var NOTICE_ACTION_HOOKS = {
+  // Toolkit hooks delegated by pwa.js. Without the matching attribute a button
+  // would only dispatch `youge:action` and appear dead on pages that rely on
+  // the toolkit's own install/diagnostics handling, so every control for these
+  // actions is built through actionButton(), wherever it is rendered.
+  var ACTION_HOOKS = {
     install: 'data-pwa-install',
     diagnostics: 'data-pwa-diagnostics',
   };
+
+  // Actions a notice offers even though a section offers them too. The
+  // "Installation available" card is the invitation to install, so it keeps its
+  // call to action; the Installation section is where it stays once the card is
+  // dismissed. Everything else has one control (see renderPanel).
+  var NOTICE_AND_SECTION_ACTIONS = { install: true };
+
+  // Shown under "Recovery guidance". Kept as data so the block is skipped
+  // rather than rendered as an empty numbered list if it ever has no steps.
+  var RECOVERY_STEPS = [
+    'Confirm device connectivity and retry diagnostics.',
+    'If a backup endpoint is configured, let the project switch to it.',
+    'If DNS results disagree, check DNS propagation before changing provider settings.',
+    'Contact the project support channel if the primary API stays unavailable.',
+  ];
 
   var mount = null;
   var fab = null;
@@ -228,6 +244,15 @@
     node.type = 'button';
     node.appendChild(icon(iconName || 'custom'));
     node.appendChild(el('span', 'youge-btn-label', label));
+    return node;
+  }
+
+  // The one way an action control is built: the id the delegated click handler
+  // reads, plus the toolkit hook that makes install/diagnostics actually run.
+  function actionButton(id, label, iconName, className) {
+    var node = button(label, iconName, className);
+    node.setAttribute('data-action', id);
+    if (Object.prototype.hasOwnProperty.call(ACTION_HOOKS, id)) node.setAttribute(ACTION_HOOKS[id], '');
     return node;
   }
 
@@ -419,10 +444,9 @@
     }
   }
 
+  // Only called while installation is available: an installed app or a
+  // browser without install support has no Installation section at all.
   function installationText(installation) {
-    if (!installation) return 'Installation status unavailable.';
-    if (installation.installed) return 'This app is already installed. No install suggestion is needed.';
-    if (installation.support === 'none') return 'Installation is unavailable for this project or browser.';
     if (installation.support === 'manual-ios') return 'iPhone/iPad: open Share in Safari, then choose Add to Home Screen.';
     if (installation.support === 'native') return 'This browser offers a native install prompt. Use the install action below.';
     return 'Desktop/mobile: open your browser menu and choose Install app, or Add to Home Screen.';
@@ -509,8 +533,12 @@
     return span;
   }
 
-  function renderNotice(notice, actions, state) {
+  // `claim(id)` answers whether this notice may render a control for an action.
+  // A notice explains its condition; it carries the action only when the panel
+  // does not already offer it (the install card is the one deliberate exception).
+  function renderNotice(notice, actions, state, claim) {
     var article = el('article', 'youge-notice');
+    article.setAttribute('data-notice', String(notice.id));
     var level = noticeLevel(notice);
     article.setAttribute('data-priority', String(notice.priority));
     article.setAttribute('data-tone', notice.tone || 'info');
@@ -520,18 +548,14 @@
     content.appendChild(el('h4', 'youge-notice-title', notice.title));
     content.appendChild(el('p', 'youge-notice-message', notice.message));
     var controls = el('div', 'youge-notice-controls');
-    if (notice.actionId && actionEnabled(state, notice.actionId)) {
+    if (notice.actionId && actionEnabled(state, notice.actionId) && claim(notice.actionId)) {
       var linked = noticeAction(notice, actions || []);
-      var action = button(
+      controls.appendChild(actionButton(
+        notice.actionId,
         (linked && linked.label) || NOTICE_ACTION_LABELS[notice.actionId] || 'Open',
         (linked && linked.icon) || 'custom',
         'youge-btn youge-btn-small'
-      );
-      action.setAttribute('data-action', notice.actionId);
-      // Reuse the toolkit's own delegated handlers so this button actually
-      // performs the action instead of only announcing it on the document.
-      if (NOTICE_ACTION_HOOKS[notice.actionId]) action.setAttribute(NOTICE_ACTION_HOOKS[notice.actionId], '');
-      controls.appendChild(action);
+      ));
     }
     if (notice.critical) {
       var ack = button('Acknowledge', 'recovery', 'youge-btn youge-btn-quiet youge-btn-small');
@@ -547,15 +571,110 @@
     return article;
   }
 
+  // Focus and disclosure state have to survive a re-render: every state
+  // emission rebuilds the panel body, and without this an open "Recovery
+  // guidance" snapped shut and keyboard focus fell out of the dialog.
+  function focusMemory() {
+    var active = doc.activeElement;
+    // Only focus that is inside the panel is ours to restore. A host control
+    // that happens to carry `data-action` keeps its focus.
+    if (!active || !panel || typeof panel.contains !== 'function' || !panel.contains(active)) return null;
+    if (active === closeButton) return { close: true };
+    if (typeof active.getAttribute !== 'function') return {};
+    var attributes = ['data-action', 'data-dismiss', 'data-acknowledge', 'data-adjust', 'data-adjust-reset'];
+    for (var i = 0; i < attributes.length; i += 1) {
+      var value = active.getAttribute(attributes[i]);
+      // The same action can sit on a notice and in a section (install), so the
+      // enclosing notice is part of the control's identity.
+      if (value != null) return { attribute: attributes[i], value: value, notice: noticeIdOf(active) };
+    }
+    if (active.tagName === 'SUMMARY' && active.parentNode) return { summaryOf: active.parentNode.className };
+    return {};
+  }
+
+  function noticeIdOf(node) {
+    var notice = node && typeof node.closest === 'function' ? node.closest('.youge-notice') : null;
+    return notice ? notice.getAttribute('data-notice') : null;
+  }
+
+  // Compared by attribute value instead of an interpolated selector, so an
+  // action id supplied by a project can never produce an invalid selector.
+  // Prefers the control in the same place (same notice, or outside notices);
+  // falls back to the same action elsewhere when that place is gone.
+  function findByAttribute(attribute, value, notice) {
+    var nodes = panelBody.querySelectorAll('[' + attribute + ']');
+    var fallback = null;
+    for (var i = 0; i < nodes.length; i += 1) {
+      if (nodes[i].getAttribute(attribute) !== value) continue;
+      if (noticeIdOf(nodes[i]) === notice) return nodes[i];
+      if (!fallback) fallback = nodes[i];
+    }
+    return fallback;
+  }
+
+  function restoreFocus(memory) {
+    if (!memory) return;
+    var target = null;
+    if (memory.attribute) target = findByAttribute(memory.attribute, memory.value, memory.notice || null);
+    else if (memory.summaryOf) {
+      var disclosures = panelBody.querySelectorAll('details');
+      for (var i = 0; i < disclosures.length; i += 1) {
+        if (disclosures[i].className === memory.summaryOf) target = disclosures[i].querySelector('summary');
+      }
+    }
+    // The focused control can leave with its notice (Dismiss, Acknowledge).
+    // Focus then stays in the dialog instead of dropping to the page.
+    if (!target) target = closeButton;
+    if (target && typeof target.focus === 'function') target.focus();
+  }
+
+  function disclosureOpen(selector) {
+    var node = panelBody.querySelector(selector);
+    return Boolean(node && node.open);
+  }
+
   function renderPanel(state) {
     if (!panelBody || !state) return;
-    var active = doc.activeElement;
-    var focusKey = active && active.getAttribute
-      ? (active.getAttribute('data-action') || active.getAttribute('data-dismiss') ||
-         active.getAttribute('data-acknowledge') || active.getAttribute('data-adjust') ||
-         (active === closeButton ? 'close' : ''))
-      : '';
+    var focus = focusMemory();
+    var recoveryOpen = disclosureOpen('.youge-recovery');
+    var adjustOpen = disclosureOpen('.youge-adjust');
     while (panelBody.firstChild) panelBody.removeChild(panelBody.firstChild);
+
+    var notifications = state.notifications || [];
+    var availableActions = state.availableActions || [];
+    var capabilities = {
+      diagnostics: capabilityEnabled(state, 'diagnostics'),
+      recovery: capabilityEnabled(state, 'recovery') && RECOVERY_STEPS.length > 0,
+      failover: capabilityEnabled(state, 'failover'),
+      help: capabilityEnabled(state, 'help'),
+    };
+    var installable = Boolean(state.installation && state.installation.status === 'available');
+
+    // Where each action is offered. An action id is claimed by the first place
+    // that renders a control for it, in this order: its own section
+    // (Installation, Diagnostics & recovery), then the notice that reports it,
+    // then "More actions" — so nothing is listed a second time and nothing is
+    // dropped. The install card additionally keeps its call to action beside
+    // the Installation section (NOTICE_AND_SECTION_ACTIONS).
+    var claimed = [];
+    function claim(id) {
+      var key = String(id);
+      if (claimed.indexOf(key) !== -1) return false;
+      claimed.push(key);
+      return true;
+    }
+    var offeredOnNotice = [];
+    function claimForNotice(id) {
+      var key = String(id);
+      if (!Object.prototype.hasOwnProperty.call(NOTICE_AND_SECTION_ACTIONS, key)) return claim(key);
+      if (offeredOnNotice.indexOf(key) !== -1) return false; // once among notices
+      offeredOnNotice.push(key);
+      claim(key); // and never again under "More actions"
+      return true;
+    }
+    if (installable) claim('install');
+    if (capabilities.diagnostics) claim('diagnostics');
+    if (capabilities.recovery) claim('recovery');
 
     // Identity / branding
     var identity = el('div', 'youge-identity');
@@ -576,12 +695,6 @@
     var status = section('Connection status', 'Live conditions reported by this project.');
     var statusGrid = el('div', 'youge-status-grid');
     var net = networkText(state);
-    var capabilities = {
-      diagnostics: capabilityEnabled(state, 'diagnostics'),
-      recovery: capabilityEnabled(state, 'recovery'),
-      failover: capabilityEnabled(state, 'failover'),
-      help: capabilityEnabled(state, 'help'),
-    };
     statusGrid.appendChild(statusRow('Network', net.online, state.network.online === false ? 'critical' : 'ok'));
     statusGrid.appendChild(statusRow('Primary API', net.primary, /failed|unavailable|degraded/.test(net.primary) ? 'critical' : 'ok'));
     // Failover UI is not shown when the project disabled it.
@@ -592,86 +705,80 @@
     status.appendChild(statusGrid);
     panelBody.appendChild(status);
 
-    // Prioritized notifications
-    var notices = section('What needs attention', state.notifications.length
+    // Prioritized notifications. The empty state is said once.
+    var notices = section('What needs attention', notifications.length
       ? 'Ordered by priority. Critical recovery stays visible until resolved or acknowledged.'
-      : (capabilities.help || capabilities.diagnostics
-        ? 'No current alerts. The Assistant remains available for help and diagnostics.'
-        : 'No current alerts.'));
-    if (state.notifications.length) {
+      : '');
+    if (notifications.length) {
       var list = el('div', 'youge-notice-list');
-      state.notifications.forEach(function (notice) { list.appendChild(renderNotice(notice, state.availableActions, state)); });
+      notifications.forEach(function (notice) { list.appendChild(renderNotice(notice, availableActions, state, claimForNotice)); });
       notices.appendChild(list);
     } else {
       notices.appendChild(el('p', 'youge-empty', 'All clear — nothing needs your attention right now.'));
     }
     panelBody.appendChild(notices);
 
-    // Installation assistance
-    var install = section('Installation', installationText(state.installation));
-    if (state.installation && state.installation.status === 'available') {
-      var installAction = button(state.installation.nativeAvailable ? 'Install this app' : 'Installation instructions', 'install');
-      installAction.setAttribute('data-action', 'install');
-      installAction.setAttribute('data-pwa-install', '');
-      install.appendChild(installAction);
+    // Installation assistance: the permanent entry point for installing (the
+    // install card above repeats it while that card is showing). There is no
+    // section when nothing can be installed (already installed, unsupported
+    // browser, or the project disabled installation).
+    if (installable) {
+      var install = section('Installation', installationText(state.installation));
+      install.appendChild(actionButton(
+        'install', state.installation.nativeAvailable ? 'Install this app' : 'Installation instructions', 'install'));
+      panelBody.appendChild(install);
     }
-    panelBody.appendChild(install);
 
-    // Network diagnostics + recovery assistance. Both are capability-gated: a
-    // disabled capability renders nothing at all, so there is no hidden button
-    // left for a delegated handler or a stray click to activate.
+    // Network diagnostics + recovery assistance: the single entry point for
+    // both. Each is capability-gated: a disabled capability renders nothing at
+    // all, so there is no hidden button left for a delegated handler or a
+    // stray click to activate.
     if (capabilities.diagnostics || capabilities.recovery) {
       var diagnostics = section('Diagnostics & recovery', 'Checks run only when you choose; no background probing.');
       if (capabilities.diagnostics) {
         var diagnosticsRow = el('div', 'youge-action-row');
-        var diagnosticsButton = button('Run network diagnostics', 'diagnostics');
-        diagnosticsButton.setAttribute('data-action', 'diagnostics');
-        diagnosticsButton.setAttribute('data-pwa-diagnostics', '');
-        diagnosticsRow.appendChild(diagnosticsButton);
+        diagnosticsRow.appendChild(actionButton('diagnostics', 'Run network diagnostics', 'diagnostics'));
         diagnostics.appendChild(diagnosticsRow);
       }
       if (capabilities.recovery) {
         var recovery = el('details', 'youge-recovery');
         recovery.appendChild(el('summary', '', 'Recovery guidance'));
         var steps = el('ol', 'youge-steps');
-        ['Confirm device connectivity and retry diagnostics.',
-          'If a backup endpoint is configured, let the project switch to it.',
-          'If DNS results disagree, check DNS propagation before changing provider settings.',
-          'Contact the project support channel if the primary API stays unavailable.'].forEach(function (step) {
-          steps.appendChild(el('li', '', step));
-        });
+        RECOVERY_STEPS.forEach(function (step) { steps.appendChild(el('li', '', step)); });
         recovery.appendChild(steps);
+        if (recoveryOpen) recovery.open = true;
         diagnostics.appendChild(recovery);
       }
       panelBody.appendChild(diagnostics);
     }
 
-    // App-specific help / available actions
-    var actions = section('Available actions', 'Project-specific actions are published through the centralized state.');
-    if (state.availableActions.length) {
+    // Everything the centralized state publishes that has no control yet:
+    // project-specific actions, plus built-in ones whose notice was dismissed.
+    // The section is omitted when that leaves nothing to list.
+    var extra = [];
+    availableActions.forEach(function (action) {
+      if (action && action.id != null && claim(action.id)) extra.push(action);
+    });
+    if (extra.length) {
+      var actions = section('More actions', 'Other actions available for this project.');
       var actionList = el('div', 'youge-action-list');
-      state.availableActions.forEach(function (action) {
-        var node = button(action.label, action.icon || 'custom');
-        node.setAttribute('data-action', action.id);
+      extra.forEach(function (action) {
+        var node = actionButton(String(action.id), action.label, action.icon || 'custom');
         node.setAttribute('data-kind', action.kind || 'custom');
         if (action.message) node.title = action.message;
         actionList.appendChild(node);
       });
       actions.appendChild(actionList);
-    } else {
-      actions.appendChild(el('p', 'youge-empty', 'No extra actions are configured for this project.'));
+      panelBody.appendChild(actions);
     }
-    panelBody.appendChild(actions);
 
     // Manual icon adjustment (size / horizontal / vertical), collapsed so the
     // main panel still reads at a glance.
-    panelBody.appendChild(renderAdjustSection());
+    var adjust = renderAdjustSection();
+    if (adjustOpen) adjust.open = true;
+    panelBody.appendChild(adjust);
 
-    if (focusKey) {
-      var target = focusKey === 'close' ? closeButton : panelBody.querySelector(
-        '[data-action="' + focusKey + '"], [data-dismiss="' + focusKey + '"], [data-acknowledge="' + focusKey + '"], [data-adjust="' + focusKey + '"]');
-      if (target && typeof target.focus === 'function') target.focus();
-    }
+    restoreFocus(focus);
   }
 
   /* ---------------------------------------------------------------- *
