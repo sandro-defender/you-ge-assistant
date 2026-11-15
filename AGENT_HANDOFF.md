@@ -2,8 +2,8 @@
 
 **Date:** 2026-11-15
 **Branch:** `arena/34c9ca4e-you-ge-assistant`, based on `5f87833de5666ddfc42489169481ce1f946f64bc` (see `git merge-base HEAD main` for authoritative base).
-**Commit / PR:** See `git log -1` and `gh pr view arena/34c9ca4e-you-ge-assistant`; one focused PR against main.
-**Working tree:** Website implementation is ready for commit; local build/browser tooling is ignored.
+**Commit / PR:** Implementation `6d5ee9f`; [PR #46](https://github.com/sandro-defender/you-ge-assistant/pull/46) against main. See `git log -1` for the latest documentation follow-up.
+**Working tree:** Implementation committed and pushed; documentation follow-up is part of this commit. Local build/browser tooling is ignored; the final tree should be clean.
 **Versions:** SDK 0.3.0 and kit 1.2.3 unchanged. npm registry confirms existing 0.3.0 publication; this task publishes nothing.
 
 ## Completed
@@ -34,8 +34,8 @@ on homepage/guide desktop and mobile, plus workspace mobile. Screenshots and aud
 
 ## Limits and exact next action
 
-Open/update the current branch's single PR, inspect GitHub check results, and
-record its URL/status here. Do not merge/deploy/publish/tag/version-bump. Physical
+PR #46 is open. Check its latest `static` job with `gh pr checks 46`; GitHub
+CI was running at the documentation follow-up. Review the PR and screenshots. Do not merge/deploy/publish/tag/version-bump. Physical
 mobile hardware, other browser engines, real install acceptance, production
 Cloudflare DNS/push, and host-owned worker adapters remain separate integration
 checks. Seven GitHub URLs returned 200; npm frontend URLs are allowlist-blocked,

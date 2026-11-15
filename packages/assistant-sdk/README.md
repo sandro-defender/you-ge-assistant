@@ -5,10 +5,10 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status:** SDK `0.3.0` and kit `1.2.3` are prepared in this
-> repository; `0.3.0` has not been published. The latest previously reported
-> npm version is `0.2.0` (checked 2026-11-14). Publishing needs separate approval.
-> See [`MIGRATION.md`](MIGRATION.md) and [`RELEASE.md`](RELEASE.md).
+> **Package status:** SDK `0.3.0` is published on npm (registry verified
+> 2026-11-15). The compatible repository toolkit is `1.2.3`.
+> See [`MIGRATION.md`](MIGRATION.md) for host-owned worker integration and
+> [`RELEASE.md`](RELEASE.md) for the authorization-gated release runbook.
 
 ---
 
@@ -27,7 +27,7 @@ installation integration.
 ### From npm
 
 ```bash
-npm install @youge/assistant-sdk@0.3.0  # after the separately approved npm publication
+npm install @youge/assistant-sdk
 ```
 
 Pin the **exact version** (no `^`/`~`) if you want vendor-pin semantics — the
@@ -654,9 +654,9 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
 - **Publishing is gated, never automatic.** The registry currently reports
-  `0.2.0` as the current package version (checked 2026-11-14). The repository's
-  manual release workflow remains authorization-gated; SDK `0.3.0` is prepared
-  in this repository but has not been published or released. Historical release decisions and the current
+  `0.3.0` as the current package version (checked 2026-11-15). The repository's
+  manual release workflow remains authorization-gated; no publication is needed
+  to consume the existing SDK `0.3.0`. Historical release decisions and the current
   runbook are recorded in [`RELEASE.md`](RELEASE.md).
 - Replacing a vendored SDK copy (e.g. `staff.you.ge`): see
   [`MIGRATION.md`](MIGRATION.md).

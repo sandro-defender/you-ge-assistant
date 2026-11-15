@@ -1,4 +1,4 @@
-> **0.3.0 prepared, not published:** host-owned workers are never registered or
+> **0.3.0 published (registry verified 2026-11-15):** host-owned workers are never registered or
 > replaced by the toolkit. Deployments relying on automatic registration must
 > move registration to the host and opt in to the optional Assistant worker;
 > custom workers use an adapter. See the [migration instructions](../../docs/architecture/PWA_IMPLEMENTATION_AUDIT.md#registration-compatibility-audit-and-migration).

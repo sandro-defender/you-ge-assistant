@@ -3,7 +3,7 @@
 Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and
 `docs/architecture/PAGES_REDESIGN_AUDIT.md`. Work only on
 `arena/34c9ca4e-you-ge-assistant` (base `5f87833`). Review the current branch's
-single PR (`gh pr view arena/34c9ca4e-you-ge-assistant`) and its CI checks. Website
+single [PR #46](https://github.com/sandro-defender/you-ge-assistant/pull/46) and its latest CI checks (`gh pr checks 46`). Website
 implementation is complete: product guide `/example/`, coordinated `/` homepage,
 preserved `/example/workspace.html`, shared navy/violet identity, typed practical
 examples, real interactive SDK panel and screenshots. 572 tests pass locally;
