@@ -975,7 +975,7 @@ test('Phase 3: pwa.js applyTheme, buttons, banners, alerts, reload prompt, and t
 
 test('Phase 3: demo, example, snippet, Vite config, CI workflows, and verification scripts adopt canonical you-ge-sw.js and .youge-install-button', () => {
   assert.match(read('examples/demo/index.html'), /class="youge-install-button"/);
-  assert.match(read('examples/example/index.html'), /class="youge-install-button install-button"/);
+  assert.match(read('examples/example/workspace.html'), /class="youge-install-button install-button"/);
   assert.match(read('examples/example/example.css'), /\.youge-install-button\.install-button/);
   assert.match(read('docs/guides/snippet.html'), /data-sw="\/you-ge-sw\.js"/);
   assert.match(read('examples/example/vite.config.js'), /'you-ge-sw\.js'/);

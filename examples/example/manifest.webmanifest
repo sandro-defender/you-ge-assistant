@@ -1,17 +1,23 @@
 {
-  "name": "Staff Space Example",
-  "short_name": "Staff Space",
+  "name": "You.Ge Assistant Example",
+  "short_name": "Assistant",
   "id": "./",
   "start_url": "./?launchedfrom=homescreen",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "dir": "auto",
   "lang": "en",
-  "description": "A sample installable staff workspace powered by You.Ge Assistant.",
-  "background_color": "#f4f7f4",
-  "theme_color": "#f4f7f4",
-  "categories": ["business", "productivity"],
+  "description": "You.Ge Assistant product showcase, SDK integration guide and workspace example.",
+  "background_color": "#fafaff",
+  "theme_color": "#6942d6",
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",

@@ -7,6 +7,23 @@ Assistant-worker integration requires explicit host registration and opt-in.
 Existing compatibility migrations are described in
 [`COMPATIBILITY_CONTRACTS.md`](../reference/COMPATIBILITY_CONTRACTS.md).
 
+## SDK or classic toolkit?
+
+For a new SDK integration, start with the [product and getting-started guide](https://sandro-defender.github.io/you-ge-assistant/example/).
+`npm install @youge/assistant-sdk` installs the published SDK (0.3.0 verified
+2026-11-15), not the classic UI/worker assets below. The SDK is ESM-only, ships
+TypeScript declarations, and has no core runtime dependencies.
+
+Use `YouGeAssistant.create()` for an isolated instance and
+`YouGeAssistant.attach()` to share the page singleton with classic scripts.
+When changing modules, use
+`assistant.configure({ modules: { ...assistant.getConfig().modules, autoUpdate: false } })`: the
+`modules` override replaces the previous object rather than deep-merging.
+See the [SDK reference](../../packages/assistant-sdk/README.md) for the API.
+
+The remaining checklist is for independently deploying the optional classic
+PWA toolkit. It is not an npm-only initialization recipe.
+
 ## 1. Upload files
 
 Copy the runtime files into the application root (or the app's scoped public

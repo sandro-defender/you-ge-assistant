@@ -19,10 +19,10 @@ required nor used as a DNS test constant.
 install, toolbox, QR, offline recovery, push, share, caches, theme, wording and
 network diagnostics.
 
-**User-facing example:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
-a polished sample staff workspace with a fixed, interactive assistant
-launcher. Its schedule/checklist interactions use sample data stored
-only in the visitor’s browser. The React build dependencies are isolated to `examples/example/`; the core PWA
+**Product & integration guide:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
+discover the product, try the real Assistant, and integrate SDK 0.3.0 with verified
+code examples. The [workspace and theme studio](https://sandro-defender.github.io/you-ge-assistant/example/workspace.html)
+remain available; sample workspace data stays in the visitor’s browser. The React build dependencies are isolated to `examples/example/`; the core PWA
 toolkit remains dependency-free. See [`examples/example/README.md`](examples/example/README.md).
 
 > **For AI coding agents:** start with [`AGENTS.md`](AGENTS.md). It is a
@@ -33,7 +33,7 @@ toolkit remains dependency-free. See [`examples/example/README.md`](examples/exa
 **Platform direction:** You.Ge Assistant is structured as a reusable PWA
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
-(`@youge/assistant-sdk` v`0.3.0` prepared, not yet published) while keeping this repository's dependency-free PWA
+(`@youge/assistant-sdk` v`0.3.0`, published on npm) while keeping this repository's dependency-free PWA
 toolkit (`window.YouGePWA` / `window.PWA`, `/you-ge-sw.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
 production failover engine or `staff.you.ge` modification is implemented here.
@@ -137,8 +137,8 @@ npm install @youge/assistant-sdk
 The package is ESM-only (`"type": "module"`), includes TypeScript declarations,
 and supports Node.js 18 or newer and modern browser bundlers using package
 `exports`/ESM resolution. Use `import`, not `require()`; CommonJS applications
-can use dynamic `import()`. The package metadata is now `0.3.0` (not yet published);
-after separately approved publication, use `npm install @youge/assistant-sdk@0.3.0` to pin it, or
+can use dynamic `import()`. The published package is `0.3.0` (registry verified 2026-11-15);
+use `npm install @youge/assistant-sdk@0.3.0` to pin it, or
 allow npm to select the current version when adding the dependency. React is an
 **optional peer dependency** (`react >=18`) used only by the `/react` adapter;
 the core has no runtime dependencies.

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="410" viewBox="0 0 540 410" fill="none">
+ <defs><linearGradient id="surface" x1="70" y1="0" x2="480" y2="410" gradientUnits="userSpaceOnUse"><stop stop-color="#F4F2FD"/><stop offset="1" stop-color="#E9E9FA"/></linearGradient><linearGradient id="glow" x1="160" y1="160" x2="390" y2="300" gradientUnits="userSpaceOnUse"><stop stop-color="#35314D"/><stop offset="1" stop-color="#161A2D"/></linearGradient></defs>
+ <rect x=".5" y=".5" width="539" height="409" rx="18" fill="url(#surface)" stroke="#E0DCEF"/>
+ <g stroke="#DCD7F0" opacity=".6"><path d="M0 70H540M0 140H540M0 210H540M0 280H540M0 350H540M70 0V410M140 0V410M210 0V410M280 0V410M350 0V410M420 0V410M490 0V410"/></g>
+ <g font-family="system-ui,sans-serif"><text x="30" y="39" fill="#6E658D" font-size="10" letter-spacing="2">ONE INTEGRATION. CONNECTED EXPERIENCES.</text>
+ <rect x="86" y="79" width="368" height="62" rx="9" fill="white" stroke="#D8D2EB"/><circle cx="111" cy="101" r="3" fill="#A895D9"/><circle cx="123" cy="101" r="3" fill="#D6D0E5"/><circle cx="135" cy="101" r="3" fill="#D6D0E5"/><text x="270" y="122" text-anchor="middle" fill="#46415E" font-size="13">Your application</text>
+ <path d="M270 141V177" stroke="#9785CB" stroke-width="1.5" stroke-dasharray="3 4"/>
+ <rect x="121" y="177" width="298" height="91" rx="12" fill="url(#glow)"/>
+ <rect x="144" y="198" width="42" height="42" rx="11" fill="#46405F"/><path d="M155 207h10v10h-10zM167 219h10v10h-10z" fill="#E9E4FF"/><path d="M160 217v7h7" stroke="#AE96F1" stroke-width="2"/><circle cx="174" cy="209" r="5" fill="#BBA5FA"/>
+ <text x="204" y="214" fill="#CABAF3" font-size="9" letter-spacing="1.5">OFFICIAL SDK</text><text x="204" y="235" fill="white" font-size="17">You.Ge Assistant</text>
+ <g stroke="#9785CB" stroke-width="1.5" stroke-dasharray="3 4"><path d="M270 268V291M115 291H425M115 291V306M270 291V306M425 291V306"/></g>
+ <g fill="white" stroke="#D8D2EB"><rect x="49" y="306" width="132" height="42" rx="7"/><rect x="204" y="306" width="132" height="42" rx="7"/><rect x="359" y="306" width="132" height="42" rx="7"/></g>
+ <g fill="#615276" font-size="11" text-anchor="middle"><text x="115" y="332">Installation</text><text x="270" y="332">Diagnostics</text><text x="425" y="332">App status</text></g>
+ <text x="270" y="383" text-anchor="middle" fill="#787188" font-size="9" letter-spacing="1">YOUR FRAMEWORK. YOUR WORKER. YOUR CONTROL.</text></g>
+</svg>

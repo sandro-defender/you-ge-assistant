@@ -1,3 +1,22 @@
+# Next Agent Prompt — review the product website PR
+
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and
+`docs/architecture/PAGES_REDESIGN_AUDIT.md`. Work only on
+`arena/34c9ca4e-you-ge-assistant` (base `5f87833`). Review the current branch's
+single [PR #46](https://github.com/sandro-defender/you-ge-assistant/pull/46) and its latest CI checks (`gh pr checks 46`). Website
+implementation is complete: product guide `/example/`, coordinated `/` homepage,
+preserved `/example/workspace.html`, shared navy/violet identity, typed practical
+examples, real interactive SDK panel and screenshots. 572 tests pass locally; GitHub check run `43665433253` also passed on `05ee8c9`.
+Source, published SDK types, assembly, browser and accessibility checks are
+recorded in the audit. Inspect any CI failure before making a change. Do not
+merge, deploy, publish, tag, bump versions, or change SDK/worker ownership.
+Physical mobile/other browsers and production host adapters remain separately
+authorized follow-up checks, not blockers hidden by the local browser results.
+
+---
+
+## Historical prompt (superseded)
+
 # Next Agent Prompt — review SDK 0.3.0 PWA management
 
 Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`, and the SDK README. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1`, `git status`, and the current branch PR for final state. SDK `0.3.0` and kit `1.2.3` are prepared but not published. PR #44 also documents and tests runtime admin changes through `configure()`; review CI and verify real-browser/staff.you.ge custom-worker and host-registered Assistant-worker behavior when available. Preserve host source, scope, registration, cache and update lifecycle. Do not merge, deploy, publish, tag or release without separate authorization.

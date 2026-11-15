@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#f4f7f4" />
+    <meta
+      name="description"
+      content="A polished, installable sample staff workspace powered by You.Ge Assistant."
+    />
+    <title>Staff Space — Example</title>
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="assistant-symbol.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="example.css" />
+
+    <script src="domain-registry.js" defer></script>
+    <script src="domain-config.js" defer></script>
+    <script src="dns-diagnostics.js" defer></script>
+    <script
+      src="pwa.js"
+      defer
+      data-sw-scope="./"
+      data-manifest="manifest.webmanifest"
+      data-app-name="Staff Space"
+      data-theme-color="#f4f7f4"
+      data-icon="icons/icon-192.png"
+      data-splash-icon="icons/icon-512.png"
+      data-start-url="?launchedfrom=homescreen"
+      data-offline-alert
+      data-auto-update
+    ></script>
+    <!-- Centralized, data-only widget configuration. No dashboard is needed
+         after these scripts initialize. The React renderer below consumes
+         window.YouGeAssistant instead of owning a second state model. -->
+    <script>
+      window.YOU_GE_ASSISTANT_CONFIG = {
+        projectId: 'staff-space-example',
+        position: 'bottom-right',
+        offsets: { x: 16, y: 16 },
+        branding: {
+          name: 'Staff Space',
+          shortName: 'Staff Space',
+          icon: 'icons/icon-192.png',
+          themeColor: '#17634f'
+        },
+        theme: 'light',
+        modules: {
+          installation: true,
+          diagnostics: true,
+          recovery: true,
+          failover: true,
+          help: true,
+          updates: true
+        },
+        notifications: {
+          dismissible: true,
+          suppressRepeats: true,
+          criticalPersistent: true
+        }
+      };
+    </script>
+    <script src="assistant-state.js" defer></script>
+    <script src="example.js" defer></script>
+  <link rel="stylesheet" href="product.css" />
+<script src="product.js" defer></script>
+</head>
+
+  <body><header class="product-header" data-product-header>
+  <div class="product-width product-row">
+    <a class="product-brand" href="./"><img src="assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
+    <nav class="product-nav" id="product-navigation" aria-label="Main navigation">
+      <a href="./">Product</a>
+      <a href="./#features">Features</a>
+      <a href="./#integration">Documentation</a>
+      <a href="../" aria-current="page">Examples</a>
+      <a href="https://github.com/sandro-defender/you-ge-assistant">GitHub ↗</a>
+    </nav>
+    <a class="product-start" href="./#quickstart">Get started <span aria-hidden="true">↗</span></a>
+    <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden>Menu</button>
+  </div>
+</header>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="./" aria-label="Staff Space home">
+          <span class="brand-copy">
+            <strong>Staff Space</strong>
+            <span>TEAM WORKSPACE</span>
+          </span>
+        </a>
+
+        <nav class="main-nav" aria-label="Main navigation">
+          <a href="#today" aria-current="page">My day</a>
+          <a href="#updates">Team updates</a>
+        </nav>
+
+        <div class="header-actions">
+          <button type="button" data-pwa-diagnostics aria-label="Open network diagnostics">Network help</button>
+          <span class="connection-pill" id="connection-status" role="status" aria-live="polite">
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span id="connection-label">Checking connection</span>
+          </span>
+          <span class="app-mode-pill" data-pwa-show-standalone>
+            <span class="connection-dot" aria-hidden="true"></span> Installed app
+          </span>
+          <!-- `.youge-install-button` is the canonical selector: You.Ge Assistant renders and localizes the button. -->
+          <button
+            class="youge-install-button install-button"
+            type="button"
+            data-icons="true"
+            data-install="Install app"
+            data-installed="Open app"
+          >
+            Install app
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="page-shell">
+      <div class="sample-banner">
+        <span class="sample-mark" aria-hidden="true">S</span>
+        <span><strong>Sample workspace</strong> — interactions on this page are stored on this device only.</span>
+      </div>
+
+      <section class="welcome-layout" id="today" aria-labelledby="welcome-title">
+        <div class="welcome-copy">
+          <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span><span id="today-date">YOUR WORKSPACE</span></p>
+          <h1 id="welcome-title">Good morning,<br /><span>your team is here.</span></h1>
+          <p class="welcome-text">
+            Your shift, team updates and daily checklist — together in one simple place, even when your connection drops.
+          </p>
+          <div class="welcome-note">
+            <span class="note-check" aria-hidden="true">✓</span>
+            <span>Install Staff Space for quick access from your home screen.</span>
+          </div>
+        </div>
+
+        <article class="shift-card" aria-labelledby="shift-title">
+          <div class="shift-card-top">
+            <div>
+              <p class="card-kicker">YOUR NEXT SHIFT</p>
+              <h2 id="shift-title">Today’s schedule</h2>
+            </div>
+            <span class="shift-state" id="shift-state">Not checked in</span>
+          </div>
+
+          <div class="shift-time">
+            <time datetime="09:00">09:00</time>
+            <span aria-hidden="true">—</span>
+            <time datetime="17:00">17:00</time>
+          </div>
+          <p class="shift-location"><span aria-hidden="true">⌖</span> Central office <span class="location-divider">·</span> Front desk</p>
+
+          <button class="check-in-button" id="shift-toggle" type="button" aria-pressed="false">
+            Check in
+            <span aria-hidden="true">→</span>
+          </button>
+          <p class="shift-footnote" id="shift-footnote">Sample action — nothing is sent to a server.</p>
+        </article>
+      </section>
+
+      <section class="content-grid" aria-label="Your workspace">
+        <article class="panel checklist-panel" aria-labelledby="checklist-title">
+          <div class="panel-heading">
+            <div>
+              <p class="card-kicker">A FEW THINGS TO GET STARTED</p>
+              <h2 id="checklist-title">Today’s checklist</h2>
+            </div>
+            <span class="count-badge" id="task-count">0 of 3 done</span>
+          </div>
+
+          <div class="progress-track" id="task-progress" role="progressbar" aria-label="Checklist progress" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0">
+            <span id="task-progress-fill"></span>
+          </div>
+
+          <ul class="task-list">
+            <li>
+              <label class="task-row" for="task-handover">
+                <input id="task-handover" type="checkbox" data-checklist-item="handover" />
+                <span class="task-copy"><strong>Review the handover</strong><span>Catch up on the latest team notes</span></span>
+                <span class="task-check" aria-hidden="true">✓</span>
+              </label>
+            </li>
+            <li>
+              <label class="task-row" for="task-briefing">
+                <input id="task-briefing" type="checkbox" data-checklist-item="briefing" />
+                <span class="task-copy"><strong>Check today’s briefing</strong><span>Know what’s happening across the team</span></span>
+                <span class="task-check" aria-hidden="true">✓</span>
+              </label>
+            </li>
+            <li>
+              <label class="task-row" for="task-priorities">
+                <input id="task-priorities" type="checkbox" data-checklist-item="priorities" />
+                <span class="task-copy"><strong>Set your priorities</strong><span>Choose what matters most today</span></span>
+                <span class="task-check" aria-hidden="true">✓</span>
+              </label>
+            </li>
+          </ul>
+          <p class="panel-footnote">Your checklist is saved privately in this browser.</p>
+        </article>
+
+        <article class="panel update-panel" id="updates" aria-labelledby="updates-title">
+          <div class="panel-heading">
+            <div>
+              <p class="card-kicker">FROM YOUR TEAM</p>
+              <h2 id="updates-title">Latest update</h2>
+            </div>
+            <span class="update-icon" aria-hidden="true">✦</span>
+          </div>
+
+          <div class="update-meta"><span class="update-dot" aria-hidden="true"></span> Team note <span>·</span> Today</div>
+          <h3>A little more breathing room</h3>
+          <p class="update-copy">
+            The weekly team catch-up is now at 10:30. Please add any handover points to your notes before then.
+          </p>
+          <div class="update-author">
+            <span class="author-avatar" aria-hidden="true">T</span>
+            <span><strong>Team lead</strong><span>Shared with everyone</span></span>
+          </div>
+        </article>
+      </section>
+
+      <section class="install-callout" aria-labelledby="install-title">
+        <div class="callout-icon" aria-hidden="true">↗</div>
+        <div class="callout-copy">
+          <p class="card-kicker">READY WHEN YOU ARE</p>
+          <h2 id="install-title">Make this your own space.</h2>
+          <p>Add the sample to your home screen for a focused, app-like experience.</p>
+        </div>
+        <button
+          class="youge-install-button install-button install-button-light"
+          type="button"
+          data-icons="true"
+          data-install="Install Staff Space"
+          data-installed="Open Staff Space"
+        >
+          Install Staff Space
+        </button>
+      </section>
+
+      <section class="foundation-section" id="foundation" aria-labelledby="foundation-title">
+        <div class="foundation-head">
+          <p class="card-kicker">PLATFORM FOUNDATION</p>
+          <h2 id="foundation-title">One toolkit, many independent projects.</h2>
+          <p class="foundation-intro">
+            A read-only preview of the future You.Ge Assistant dashboard. Nothing here registers
+            projects or publishes configuration yet — the existing install prompt below still works.
+          </p>
+        </div>
+
+        <div id="assistant-foundation-root">
+          <!-- Static fallback: the same information remains readable without React or JS. -->
+          <div class="foundation-preview" aria-busy="false">
+            <p class="foundation-status" role="status">
+              <span class="foundation-status-dot" aria-hidden="true"></span>
+              <span><strong>Platform reference</strong> · Active origin shown by your browser</span>
+            </p>
+            <div class="foundation-grid">
+              <article class="foundation-card">
+                <div class="foundation-card-inner">
+                  <p class="card-kicker">INSTALLATION</p>
+                  <h3>One install experience, many brands</h3>
+                  <p class="foundation-card-body">Native prompts, iOS Safari steps and desktop QR are driven by browser events and project-specific copy.</p>
+                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Preserved in this toolkit</p>
+                </div>
+              </article>
+              <article class="foundation-card">
+                <div class="foundation-card-inner">
+                  <p class="card-kicker">OFFLINE &amp; DNS</p>
+                  <h3>Scoped caches and honest diagnostics</h3>
+                  <p class="foundation-card-body">Host and scope isolated caches, a precached offline fallback and user-triggered DNS checks.</p>
+                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Bundled in this toolkit</p>
+                </div>
+              </article>
+              <article class="foundation-card">
+                <div class="foundation-card-inner">
+                  <p class="card-kicker">RESILIENCE</p>
+                  <h3>Projects work on their own</h3>
+                  <p class="foundation-card-body">Assistant configuration is optional at runtime. Each project keeps its own authentication and business logic.</p>
+                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Architecture principle</p>
+                </div>
+              </article>
+            </div>
+            <div class="foundation-empty" role="status">
+              <div class="foundation-empty-copy">
+                <strong>No projects registered yet</strong>
+                <p>Project registration, domain verification and configuration publishing arrive with the standalone dashboard.</p>
+              </div>
+              <button class="foundation-empty-action" type="button" disabled>Register a project</button>
+            </div>
+            <div class="foundation-actions">
+              <p class="foundation-actions-copy">Installation still uses the existing You.Ge Assistant prompt flow.</p>
+              <button class="foundation-cta" type="button" data-pwa-install>Install You.Ge Assistant</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="assistant-theme-studio">
+        <!-- Static fallback: the theme documentation stays readable without React. -->
+        <section class="theme-studio" aria-labelledby="theme-studio-fallback-title">
+          <p class="card-kicker">ADAPTIVE THEMING</p>
+          <h2 id="theme-studio-fallback-title">One Assistant, four modes.</h2>
+          <p class="theme-studio-intro">
+            Auto follows the host page and the OS while keeping the You.Ge identity; light and dark pin
+            one theme; custom accepts validated tokens. Enable JavaScript to try each mode, preview
+            light and dark, compare two custom palettes, copy a host website's theme and inspect all
+            five notification levels.
+          </p>
+        </section>
+      </div>
+
+      <p class="playground-link">
+        Looking for the feature test page? <a href="../">Open the You.Ge Assistant playground</a>.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>Staff Space is a sample interface. Check-ins and checklist items are local to this browser.</span>
+        <span>Powered by You.Ge Assistant</span>
+        <span class="footer-attribution">React Bits components · <a href="./THIRD_PARTY_NOTICES.md">Third-party notices</a></span>
+      </div>
+    </footer>
+
+    <div id="assistant-floating-root"></div>
+    <script type="module" src="./src/main.jsx"></script>
+  <footer class="product-footer"><div class="product-width">
+  <a class="product-brand" href="./"><img src="assistant-symbol.svg" width="30" height="30" alt="" />You.Ge <b>Assistant</b></a>
+  <span class="footer-caption">Open source. Thoughtfully connected.</span>
+  <nav aria-label="Footer"><a href="./#integration">Documentation</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE">MIT license</a><a href="https://github.com/sandro-defender/you-ge-assistant/issues">Issues</a><a href="https://www.npmjs.com/package/@youge/assistant-sdk">npm ↗</a></nav>
+</div></footer></body>
+</html>
