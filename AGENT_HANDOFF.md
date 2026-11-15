@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-15
 **Branch:** `arena/9a7feeea-you-ge-assistant`, based on `302c338417ebc1421795c187014413e1f03d85b9`.
-**Commit and PR:** See `git log -1` and `gh pr list --head arena/9a7feeea-you-ge-assistant`.
+**Commit and PR:** PR #44; see `git log -1` and `gh pr view 44` for current commit and CI.
 **Working tree:** See `git status`; build outputs and dependencies are ignored.
 **Versions:** SDK `0.3.0` and kit `1.2.3`, explicitly authorized; neither is published or deployed by this task.
 
@@ -12,9 +12,11 @@ The toolkit never registers, unregisters or replaces a host worker. The host own
 
 SDK `modules` now contains independent `installationDetection`, `installationGuidance`, `updateDetection`, `updateNotifications`, `autoUpdate`, `userUpdate`, `offlineDiagnostics` and `cacheDiagnostics`; optional `modules.extensions` carries safe named boolean flags. Existing broad `installation`/`updates` SDK gates remain. Automatic update still requires the existing explicit toolkit opt-in. Offline diagnostics reports only `navigator.onLine`; cache diagnostics checks presence of the exact Assistant cache names, never host cache contents. Browser bundle regenerated with `npm run sync:sdk`; `AGENTS.md` records permanent ownership and feature-control rules.
 
+An administrator runtime example now shows independent disable/re-enable through the existing instance's `configure()`; it merges the current resolved `modules` because configuration overrides are replaced at the top level. It explains server-side authorization and persistence, startup loading, multi-client propagation and already-running effects. A focused SDK test verifies immediate synchronous state/subscriber updates, independent toggles, no instance recreation and no worker registration.
+
 ## Verification and limitations
 
-`npm run check`: 563/563; `npm run test:sdk`: 134/134. Build, package validation, browser-bundle sync and precache integrity passed (one precached bundle changed; kit 1.2.2 → 1.2.3). Example `npm ci`, typecheck including the 0.3.0 typed adapter example, and build passed; Vite emits classic-script warnings. Node harnesses cover host workers, no worker, registration retries and controls. No browser executable was found; no real-browser, staff.you.ge, or deployed-worker testing was performed. Cache presence is not cache-content health and may differ when an older worker controls the page. No publish, merge, deploy, tag or release occurred.
+`npm run check`: 564/564; `npm run test:sdk`: 135/135. Build, package validation, browser-bundle sync and precache integrity passed (one precached bundle changed; kit 1.2.2 → 1.2.3). Example `npm ci`, typecheck including the 0.3.0 typed adapter example, and build passed; Vite emits classic-script warnings. Node harnesses cover host workers, no worker, registration retries and controls. No browser executable was found; no real-browser, staff.you.ge, or deployed-worker testing was performed. Cache presence is not cache-content health and may differ when an older worker controls the page. No publish, merge, deploy, tag or release occurred.
 
 ## Next action
 

@@ -1,6 +1,6 @@
 # Next Agent Prompt — review SDK 0.3.0 PWA management
 
-Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`, and the SDK README. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1`, `git status`, and the current branch PR for final state. SDK `0.3.0` and kit `1.2.3` are prepared but not published. Review CI and verify real-browser/staff.you.ge custom-worker and host-registered Assistant-worker behavior when available. Preserve host source, scope, registration, cache and update lifecycle. Do not merge, deploy, publish, tag or release without separate authorization.
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`, and the SDK README. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1`, `git status`, and the current branch PR for final state. SDK `0.3.0` and kit `1.2.3` are prepared but not published. PR #44 also documents and tests runtime admin changes through `configure()`; review CI and verify real-browser/staff.you.ge custom-worker and host-registered Assistant-worker behavior when available. Preserve host source, scope, registration, cache and update lifecycle. Do not merge, deploy, publish, tag or release without separate authorization.
 
 ---
 

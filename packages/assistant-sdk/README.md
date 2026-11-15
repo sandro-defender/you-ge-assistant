@@ -422,6 +422,70 @@ versioned static/page cache names, without reading entries or modifying caches.
 Unsupported or unconnected environments return `unavailable`. These two methods
 are independently controlled and do not replace the existing DNS diagnostics.
 
+### Changing settings at runtime
+
+A host administrator's existing application can update the **same** Assistant
+instance using `configure()`. For a page using the classic toolkit and widget,
+`attach()` returns the already-attached instance (or attaches one if absent):
+
+```js
+import { YouGeAssistant } from '@youge/assistant-sdk';
+
+const assistant = YouGeAssistant.attach();
+const unsubscribe = assistant.subscribe((state) => {
+  console.log('Assistant update available:', state.network.updateAvailable);
+});
+
+function setPwaModule(name, enabled) {
+  // configure() replaces the modules override, so retain the other settings.
+  const modules = { ...assistant.getConfig().modules, [name]: enabled };
+  return assistant.configure({ modules });
+}
+
+setPwaModule('updateNotifications', false);
+console.log(assistant.isCapabilityEnabled('updateNotifications')); // false now
+// Update detection and user-controlled activation remain enabled.
+setPwaModule('cacheDiagnostics', false);
+setPwaModule('updateNotifications', true); // cache diagnostics stays disabled
+setPwaModule('cacheDiagnostics', true);
+
+// When the host view unmounts:
+unsubscribe();
+```
+
+`configure()` synchronously resolves settings, returns the new state and notifies
+subscribers when that state changes. Subsequent Assistant actions and capability
+checks use the new values without recreating the instance. Existing dialogs,
+work already started, or an already-sent worker activation are not necessarily
+reversed; for example, disabling `autoUpdate` does not undo an activation already
+requested. These controls never change a host-owned worker or its update logic.
+
+**Persistence and authorization belong to the host application.** Have the
+host's authenticated, authorized admin endpoint validate an allowlist of module
+names and boolean values, save the project's settings, and return the canonical
+settings. After a successful save, pass them to the existing instance:
+
+```js
+// hostAdminApi is the host application's own authenticated API, not an SDK API.
+async function saveAssistantModules(hostAdminApi, modules) {
+  const saved = await hostAdminApi.saveAssistantModules(modules);
+  return assistant.configure({
+    modules: { ...assistant.getConfig().modules, ...saved.modules },
+  });
+}
+```
+
+On a later page load, fetch the saved settings and supply them in `modules` when
+attaching the Assistant. If the classic toolkit may act before the Assistant
+bundle loads, provide the same settings in `window.YOU_GE_ASSISTANT_CONFIG`
+**before** loading `pwa.js`; otherwise a startup auto-update could already have
+been requested. Distribute changes to other open clients through the host's own
+mechanism and call `configure()` there too; the SDK does not persist, authorize,
+or synchronize these local runtime overrides. Treat client settings and local
+storage as untrusted: authorization and concurrency/conflict handling must be
+server-side. A host can use local storage for a non-authoritative cache, but it
+must not grant administrator privileges or override server policy.
+
 ### Module capability enforcement
 
 `modules.diagnostics`, `modules.recovery`, `modules.failover` and `modules.help`

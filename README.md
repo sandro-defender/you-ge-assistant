@@ -191,7 +191,7 @@ configuration options (defaults are from `BUNDLED_DEFAULTS` and normalizers):
 | `domain`, `domainRegistry` | Host is detected when not overridden. Registry entries can customize project identity, branding, PWA settings, feature flags and diagnostics paths for a host/path. Host matching is public configuration, never authorization. |
 | `position`, `offsets` | `bottom-right`; `{ x: 20, y: 20 }`. |
 | `theme` | `auto`; accepts the legacy string modes or a validated theme object. See [`THEMING.md`](docs/guides/THEMING.md). |
-| `modules` | Existing modules plus independent PWA controls; defaults are enabled. `autoUpdate` permits, but does not itself enable, the opt-in toolkit auto-update. No module changes host registration. See [SDK feature controls](packages/assistant-sdk/README.md#pwa-feature-controls-030). |
+| `modules` | Existing modules plus independent PWA controls; defaults are enabled. `autoUpdate` permits, but does not itself enable, the opt-in toolkit auto-update. No module changes host registration. See [SDK feature controls](packages/assistant-sdk/README.md#pwa-feature-controls-030) and the [runtime admin settings example](packages/assistant-sdk/README.md#changing-settings-at-runtime). |
 | `notifications` | `dismissible: true`, `suppressRepeats: true`, `criticalPersistent: true`. |
 | `branding` | Empty overrides; resolved project/domain identity supplies defaults. Fields: `name`, `shortName`, `icon`, `themeColor`. |
 | `actions`, `features` | Empty arrays. Actions are safe data-only entries; features add informational feature announcements. |
