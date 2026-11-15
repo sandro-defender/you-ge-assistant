@@ -42,6 +42,122 @@ test('repository documentation and independent examples use their organized loca
   assert.match(read('.github/workflows/check.yml'), /working-directory: examples\/example/);
 });
 
+/**
+ * The repository validation suite (`npm run check` / `npm test`) includes this
+ * file, which exercises `scripts/assemble-pages.mjs`. That assembly reads
+ * `examples/example/dist/` — a gitignored Vite build artifact — so every CI job
+ * that runs validation on a clean checkout must build the example FIRST. A job
+ * that validates before building fails only in clean CI (a developer's leftover
+ * `dist/` hides it), which is exactly how the release workflow regressed.
+ */
+
+/** Split a workflow file into per-job step lists (top-level `  job:` keys). */
+function workflowJobs(workflowSource) {
+  const lines = workflowSource.split('\n');
+  const jobsStart = lines.findIndex((line) => line.trim() === 'jobs:');
+  assert.notEqual(jobsStart, -1, 'workflow defines a jobs: block');
+
+  const jobs = new Map();
+  let currentJob = null;
+  for (const line of lines.slice(jobsStart + 1)) {
+    const jobHeader = line.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
+    if (jobHeader) {
+      currentJob = jobHeader[1];
+      jobs.set(currentJob, []);
+      continue;
+    }
+    if (!currentJob) continue;
+    const stepStart = line.match(/^ {6}- /);
+    if (stepStart) jobs.get(currentJob).push([line]);
+    else if (jobs.get(currentJob).length > 0) jobs.get(currentJob).at(-1).push(line);
+  }
+  return new Map([...jobs].map(([name, steps]) => [name, steps.map((step) => step.join('\n'))]));
+}
+
+/** Step text without YAML comments, so documentation notes cannot match. */
+const stepCode = (step) =>
+  step
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n');
+
+/** A step running the repository validation suite from the repository root. */
+const isValidationStep = (step) => {
+  const workingDirectory = step.match(/^\s*working-directory:\s*(.+)$/m);
+  if (workingDirectory && !/^examples\/example\s*$/.test(workingDirectory[1].trim())) return false;
+  return /\bnpm run check\b|\bnpm test\b|\bnode scripts\/check\.mjs\b|\bnode --test\b/.test(
+    stepCode(step),
+  );
+};
+
+/** A step that generates `examples/example/dist/` via the example's own build. */
+const isExampleBuildStep = (step) =>
+  /^\s*working-directory:\s*examples\/example\s*$/m.test(step) &&
+  /\bnpm run build\b/.test(stepCode(step));
+
+test('every workflow job builds examples/example before running repository validation', () => {
+  const workflows = ['check.yml', 'pages.yml', 'sdk-release-prep.yml'];
+
+  for (const workflowFile of workflows) {
+    const jobs = workflowJobs(read(`.github/workflows/${workflowFile}`));
+
+    for (const [jobName, steps] of jobs) {
+      const validationIndex = steps.findIndex(isValidationStep);
+      if (validationIndex === -1) continue;
+
+      const buildIndex = steps.findIndex(isExampleBuildStep);
+      const context = `${workflowFile} job "${jobName}"`;
+      assert.notEqual(
+        buildIndex,
+        -1,
+        `${context} runs repository validation but never builds examples/example ` +
+          '(tests/repository-structure.test.mjs needs examples/example/dist)',
+      );
+      assert.ok(
+        buildIndex < validationIndex,
+        `${context} must build examples/example before repository validation ` +
+          `(build is step ${buildIndex + 1}, validation is step ${validationIndex + 1})`,
+      );
+    }
+  }
+});
+
+test('the release verification job builds the example exactly once', () => {
+  const steps = workflowJobs(read('.github/workflows/sdk-release-prep.yml')).get('verify');
+  const buildSteps = steps.filter(isExampleBuildStep);
+  assert.equal(buildSteps.length, 1, 'the verify job must not duplicate the example build');
+  assert.match(
+    buildSteps[0],
+    /run:\s*npm ci && npm run typecheck && npm run build/,
+    'the verify job reuses the documented example install/typecheck/build command',
+  );
+});
+
+test('every workflow job that runs the precache integrity gate checks out full history', () => {
+  // `npm run check` runs scripts/precache-integrity.mjs, which diffs against
+  // `git merge-base <default branch> HEAD`. In a shallow checkout that merge
+  // base does not exist, so the gate reports `skipped` and
+  // tests/identity-migration.test.mjs fails asserting a `pass` verdict. Any job
+  // running the suite therefore needs `fetch-depth: 0`, like check.yml.
+  for (const workflowFile of ['check.yml', 'pages.yml', 'sdk-release-prep.yml']) {
+    const jobs = workflowJobs(read(`.github/workflows/${workflowFile}`));
+
+    for (const [jobName, steps] of jobs) {
+      if (!steps.some(isValidationStep)) continue;
+
+      const checkout = steps.find((step) => /uses:\s*actions\/checkout@/.test(step));
+      const context = `${workflowFile} job "${jobName}"`;
+      assert.ok(checkout, `${context} runs repository validation but has no checkout step`);
+      assert.match(
+        checkout,
+        /^\s*fetch-depth:\s*0\s*$/m,
+        `${context} must check out full history (fetch-depth: 0) so the precache ` +
+          'integrity gate finds a merge base instead of reporting skipped',
+      );
+    }
+  }
+});
+
 test('source files are organized under src/ and public/ while build output preserves all root public URLs', () => {
   const publicFiles = [
     'you-ge-sw.js', 'progressier.js', 'pwa.js', 'pwa.css',
