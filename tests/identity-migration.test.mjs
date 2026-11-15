@@ -242,18 +242,18 @@ function bootCustomWorker({
   };
 }
 
-test('Phase 1: canonical you-ge-sw.js ships kit 1.2.2 and excludes both worker entrypoints from caching', async () => {
+test('Phase 1: canonical you-ge-sw.js ships kit 1.2.3 and excludes both worker entrypoints from caching', async () => {
   assert.equal(existsSync(resolve(root, 'src/runtime/you-ge-sw.js')), true, 'you-ge-sw.js must exist as canonical worker');
   const source = read('src/runtime/you-ge-sw.js');
-  assert.match(source, /const VERSION = '1\.2\.2'/);
+  assert.match(source, /const VERSION = '1\.2\.3'/);
 
   const sw = bootCustomWorker({ scriptName: 'you-ge-sw.js', scope: 'https://app.test/' });
   await sw.install();
   await sw.activate();
 
   assert.deepEqual(sw.caches.names(), [
-    'you-ge-assistant:app.test:%2F:static:v1.2.2',
-    'you-ge-assistant:app.test:%2F:pages:v1.2.2',
+    'you-ge-assistant:app.test:%2F:static:v1.2.3',
+    'you-ge-assistant:app.test:%2F:pages:v1.2.3',
   ]);
   assert.equal(await sw.request('you-ge-sw.js'), null, 'canonical worker script is never intercepted/cached');
   assert.equal(await sw.request('progressier.js'), null, 'legacy worker shim is never intercepted/cached');
@@ -270,8 +270,8 @@ test('Phase 1: progressier.js acts as a subpath-safe importScripts shim to canon
   await sw.activate();
 
   assert.deepEqual(sw.caches.names(), [
-    'you-ge-assistant:app.test:%2Fportal%2F:static:v1.2.2',
-    'you-ge-assistant:app.test:%2Fportal%2F:pages:v1.2.2',
+    'you-ge-assistant:app.test:%2Fportal%2F:static:v1.2.3',
+    'you-ge-assistant:app.test:%2Fportal%2F:pages:v1.2.3',
   ]);
   assert.equal(await sw.request('progressier.js'), null);
   assert.equal(await sw.request('you-ge-sw.js'), null);
@@ -360,10 +360,10 @@ test('Phase 1: worker migrates legacy IndexedDB stores idempotently while keepin
   );
 });
 
-test('Phase 1: precache integrity gate passes with kit 1.2.2 across you-ge-sw.js, pwa.js, package.json, and SDK constants', async () => {
+test('Phase 1: precache integrity gate passes with kit 1.2.3 across you-ge-sw.js, pwa.js, package.json, and SDK constants', async () => {
   const verdict = await runPrecacheIntegrity({ root });
   assert.equal(verdict.status, 'pass', verdict.report);
-  assert.match(verdict.summary, /kit version (?:1\.2\.1 → )?1\.2\.2 synchronized/);
+  assert.match(verdict.summary, /kit version (?:1\.2\.2 → )?1\.2\.3 synchronized/);
 });
 
 /* ------------------------------------------------------------------ *
@@ -706,7 +706,7 @@ test('Phase 2: pwa.js exposes canonical window.YouGePWA alongside window.PWA and
   const youGeOnlyRoot = {
     YouGePWA: {
       __youGePwaKit: true,
-      version: '1.2.2',
+      version: '1.2.3',
       getState: () => ({ standalone: false, installed: false, canInstall: true, hasUpdate: false }),
       onChange: () => () => {},
     },
@@ -714,70 +714,27 @@ test('Phase 2: pwa.js exposes canonical window.YouGePWA alongside window.PWA and
   };
   const summary = readToolkitSummary(youGeOnlyRoot);
   assert.equal(summary.hasPwaToolkit, true, 'readToolkitSummary recognizes window.YouGePWA');
-  assert.equal(summary.pwaVersion, '1.2.2');
+  assert.equal(summary.pwaVersion, '1.2.3');
 
   const assistant = createAssistant({ projectId: 'youge-only' }, { root: youGeOnlyRoot, bindEvents: false });
   assert.equal(assistant.getState().installation.canInstall, true, 'SDK reads install capability from window.YouGePWA');
   assistant.destroy();
 });
 
-test('Phase 2: SW registration uses clean canonical cutover to you-ge-sw.js (root and subpath) while keeping explicit data-sw="/progressier.js" compatibility', async () => {
-  const pwaSource = read('src/runtime/pwa.js');
-  assert.doesNotMatch(pwaSource, /legacy-preserved|swMigrationMode|isLegacyWorkerScriptUrl/, 'pwa.js contains no automatic legacy-worker preservation logic');
-
-  // 1. Fresh/default install -> registers canonical you-ge-sw.js directly without getRegistration lookup
-  let getRegistrationCalled = false;
-  const fresh = bootPwaClient({
-    getRegistration: async () => {
-      getRegistrationCalled = true;
-      return undefined;
-    },
-  });
-  await fresh.win.YouGePWA.register();
-  assert.equal(getRegistrationCalled, false, 'default registration does not probe getRegistration to preserve legacy workers');
-  assert.equal(fresh.registerCalls.length, 1);
-  assert.equal(fresh.registerCalls[0].swUrl, 'https://example.test/you-ge-sw.js');
-  assert.equal(fresh.registerCalls[0].opts.scope, '/');
-  assert.equal('swMigrationMode' in fresh.win.YouGePWA.config, false);
-
-  // 2. Clean canonical cutover: even if a prior /progressier.js worker exists on scope, omitted data-sw registers /you-ge-sw.js
-  const cutover = bootPwaClient({
-    getRegistration: async () => ({
-      scope: 'https://example.test/',
-      active: { scriptURL: 'https://example.test/progressier.js', state: 'activated' },
-    }),
-  });
-  await cutover.win.YouGePWA.register();
-  assert.equal(cutover.registerCalls.length, 1);
-  assert.equal(cutover.registerCalls[0].swUrl, 'https://example.test/you-ge-sw.js', 'default registration always uses canonical you-ge-sw.js');
-
-  // 3. Subpath deployment -> resolves you-ge-sw.js and scope relative to pwa.js directory
-  const subpath = bootPwaClient({
-    href: 'https://example.test/portal/dashboard',
-    scriptSrc: 'https://example.test/portal/pwa.js',
-  });
-  await subpath.win.YouGePWA.register();
-  assert.equal(subpath.registerCalls.length, 1);
-  assert.equal(subpath.registerCalls[0].swUrl, 'https://example.test/portal/you-ge-sw.js');
-  assert.equal(subpath.registerCalls[0].opts.scope, '/portal/');
-
-  // 4. Explicit data-sw="/progressier.js" (and subpath data-sw="progressier.js") still registers the compatibility shim
-  const explicitLegacy = bootPwaClient({
-    dataset: { sw: '/progressier.js' },
-  });
-  await explicitLegacy.win.YouGePWA.register();
-  assert.equal(explicitLegacy.registerCalls.length, 1);
-  assert.equal(explicitLegacy.registerCalls[0].swUrl, 'https://example.test/progressier.js');
-
-  const subpathLegacy = bootPwaClient({
-    href: 'https://example.test/portal/',
-    scriptSrc: 'https://example.test/portal/pwa.js',
-    dataset: { sw: 'progressier.js' },
-  });
-  await subpathLegacy.win.YouGePWA.register();
-  assert.equal(subpathLegacy.registerCalls.length, 1);
-  assert.equal(subpathLegacy.registerCalls[0].swUrl, 'https://example.test/portal/progressier.js');
-  assert.equal(subpathLegacy.registerCalls[0].opts.scope, '/portal/');
+test('worker URL compatibility configuration never replaces existing registrations', async () => {
+  for (const [href, scriptSrc, dataset, expected] of [
+    ['https://example.test/', undefined, {}, 'https://example.test/you-ge-sw.js'],
+    ['https://example.test/portal/', 'https://example.test/portal/pwa.js', {}, 'https://example.test/portal/you-ge-sw.js'],
+    ['https://example.test/', undefined, { sw: '/progressier.js' }, 'https://example.test/progressier.js'],
+    ['https://example.test/portal/', 'https://example.test/portal/pwa.js', { sw: 'progressier.js' }, 'https://example.test/portal/progressier.js'],
+  ]) {
+    const client = bootPwaClient({ href, scriptSrc, dataset, getRegistration: async () => ({
+      scope: new URL(href).origin + '/', active: { scriptURL: 'https://example.test/custom-sw.js' },
+    }) });
+    assert.equal(await client.win.YouGePWA.register(), null);
+    assert.equal(client.registerCalls.length, 0);
+    assert.equal(client.win.YouGePWA.config.swUrl, expected);
+  }
 });
 
 test('Phase 2: banner cookies and welcome localStorage migrate legacy dismissals and mirror writes for rollback safety', () => {
@@ -1054,7 +1011,7 @@ test('Phase 4: COMPATIBILITY_CONTRACTS.md and AGENTS.md establish canonical You.
   }
 
   const agents = read('AGENTS.md');
-  assert.match(agents, /Current runtime version:\s*\*\*1\.2\.2\*\*/);
+  assert.match(agents, /Current runtime version:\s*\*\*1\.2\.3\*\*/);
   assert.match(agents, /you-ge-sw\.js/);
   assert.match(agents, /window\.YouGePWA/);
   assert.match(agents, /temporary migration compatibility only/i);

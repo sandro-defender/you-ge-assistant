@@ -111,7 +111,7 @@ test('the published capabilities record keeps its documented shape', () => {
   const assistant = makeAssistant({ modules: { help: false } });
   const capabilities = assistant.getState().capabilities;
   assert.deepEqual(Object.keys(capabilities).sort(), [
-    'chromeHandoff', 'diagnostics', 'failover', 'help', 'installation', 'recovery', 'updates',
+    'autoUpdate', 'cacheDiagnostics', 'chromeHandoff', 'diagnostics', 'failover', 'help', 'installation', 'installationDetection', 'installationGuidance', 'offlineDiagnostics', 'recovery', 'updateDetection', 'updateNotifications', 'updates', 'userUpdate',
   ]);
   assert.equal(capabilities.help, false);
   assert.equal(capabilities.diagnostics, true);

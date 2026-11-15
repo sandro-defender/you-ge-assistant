@@ -21,15 +21,15 @@ export function deriveInstallationState(options) {
   const opts = options || {};
   const pwa = opts.pwa || null;
   const moduleEnabled = opts.enabled !== false;
-  const state = readPwaSnapshot(pwa);
+  const state = opts.detection === false ? {} : readPwaSnapshot(pwa);
 
   let installed = Boolean(state.installed || state.standalone);
   let canInstall = Boolean(state.canInstall);
   let ios = Boolean(state.ios);
   let safari = Boolean(state.safari);
 
-  try { if (!installed && pwa && typeof pwa.isInstalled === 'function') installed = Boolean(pwa.isInstalled()); } catch (error) { /* ignore */ }
-  try { if (!canInstall && pwa && typeof pwa.canInstall === 'function') canInstall = Boolean(pwa.canInstall()); } catch (error) { /* ignore */ }
+  try { if (opts.detection !== false && !installed && pwa && typeof pwa.isInstalled === 'function') installed = Boolean(pwa.isInstalled()); } catch (error) { /* ignore */ }
+  try { if (opts.detection !== false && !canInstall && pwa && typeof pwa.canInstall === 'function') canInstall = Boolean(pwa.canInstall()); } catch (error) { /* ignore */ }
   try { if (!ios && pwa && typeof pwa.isIOS === 'function') ios = Boolean(pwa.isIOS()); } catch (error) { /* ignore */ }
   try { if (!safari && pwa && typeof pwa.isSafari === 'function') safari = Boolean(pwa.isSafari()); } catch (error) { /* ignore */ }
 

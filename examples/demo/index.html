@@ -380,7 +380,7 @@
           }
 
           var controlled = Boolean(navigator.serviceWorker.controller);
-          set('s-sw', controlled ? 'Active' : state.hasUpdate ? 'Update ready' : 'Registering…', controlled);
+          set('s-sw', controlled ? 'Active' : state.hasUpdate ? 'Update ready' : 'Not controlled', controlled);
         }
 
         PWA.onChange(refresh);
@@ -389,10 +389,12 @@
         setInterval(refresh, 1000);
 
         if (serviceWorkerSupported) {
-          navigator.serviceWorker.ready.then(function () {
-            write('service worker ready');
-            refresh();
-          }).catch(function () {});
+          if (typeof navigator.serviceWorker.getRegistration === 'function') {
+            navigator.serviceWorker.getRegistration().then(function (registration) {
+              write(registration ? 'service worker registration found' : 'no service worker registration');
+              refresh();
+            }).catch(function () { write('service worker registration unavailable'); });
+          }
         } else {
           write('service workers are not supported in this browser');
         }

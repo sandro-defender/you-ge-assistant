@@ -1,3 +1,8 @@
+> **0.3.0 prepared, not published:** host-owned workers are never registered or
+> replaced by the toolkit. Deployments relying on automatic registration must
+> move registration to the host and opt in to the optional Assistant worker;
+> custom workers use an adapter. See the [migration instructions](../../docs/architecture/PWA_IMPLEMENTATION_AUDIT.md#registration-compatibility-audit-and-migration).
+
 # Migrating from the vendored SDK copy to the published package
 
 > **Audience:** `staff.you.ge` (and any consumer that vendors a copy of the
@@ -21,7 +26,7 @@
 > or `0.1.1` pin keeps working unchanged.
 
 Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.md)),
-**kit compatibility `1.2.2`** (`KIT_COMPAT_VERSION` in the repository; the published `0.2.0` reports `1.1.0`), **config schema `1`**.
+**kit compatibility `1.2.3`** (`KIT_COMPAT_VERSION` in the repository; the published `0.2.0` reports `1.1.0`), **config schema `1`**.
 
 ---
 

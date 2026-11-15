@@ -5,13 +5,10 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status:** The npm registry reports `@youge/assistant-sdk@0.2.0`
-> as the current version (checked 2026-11-14). This release adds adaptive
-> theming — four modes, validated custom tokens, optional host adaptation,
-> the `./theme` subpath and notification-level taxonomy. This Stage 5.4 work
-> does not publish or release the package. Historical release procedure and
-> workflow decisions are recorded in [`RELEASE.md`](RELEASE.md).
-> Vendored-copy → package migration (staff.you.ge): [`MIGRATION.md`](MIGRATION.md).
+> **Package status:** SDK `0.3.0` and kit `1.2.3` are prepared in this
+> repository; `0.3.0` has not been published. The latest previously reported
+> npm version is `0.2.0` (checked 2026-11-14). Publishing needs separate approval.
+> See [`MIGRATION.md`](MIGRATION.md) and [`RELEASE.md`](RELEASE.md).
 
 ---
 
@@ -30,7 +27,7 @@ installation integration.
 ### From npm
 
 ```bash
-npm install @youge/assistant-sdk@0.2.0
+npm install @youge/assistant-sdk@0.3.0  # after the separately approved npm publication
 ```
 
 Pin the **exact version** (no `^`/`~`) if you want vendor-pin semantics — the
@@ -354,21 +351,21 @@ isolation layers are described in [`../../THEMING.md`](../../docs/guides/THEMING
 
 ## Update lifecycle and state ownership
 
-The existing PWA toolkit owns service-worker registration and the actual
-waiting-worker lifecycle. It detects a waiting worker, exposes
-`PWA.getState().hasUpdate`, publishes changes through `PWA.onChange()`, and
-emits `pwa:update` after refreshing its state. Applying an update delegates to
-`PWA.applyUpdate()`; the waiting worker receives `SKIP_WAITING`, and the toolkit
-clears availability after the worker activates/disappears. The SDK never
-registers a second worker.
+The host owns its service worker. Neither the SDK nor `pwa.js` registers or
+replaces it. Custom worker updates can be connected through an injected `pwa`
+adapter implementing the existing `getState`, `onChange` and `applyUpdate`
+contracts; the host controls its own update mechanism. For the optional
+host-registered Assistant worker, `data-assistant-worker` opts the classic
+runtime into the existing update protocol. See the [ownership audit and migration guide](../../docs/architecture/PWA_IMPLEMENTATION_AUDIT.md).
 
-`pwa:ready` is dispatched synchronously when `pwa.js` has initialized its API;
-it does not indicate that registration completed. Registration is started at
-window `load` (or immediately for a complete document); await `PWA.ready` for
-the registration attempt. The Assistant binds to an already-present `window.PWA`
-or listens for `pwa:ready` when the toolkit is loaded later. After toolkit
-detection, `refreshState()` notifies `PWA.onChange()` subscribers before the
-`pwa:update` document event is dispatched.
+`pwa:ready` is dispatched synchronously when `pwa.js` initializes its API; it
+does not indicate worker lookup completed. At window `load` (or immediately for
+a complete document), `PWA.ready` resolves to the opted-in matching registration
+or `null`. `PWA.register()` is now a lookup, never a registration; call it again
+after a later host registration to retry attachment (the initial `PWA.ready`
+result remains unchanged). A successful
+update request does not guarantee activation. The fallback reloads only if the
+requested worker has taken control; otherwise the update is retryable.
 
 The SDK's `network.updateAvailable` is a reconciled view, not a second worker
 owner. A boolean toolkit snapshot/change is authoritative; `pwa:update` and
@@ -376,6 +373,118 @@ owner. A boolean toolkit snapshot/change is authoritative; `pwa:update` and
 its explicit state. When that state becomes false, stale Assistant notification
 and action state clears. Repeated identical updates do not emit duplicate state
 snapshots or notifications.
+
+### PWA feature controls (0.3.0)
+
+Use the same validated `modules` configuration for SDK instances and the classic
+integration. For the classic runtime, set `window.YOU_GE_ASSISTANT_CONFIG` before
+loading `pwa.js` and the Assistant browser bundle; call `configure()` on an
+attached Assistant for later changes. No control registers or changes a host worker.
+
+```js
+import { YouGeAssistant } from '@youge/assistant-sdk';
+
+const assistant = YouGeAssistant.create({
+  projectId: 'my-app',
+  modules: {
+    installationDetection: true,
+    installationGuidance: true,
+    updateDetection: true,
+    updateNotifications: true,
+    autoUpdate: false,
+    userUpdate: true,
+    offlineDiagnostics: true,
+    cacheDiagnostics: true,
+    extensions: { reports: false },
+  },
+});
+const offline = await assistant.runOfflineDiagnostics();
+const cache = await assistant.runCacheDiagnostics();
+assistant.destroy();
+```
+
+All eight controls default to `true`, preserving existing behavior. `autoUpdate`
+is permission for the already opt-in `data-auto-update` behavior; it does not
+turn on automatic activation by itself. `installationDetection` masks the
+Assistant's installation state, while `installationGuidance` gates Assistant
+install actions and guidance. `updateDetection` masks Assistant update state and
+events; `updateNotifications` gates notices; `userUpdate` gates Assistant
+activation and refresh actions. Existing `modules.installation` and
+`modules.updates` remain broader legacy SDK gates. Host worker updates and host
+UI are independent of these settings. The optional `extensions` record accepts
+up to 50 safe boolean flags; a future host module can check one with
+`assistant.isCapabilityEnabled('reports')`. Unknown flags default enabled.
+
+`runOfflineDiagnostics()` reports the browser's `navigator.onLine` hint, not a
+network reachability proof. `runCacheDiagnostics()` delegates to an explicit PWA
+adapter; the classic runtime only checks for its opted-in Assistant worker's
+versioned static/page cache names, without reading entries or modifying caches.
+Unsupported or unconnected environments return `unavailable`. These two methods
+are independently controlled and do not replace the existing DNS diagnostics.
+
+### Changing settings at runtime
+
+A host administrator's existing application can update the **same** Assistant
+instance using `configure()`. For a page using the classic toolkit and widget,
+`attach()` returns the already-attached instance (or attaches one if absent):
+
+```js
+import { YouGeAssistant } from '@youge/assistant-sdk';
+
+const assistant = YouGeAssistant.attach();
+const unsubscribe = assistant.subscribe((state) => {
+  console.log('Assistant update available:', state.network.updateAvailable);
+});
+
+function setPwaModule(name, enabled) {
+  // configure() replaces the modules override, so retain the other settings.
+  const modules = { ...assistant.getConfig().modules, [name]: enabled };
+  return assistant.configure({ modules });
+}
+
+setPwaModule('updateNotifications', false);
+console.log(assistant.isCapabilityEnabled('updateNotifications')); // false now
+// Update detection and user-controlled activation remain enabled.
+setPwaModule('cacheDiagnostics', false);
+setPwaModule('updateNotifications', true); // cache diagnostics stays disabled
+setPwaModule('cacheDiagnostics', true);
+
+// When the host view unmounts:
+unsubscribe();
+```
+
+`configure()` synchronously resolves settings, returns the new state and notifies
+subscribers when that state changes. Subsequent Assistant actions and capability
+checks use the new values without recreating the instance. Existing dialogs,
+work already started, or an already-sent worker activation are not necessarily
+reversed; for example, disabling `autoUpdate` does not undo an activation already
+requested. These controls never change a host-owned worker or its update logic.
+
+**Persistence and authorization belong to the host application.** Have the
+host's authenticated, authorized admin endpoint validate an allowlist of module
+names and boolean values, save the project's settings, and return the canonical
+settings. After a successful save, pass them to the existing instance:
+
+```js
+// hostAdminApi is the host application's own authenticated API, not an SDK API.
+async function saveAssistantModules(hostAdminApi, modules) {
+  const saved = await hostAdminApi.saveAssistantModules(modules);
+  return assistant.configure({
+    modules: { ...assistant.getConfig().modules, ...saved.modules },
+  });
+}
+```
+
+On a later page load, fetch the saved settings and supply them in `modules` when
+attaching the Assistant. If the classic toolkit may act before the Assistant
+bundle loads, provide the same settings in `window.YOU_GE_ASSISTANT_CONFIG`
+**before** loading `pwa.js`; otherwise a startup auto-update could already have
+been requested. Distribute changes to other open clients through the host's own
+mechanism and call `configure()` there too; the SDK does not persist, authorize,
+or synchronize these local runtime overrides. Treat client settings and local
+storage as untrusted: authorization and concurrency/conflict handling must be
+server-side. A host can use local storage for a non-authoritative cache, but it
+must not grant administrator privileges or override server policy.
 
 ### Module capability enforcement
 
@@ -546,8 +655,8 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
   runtime line) ↔ the runtime version.
 - **Publishing is gated, never automatic.** The registry currently reports
   `0.2.0` as the current package version (checked 2026-11-14). The repository's
-  manual release workflow remains authorization-gated; this Stage 5.4 task
-  does not publish or release. Historical release decisions and the current
+  manual release workflow remains authorization-gated; SDK `0.3.0` is prepared
+  in this repository but has not been published or released. Historical release decisions and the current
   runbook are recorded in [`RELEASE.md`](RELEASE.md).
 - Replacing a vendored SDK copy (e.g. `staff.you.ge`): see
   [`MIGRATION.md`](MIGRATION.md).

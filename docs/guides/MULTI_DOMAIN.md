@@ -149,7 +149,7 @@ For a root-mounted application:
 <script src="/pwa.js" defer></script>
 ```
 
-For an application mounted under `/portal/`, serve the runtime files in that directory (or provide explicitly configured same-origin paths). Keep the worker inside the app directory when practical. The default worker scope is its own directory; an explicitly broader `data-sw-scope` requires an appropriate `Service-Worker-Allowed` response header and should be used only when needed.
+For an application mounted under `/portal/`, serve the runtime files in that directory (or provide explicitly configured same-origin paths). Keep the worker inside the app directory when practical. The host controls the registration and scope; a broader host-selected scope requires an appropriate `Service-Worker-Allowed` response header. The toolkit does not register a worker or alter its scope.
 
 The browser runtime exposes the resolved context through `PWA.config.domain` and `PWA.getState()` (`hostname`, `origin`, and `basePath`). `PWA.runNetworkDiagnostics()` and `PWA.showNetworkDiagnostics()` always test the active hostname, not a configured sample host.
 

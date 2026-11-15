@@ -1,3 +1,31 @@
+# Agent Handoff — PWA management and SDK 0.3.0 preparation
+
+**Date:** 2026-11-15
+**Branch:** `arena/9a7feeea-you-ge-assistant`, based on `302c338417ebc1421795c187014413e1f03d85b9`.
+**Commit and PR:** PR #44; see `git log -1` and `gh pr view 44` for current commit and CI.
+**Working tree:** See `git status`; build outputs and dependencies are ignored.
+**Versions:** SDK `0.3.0` and kit `1.2.3`, explicitly authorized; neither is published or deployed by this task.
+
+## Completed
+
+The toolkit never registers, unregisters or replaces a host worker. The host owns registration and scope. A host may explicitly register the optional Assistant worker in a deployment without a competing worker and opt in using `data-assistant-worker`. `PWA.register()` and the legacy alias retry safe attachment, and `PWA.ready` retains the first lookup. Custom workers use the existing SDK PWA adapter; see `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md` for exact migration and ownership constraints. The demo no longer waits indefinitely on `navigator.serviceWorker.ready`.
+
+SDK `modules` now contains independent `installationDetection`, `installationGuidance`, `updateDetection`, `updateNotifications`, `autoUpdate`, `userUpdate`, `offlineDiagnostics` and `cacheDiagnostics`; optional `modules.extensions` carries safe named boolean flags. Existing broad `installation`/`updates` SDK gates remain. Automatic update still requires the existing explicit toolkit opt-in. Offline diagnostics reports only `navigator.onLine`; cache diagnostics checks presence of the exact Assistant cache names, never host cache contents. Browser bundle regenerated with `npm run sync:sdk`; `AGENTS.md` records permanent ownership and feature-control rules.
+
+An administrator runtime example now shows independent disable/re-enable through the existing instance's `configure()`; it merges the current resolved `modules` because configuration overrides are replaced at the top level. It explains server-side authorization and persistence, startup loading, multi-client propagation and already-running effects. A focused SDK test verifies immediate synchronous state/subscriber updates, independent toggles, no instance recreation and no worker registration.
+
+## Verification and limitations
+
+`npm run check`: 564/564; `npm run test:sdk`: 135/135. Build, package validation, browser-bundle sync and precache integrity passed (one precached bundle changed; kit 1.2.2 → 1.2.3). Example `npm ci`, typecheck including the 0.3.0 typed adapter example, and build passed; Vite emits classic-script warnings. Node harnesses cover host workers, no worker, registration retries and controls. No browser executable was found; no real-browser, staff.you.ge, or deployed-worker testing was performed. Cache presence is not cache-content health and may differ when an older worker controls the page. No publish, merge, deploy, tag or release occurred.
+
+## Next action
+
+Review the current PR and CI. Separately verify actual browser and staff.you.ge integration and the host's update adapter before approving publication. Do not merge, publish, release, tag or deploy without explicit authorization.
+
+---
+
+## Historical handoff (superseded)
+
 # Agent Handoff — Diagnostics Phase 2 real-world verification
 
 **Date:** 2026-11-15  
