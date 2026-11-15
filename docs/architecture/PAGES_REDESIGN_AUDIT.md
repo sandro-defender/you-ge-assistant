@@ -116,5 +116,5 @@ integration/hardware verification. This redesign intentionally registers no
 worker, requests no push permission, and does not test production host services.
 New product content contains no obsolete product branding. Legacy technical
 identifiers remain unchanged as inventoried in `COMPATIBILITY_CONTRACTS.md`.
-GitHub PR CI status is recorded in the current PR and handoff; no Pages deployment
+GitHub PR #46 check workflow [run 43665433253](https://github.com/sandro-defender/you-ge-assistant/actions/runs/43665433253) passed on commit `05ee8c9`, including independent SDK tests/dry-run, full unit suite, build/typecheck, syntax and manifest checks. Latest-head status is recorded in the PR; no Pages deployment
 or release workflow will be manually dispatched for this task.

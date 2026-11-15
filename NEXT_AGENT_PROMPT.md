@@ -6,8 +6,8 @@ Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and
 single [PR #46](https://github.com/sandro-defender/you-ge-assistant/pull/46) and its latest CI checks (`gh pr checks 46`). Website
 implementation is complete: product guide `/example/`, coordinated `/` homepage,
 preserved `/example/workspace.html`, shared navy/violet identity, typed practical
-examples, real interactive SDK panel and screenshots. 572 tests pass locally;
-source, published SDK types, assembly, browser and accessibility checks are
+examples, real interactive SDK panel and screenshots. 572 tests pass locally; GitHub check run `43665433253` also passed on `05ee8c9`.
+Source, published SDK types, assembly, browser and accessibility checks are
 recorded in the audit. Inspect any CI failure before making a change. Do not
 merge, deploy, publish, tag, bump versions, or change SDK/worker ownership.
 Physical mobile/other browsers and production host adapters remain separately

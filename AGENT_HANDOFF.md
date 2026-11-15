@@ -35,7 +35,7 @@ on homepage/guide desktop and mobile, plus workspace mobile. Screenshots and aud
 ## Limits and exact next action
 
 PR #46 is open. Check its latest `static` job with `gh pr checks 46`; GitHub
-CI was running at the documentation follow-up. Review the PR and screenshots. Do not merge/deploy/publish/tag/version-bump. Physical
+[CI run 43665433253](https://github.com/sandro-defender/you-ge-assistant/actions/runs/43665433253) passed on `05ee8c9` (all static job steps). This final follow-up only records that result. Review the PR and screenshots. Do not merge/deploy/publish/tag/version-bump. Physical
 mobile hardware, other browser engines, real install acceptance, production
 Cloudflare DNS/push, and host-owned worker adapters remain separate integration
 checks. Seven GitHub URLs returned 200; npm frontend URLs are allowlist-blocked,
