@@ -1,3 +1,13 @@
+# Next Agent Prompt — deployment verification follow-up
+
+Read `AGENTS.md` and the current section of `AGENT_HANDOFF.md`. Diagnostics Phase 2 browser verification was performed on branch `arena/2914f4d7-you-ge-assistant` based on merged PR #42; see its PR and `git log -1` for the current commit, and `git status` for the working tree. Kit remains `1.2.2`, SDK package `0.2.0`. Review the PR and its verification evidence; do not merge, deploy, publish, release or tag without explicit approval.
+
+When access is available and separately authorized, verify the actual deployed proxy's encoded-path behavior and the product widget, remote RFC1918 LAN, live Cloudflare DoH, TLS/CORS and other browsers. The completed local browser exercise used a link-local sandbox interface and a local DoH response, not a remote LAN or Cloudflare. Do not weaken the precache integrity gate.
+
+---
+
+## Historical prompt (PR #42; superseded)
+
 # Next Agent Prompt — Review Diagnostics Stage 2
 
 Read `AGENTS.md` and the current section of `AGENT_HANDOFF.md`. PR #42 on `arena/ca1b6b72-you-ge-assistant` contains the stale CI assertion correction and Diagnostics Phase 2 Stage 2, with the owner-authorized synchronized kit `1.2.1 → 1.2.2` bump. SDK package remains `0.2.0`. Check current PR/CI status and review the scoped changes and recorded verification. Do not merge, deploy, publish, release or tag without explicit approval.
