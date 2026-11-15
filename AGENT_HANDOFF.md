@@ -6,19 +6,19 @@
 **Working tree:** See `git status`; build outputs and dependencies are ignored.
 **Versions:** kit `1.2.2`, SDK `0.2.0`, unchanged.
 
-## Completed
+## Current status: feature controls blocked by version constraint
 
-Audited install, update, diagnostics and SDK integration in `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. Corrected the reload fallback to reload only when the requested worker controls the page. Following the additional permanent host-worker requirement, the classic runtime no longer calls service-worker registration: `PWA.register()` and `ready` resolve an explicitly opted-in, already host-registered Assistant worker or `null`. Custom workers are not messaged or updated, and their lifecycle can be integrated via the existing SDK PWA adapter. `data-assistant-worker` is an explicit host assertion and worker URLs must match the Assistant or compatibility shim. `AGENTS.md` records the permanent rule.
+Audited registration call sites and feature controls in `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. `PWA.register()` and its compatibility alias now retry attachment after a host later registers the opted-in Assistant worker; concurrent calls share one lookup, while `PWA.ready` retains its first result. Neither SDK nor classic toolkit registers or takes over a worker. Added tests for late registration, alias behavior, concurrency and failed lookup recovery. Migration instructions explicitly identify affected integrations and host ownership. `AGENTS.md` now also records the permanent independent feature-control rule.
 
-This is a necessary lifecycle behavior change: deployments relying on automatic kit registration must migrate registration to their host and opt in; without it, worker-dependent features are unavailable. A lookup resolving `null` does not retry automatically after later host registration. Do not claim custom workers can be detected by URL alone; opt-in is a host assertion. Kit `1.2.2` and SDK `0.2.0` remain unchanged.
+The requested independent cross-SDK/classic controls are **not implemented**. The current SDK normalizer accepts only known module keys; implementing shared controls and regenerating `src/assistant/assistant-state.js` changes a precached asset. The repository precache gate requires a synchronized kit-version bump, while the user explicitly requires kit `1.2.2` and SDK `0.2.0` unchanged. Do not bypass the gate or invent a parallel classic-only configuration. Request owner direction to reconcile this constraint before proceeding. Existing installation, diagnostics, update and auto-update gates are documented in the audit; cache diagnostics is missing.
 
 ## Checks and limitations
 
-Focused install, SDK integration, identity and foundation tests: 68/68. `npm run check`: 552/552; `npm run build`, `npm run check:precache`, browser bundle sync check, and example `npm ci`, typecheck and build passed (Vite classic-script warnings). No real-browser or deployed-host-worker verification was performed. The audit records installation heuristics and update-detection limitations. The initial PR creation attempt was interrupted; check `gh pr list --head arena/9a7feeea-you-ge-assistant` for current PR state. No merge, deployment, release or publishing was performed.
+`npm run check`: 554/554. `npm run build`, `npm run check:precache`, browser bundle sync check, and example typecheck/build passed (Vite classic-script warnings). Focused install suite: 28/28. No real-browser or deployed-host-worker verification was performed. Initial PR creation was interrupted; the user specifically asked to complete requirements before creating a PR. Do not create one while the feature-control requirement remains blocked.
 
 ## Next action
 
-Review ownership and migration changes, CI and browser integration with a real custom worker and host-managed Assistant worker. Confirm PR state before creating one. Do not merge, deploy, publish, tag, release, change versions or weaken the precache gate without authorization.
+Obtain owner direction on the conflicting fixed-version/precache requirements. Then, within the authorized constraints, design and test independent controls in the existing SDK configuration and integrations, preserve host ownership, update docs and rerun checks. Do not merge, deploy, publish, tag, release, change versions or weaken the precache gate without authorization.
 
 ---
 

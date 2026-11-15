@@ -1057,3 +1057,37 @@ test('opted-in integration degrades safely when lookup is unavailable, empty, or
     assert.equal(await harness.win.PWA.applyUpdate(), false);
   }
 });
+
+test('PWA.register retries lookup after host later registers the opted-in Assistant worker', async () => {
+  const harness = createContext();
+  let hostRegistration;
+  harness.serviceWorker.getRegistration = async () => hostRegistration;
+  assert.equal(await harness.win.PWA.register(), null);
+  assert.equal(await harness.win.PWA.ready, null, 'ready retains the first lookup result');
+  hostRegistration = harness.registration;
+  assert.equal(await harness.win.PWA.register(), hostRegistration, 'later explicit call attaches without a reload');
+  assert.equal(await harness.win.progressier.register(), hostRegistration, 'legacy alias shares the connected registration');
+  assert.equal(harness.serviceWorker.registerCalls.length, 0, 'the host retains registration ownership');
+});
+
+test('concurrent and failed worker lookups can be retried without registering a worker', async () => {
+  const harness = createContext();
+  let calls = 0;
+  let finish;
+  harness.serviceWorker.getRegistration = () => {
+    calls++;
+    return new Promise((resolve) => { finish = resolve; });
+  };
+  const first = harness.win.PWA.register();
+  const second = harness.win.progressier.register();
+  await Promise.resolve();
+  assert.equal(calls, 1);
+  finish(undefined);
+  assert.equal(await first, null);
+  assert.equal(await second, null);
+  harness.serviceWorker.getRegistration = async () => { throw new Error('blocked'); };
+  assert.equal(await harness.win.PWA.register(), null);
+  harness.serviceWorker.getRegistration = async () => harness.registration;
+  assert.equal(await harness.win.PWA.register(), harness.registration);
+  assert.equal(harness.serviceWorker.registerCalls.length, 0);
+});

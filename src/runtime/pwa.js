@@ -254,6 +254,7 @@
     if (!worker || watchedWorkers.indexOf(worker) !== -1 || typeof worker.addEventListener !== 'function') return;
     watchedWorkers.push(worker);
     worker.addEventListener('statechange', function () {
+      if (reg !== registration) return;
       var redundantOrGone = worker.state === 'redundant' || worker.state === 'activated' ||
         (worker.state === 'activating' && !reloading);
       if (!redundantOrGone) return;
@@ -741,13 +742,14 @@
       readyResolve(null);
       return readyPromise;
     }
-    if (registrationAttempt) return readyPromise;
+    if (isAssistantRegistration(registration)) return Promise.resolve(registration);
+    if (registrationAttempt) return registrationAttempt;
     registrationAttempt = Promise.resolve()
       .then(function () { return navigator.serviceWorker.getRegistration(window.location.href); })
       .then(function (reg) {
         if (!isAssistantRegistration(reg)) {
           readyResolve(null);
-          return;
+          return null;
         }
         registration = reg;
         readyResolve(reg);
@@ -766,10 +768,10 @@
 
         reg.addEventListener('updatefound', function () {
           var worker = reg.installing;
-          if (!isAssistantRegistration(reg) || !isAssistantWorker(worker)) return;
+          if (registration !== reg || !isAssistantRegistration(reg) || !isAssistantWorker(worker)) return;
           watchWorkerLifecycle(reg, worker);
           worker.addEventListener('statechange', function () {
-            if (worker.state !== 'installed' || !isAssistantRegistration(reg)) return;
+            if (worker.state !== 'installed' || registration !== reg || !isAssistantRegistration(reg)) return;
             if (!navigator.serviceWorker.controller) return; // first install
             updateAvailable = true;
             updateWorker = reg.waiting || worker;
@@ -780,10 +782,16 @@
             if (config.autoUpdate) applyUpdate();
           });
         });
+        return reg;
       })
       .catch(function (error) {
         log('service worker lookup failed', error);
         readyResolve(null);
+        return null;
+      })
+      .then(function (result) {
+        registrationAttempt = null;
+        return result;
       });
 
     if (!swListenersBound) {
@@ -831,7 +839,7 @@
         }).catch(function () {});
       });
     }
-    return readyPromise;
+    return registrationAttempt;
   }
 
   var lastUpdateCheck = Date.now();
@@ -3481,8 +3489,7 @@
     // service worker
     ready: readyPromise,
     register: function () {
-      if (!registration) register();
-      return readyPromise;
+      return register();
     },
     applyUpdate: applyUpdate,
     hasUpdate: isUpdateAvailable,
@@ -3587,8 +3594,7 @@
         return isStandalone();
       },
       register: function () {
-        if (!registration) register();
-        return readyPromise;
+        return register();
       },
       ready: readyPromise,
       clearAppBadge: clearBadge,

@@ -1,6 +1,6 @@
-# Next Agent Prompt — review PWA worker ownership
+# Next Agent Prompt — resolve feature-control version blocker
 
-Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1`, `git status`, and `gh pr list --head arena/9a7feeea-you-ge-assistant` for commit, working-tree and PR state (the initial PR creation attempt was interrupted). Kit remains `1.2.2`, SDK `0.2.0`. Review the worker-ownership migration and run real-browser tests with custom and host-registered Assistant workers. Preserve host worker source, scope and update lifecycle. Do not merge, deploy, publish, tag, release, bump versions or weaken the precache gate without authorization.
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1` and `git status`. `PWA.register()` retries safe attachment after host registration, but the independently configurable SDK/classic feature controls remain unimplemented: SDK configuration changes require regenerating the precached Assistant bundle, and the integrity gate requires a kit-version bump while the user pinned kit `1.2.2` and SDK `0.2.0`. Ask the owner to reconcile that conflict before implementing. Do not create the PR until the requested work is complete. Preserve host worker source, registration, scope and lifecycle. Do not merge, deploy, publish, tag, release, bump versions or weaken the precache gate without authorization.
 
 ---
 

@@ -12,6 +12,12 @@
 - Integrate custom host workers through explicit, modular host adapters and their existing update mechanism; preserve caching, offline behavior, handlers and framework integrations. Never send Assistant worker protocol messages or force refreshes to a custom worker without a host-owned adapter.
 - A project without a worker may independently and explicitly choose to register the optional Assistant worker. The host owns that registration and its scope; toolkit integration requires explicit consent and must fail safely if the selected worker is not the Assistant worker. Preserve legacy APIs while documenting the necessary behavior change and migration.
 
+### Permanent Assistant feature-control rule
+
+- Use the existing validated Assistant configuration and capability architecture for independent, extensible controls. Cover installation detection/guidance, update detection, notifications, automatic activation, user-controlled update/refresh, offline diagnostics and cache diagnostics; do not build a parallel admin application or competing configuration system.
+- Gate only Assistant-managed behavior, never host worker registration, caching, offline handling or update mechanisms. A disabled capability must not disable unrelated capabilities. Preserve established defaults and compatibility, and keep SDK, classic runtime and integrations consistent. Add focused tests for each control and ownership boundary.
+- This rule is a requirement, not a claim that every listed control is already implemented. Respect the precache-integrity/version gate when extending SDK and bundled runtime code.
+
 ### Task sizing
 
 - One prompt, one independently verifiable objective.

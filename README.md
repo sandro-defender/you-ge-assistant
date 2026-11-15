@@ -336,8 +336,9 @@ sent, not that activation is guaranteed.
 `pwa:ready` means the API initialized, not that a worker was found. At window
 `load` (or immediately for a complete document), `PWA.ready` resolves to an
 opted-in matching registration or `null`. `PWA.register()` retains its signature
-but now initiates the same lookup, never a browser registration. Ensure the host
-has registered its optional worker before this lookup. Existing deployments that
+but now initiates a lookup, never a browser registration. If the host registers
+its optional worker after the initial lookup, call `PWA.register()` again and
+await its result; `PWA.ready` retains the first lookup result. Existing deployments that
 relied on automatic registration must migrate; without a host registration,
 worker-dependent offline/push/update features are unavailable.
 

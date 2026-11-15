@@ -364,7 +364,9 @@ runtime into the existing update protocol. See the [ownership audit and migratio
 `pwa:ready` is dispatched synchronously when `pwa.js` initializes its API; it
 does not indicate worker lookup completed. At window `load` (or immediately for
 a complete document), `PWA.ready` resolves to the opted-in matching registration
-or `null`. `PWA.register()` is now a lookup, never a registration. A successful
+or `null`. `PWA.register()` is now a lookup, never a registration; call it again
+after a later host registration to retry attachment (the initial `PWA.ready`
+result remains unchanged). A successful
 update request does not guarantee activation. The fallback reloads only if the
 requested worker has taken control; otherwise the update is retryable.
 
