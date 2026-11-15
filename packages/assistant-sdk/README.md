@@ -5,13 +5,10 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status:** The npm registry reports `@youge/assistant-sdk@0.2.0`
-> as the current version (checked 2026-11-14). This release adds adaptive
-> theming — four modes, validated custom tokens, optional host adaptation,
-> the `./theme` subpath and notification-level taxonomy. This Stage 5.4 work
-> does not publish or release the package. Historical release procedure and
-> workflow decisions are recorded in [`RELEASE.md`](RELEASE.md).
-> Vendored-copy → package migration (staff.you.ge): [`MIGRATION.md`](MIGRATION.md).
+> **Package status:** SDK `0.3.0` and kit `1.2.3` are prepared in this
+> repository; `0.3.0` has not been published. The latest previously reported
+> npm version is `0.2.0` (checked 2026-11-14). Publishing needs separate approval.
+> See [`MIGRATION.md`](MIGRATION.md) and [`RELEASE.md`](RELEASE.md).
 
 ---
 
@@ -30,7 +27,7 @@ installation integration.
 ### From npm
 
 ```bash
-npm install @youge/assistant-sdk@0.2.0
+npm install @youge/assistant-sdk@0.3.0  # after the separately approved npm publication
 ```
 
 Pin the **exact version** (no `^`/`~`) if you want vendor-pin semantics — the
@@ -377,6 +374,54 @@ its explicit state. When that state becomes false, stale Assistant notification
 and action state clears. Repeated identical updates do not emit duplicate state
 snapshots or notifications.
 
+### PWA feature controls (0.3.0)
+
+Use the same validated `modules` configuration for SDK instances and the classic
+integration. For the classic runtime, set `window.YOU_GE_ASSISTANT_CONFIG` before
+loading `pwa.js` and the Assistant browser bundle; call `configure()` on an
+attached Assistant for later changes. No control registers or changes a host worker.
+
+```js
+import { YouGeAssistant } from '@youge/assistant-sdk';
+
+const assistant = YouGeAssistant.create({
+  projectId: 'my-app',
+  modules: {
+    installationDetection: true,
+    installationGuidance: true,
+    updateDetection: true,
+    updateNotifications: true,
+    autoUpdate: false,
+    userUpdate: true,
+    offlineDiagnostics: true,
+    cacheDiagnostics: true,
+    extensions: { reports: false },
+  },
+});
+const offline = await assistant.runOfflineDiagnostics();
+const cache = await assistant.runCacheDiagnostics();
+assistant.destroy();
+```
+
+All eight controls default to `true`, preserving existing behavior. `autoUpdate`
+is permission for the already opt-in `data-auto-update` behavior; it does not
+turn on automatic activation by itself. `installationDetection` masks the
+Assistant's installation state, while `installationGuidance` gates Assistant
+install actions and guidance. `updateDetection` masks Assistant update state and
+events; `updateNotifications` gates notices; `userUpdate` gates Assistant
+activation and refresh actions. Existing `modules.installation` and
+`modules.updates` remain broader legacy SDK gates. Host worker updates and host
+UI are independent of these settings. The optional `extensions` record accepts
+up to 50 safe boolean flags; a future host module can check one with
+`assistant.isCapabilityEnabled('reports')`. Unknown flags default enabled.
+
+`runOfflineDiagnostics()` reports the browser's `navigator.onLine` hint, not a
+network reachability proof. `runCacheDiagnostics()` delegates to an explicit PWA
+adapter; the classic runtime only checks for its opted-in Assistant worker's
+versioned static/page cache names, without reading entries or modifying caches.
+Unsupported or unconnected environments return `unavailable`. These two methods
+are independently controlled and do not replace the existing DNS diagnostics.
+
 ### Module capability enforcement
 
 `modules.diagnostics`, `modules.recovery`, `modules.failover` and `modules.help`
@@ -546,8 +591,8 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
   runtime line) ↔ the runtime version.
 - **Publishing is gated, never automatic.** The registry currently reports
   `0.2.0` as the current package version (checked 2026-11-14). The repository's
-  manual release workflow remains authorization-gated; this Stage 5.4 task
-  does not publish or release. Historical release decisions and the current
+  manual release workflow remains authorization-gated; SDK `0.3.0` is prepared
+  in this repository but has not been published or released. Historical release decisions and the current
   runbook are recorded in [`RELEASE.md`](RELEASE.md).
 - Replacing a vendored SDK copy (e.g. `staff.you.ge`): see
   [`MIGRATION.md`](MIGRATION.md).

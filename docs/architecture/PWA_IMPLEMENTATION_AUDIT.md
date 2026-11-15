@@ -51,16 +51,24 @@ if (!connected) console.warn('Assistant worker integration was not connected');
 
 A host must coordinate with its own framework, other tabs and registration logic; checking for no registration immediately before registering is not an atomic ownership guarantee. Do not use this recipe on a host with an existing worker. Preserve that worker and use an SDK adapter for its update lifecycle. Calling `register()` without the opt-in, or with a custom worker, returns `null` without registration. `PWA.ready` remains the initial result, so use the returned promise from a later `register()` call after the host has registered. Unsupported browsers and failed lookups return `null`; registration errors in the host's own call remain the host's responsibility. Globals, aliases and method signatures remain, but automatic registration is intentionally no longer backward-compatible because it could replace a host worker.
 
-## Feature-control audit and remaining work
+## Feature controls
 
-| Requested control | Existing capability | Gap |
-| --- | --- | --- |
-| Installation detection and guidance | `modules.installation` gates SDK installation UI/delegation; domain `features.installation` gates classic guidance. | Detection and guidance are not independently configurable across SDK and classic runtime. |
-| Update detection | `modules.updates` gates SDK update presentation and action. | No independent detection gate; the opted-in classic toolkit still observes updates. |
-| Update notifications | `modules.updates` gates SDK update notifications. | Not independent from SDK update action; classic update prompt has separate behavior. |
-| Automatic activation | Classic `data-auto-update` is opt-in and defaults off. | No shared SDK/admin control. |
-| User-controlled update/refresh | SDK `modules.updates` gates `applyUpdate()` and its action; toolkit `applyUpdate()` exists. | No independent shared control. |
-| Offline diagnostics | Existing `modules.diagnostics` and classic domain diagnostics feature gate on-demand DNS/network diagnostics. | No independent offline diagnostics control. |
-| Cache diagnostics | None found. | No existing cache diagnostics or control; design must avoid inspecting or modifying host-owned caches without authorization. |
+SDK `modules` now includes `installationDetection`, `installationGuidance`,
+`updateDetection`, `updateNotifications`, `autoUpdate`, `userUpdate`,
+`offlineDiagnostics` and `cacheDiagnostics`. Each defaults to enabled;
+`autoUpdate` permits the pre-existing opt-in `data-auto-update` and does not
+activate updates by default. Legacy `installation` and `updates` remain broader
+SDK gates. Validated `modules.extensions` supplies named boolean flags for future
+host modules via `isCapabilityEnabled()`. The classic runtime reads the attached
+Assistant's configuration or an early `YOU_GE_ASSISTANT_CONFIG` opt-out.
 
-The SDK configuration normalizer in `packages/assistant-sdk/src/config/index.js` only accepts keys in `BUNDLED_DEFAULTS.modules`; adding consistent independent controls requires SDK changes and regeneration of `src/assistant/assistant-state.js` via `npm run sync:sdk`. That bundle is one of the service worker's 13 precached assets. Repository policy and `npm run check:precache` require a synchronized kit version bump when it changes. The requested pinned kit `1.2.2` and prohibition on weakening the gate therefore block a complete, consistent implementation. No parallel classic-only configuration or unsynchronized SDK behavior was added. Owner direction is needed to reconcile these constraints before implementing and testing the controls; the permanent architectural rule is recorded in `AGENTS.md`.
+Detection controls affect Assistant-reported state, not host worker operation;
+automatic activation remains independently opt-in. Offline diagnostics reports
+only the browser online hint. Cache diagnostics checks presence of the exact
+Assistant-owned caches for the client kit version only when the host opted into
+the Assistant worker; it never inspects or modifies host caches. It does not
+verify cache contents and can report missing caches while an older worker controls
+the page. Existing DNS diagnostics is
+unchanged. See the [SDK guide](../../packages/assistant-sdk/README.md#pwa-feature-controls-030).
+SDK `0.3.0` and kit `1.2.3` are prepared, not published. The generated bundle
+is synchronized and the precache gate validates the authorized version bump.

@@ -292,6 +292,7 @@ function createContext(options = {}) {
     PushManager: function PushManager() {},
     Notification: { permission: 'default' },
   };
+  if (options.sharedConfig) win.YOU_GE_ASSISTANT_CONFIG = options.sharedConfig;
   if (options.domainConfig) {
     win.YouGeDomain = {
       resolve: () => options.domainConfig,
@@ -1090,4 +1091,70 @@ test('concurrent and failed worker lookups can be retried without registering a 
   harness.serviceWorker.getRegistration = async () => harness.registration;
   assert.equal(await harness.win.PWA.register(), harness.registration);
   assert.equal(harness.serviceWorker.registerCalls.length, 0);
+});
+
+test('PWA controls independently gate Assistant updates without touching a host worker', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const harness = createContext({ registration: reg, controller: reg.active, dataset: { autoUpdate: 'true' }, fakeTimers: true });
+  const flags = { autoUpdate: false, updateNotifications: false, userUpdate: true, updateDetection: false };
+  harness.win.YouGeAssistant = { isCapabilityEnabled(name) { return flags[name] !== false; } };
+  await harness.win.PWA.register();
+  assert.equal(waiting.messages.length, 0, 'automatic activation is disabled');
+  assert.equal(harness.win.PWA.hasUpdate(), false, 'detection is hidden');
+  assert.equal(await harness.win.PWA.applyUpdate(), true, 'manual apply remains independent');
+  assert.equal(waiting.messages.length, 1);
+  const custom = createFakeWorker('installed');
+  custom.scriptURL = 'https://example.test/custom-sw.js';
+  const host = createFakeRegistration({ waiting: custom, active: { scriptURL: custom.scriptURL } });
+  const hostHarness = createContext({ hostOwned: true, registration: host, controller: host.active, dataset: { autoUpdate: 'true' }, fakeTimers: true });
+  hostHarness.win.YouGeAssistant = { isCapabilityEnabled() { return true; } };
+  await hostHarness.win.PWA.register();
+  assert.equal(await hostHarness.win.PWA.applyUpdate(), false);
+  assert.equal(custom.messages.length, 0);
+  assert.equal(hostHarness.serviceWorker.registerCalls.length, 0);
+});
+
+test('cache diagnostics examine only opted-in Assistant cache names without changing any cache', async () => {
+  const harness = createContext();
+  const queried = [];
+  harness.win.caches = { has(name) { queried.push(name); return Promise.resolve(name.includes(':static:')); } };
+  const flags = { cacheDiagnostics: true };
+  harness.win.YouGeAssistant = { isCapabilityEnabled(name) { return flags[name] !== false; } };
+  await harness.win.PWA.register();
+  const result = await harness.win.PWA.runCacheDiagnostics();
+  assert.equal(result.status, 'ok');
+  assert.equal(result.staticCache, true);
+  assert.equal(result.pageCache, false);
+  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.3', 'you-ge-assistant:example.test:%2F:pages:v1.2.3']);
+  flags.cacheDiagnostics = false;
+  assert.equal((await harness.win.PWA.runCacheDiagnostics()).status, 'disabled');
+  assert.equal(queried.length, 2);
+  const host = createContext({ hostOwned: true });
+  host.win.caches = { has() { throw new Error('host caches must not be inspected'); } };
+  await host.win.PWA.register();
+  assert.equal((await host.win.PWA.runCacheDiagnostics()).status, 'unavailable');
+});
+
+test('shared config gates auto-update before the Assistant bundle initializes', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const harness = createContext({ registration: reg, controller: reg.active, dataset: { autoUpdate: 'true' }, sharedConfig: { modules: { autoUpdate: false } }, fakeTimers: true });
+  await harness.win.PWA.register();
+  assert.equal(waiting.messages.length, 0);
+  assert.equal(await harness.win.PWA.applyUpdate(), true, 'manual application is still allowed');
+});
+
+test('disabling Assistant update detection stops its background checks without disabling manual apply', async () => {
+  const waiting = createFakeWorker('installed');
+  const reg = createFakeRegistration({ waiting });
+  const harness = createContext({ registration: reg, controller: reg.active, fakeTimers: true, fakeClock: true });
+  harness.win.YouGeAssistant = { isCapabilityEnabled(name) { return name !== 'updateDetection'; } };
+  await harness.win.PWA.register();
+  harness.advanceTime(3600001);
+  harness.doc.dispatch('visibilitychange');
+  assert.equal(reg.updateCalls, 0);
+  assert.equal(harness.win.PWA.hasUpdate(), false);
+  assert.equal(await harness.win.PWA.applyUpdate(), true);
+  assert.equal(waiting.messages.length, 1);
 });

@@ -33,7 +33,7 @@ toolkit remains dependency-free. See [`examples/example/README.md`](examples/exa
 **Platform direction:** You.Ge Assistant is structured as a reusable PWA
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
-(`@youge/assistant-sdk` v`0.2.0`, also the current npm registry version) while keeping this repository's dependency-free PWA
+(`@youge/assistant-sdk` v`0.3.0` prepared, not yet published) while keeping this repository's dependency-free PWA
 toolkit (`window.YouGePWA` / `window.PWA`, `/you-ge-sw.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
 production failover engine or `staff.you.ge` modification is implemented here.
@@ -137,8 +137,8 @@ npm install @youge/assistant-sdk
 The package is ESM-only (`"type": "module"`), includes TypeScript declarations,
 and supports Node.js 18 or newer and modern browser bundlers using package
 `exports`/ESM resolution. Use `import`, not `require()`; CommonJS applications
-can use dynamic `import()`. The package metadata is currently version `0.2.0`;
-use `npm install @youge/assistant-sdk@0.2.0` to pin that release exactly, or
+can use dynamic `import()`. The package metadata is now `0.3.0` (not yet published);
+after separately approved publication, use `npm install @youge/assistant-sdk@0.3.0` to pin it, or
 allow npm to select the current version when adding the dependency. React is an
 **optional peer dependency** (`react >=18`) used only by the `/react` adapter;
 the core has no runtime dependencies.
@@ -191,7 +191,7 @@ configuration options (defaults are from `BUNDLED_DEFAULTS` and normalizers):
 | `domain`, `domainRegistry` | Host is detected when not overridden. Registry entries can customize project identity, branding, PWA settings, feature flags and diagnostics paths for a host/path. Host matching is public configuration, never authorization. |
 | `position`, `offsets` | `bottom-right`; `{ x: 20, y: 20 }`. |
 | `theme` | `auto`; accepts the legacy string modes or a validated theme object. See [`THEMING.md`](docs/guides/THEMING.md). |
-| `modules` | All default to `true`: `installation`, `diagnostics`, `recovery`, `failover`, `help`, `updates`, and `chromeHandoff`. `diagnostics`, `recovery`, `failover` and `help` are **enforced** (see below); the rest gate Assistant UI. None of them change PWA registration. |
+| `modules` | Existing modules plus independent PWA controls; defaults are enabled. `autoUpdate` permits, but does not itself enable, the opt-in toolkit auto-update. No module changes host registration. See [SDK feature controls](packages/assistant-sdk/README.md#pwa-feature-controls-030). |
 | `notifications` | `dismissible: true`, `suppressRepeats: true`, `criticalPersistent: true`. |
 | `branding` | Empty overrides; resolved project/domain identity supplies defaults. Fields: `name`, `shortName`, `icon`, `themeColor`. |
 | `actions`, `features` | Empty arrays. Actions are safe data-only entries; features add informational feature announcements. |

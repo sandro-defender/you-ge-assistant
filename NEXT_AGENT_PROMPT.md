@@ -1,6 +1,6 @@
-# Next Agent Prompt — resolve feature-control version blocker
+# Next Agent Prompt — review SDK 0.3.0 PWA management
 
-Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1` and `git status`. `PWA.register()` retries safe attachment after host registration, but the independently configurable SDK/classic feature controls remain unimplemented: SDK configuration changes require regenerating the precached Assistant bundle, and the integrity gate requires a kit-version bump while the user pinned kit `1.2.2` and SDK `0.2.0`. Ask the owner to reconcile that conflict before implementing. Do not create the PR until the requested work is complete. Preserve host worker source, registration, scope and lifecycle. Do not merge, deploy, publish, tag, release, bump versions or weaken the precache gate without authorization.
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`, and the SDK README. Branch `arena/9a7feeea-you-ge-assistant` is based on `302c338`; see `git log -1`, `git status`, and the current branch PR for final state. SDK `0.3.0` and kit `1.2.3` are prepared but not published. Review CI and verify real-browser/staff.you.ge custom-worker and host-registered Assistant-worker behavior when available. Preserve host source, scope, registration, cache and update lifecycle. Do not merge, deploy, publish, tag or release without separate authorization.
 
 ---
 

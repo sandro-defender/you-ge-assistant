@@ -21,8 +21,8 @@
 
   /* --- core/constants.js --- */
 
-  const SDK_VERSION = '0.2.0';
-  const KIT_COMPAT_VERSION = '1.2.2';
+  const SDK_VERSION = '0.3.0';
+  const KIT_COMPAT_VERSION = '1.2.3';
   const SCHEMA_VERSION = 1;
   const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
   Object.freeze(PRIORITY);
@@ -110,8 +110,11 @@
    */
   function isCapabilityEnabled(modules, capability) {
     const name = String(capability == null ? '' : capability);
-    if (GATED_CAPABILITIES.indexOf(name) === -1) return true;
+    const pwaCapabilities = ['installationDetection', 'installationGuidance', 'updateDetection', 'updateNotifications', 'autoUpdate', 'userUpdate', 'offlineDiagnostics', 'cacheDiagnostics'];
     const record = modules && typeof modules === 'object' ? modules : null;
+    if (GATED_CAPABILITIES.indexOf(name) === -1 && pwaCapabilities.indexOf(name) === -1) {
+      return !record || !record.extensions || record.extensions[name] !== false;
+    }
     return !record || record[name] !== false;
   }
 
@@ -182,6 +185,14 @@
       help: record.help !== false,
       updates: record.updates !== false,
       chromeHandoff: record.chromeHandoff !== false,
+      installationDetection: record.installationDetection !== false,
+      installationGuidance: record.installationGuidance !== false,
+      updateDetection: record.updateDetection !== false,
+      updateNotifications: record.updateNotifications !== false,
+      autoUpdate: record.autoUpdate !== false,
+      userUpdate: record.userUpdate !== false,
+      offlineDiagnostics: record.offlineDiagnostics !== false,
+      cacheDiagnostics: record.cacheDiagnostics !== false,
     };
   }
 
@@ -1913,6 +1924,14 @@
       help: true,
       updates: true,
       chromeHandoff: true,
+      installationDetection: true,
+      installationGuidance: true,
+      updateDetection: true,
+      updateNotifications: true,
+      autoUpdate: true,
+      userUpdate: true,
+      offlineDiagnostics: true,
+      cacheDiagnostics: true,
     },
     notifications: {
       dismissible: true,
@@ -2016,8 +2035,16 @@
     if (source.modules && typeof source.modules === 'object') {
       out.modules = {};
       Object.keys(BUNDLED_DEFAULTS.modules).forEach(function (key) {
-        if (source.modules[key] !== undefined) out.modules[key] = source.modules[key] !== false;
+        if (source.modules[key] !== undefined && (['installationDetection', 'installationGuidance', 'updateDetection', 'updateNotifications', 'autoUpdate', 'userUpdate', 'offlineDiagnostics', 'cacheDiagnostics'].indexOf(key) === -1 || typeof source.modules[key] === 'boolean')) out.modules[key] = source.modules[key] !== false;
       });
+      const extensions = source.modules.extensions;
+      if (extensions && typeof extensions === 'object' && !Array.isArray(extensions)) {
+        const valid = {};
+        Object.keys(extensions).slice(0, 50).forEach(function (key) {
+          if (/^[a-z][a-zA-Z0-9_-]{0,63}$/.test(key) && key !== 'constructor' && key !== 'prototype' && typeof extensions[key] === 'boolean') valid[key] = extensions[key];
+        });
+        out.modules.extensions = valid;
+      }
     }
     if (source.notifications && typeof source.notifications === 'object') {
       out.notifications = {};
@@ -2652,15 +2679,15 @@
     const opts = options || {};
     const pwa = opts.pwa || null;
     const moduleEnabled = opts.enabled !== false;
-    const state = readPwaSnapshot(pwa);
+    const state = opts.detection === false ? {} : readPwaSnapshot(pwa);
 
     let installed = Boolean(state.installed || state.standalone);
     let canInstall = Boolean(state.canInstall);
     let ios = Boolean(state.ios);
     let safari = Boolean(state.safari);
 
-    try { if (!installed && pwa && typeof pwa.isInstalled === 'function') installed = Boolean(pwa.isInstalled()); } catch (error) { /* ignore */ }
-    try { if (!canInstall && pwa && typeof pwa.canInstall === 'function') canInstall = Boolean(pwa.canInstall()); } catch (error) { /* ignore */ }
+    try { if (opts.detection !== false && !installed && pwa && typeof pwa.isInstalled === 'function') installed = Boolean(pwa.isInstalled()); } catch (error) { /* ignore */ }
+    try { if (opts.detection !== false && !canInstall && pwa && typeof pwa.canInstall === 'function') canInstall = Boolean(pwa.canInstall()); } catch (error) { /* ignore */ }
     try { if (!ios && pwa && typeof pwa.isIOS === 'function') ios = Boolean(pwa.isIOS()); } catch (error) { /* ignore */ }
     try { if (!safari && pwa && typeof pwa.isSafari === 'function') safari = Boolean(pwa.isSafari()); } catch (error) { /* ignore */ }
 
@@ -3444,11 +3471,11 @@
           message: 'The primary endpoint is healthy again.', actionId: 'diagnostics',
         }, 'api:primary-restored');
       }
-      if (config.modules.updates && network.updateAvailable) {
+      if (config.modules.updates && capabilityEnabled('updateNotifications') && network.updateAvailable) {
         add({
           id: 'app:update', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
           critical: false, dismissible: true, title: 'App update available',
-          message: 'A new version is ready to apply.', actionId: 'update',
+          message: 'A new version is ready to apply.', actionId: capabilityEnabled('userUpdate') ? 'update' : undefined,
         }, 'app:update');
       }
       config.features.forEach(function (feature) {
@@ -3508,7 +3535,7 @@
           kind: 'backup', event: EVENT_NAMES.action, message: 'The project is using its backup endpoint.',
         });
       }
-      if (config.modules.updates && network.updateAvailable) {
+      if (config.modules.updates && capabilityEnabled('userUpdate') && network.updateAvailable) {
         add({
           id: 'update', label: 'Apply app update', icon: 'update', priority: 5,
           kind: 'update', event: EVENT_NAMES.action, message: 'Activate the waiting service worker update.',
@@ -3540,7 +3567,8 @@
       }
       const installation = deriveInstallationState({
         pwa: pwa,
-        enabled: config.modules.installation,
+        enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
+        detection: capabilityEnabled('installationDetection'),
       });
       const dns = {
         status: conditions.dns.status,
@@ -3563,7 +3591,7 @@
         // The toolkit records a waiting worker in its own snapshot before (or
         // without) a `pwa:update` event, so seed from it: otherwise an update
         // detected before the assistant bound stays invisible forever.
-        updateAvailable: conditions.updateAvailable || pwaHasUpdate === true,
+        updateAvailable: capabilityEnabled('updateDetection') && (conditions.updateAvailable || pwaHasUpdate === true),
         recovery: conditions.recovery,
       };
       const notifications = buildNotifications(project, installation, network);
@@ -3874,7 +3902,7 @@
       if (destroyed) return Promise.resolve({ outcome: 'unsupported' });
       return requestPwaInstall({
         pwa: getPwa(),
-        enabled: config.modules.installation,
+        enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
       }, promptOptions);
     }
 
@@ -3882,7 +3910,7 @@
       if (destroyed) return Promise.resolve({ applied: false, outcome: 'unsupported' });
       return requestPwaUpdate({
         pwa: getPwa(),
-        enabled: config.modules.updates !== false,
+        enabled: config.modules.updates !== false && capabilityEnabled('userUpdate'),
       }).then(function (result) {
         if (!destroyed && result && !result.applied && result.outcome === 'no-waiting-worker') {
           const pwa = getPwa();
@@ -3898,6 +3926,27 @@
         }
         return result;
       });
+    }
+
+    function runOfflineDiagnostics() {
+      if (destroyed) return Promise.resolve({ status: 'unavailable' });
+      if (!capabilityEnabled('offlineDiagnostics')) return Promise.resolve({ status: 'disabled' });
+      const nav = getNavigator();
+      const online = nav && typeof nav.onLine === 'boolean' ? nav.onLine : null;
+      return Promise.resolve({ status: online === null ? 'unavailable' : (online ? 'online' : 'offline'), online: online });
+    }
+
+    function runCacheDiagnostics() {
+      if (destroyed) return Promise.resolve({ status: 'unavailable' });
+      if (!capabilityEnabled('cacheDiagnostics')) return Promise.resolve({ status: 'disabled' });
+      const pwa = getPwa();
+      if (!pwa || typeof pwa.runCacheDiagnostics !== 'function') return Promise.resolve({ status: 'unavailable' });
+      try {
+        return Promise.resolve(pwa.runCacheDiagnostics()).then(function (result) {
+          if (destroyed || !capabilityEnabled('cacheDiagnostics')) return { status: 'disabled' };
+          return result;
+        }, function () { return { status: 'unavailable' }; });
+      } catch (error) { return Promise.resolve({ status: 'unavailable' }); }
     }
 
     function dismiss(id) {
@@ -4031,6 +4080,8 @@
       setDnsResult: setDnsResult,
       setUpdateAvailable: setUpdateAvailable,
       runDiagnostics: runDiagnostics,
+      runOfflineDiagnostics: runOfflineDiagnostics,
+      runCacheDiagnostics: runCacheDiagnostics,
       // Read-only capability introspection, used by renderers and by the classic
       // runtime files that delegate to the toolkit (pwa.js, offline.js, DoH).
       isCapabilityEnabled: function (capability) { return capabilityEnabled(capability); },

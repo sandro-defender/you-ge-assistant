@@ -466,11 +466,11 @@ export function createAssistant(initialOptions, envOverrides) {
         message: 'The primary endpoint is healthy again.', actionId: 'diagnostics',
       }, 'api:primary-restored');
     }
-    if (config.modules.updates && network.updateAvailable) {
+    if (config.modules.updates && capabilityEnabled('updateNotifications') && network.updateAvailable) {
       add({
         id: 'app:update', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
         critical: false, dismissible: true, title: 'App update available',
-        message: 'A new version is ready to apply.', actionId: 'update',
+        message: 'A new version is ready to apply.', actionId: capabilityEnabled('userUpdate') ? 'update' : undefined,
       }, 'app:update');
     }
     config.features.forEach(function (feature) {
@@ -530,7 +530,7 @@ export function createAssistant(initialOptions, envOverrides) {
         kind: 'backup', event: EVENT_NAMES.action, message: 'The project is using its backup endpoint.',
       });
     }
-    if (config.modules.updates && network.updateAvailable) {
+    if (config.modules.updates && capabilityEnabled('userUpdate') && network.updateAvailable) {
       add({
         id: 'update', label: 'Apply app update', icon: 'update', priority: 5,
         kind: 'update', event: EVENT_NAMES.action, message: 'Activate the waiting service worker update.',
@@ -562,7 +562,8 @@ export function createAssistant(initialOptions, envOverrides) {
     }
     const installation = deriveInstallationState({
       pwa: pwa,
-      enabled: config.modules.installation,
+      enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
+      detection: capabilityEnabled('installationDetection'),
     });
     const dns = {
       status: conditions.dns.status,
@@ -585,7 +586,7 @@ export function createAssistant(initialOptions, envOverrides) {
       // The toolkit records a waiting worker in its own snapshot before (or
       // without) a `pwa:update` event, so seed from it: otherwise an update
       // detected before the assistant bound stays invisible forever.
-      updateAvailable: conditions.updateAvailable || pwaHasUpdate === true,
+      updateAvailable: capabilityEnabled('updateDetection') && (conditions.updateAvailable || pwaHasUpdate === true),
       recovery: conditions.recovery,
     };
     const notifications = buildNotifications(project, installation, network);
@@ -896,7 +897,7 @@ export function createAssistant(initialOptions, envOverrides) {
     if (destroyed) return Promise.resolve({ outcome: 'unsupported' });
     return requestPwaInstall({
       pwa: getPwa(),
-      enabled: config.modules.installation,
+      enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
     }, promptOptions);
   }
 
@@ -904,7 +905,7 @@ export function createAssistant(initialOptions, envOverrides) {
     if (destroyed) return Promise.resolve({ applied: false, outcome: 'unsupported' });
     return requestPwaUpdate({
       pwa: getPwa(),
-      enabled: config.modules.updates !== false,
+      enabled: config.modules.updates !== false && capabilityEnabled('userUpdate'),
     }).then(function (result) {
       if (!destroyed && result && !result.applied && result.outcome === 'no-waiting-worker') {
         const pwa = getPwa();
@@ -920,6 +921,27 @@ export function createAssistant(initialOptions, envOverrides) {
       }
       return result;
     });
+  }
+
+  function runOfflineDiagnostics() {
+    if (destroyed) return Promise.resolve({ status: 'unavailable' });
+    if (!capabilityEnabled('offlineDiagnostics')) return Promise.resolve({ status: 'disabled' });
+    const nav = getNavigator();
+    const online = nav && typeof nav.onLine === 'boolean' ? nav.onLine : null;
+    return Promise.resolve({ status: online === null ? 'unavailable' : (online ? 'online' : 'offline'), online: online });
+  }
+
+  function runCacheDiagnostics() {
+    if (destroyed) return Promise.resolve({ status: 'unavailable' });
+    if (!capabilityEnabled('cacheDiagnostics')) return Promise.resolve({ status: 'disabled' });
+    const pwa = getPwa();
+    if (!pwa || typeof pwa.runCacheDiagnostics !== 'function') return Promise.resolve({ status: 'unavailable' });
+    try {
+      return Promise.resolve(pwa.runCacheDiagnostics()).then(function (result) {
+        if (destroyed || !capabilityEnabled('cacheDiagnostics')) return { status: 'disabled' };
+        return result;
+      }, function () { return { status: 'unavailable' }; });
+    } catch (error) { return Promise.resolve({ status: 'unavailable' }); }
   }
 
   function dismiss(id) {
@@ -1053,6 +1075,8 @@ export function createAssistant(initialOptions, envOverrides) {
     setDnsResult: setDnsResult,
     setUpdateAvailable: setUpdateAvailable,
     runDiagnostics: runDiagnostics,
+    runOfflineDiagnostics: runOfflineDiagnostics,
+    runCacheDiagnostics: runCacheDiagnostics,
     // Read-only capability introspection, used by renderers and by the classic
     // runtime files that delegate to the toolkit (pwa.js, offline.js, DoH).
     isCapabilityEnabled: function (capability) { return capabilityEnabled(capability); },

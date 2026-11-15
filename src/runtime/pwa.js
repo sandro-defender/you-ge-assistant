@@ -284,10 +284,10 @@
 
   function getState() {
     return {
-      standalone: isStandalone(),
-      installed: installed || isStandalone(),
-      canInstall: Boolean(installPromptEvent),
-      hasUpdate: isUpdateAvailable(),
+      standalone: assistantCapabilityEnabled('installationDetection') && isStandalone(),
+      installed: assistantCapabilityEnabled('installationDetection') && (installed || isStandalone()),
+      canInstall: assistantCapabilityEnabled('installationDetection') && Boolean(installPromptEvent),
+      hasUpdate: assistantCapabilityEnabled('updateDetection') && isUpdateAvailable(),
       ios: isIOS(),
       safari: isSafari(),
       launchSource: launchSource,
@@ -324,7 +324,7 @@
   function refreshDom() {
     var standalone = isStandalone();
     var isInstalled = installed || standalone;
-    var installDisabled = isInstalled || domainConfig.features.installation === false || domainConfig.pwa.enabled === false;
+    var installDisabled = isInstalled || domainConfig.features.installation === false || domainConfig.pwa.enabled === false || !assistantCapabilityEnabled('installationGuidance');
 
     document.querySelectorAll('[data-youge-install]').forEach(function (element) {
       if (installDisabled) element.hidden = true;
@@ -756,19 +756,20 @@
         renderToolbox();
         log('host-registered Assistant worker connected', reg.scope);
 
-        if (isWaitingWorker(reg.waiting) && navigator.serviceWorker.controller) {
+        if ((assistantCapabilityEnabled('updateDetection') || (config.autoUpdate && assistantCapabilityEnabled('autoUpdate'))) && isWaitingWorker(reg.waiting) && navigator.serviceWorker.controller) {
           updateAvailable = true;
           updateWorker = reg.waiting;
           sawWaitingWorker = true;
           watchWorkerLifecycle(reg, reg.waiting);
           refreshState();
-          dispatch('update', { registration: reg });
-          if (config.autoUpdate) applyUpdate();
+          if (assistantCapabilityEnabled('updateDetection')) dispatch('update', { registration: reg });
+          if (config.autoUpdate && assistantCapabilityEnabled('autoUpdate')) applyUpdate(true);
         }
 
         reg.addEventListener('updatefound', function () {
           var worker = reg.installing;
           if (registration !== reg || !isAssistantRegistration(reg) || !isAssistantWorker(worker)) return;
+          if (!assistantCapabilityEnabled('updateDetection') && !(config.autoUpdate && assistantCapabilityEnabled('autoUpdate'))) return;
           watchWorkerLifecycle(reg, worker);
           worker.addEventListener('statechange', function () {
             if (worker.state !== 'installed' || registration !== reg || !isAssistantRegistration(reg)) return;
@@ -778,8 +779,8 @@
             sawWaitingWorker = Boolean(reg.waiting);
             if (reg.waiting && reg.waiting !== worker) watchWorkerLifecycle(reg, reg.waiting);
             refreshState();
-            dispatch('update', { registration: reg });
-            if (config.autoUpdate) applyUpdate();
+            if (assistantCapabilityEnabled('updateDetection')) dispatch('update', { registration: reg });
+            if (config.autoUpdate && assistantCapabilityEnabled('autoUpdate')) applyUpdate(true);
           });
         });
         return reg;
@@ -819,6 +820,7 @@
 
       document.addEventListener('visibilitychange', function () {
         if (document.visibilityState !== 'visible' || !isAssistantRegistration(registration)) return;
+        if (!assistantCapabilityEnabled('updateDetection') && !(config.autoUpdate && assistantCapabilityEnabled('autoUpdate'))) return;
         var now = Date.now();
         if (now - lastUpdateCheck < 60 * 60 * 1000) return;
         lastUpdateCheck = now;
@@ -844,7 +846,8 @@
 
   var lastUpdateCheck = Date.now();
 
-  function applyUpdate() {
+  function applyUpdate(automatic) {
+    if (!automatic && !assistantCapabilityEnabled('userUpdate')) return Promise.resolve(false);
     if (!isAssistantRegistration(registration)) {
       clearUpdateState(true);
       return Promise.resolve(false);
@@ -885,6 +888,24 @@
     }, 3000);
 
     return Promise.resolve(true);
+  }
+
+  function runCacheDiagnostics() {
+    if (!assistantCapabilityEnabled('cacheDiagnostics')) return Promise.resolve({ status: 'disabled' });
+    if (!isAssistantRegistration(registration) || !window.caches || typeof window.caches.has !== 'function') {
+      return Promise.resolve({ status: 'unavailable' });
+    }
+    try {
+      var scope = new URL(registration.scope).pathname;
+      var prefix = 'you-ge-assistant:' + encodeURIComponent(window.location.hostname.toLowerCase()) + ':' + encodeURIComponent(scope) + ':';
+      return Promise.all([
+        window.caches.has(prefix + 'static:v' + PWA.version),
+        window.caches.has(prefix + 'pages:v' + PWA.version),
+      ]).then(function (present) {
+        if (!assistantCapabilityEnabled('cacheDiagnostics') || !isAssistantRegistration(registration)) return { status: 'disabled' };
+        return { status: 'ok', staticCache: present[0], pageCache: present[1] };
+      }).catch(function () { return { status: 'unavailable' }; });
+    } catch (error) { return Promise.resolve({ status: 'unavailable' }); }
   }
 
   function postToWorker(message) {
@@ -941,7 +962,7 @@
   });
 
   function showHelp(kind) {
-    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return null;
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false || !assistantCapabilityEnabled('installationGuidance')) return null;
     if (document.querySelector('[data-pwa-help]')) return;
 
     var isIosHelp = kind === 'ios';
@@ -1084,7 +1105,7 @@
 
   function promptInstall(options) {
     options = options || {};
-    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) {
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false || !assistantCapabilityEnabled('installationGuidance')) {
       return Promise.resolve({ outcome: 'disabled' });
     }
     if (installed || isStandalone()) {
@@ -2160,7 +2181,7 @@
 
   function showInstallBanner(options) {
     options = options || {};
-    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return null;
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false || !assistantCapabilityEnabled('installationGuidance')) return null;
     if (isStandalone()) return null;
 
     var platforms = options.platforms || 'all';
@@ -2408,20 +2429,20 @@
     if (reloadPromptShown) return null;
     reloadPromptShown = true;
 
-    if (options.autoReload) {
+    if (options.autoReload && assistantCapabilityEnabled('userUpdate')) {
       window.location.reload();
       return null;
     }
 
     var overlay = make('div', 'youge-prompt-overlay progressier-prompt-overlay');
     overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-label', wording.get('tapToReload'));
+    overlay.setAttribute('aria-label', assistantCapabilityEnabled('userUpdate') ? wording.get('tapToReload') : 'Update available');
     overlay.addEventListener('click', function () {
-      window.location.reload();
+      if (assistantCapabilityEnabled('userUpdate')) window.location.reload();
     });
 
     var button = make('div', 'youge-prompt-reload-button progressier-prompt-reload-button');
-    button.textContent = options.text || wording.get('tapToReload');
+    button.textContent = assistantCapabilityEnabled('userUpdate') ? (options.text || wording.get('tapToReload')) : 'Update available';
     if (options.color) button.style.background = options.color;
     overlay.appendChild(button);
 
@@ -2576,6 +2597,10 @@
       if (assistant && typeof assistant.isCapabilityEnabled === 'function') {
         return assistant.isCapabilityEnabled(capability) !== false;
       }
+      // The toolkit may initialize before the Assistant bundle. Honor explicit
+      // project opt-outs synchronously, before any automatic worker action.
+      var shared = window.YOU_GE_ASSISTANT_CONFIG;
+      if (shared && shared.modules && shared.modules[capability] === false) return false;
     } catch (error) { /* a broken Assistant must never break the toolkit */ }
     return true;
   }
@@ -3068,7 +3093,7 @@
   // Opening ?pswutlzoq=install (the URL encoded in the QR code) shows the
   // install flow straight away, like the hosted client did.
   function showInstallRequest() {
-    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return null;
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false || !assistantCapabilityEnabled('installationGuidance')) return null;
     cleanInstallParam();
     if (config.desktopQr && config.features.qr !== false && !isIOS() && window.screen.width > 991) {
       return showQrDialog();
@@ -3286,7 +3311,7 @@
 
   function toolboxShouldHide() {
     if (!toolboxRoot || !toolboxOptions) return true;
-    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return true;
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false || !assistantCapabilityEnabled('installationGuidance')) return true;
     if (toolboxManuallyHidden || toolboxOptions.off) return true;
     if (toolboxIsEmbedded()) return true;
     if (document.body && document.body.classList.contains('no-toolbox')) return true;
@@ -3467,18 +3492,18 @@
   var PWA = {
     __pwaKit: true,
     __youGePwaKit: true,
-    version: '1.2.2',
+    version: '1.2.3',
     config: config,
 
     // install
     promptInstall: promptInstall,
     install: promptInstall,
     canInstall: function () {
-      return Boolean(installPromptEvent);
+      return assistantCapabilityEnabled('installationDetection') && Boolean(installPromptEvent);
     },
-    isStandalone: isStandalone,
+    isStandalone: function () { return assistantCapabilityEnabled('installationDetection') && isStandalone(); },
     isInstalled: function () {
-      return installed || isStandalone();
+      return assistantCapabilityEnabled('installationDetection') && (installed || isStandalone());
     },
     isIOS: isIOS,
     isSafari: isSafari,
@@ -3491,8 +3516,9 @@
     register: function () {
       return register();
     },
-    applyUpdate: applyUpdate,
-    hasUpdate: isUpdateAvailable,
+    applyUpdate: function () { return applyUpdate(false); },
+    hasUpdate: function () { return assistantCapabilityEnabled('updateDetection') && isUpdateAvailable(); },
+    runCacheDiagnostics: runCacheDiagnostics,
     postToWorker: postToWorker,
 
     // push
@@ -3588,10 +3614,10 @@
         return promptInstall();
       },
       checkIfStandalone: function () {
-        return isStandalone();
+        return PWA.isStandalone();
       },
       isStandalone: function () {
-        return isStandalone();
+        return PWA.isStandalone();
       },
       register: function () {
         return register();
@@ -3609,7 +3635,7 @@
       showWelcome: showWelcome,
 
       detection: {
-        isStandalone: isStandalone,
+        isStandalone: PWA.isStandalone,
         isIOS: isIOS,
         isSafari: isSafari,
         isDesktop: function () {
@@ -3693,11 +3719,11 @@
   if (config.offlineAlert) enableOfflineAlert();
 
   document.addEventListener('youge:pwa:update', function () {
-    if (!config.autoUpdate) showReloadPrompt();
+    if (isAssistantRegistration(registration) && assistantCapabilityEnabled('updateDetection') && assistantCapabilityEnabled('updateNotifications') && (!config.autoUpdate || !assistantCapabilityEnabled('autoUpdate'))) showReloadPrompt();
   });
   document.addEventListener('pwa:update', function (event) {
     if (event && event.__youGeBridged) return;
-    if (!config.autoUpdate) showReloadPrompt();
+    if (isAssistantRegistration(registration) && assistantCapabilityEnabled('updateDetection') && assistantCapabilityEnabled('updateNotifications') && (!config.autoUpdate || !assistantCapabilityEnabled('autoUpdate'))) showReloadPrompt();
   });
 
   var WELCOME_STORAGE_KEY = 'youge-pwa:welcome';

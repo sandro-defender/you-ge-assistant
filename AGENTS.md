@@ -103,9 +103,9 @@ JavaScript, CSS, a manifest, a service worker, static icons, central domain
 configuration, and an on-demand DNS diagnostics module. There is no build step
 or runtime package install required for classic `<script>` integration.
 
-Current runtime version: **1.2.2** (`YouGePWA.version` / `PWA.version`, `VERSION` in
+Current runtime version: **1.2.3** (`YouGePWA.version` / `PWA.version`, `VERSION` in
 `you-ge-sw.js`, root `package.json` and the SDK's `KIT_COMPAT_VERSION`; the SDK
-package itself is versioned separately, currently `0.2.0`). For architecture findings and risks, see
+package itself is versioned separately, currently `0.3.0`). For architecture findings and risks, see
 [`docs/architecture/ARCHITECTURE_AUDIT.md`](docs/architecture/ARCHITECTURE_AUDIT.md) and
 [`docs/architecture/FOUNDATION_AUDIT.md`](docs/architecture/FOUNDATION_AUDIT.md).
 

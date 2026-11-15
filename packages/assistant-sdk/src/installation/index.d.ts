@@ -27,6 +27,7 @@ export interface PwaRuntimeLike {
   promptInstall?: (options?: Record<string, unknown>) => Promise<{ outcome: string }> | { outcome: string };
   runNetworkDiagnostics?: (options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   showNetworkDiagnostics?: () => unknown;
+  runCacheDiagnostics?: () => Promise<Record<string, unknown>> | Record<string, unknown>;
   hasUpdate?: () => boolean;
   /** Existing toolkit returns a boolean; older implementations may return void/null. */
   applyUpdate?: () =>
@@ -60,6 +61,7 @@ export declare function readPwaSnapshot(pwa?: PwaRuntimeLike | null): Record<str
 export declare function deriveInstallationState(options?: {
   pwa?: PwaRuntimeLike | null;
   enabled?: boolean;
+  detection?: boolean;
 }): AssistantInstallationState;
 export declare function requestPwaInstall(
   options?: { pwa?: PwaRuntimeLike | null; enabled?: boolean },

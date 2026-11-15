@@ -1,6 +1,9 @@
 # `@youge/assistant-sdk` — Release Preparation & Publishing Decision
 
-> **Current registry status (verified 2026-11-14):** npm reports
+> **Repository preparation:** SDK `0.3.0`, kit `1.2.3`; no stage, publish,
+> tag or release has been performed.
+>
+> **Last verified registry status (2026-11-14):** npm reports
 > `@youge/assistant-sdk@0.2.0` as the current version. The detailed preparation
 > and verification records below describe the 2026-11-07 release work and are
 > historical; they do not describe the current registry state. This Stage 5.4
@@ -32,7 +35,7 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 | Item | Value | Notes |
 | --- | --- | --- |
 | Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); npm registry currently reports `0.2.0` (verified 2026-11-14) |
-| Version | `0.2.0` (current registry version as of 2026-11-14) | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
+| Version | `0.3.0` prepared in repository (not published) | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
 | Visibility | published (`0.1.0`, `0.1.1`, `0.2.0`) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every future publish path stays gated ([§5](#5-publishing-remains-disabled)) |
 | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
 | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
@@ -41,7 +44,7 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 | Runtime dependencies | **Zero** | `react >= 18` is an optional peer only (for `./react`) |
 | License | MIT ([`LICENSE`](LICENSE)) | Matches the repository license |
 | Packed size | 21 files, 38.0 kB tarball / 147.4 kB unpacked | `npm pack --dry-run` (2026-11-07) |
-| Kit compatibility | `KIT_COMPAT_VERSION = 1.2.2` in the repository source | Matches the You.Ge Assistant runtime version (`pwa.js` / `you-ge-sw.js`). The published `0.2.0` tarball was built at kit `1.1.0` and reports `1.1.0`; the constant is informational and changes in a published package only with the next SDK release |
+| Kit compatibility | `KIT_COMPAT_VERSION = 1.2.3` in the repository source | Matches the You.Ge Assistant runtime version (`pwa.js` / `you-ge-sw.js`). The published `0.2.0` tarball was built at kit `1.1.0` and reports `1.1.0`; the constant is informational and changes in a published package only with the next SDK release |
 | Config schema | `SCHEMA_VERSION = 1` | Data-only `publishedConfig` pipeline, LKG fallback |
 | **Publishing auth** | **npm Trusted Publishing (OIDC) everywhere: the `stage` and `publish` jobs both carry `id-token: write`; no npm token reference exists anywhere in the workflows. First publication (0.1.0, 2026-11-06) used the temporary `NPM_STAGE_TOKEN` bootstrap — created, used and revoked** | Verify, stage and publish use no npm token at all; the bootstrap token was a temporary credential, not the future publishing method — [§4](#4-release-runbook-when-a-release-is-approved), [§6](#6-npm-trusted-publishing-oidc), [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important) |
 

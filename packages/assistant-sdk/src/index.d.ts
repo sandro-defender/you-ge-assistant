@@ -306,6 +306,8 @@ export interface AssistantInstance {
   setDnsResult(result: Record<string, unknown>): AssistantState;
   setUpdateAvailable(available?: boolean): AssistantState;
   runDiagnostics(options?: DiagnosticsRunOptions): Promise<Record<string, unknown>>;
+  runOfflineDiagnostics(): Promise<{ status: string; online?: boolean | null }>;
+  runCacheDiagnostics(): Promise<Record<string, unknown>>;
   /**
    * Read-only capability check against the current resolved configuration.
    * Renderers and toolkit integrations use it so a disabled capability is not

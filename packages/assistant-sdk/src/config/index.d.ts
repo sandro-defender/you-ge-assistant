@@ -15,7 +15,7 @@ export interface AssistantOffsets {
   y: number;
 }
 
-/** The four capabilities the SDK enforces (CD-1 module capability enforcement). */
+/** Legacy capability names; PWA and extension names also work with isCapabilityEnabled. */
 export type AssistantCapabilityName = 'diagnostics' | 'recovery' | 'failover' | 'help';
 
 export interface AssistantModulesConfig {
@@ -27,6 +27,16 @@ export interface AssistantModulesConfig {
   updates: boolean;
   /** Offer the Android in-app browser → Chrome handoff when applicable. */
   chromeHandoff: boolean;
+  installationDetection?: boolean;
+  installationGuidance?: boolean;
+  updateDetection?: boolean;
+  updateNotifications?: boolean;
+  autoUpdate?: boolean;
+  userUpdate?: boolean;
+  offlineDiagnostics?: boolean;
+  cacheDiagnostics?: boolean;
+  /** Optional host-defined capability flags, read with isCapabilityEnabled. */
+  extensions?: Record<string, boolean>;
 }
 
 export interface AssistantNotificationsConfig {

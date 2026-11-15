@@ -1,9 +1,10 @@
 /*!
  * @youge/assistant-sdk — module capability enforcement
  * ----------------------------------------------------
- * One authority for the four gated Assistant capabilities:
+ * One authority for legacy and PWA Assistant capability gates:
  *
  *   modules.diagnostics · modules.recovery · modules.failover · modules.help
+ *   plus PWA module gates and optional named extension flags
  *
  * Every consumer — the state engine, actions, notifications, the diagnostics
  * adapter, the DOM widget, the React adapter and the classic runtime files —
@@ -55,8 +56,11 @@ export const CAPABILITY_NOTICE_IDS = Object.freeze({
  */
 export function isCapabilityEnabled(modules, capability) {
   const name = String(capability == null ? '' : capability);
-  if (GATED_CAPABILITIES.indexOf(name) === -1) return true;
+  const pwaCapabilities = ['installationDetection', 'installationGuidance', 'updateDetection', 'updateNotifications', 'autoUpdate', 'userUpdate', 'offlineDiagnostics', 'cacheDiagnostics'];
   const record = modules && typeof modules === 'object' ? modules : null;
+  if (GATED_CAPABILITIES.indexOf(name) === -1 && pwaCapabilities.indexOf(name) === -1) {
+    return !record || !record.extensions || record.extensions[name] !== false;
+  }
   return !record || record[name] !== false;
 }
 
@@ -127,5 +131,13 @@ export function capabilitiesRecord(modules) {
     help: record.help !== false,
     updates: record.updates !== false,
     chromeHandoff: record.chromeHandoff !== false,
+    installationDetection: record.installationDetection !== false,
+    installationGuidance: record.installationGuidance !== false,
+    updateDetection: record.updateDetection !== false,
+    updateNotifications: record.updateNotifications !== false,
+    autoUpdate: record.autoUpdate !== false,
+    userUpdate: record.userUpdate !== false,
+    offlineDiagnostics: record.offlineDiagnostics !== false,
+    cacheDiagnostics: record.cacheDiagnostics !== false,
   };
 }

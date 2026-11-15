@@ -41,6 +41,14 @@ export const BUNDLED_DEFAULTS = {
     help: true,
     updates: true,
     chromeHandoff: true,
+    installationDetection: true,
+    installationGuidance: true,
+    updateDetection: true,
+    updateNotifications: true,
+    autoUpdate: true,
+    userUpdate: true,
+    offlineDiagnostics: true,
+    cacheDiagnostics: true,
   },
   notifications: {
     dismissible: true,
@@ -146,8 +154,16 @@ function extractLayerOverrides(raw) {
   if (source.modules && typeof source.modules === 'object') {
     out.modules = {};
     Object.keys(BUNDLED_DEFAULTS.modules).forEach(function (key) {
-      if (source.modules[key] !== undefined) out.modules[key] = source.modules[key] !== false;
+      if (source.modules[key] !== undefined && (['installationDetection', 'installationGuidance', 'updateDetection', 'updateNotifications', 'autoUpdate', 'userUpdate', 'offlineDiagnostics', 'cacheDiagnostics'].indexOf(key) === -1 || typeof source.modules[key] === 'boolean')) out.modules[key] = source.modules[key] !== false;
     });
+    const extensions = source.modules.extensions;
+    if (extensions && typeof extensions === 'object' && !Array.isArray(extensions)) {
+      const valid = {};
+      Object.keys(extensions).slice(0, 50).forEach(function (key) {
+        if (/^[a-z][a-zA-Z0-9_-]{0,63}$/.test(key) && key !== 'constructor' && key !== 'prototype' && typeof extensions[key] === 'boolean') valid[key] = extensions[key];
+      });
+      out.modules.extensions = valid;
+    }
   }
   if (source.notifications && typeof source.notifications === 'object') {
     out.notifications = {};

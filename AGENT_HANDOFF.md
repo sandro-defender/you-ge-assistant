@@ -1,24 +1,24 @@
-# Agent Handoff — PWA implementation audit and update fallback
+# Agent Handoff — PWA management and SDK 0.3.0 preparation
 
 **Date:** 2026-11-15
-**Branch:** `arena/9a7feeea-you-ge-assistant`, based on `main` at `302c338417ebc1421795c187014413e1f03d85b9`.
-**Commit and PR:** See `git log -1` and the current branch PR.
+**Branch:** `arena/9a7feeea-you-ge-assistant`, based on `302c338417ebc1421795c187014413e1f03d85b9`.
+**Commit and PR:** See `git log -1` and `gh pr list --head arena/9a7feeea-you-ge-assistant`.
 **Working tree:** See `git status`; build outputs and dependencies are ignored.
-**Versions:** kit `1.2.2`, SDK `0.2.0`, unchanged.
+**Versions:** SDK `0.3.0` and kit `1.2.3`, explicitly authorized; neither is published or deployed by this task.
 
-## Current status: feature controls blocked by version constraint
+## Completed
 
-Audited registration call sites and feature controls in `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md`. `PWA.register()` and its compatibility alias now retry attachment after a host later registers the opted-in Assistant worker; concurrent calls share one lookup, while `PWA.ready` retains its first result. Neither SDK nor classic toolkit registers or takes over a worker. Added tests for late registration, alias behavior, concurrency and failed lookup recovery. Migration instructions explicitly identify affected integrations and host ownership. `AGENTS.md` now also records the permanent independent feature-control rule.
+The toolkit never registers, unregisters or replaces a host worker. The host owns registration and scope. A host may explicitly register the optional Assistant worker in a deployment without a competing worker and opt in using `data-assistant-worker`. `PWA.register()` and the legacy alias retry safe attachment, and `PWA.ready` retains the first lookup. Custom workers use the existing SDK PWA adapter; see `docs/architecture/PWA_IMPLEMENTATION_AUDIT.md` for exact migration and ownership constraints. The demo no longer waits indefinitely on `navigator.serviceWorker.ready`.
 
-The requested independent cross-SDK/classic controls are **not implemented**. The current SDK normalizer accepts only known module keys; implementing shared controls and regenerating `src/assistant/assistant-state.js` changes a precached asset. The repository precache gate requires a synchronized kit-version bump, while the user explicitly requires kit `1.2.2` and SDK `0.2.0` unchanged. Do not bypass the gate or invent a parallel classic-only configuration. Request owner direction to reconcile this constraint before proceeding. Existing installation, diagnostics, update and auto-update gates are documented in the audit; cache diagnostics is missing.
+SDK `modules` now contains independent `installationDetection`, `installationGuidance`, `updateDetection`, `updateNotifications`, `autoUpdate`, `userUpdate`, `offlineDiagnostics` and `cacheDiagnostics`; optional `modules.extensions` carries safe named boolean flags. Existing broad `installation`/`updates` SDK gates remain. Automatic update still requires the existing explicit toolkit opt-in. Offline diagnostics reports only `navigator.onLine`; cache diagnostics checks presence of the exact Assistant cache names, never host cache contents. Browser bundle regenerated with `npm run sync:sdk`; `AGENTS.md` records permanent ownership and feature-control rules.
 
-## Checks and limitations
+## Verification and limitations
 
-`npm run check`: 554/554. `npm run build`, `npm run check:precache`, browser bundle sync check, and example typecheck/build passed (Vite classic-script warnings). Focused install suite: 28/28. No real-browser or deployed-host-worker verification was performed. Initial PR creation was interrupted; the user specifically asked to complete requirements before creating a PR. Do not create one while the feature-control requirement remains blocked.
+`npm run check`: 563/563; `npm run test:sdk`: 134/134. Build, package validation, browser-bundle sync and precache integrity passed (one precached bundle changed; kit 1.2.2 → 1.2.3). Example `npm ci`, typecheck including the 0.3.0 typed adapter example, and build passed; Vite emits classic-script warnings. Node harnesses cover host workers, no worker, registration retries and controls. No browser executable was found; no real-browser, staff.you.ge, or deployed-worker testing was performed. Cache presence is not cache-content health and may differ when an older worker controls the page. No publish, merge, deploy, tag or release occurred.
 
 ## Next action
 
-Obtain owner direction on the conflicting fixed-version/precache requirements. Then, within the authorized constraints, design and test independent controls in the existing SDK configuration and integrations, preserve host ownership, update docs and rerun checks. Do not merge, deploy, publish, tag, release, change versions or weaken the precache gate without authorization.
+Review the current PR and CI. Separately verify actual browser and staff.you.ge integration and the host's update adapter before approving publication. Do not merge, publish, release, tag or deploy without explicit authorization.
 
 ---
 
