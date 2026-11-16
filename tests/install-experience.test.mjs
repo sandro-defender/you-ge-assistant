@@ -1126,7 +1126,7 @@ test('cache diagnostics examine only opted-in Assistant cache names without chan
   assert.equal(result.status, 'ok');
   assert.equal(result.staticCache, true);
   assert.equal(result.pageCache, false);
-  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.3', 'you-ge-assistant:example.test:%2F:pages:v1.2.3']);
+  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.4', 'you-ge-assistant:example.test:%2F:pages:v1.2.4']);
   flags.cacheDiagnostics = false;
   assert.equal((await harness.win.PWA.runCacheDiagnostics()).status, 'disabled');
   assert.equal(queried.length, 2);

@@ -747,17 +747,26 @@ test('widget renderer has no network, polling, SW registration, auto-open or hea
  * defensive appearance handling and touch/contrast CSS floors
  * ------------------------------------------------------------------ */
 
-test('a diagnostics notice exposes a working toolkit action instead of an inert button', () => {
+// Updated by the duplicated-UI audit (2026-11-15, end of this file): connection
+// notices no longer repeat the diagnostics button — it lives in its section —
+// while the install card keeps its own action. What these two tests protect is
+// unchanged: the action a notice refers to is never inert.
+test('a diagnostics notice is backed by one working toolkit control, never an inert button', () => {
   const ctx = createContext({ richDocument: true });
   const widget = loadWidget(ctx);
   const root = widget.getRoot();
   ctx.api.setDnsResult({ status: 'complete', classification: 'dns_resolution_failure', message: 'NXDOMAIN for this hostname.' });
   fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
 
-  const action = root.querySelector('[data-pwa-diagnostics]');
-  assert.ok(action, 'the notice action carries the delegated diagnostics hook');
-  assert.equal(action.getAttribute('data-action'), 'diagnostics');
-  assert.match(action.querySelector('.youge-btn-label').textContent, /diagnostics/i);
+  const notice = root.querySelectorAll('.youge-notice').find(
+    (node) => node.querySelector('.youge-notice-title').textContent === 'DNS resolution problem');
+  assert.ok(notice, 'the DNS notice is rendered');
+  assert.match(notice.querySelector('.youge-notice-message').textContent, /NXDOMAIN/);
+
+  const actions = root.querySelectorAll('[data-action="diagnostics"]');
+  assert.equal(actions.length, 1, 'the diagnostics the notice refers to exists exactly once');
+  assert.equal(actions[0].hasAttribute('data-pwa-diagnostics'), true, 'and carries the delegated diagnostics hook');
+  assert.match(actions[0].querySelector('.youge-btn-label').textContent, /diagnostics/i);
   widget.destroy();
 });
 
@@ -767,11 +776,39 @@ test('an install notice action reuses the toolkit install flow and its real word
   const root = widget.getRoot();
   fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
 
-  const noticeButton = root.querySelectorAll('[data-pwa-install]').find((node) => node.matches('.youge-btn-small'));
-  assert.ok(noticeButton, 'the notice itself has an install action, not only the section below it');
-  assert.equal(noticeButton.getAttribute('data-action'), 'install');
-  assert.match(noticeButton.querySelector('.youge-btn-label').textContent, /Install this app/, 'wording comes from the real capability');
+  const notice = root.querySelectorAll('.youge-notice').find(
+    (node) => node.querySelector('.youge-notice-title').textContent === 'Installation available');
+  assert.ok(notice, 'the install notice is rendered');
+  const action = notice.querySelector('[data-pwa-install]');
+  assert.ok(action, 'the notice itself has an install action, not only the section below it');
+  assert.equal(action.getAttribute('data-action'), 'install');
+  assert.match(action.querySelector('.youge-btn-label').textContent, /Install this app/, 'wording comes from the real capability');
+  assert.equal(root.querySelectorAll('[data-pwa-install]').length, 2, 'the card and the Installation section, and no third copy');
   widget.destroy();
+
+  // A host-built state can report an install notice without the installation
+  // section's precondition. The notice is then the only entry point — still
+  // with the toolkit hook and the published wording, and still not listed twice.
+  const host = createContext({ richDocument: true });
+  const base = host.api.getState();
+  host.api.destroy();
+  const state = Object.assign({}, base, {
+    installation: { status: 'unknown', support: 'native' },
+    notifications: [
+      { id: 'install:available', priority: 4, tone: 'install', title: 'Installation available', message: 'Install from here.', actionId: 'install' },
+    ],
+    availableActions: [{ id: 'install', label: 'Install this app', icon: 'install', kind: 'install' }],
+  });
+  host.win.YouGeAssistant = { getState: () => state, subscribe(fn) { fn(state); return () => {}; }, dismiss() {}, acknowledge() {} };
+  const hostWidget = loadWidget(host);
+  const hostRoot = hostWidget.getRoot();
+  fire(host.document, hostRoot.querySelector('[data-role="toggle"]'), 'click');
+  const noticeButtons = hostRoot.querySelectorAll('[data-action="install"]');
+  assert.equal(noticeButtons.length, 1, 'still one control');
+  assert.ok(noticeButtons[0].closest('.youge-notice'), 'on the notice, because no section offers it');
+  assert.equal(noticeButtons[0].hasAttribute('data-pwa-install'), true, 'with the delegated install hook');
+  assert.match(noticeButtons[0].querySelector('.youge-btn-label').textContent, /Install this app/);
+  hostWidget.destroy();
 });
 
 test('Escape stays with an open toolkit dialog and still closes the panel on its own', () => {
@@ -1635,4 +1672,346 @@ test('a click on a stale gated action node cannot dispatch or run diagnostics', 
   fire(ctx.document, staleFailover, 'click');
   assert.deepEqual(dispatched, [], 'failover is gated the same way');
   ctx.win.YouGeAssistantWidget.destroy();
+});
+
+/* ------------------------------------------------------------------ *
+ * Duplicated-UI audit (2026-11-15): one entry point per action
+ *
+ * Reproduced in Chromium on the assembled Pages site: the panel offered
+ * "Installation instructions" three times (notice, Installation section,
+ * Available actions) and "Run network diagnostics" two to three times; the
+ * Available-actions copies carried no toolkit hook and opened nothing.
+ *
+ * Contract (owner decision, 2026-11-15), pinned at the rendered panel:
+ *   - "Available actions" never repeats an action that has a control elsewhere;
+ *   - installation is offered in two deliberate places — the "Installation
+ *     available" card, which is the invitation, and the Installation section,
+ *     which stays after the card is dismissed;
+ *   - network diagnostics and recovery guidance live only in "Diagnostics &
+ *     recovery"; connection cards explain without repeating the button;
+ *   - no section renders without content.
+ * ------------------------------------------------------------------ */
+
+function controlsFor(root, id) {
+  return root.querySelectorAll('[data-action="' + id + '"]');
+}
+
+function sectionTitles(root) {
+  return root.querySelectorAll('.youge-section-title').map((node) => node.textContent);
+}
+
+function sectionByTitle(root, title) {
+  return root.querySelectorAll('.youge-section').find(
+    (node) => node.querySelector('.youge-section-title') &&
+      node.querySelector('.youge-section-title').textContent === title,
+  );
+}
+
+function installControls(root) {
+  const all = controlsFor(root, 'install');
+  return {
+    all,
+    card: all.filter((node) => node.closest('.youge-notice')),
+    section: all.filter((node) => !node.closest('.youge-notice') && node.closest('.youge-section') === sectionByTitle(root, 'Installation')),
+    listed: all.filter((node) => node.closest('.youge-action-list')),
+  };
+}
+
+test('installation is offered on its card and in its section, never a third time; diagnostics has one control', () => {
+  const ctx = createContext({ richDocument: true });
+  loadWidget(ctx);
+  const root = openPanelOf(ctx);
+
+  const card = noticeByTitle(root, 'Installation available');
+  assert.ok(card, 'the precondition: an install notice is showing');
+
+  const install = installControls(root);
+  assert.equal(install.all.length, 2, 'two installation entry points, not three');
+  assert.equal(install.card.length, 1, 'the card keeps its call to action');
+  assert.equal(install.card[0].closest('.youge-notice'), card);
+  assert.equal(install.section.length, 1, 'the Installation section keeps its button');
+  assert.equal(install.listed.length, 0, 'the action list does not repeat it');
+  install.all.forEach((node) => {
+    assert.equal(node.hasAttribute('data-pwa-install'), true, 'every install control carries the toolkit hook');
+    assert.match(node.querySelector('.youge-btn-label').textContent, /^Installation instructions$/, 'and the same wording');
+  });
+  assert.equal(root.querySelectorAll('[data-pwa-install]').length, 2, 'no other delegated install hook in the panel');
+
+  const diagnostics = controlsFor(root, 'diagnostics');
+  assert.equal(diagnostics.length, 1, 'one diagnostics entry point');
+  assert.equal(diagnostics[0].closest('.youge-section'), sectionByTitle(root, 'Diagnostics & recovery'));
+  assert.equal(diagnostics[0].hasAttribute('data-pwa-diagnostics'), true);
+  assert.equal(root.querySelectorAll('[data-pwa-diagnostics]').length, 1, 'one delegated diagnostics hook in the panel');
+
+  // Dismissing the card leaves the section as the remaining entry point.
+  fire(ctx.document, root.querySelector('[data-dismiss="install:available"]'), 'click');
+  const after = installControls(root);
+  assert.equal(after.all.length, 1, 'installation stays reachable after the card is dismissed');
+  assert.equal(after.section.length, 1);
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('a connection problem adds notices, not second diagnostics or recovery controls', () => {
+  const ctx = createContext({ richDocument: true, pwaState: { canInstall: true } });
+  loadWidget(ctx);
+  ctx.win.dispatchEvent({ type: 'offline' });
+  ctx.api.setEndpointStatus({ primary: 'failed' });
+  const root = openPanelOf(ctx);
+
+  const state = ctx.api.getState();
+  assert.equal(state.availableActions.some((action) => action.id === 'recovery'), true, 'the SDK still publishes recovery');
+  assert.equal(state.availableActions.some((action) => action.id === 'diagnostics'), true, 'and diagnostics');
+
+  assert.equal(controlsFor(root, 'diagnostics').length, 1, 'offline does not multiply the diagnostics button');
+  assert.equal(controlsFor(root, 'install').length, 2, 'installation keeps its card and its section, nothing more');
+  assert.equal(root.querySelectorAll('.youge-recovery').length, 1, 'one recovery guidance block');
+  assert.equal(controlsFor(root, 'recovery').length, 0, 'and no second, inert "Recovery guidance" button');
+
+  // The notices still explain the condition and stay acknowledgeable.
+  const offline = noticeByTitle(root, 'No connection');
+  assert.ok(offline, 'the critical notice is rendered');
+  assert.match(offline.querySelector('.youge-notice-message').textContent, /cannot reach the network/);
+  assert.equal(Boolean(offline.querySelector('[data-action]')), false, 'it points at the section instead of repeating its button');
+  assert.ok(offline.querySelector('[data-acknowledge="network:offline"]'), 'acknowledgement is unchanged');
+  const api = noticeByTitle(root, 'Primary API unavailable');
+  assert.ok(api);
+  assert.equal(Boolean(api.querySelector('[data-action]')), false);
+  const install = noticeByTitle(root, 'Installation available');
+  assert.ok(install.querySelector('[data-dismiss="install:available"]'), 'dismissal is unchanged');
+  assert.ok(install.querySelector('[data-action="install"]'), 'the install card keeps its own action');
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('other notice actions are offered once: on the notice, then in the list after dismissal', () => {
+  const ctx = createContext({
+    richDocument: true,
+    pwaState: { hasUpdate: true, installed: true, standalone: true },
+    config: { features: [{ id: 'priority', label: 'Live connection priority', message: 'New.' }] },
+  });
+  loadWidget(ctx);
+  ctx.api.setEndpointStatus({ primary: 'failed', backup: 'active', active: 'backup' });
+  const root = openPanelOf(ctx);
+
+  // Contextual actions without a dedicated section stay on their notice…
+  const backup = controlsFor(root, 'backup-status');
+  assert.equal(backup.length, 1, 'backup status is offered once');
+  assert.ok(backup[0].closest('.youge-notice'), 'on the notice that reports it');
+  const update = controlsFor(root, 'update');
+  assert.equal(update.length, 1, 'the update action is offered once');
+  assert.ok(update[0].closest('.youge-notice'));
+  const feature = controlsFor(root, 'feature:priority');
+  assert.equal(feature.length, 1, 'a project feature notice keeps its Open action');
+
+  // …and move to the action list when the notice is dismissed, so the action
+  // is never lost and never doubled.
+  fire(ctx.document, root.querySelector('[data-dismiss="app:update"]'), 'click');
+  const moved = controlsFor(root, 'update');
+  assert.equal(moved.length, 1, 'still exactly one update control after dismissal');
+  assert.equal(moved[0].closest('.youge-notice'), null);
+  assert.equal(moved[0].closest('.youge-section'), sectionByTitle(root, 'More actions'));
+  fire(ctx.document, moved[0], 'click');
+  assert.equal(ctx.pwa.calls.applyUpdate, 1, 'and it still applies the update, once');
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('the action list holds only what has no other home and disappears when empty', () => {
+  const bare = createContext({ richDocument: true });
+  loadWidget(bare);
+  const bareRoot = openPanelOf(bare);
+  assert.equal(bare.api.getState().availableActions.length > 0, true, 'the SDK publishes built-in actions');
+  assert.equal(Boolean(bareRoot.querySelector('.youge-action-list')), false, 'built-in actions are not listed a second time');
+  assert.equal(sectionTitles(bareRoot).includes('More actions'), false, 'so the empty section is not rendered');
+  assert.equal(sectionTitles(bareRoot).includes('Available actions'), false);
+  bare.win.YouGeAssistantWidget.destroy();
+
+  const project = createContext({
+    richDocument: true,
+    config: { actions: [{ id: 'open-help', label: 'Open help', kind: 'help', priority: 5 }] },
+  });
+  loadWidget(project);
+  const projectRoot = openPanelOf(project);
+  const list = projectRoot.querySelector('.youge-action-list');
+  assert.ok(list, 'a project action brings the section back');
+  assert.deepEqual(list.children.map((node) => node.getAttribute('data-action')), ['open-help']);
+  assert.equal(sectionTitles(projectRoot).includes('More actions'), true);
+  project.win.YouGeAssistantWidget.destroy();
+});
+
+test('a hand-built state that repeats an action id still renders one control per action', () => {
+  const ctx = createContext({ richDocument: true });
+  const base = ctx.api.getState();
+  ctx.api.destroy();
+  const state = Object.assign({}, base, {
+    installation: { status: 'unavailable', support: 'none' },
+    notifications: [
+      { id: 'a', priority: 2, tone: 'auth', title: 'Sign in again', message: 'Session expired.', actionId: 'help' },
+      { id: 'b', priority: 5, tone: 'info', title: 'Need a hand?', message: 'Support is online.', actionId: 'help' },
+    ],
+    availableActions: [
+      { id: 'export', label: 'Export data', kind: 'custom' },
+      { id: 'export', label: 'Export data', kind: 'custom' },
+      { id: 'install', label: 'Installation instructions', kind: 'install' },
+    ],
+  });
+  ctx.win.YouGeAssistant = { getState: () => state, subscribe(fn) { fn(state); return () => {}; }, dismiss() {}, acknowledge() {} };
+  loadWidget(ctx);
+  const root = openPanelOf(ctx);
+
+  assert.equal(controlsFor(root, 'export').length, 1, 'a repeated list entry renders once');
+  assert.equal(controlsFor(root, 'help').length, 1, 'two notices sharing an action show it once');
+  assert.ok(controlsFor(root, 'help')[0].closest('.youge-notice'), 'on the first of them');
+  // No Installation section exists in this state, so the published install
+  // action is the only entry point: it stays, and it must not be inert.
+  const install = controlsFor(root, 'install');
+  assert.equal(install.length, 1);
+  assert.equal(install[0].hasAttribute('data-pwa-install'), true, 'a listed toolkit action carries its delegated hook');
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('no section renders without content: no empty steps, no empty installation or action section', () => {
+  // The offline shell disables installation; nothing can be installed there.
+  const ctx = createContext({ richDocument: true, pwa: null, config: { modules: { installation: false, updates: false } } });
+  loadWidget(ctx);
+  const root = openPanelOf(ctx);
+
+  assert.equal(sectionTitles(root).includes('Installation'), false, 'no section that only says installation is unavailable');
+  root.querySelectorAll('.youge-section').forEach((section) => {
+    const content = section.children.filter((node) =>
+      !node.matches('.youge-section-title') && !node.matches('.youge-section-desc'));
+    const title = section.querySelector('.youge-section-title').textContent;
+    assert.equal(content.length > 0, true, 'section "' + title + '" has content beyond its heading');
+  });
+
+  const steps = root.querySelectorAll('.youge-steps');
+  assert.equal(steps.length, 1);
+  assert.equal(steps[0].children.length > 0, true, 'recovery guidance is never an empty list');
+  steps[0].children.forEach((item) => {
+    assert.equal(item.tagName, 'LI');
+    assert.equal(item.textContent.trim().length > 20, true, 'every numbered step carries its instruction');
+  });
+
+  // One statement of the empty state, not a description and a second sentence.
+  const attention = sectionByTitle(root, 'What needs attention');
+  assert.equal(attention.querySelectorAll('.youge-notice').length, 0);
+  assert.equal(attention.children.length, 2, 'heading plus one empty-state line');
+  assert.match(attention.querySelector('.youge-empty').textContent, /All clear/);
+  ctx.win.YouGeAssistantWidget.destroy();
+
+  // An installed app has nothing to install either.
+  const installed = createContext({ richDocument: true, pwaState: { installed: true, standalone: true } });
+  loadWidget(installed);
+  assert.equal(sectionTitles(openPanelOf(installed)).includes('Installation'), false);
+  installed.win.YouGeAssistantWidget.destroy();
+});
+
+test('each remaining control triggers its action once, through one listener', () => {
+  const ctx = createContext({ richDocument: true });
+  loadWidget(ctx);
+  loadWidget(ctx); // a second script inclusion must not mount or bind again
+  const root = openPanelOf(ctx);
+  assert.equal(ctx.document.body.querySelectorAll('[data-youge-widget]').length, 1, 'one widget root');
+  assert.equal(root._listeners.get('click').size, 1, 'one delegated click listener');
+
+  const actions = [];
+  let delegatedInstalls = 0;
+  let delegatedDiagnostics = 0;
+  ctx.document.addEventListener('youge:action', (event) => actions.push(event.detail.id));
+  ctx.document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-pwa-install]')) delegatedInstalls += 1;
+    if (event.target.closest('[data-pwa-diagnostics]')) delegatedDiagnostics += 1;
+  });
+
+  const install = installControls(root);
+  fire(ctx.document, install.card[0], 'click');
+  assert.deepEqual(actions, ['install'], 'the card button announces one action');
+  assert.equal(delegatedInstalls, 1, 'and the toolkit sees one install click');
+  fire(ctx.document, install.section[0], 'click');
+  assert.deepEqual(actions, ['install', 'install'], 'the section button announces one action');
+  assert.equal(delegatedInstalls, 2, 'one toolkit click per press, never two');
+  assert.equal(ctx.pwa.calls.install, 0, 'the widget does not prompt a second time itself');
+  actions.length = 0;
+  actions.push('install');
+
+  fire(ctx.document, controlsFor(root, 'diagnostics')[0], 'click');
+  assert.deepEqual(actions, ['install', 'diagnostics']);
+  assert.equal(delegatedDiagnostics, 1, 'the toolkit sees one diagnostics click');
+  assert.equal(ctx.pwa.calls.diagnostics, 0, 'the toolkit dialog owns the check; no parallel run');
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('a state update keeps open disclosures open and focus on the same control', () => {
+  const ctx = createContext({ richDocument: true });
+  loadWidget(ctx);
+  const root = openPanelOf(ctx);
+
+  root.querySelector('.youge-recovery').open = true;
+  root.querySelector('.youge-adjust').open = true;
+  // The card and the section carry the same action; focus must come back to
+  // the one the user was on, not to its look-alike.
+  installControls(root).section[0].focus();
+
+  ctx.win.dispatchEvent({ type: 'offline' }); // re-renders the open panel
+
+  assert.equal(root.querySelector('.youge-recovery').open, true, 'recovery guidance does not snap shut while being read');
+  assert.equal(root.querySelector('.youge-adjust').open, true, 'nor does the icon adjustment');
+  let focused = ctx.document.activeElement;
+  assert.equal(focused.getAttribute('data-action'), 'install');
+  assert.equal(root.contains(focused), true, 'focus is on a live node');
+  assert.equal(focused, installControls(root).section[0], 'the section button, not the card button above it');
+
+  installControls(root).card[0].focus();
+  ctx.win.dispatchEvent({ type: 'online' });
+  focused = ctx.document.activeElement;
+  assert.equal(focused, installControls(root).card[0], 'and focus on the card button stays on the card button');
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('dismissing a notice keeps focus in the panel, and a re-render never takes focus from the page', () => {
+  const ctx = createContext({ richDocument: true });
+  loadWidget(ctx);
+  const root = openPanelOf(ctx);
+
+  const dismiss = root.querySelector('[data-dismiss="install:available"]');
+  dismiss.focus();
+  fire(ctx.document, dismiss, 'click');
+  assert.equal(Boolean(root.querySelector('[data-dismiss="install:available"]')), false, 'the notice is gone');
+  assert.equal(root.contains(ctx.document.activeElement), true, 'focus did not fall out of the dialog');
+  assert.equal(ctx.document.activeElement.getAttribute('data-role'), 'close');
+
+  // A host control that happens to use the same attribute keeps its focus.
+  const hostButton = ctx.document.createElement('button');
+  hostButton.setAttribute('data-action', 'diagnostics');
+  ctx.document.body.appendChild(hostButton);
+  hostButton.focus();
+  ctx.win.dispatchEvent({ type: 'offline' });
+  assert.equal(ctx.document.activeElement, hostButton, 'the widget leaves host focus alone');
+  ctx.win.YouGeAssistantWidget.destroy();
+});
+
+test('the panel disclosures do not take their box or type from host details/summary rules', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../src/assistant/assistant-widget.css', import.meta.url), 'utf8');
+  const rule = (selector) => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`(?:^|\\n)${escaped} \\{([^}]*)\\}`).exec(css);
+    assert.ok(match, `${selector} has a rule`);
+    return match[1];
+  };
+  // Every property the /example/ host sets on bare `details` and `summary`
+  // (padding, border, border-radius, font-size, line-height) is stated by the
+  // widget's own class rule, which outranks an element selector.
+  for (const selector of ['.youge-recovery', '.youge-adjust']) {
+    const body = rule(selector);
+    assert.match(body, /(?:^|[\s;])padding:\s*0\b/, `${selector} owns its padding`);
+    assert.match(body, /(?:^|[\s;])margin:\s*0\b/, `${selector} owns its margin`);
+    assert.match(body, /font-size:\s*inherit/, `${selector} keeps the panel font size`);
+    assert.match(body, /line-height:\s*inherit/, `${selector} keeps the panel line height`);
+    assert.match(body, /(?:^|[\s;])border:/, `${selector} owns its border`);
+    assert.match(body, /border-radius:/, `${selector} owns its radius`);
+  }
+  for (const selector of ['.youge-recovery summary', '.youge-adjust > summary']) {
+    const body = rule(selector);
+    assert.match(body, /line-height:\s*1\.5/, `${selector} owns its line height`);
+    assert.match(body, /font-size:/, `${selector} owns its font size`);
+  }
 });

@@ -11,6 +11,7 @@ import {
 } from '@youge/assistant-sdk/react';
 import FoundationPreview from './FoundationPreview.tsx';
 import ThemeStudio from './ThemeStudio.jsx';
+import { RECOVERY_STEPS, planPanelActions } from './panel-actions.js';
 import GlareHover from './react-bits/GlareHover';
 import LatticeLoader from './react-bits/LatticeLoader';
 import SpotlightCard from './react-bits/SpotlightCard';
@@ -124,6 +125,17 @@ function actionEnabled(state, id, kind) {
   return !capability || capabilityEnabled(state, capability);
 }
 
+// Toolkit hooks delegated by pwa.js. Every control for these actions spreads
+// the same attributes, so a button never merely announces `youge:action`.
+const TOOLKIT_HOOKS = {
+  install: { 'data-pwa-install': '' },
+  diagnostics: { 'data-pwa-diagnostics': '' },
+};
+
+function toolkitHook(id) {
+  return Object.prototype.hasOwnProperty.call(TOOLKIT_HOOKS, id) ? TOOLKIT_HOOKS[id] : {};
+}
+
 function noticeActionLabel(state, notice) {
   const match = (state.availableActions || []).find((action) => action.id === notice.actionId);
   if (match && match.label) return match.label;
@@ -226,6 +238,9 @@ function AssistantFloatingWidget() {
   const resolvedTheme = useResolvedTheme(appearance);
   const widgetRef = useRef(null);
   const toggleRef = useRef(null);
+  const panelRef = useRef(null);
+  const closeRef = useRef(null);
+  const focusWasInPanel = useRef(false);
   const badge = state.badge || fallbackState.badge;
   const actionable = ACTIONABLE_TONES.has(badge.tone);
   const notifications = state.notifications || [];
@@ -233,15 +248,20 @@ function AssistantFloatingWidget() {
   const installation = state.installation || fallbackState.installation;
   const project = state.project || fallbackState.project;
   const capabilities = state.capabilities || fallbackState.capabilities;
-  const extraActions = (state.availableActions || []).filter(
-    (action) => action.id !== 'diagnostics' && action.id !== 'install'
-  );
+  // The plan says where each action is drawn — its own panel entry, the notice
+  // that refers to it, or the extra list — so no action is repeated (the install
+  // card deliberately keeps its button beside the install entry).
+  const panelPlan = planPanelActions(state, (id, kind) => actionEnabled(state, id, kind));
 
   useEffect(() => {
     if (!open) return undefined;
 
     function closeOnEscape(event) {
-      if (event.key === 'Escape') closePanel(true);
+      if (event.key !== 'Escape') return;
+      // An install or diagnostics dialog opened on top of the panel owns
+      // Escape; closing both at once would drop the user out of the flow.
+      if (document.querySelector('.pwa-flow')) return;
+      closePanel(true);
     }
     function closeOnOutsidePointer(event) {
       if (widgetRef.current && !widgetRef.current.contains(event.target)) setOpen(false);
@@ -254,6 +274,27 @@ function AssistantFloatingWidget() {
       document.removeEventListener('pointerdown', closeOnOutsidePointer);
     };
   }, [open]);
+
+  // A control can leave the panel while it has focus: Dismiss removes its own
+  // notice, and recovery guidance goes away when the connection returns. The
+  // browser then drops focus to <body>; keep it in the dialog instead. Focus
+  // that the user moved elsewhere is never taken back.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !panel) {
+      focusWasInPanel.current = false;
+      return;
+    }
+    if (panel.contains(document.activeElement)) return;
+    if (focusWasInPanel.current && document.activeElement === document.body && closeRef.current) {
+      closeRef.current.focus({ preventScroll: true });
+    }
+  });
+
+  function trackPanelFocus(event) {
+    if (event.type === 'focus') focusWasInPanel.current = true;
+    else if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) focusWasInPanel.current = false;
+  }
 
   function closePanel(restoreFocus = false) {
     setOpen(false);
@@ -278,6 +319,9 @@ function AssistantFloatingWidget() {
         aria-labelledby="assistant-panel-title"
         aria-describedby="assistant-panel-description"
         hidden={!open}
+        ref={panelRef}
+        onFocus={trackPanelFocus}
+        onBlur={trackPanelFocus}
       >
         <header className="assistant-panel-header">
           <img className="assistant-panel-brand" src={project.icon || 'icons/icon-192.png'} alt="" width="40" height="40" />
@@ -286,6 +330,7 @@ function AssistantFloatingWidget() {
             className="assistant-panel-close"
             type="button"
             aria-label="Close assistant menu"
+            ref={closeRef}
             onClick={() => closePanel(true)}
           >
             ×
@@ -345,15 +390,11 @@ function AssistantFloatingWidget() {
                     <p>{notice.message}</p>
                   </div>
                   <div className="assistant-notice-controls">
-                    {notice.actionId && actionEnabled(state, notice.actionId) ? (
+                    {panelPlan.noticesWithAction.has(notice.id) ? (
                       <button
                         type="button"
-                        {...(notice.actionId === 'install'
-                          ? { 'data-pwa-install': '' }
-                          : notice.actionId === 'diagnostics'
-                            ? { 'data-pwa-diagnostics': '' }
-                            : {})}
-                        onClick={() => dispatchWidgetAction(notice.actionId || notice.id, 'notice')}
+                        {...toolkitHook(notice.actionId)}
+                        onClick={() => dispatchWidgetAction(notice.actionId, 'notice')}
                       >
                         {noticeActionLabel(state, notice)}
                       </button>
@@ -372,7 +413,9 @@ function AssistantFloatingWidget() {
           )}
         </div>
 
-        {capabilities.diagnostics !== false ? (
+        {/* The capability is re-checked here, at the element that carries the
+            toolkit hook, as well as in the plan (CD-1 renderer enforcement). */}
+        {capabilities.diagnostics !== false && panelPlan.showDiagnostics ? (
           <button
             className="assistant-panel-action"
             type="button"
@@ -384,7 +427,15 @@ function AssistantFloatingWidget() {
             <span className="assistant-action-arrow" aria-hidden="true">→</span>
           </button>
         ) : null}
-        {installation.status === 'available' ? (
+        {panelPlan.showRecovery ? (
+          <details className="assistant-panel-recovery">
+            <summary>Recovery guidance</summary>
+            <ol>
+              {RECOVERY_STEPS.map((step) => <li key={step}>{step}</li>)}
+            </ol>
+          </details>
+        ) : null}
+        {panelPlan.showInstall ? (
           <button
             className="assistant-panel-action"
             type="button"
@@ -396,11 +447,12 @@ function AssistantFloatingWidget() {
             <span className="assistant-action-arrow" aria-hidden="true">→</span>
           </button>
         ) : null}
-        {extraActions.map((action) => (
+        {panelPlan.extraActions.map((action) => (
           <button
             className="assistant-panel-action"
             type="button"
             key={action.id}
+            {...toolkitHook(action.id)}
             onClick={() => { dispatchWidgetAction(action.id, action.kind); if (action.id !== 'update') closePanel(true); }}
           >
             <span aria-hidden="true">↗</span>

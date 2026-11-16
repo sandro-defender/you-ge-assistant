@@ -1,3 +1,23 @@
+# Next Agent Prompt — review the duplicated-controls PR
+
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md` and `docs/guides/WIDGET.md`
+(*Where each action is offered*). Work only on `arena/e36937e7-you-ge-assistant`
+(base `125f0e2`). Review [PR #47](https://github.com/sandro-defender/you-ge-assistant/pull/47)
+and its checks (`gh pr checks 47`). The Assistant panel no longer repeats
+actions: the install card and the Installation section both keep the install
+button (owner decision), diagnostics and recovery guidance live only in
+*Diagnostics & recovery*, and "More actions" appears only when it has content.
+The React example follows the same rule through `src/panel-actions.js`. Kit is
+`1.2.4` (owner-authorized); SDK stays `0.3.0`. 591 tests pass locally. Inspect
+any CI failure before making a change. Do not merge, deploy, publish, tag, bump
+versions, or weaken tests or gates. Still open: the reported empty "Recovery
+guidance" list was never reproduced (Chromium only); real Safari/Firefox and
+physical devices remain unverified.
+
+---
+
+## Historical prompt (superseded)
+
 # Next Agent Prompt — review the product website PR
 
 Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, and

@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.2.4 (kit) — 2026-11-15 · duplicated Assistant controls
+
+Kit `1.2.3 → 1.2.4` (`you-ge-sw.js` `VERSION`, `PWA.version`, root
+`package.json`, SDK `KIT_COMPAT_VERSION`, regenerated `assistant-state.js`),
+**authorized by the owner** because two precached assets changed
+(`assistant-widget.js`, `assistant-widget.css`) and installed apps would
+otherwise keep the cached copies. `@youge/assistant-sdk` stays `0.3.0`; nothing
+is published, tagged or deployed by this entry. See
+[`docs/guides/WIDGET.md`](docs/guides/WIDGET.md) (*Where each action is offered*)
+and [`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §10.
+
+- **No repeated actions in the Assistant panel.** The panel drew the same action
+  from every place the state names it: "Installation instructions" three times
+  and "Run network diagnostics" two to three times, with the "Available actions"
+  copies carrying no toolkit hook (they opened nothing). Each action is now
+  placed by claim order — its own section, else the notice that reports it, else
+  "More actions" — and the action list is omitted when it would be empty.
+  Owner decision: the *Installation available* card keeps its button beside the
+  *Installation* section; diagnostics and recovery guidance live only in
+  *Diagnostics & recovery*, and connection notices explain without a button.
+- **No empty sections.** The Installation section is rendered only when
+  something can be installed; recovery steps are data and the block is skipped if
+  it has none; the empty attention state is stated once.
+- **Re-render keeps the user's place.** A state update no longer closes an opened
+  "Recovery guidance" / "Adjust icon", no longer moves focus to a look-alike
+  button, and a keyboard Dismiss leaves focus on the panel's close button instead
+  of `<body>`.
+- **Host CSS no longer reshapes the disclosures.** `.youge-recovery` and
+  `.youge-adjust` state their own box and type, so a host `details`/`summary`
+  rule (as on `/example/`) does not pad or re-border them.
+- **React example (`/example/workspace.html`)** follows the same placement rule
+  through `examples/example/src/panel-actions.js`; "Recovery guidance" is a real
+  disclosure with steps instead of an inert button; notice text is no longer
+  squeezed by its buttons; Escape is left to an open toolkit dialog; the offline
+  alert no longer covers the Assistant button below 992px.
+
 ## 1.2.2 (kit) — Diagnostics Phase 2, Stage 2
 
 - Confine application and backend probe paths to the same-origin deployment base; reject traversal, ambiguous encoded separators and redirects. Invalid app paths use the base-relative manifest; unsafe backend paths are omitted.

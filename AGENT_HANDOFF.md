@@ -1,3 +1,65 @@
+# Agent Handoff — duplicated Assistant controls (post-merge audit)
+
+**Date:** 2026-11-15
+**Branch:** `arena/e36937e7-you-ge-assistant`, based on `125f0e293288a003821de4a28ec17799311cc559` (`main` after PR #46).
+**Commit / PR:** Implementation `1336dc3`; [PR #47](https://github.com/sandro-defender/you-ge-assistant/pull/47) against `main`, open, not merged. See `git log -1` for this documentation follow-up.
+**Working tree:** Committed and pushed; the tree should be clean. Browser tooling lives outside the repository and is not committed.
+**Versions:** Kit `1.2.3 → 1.2.4`, **authorized by the owner in this session** (two precached assets changed). SDK `0.3.0` unchanged. Nothing published, tagged or deployed.
+
+## Completed
+
+Audit of the rendered Pages site (`/`, `/example/`, `/example/workspace.html`) at
+1440×900 and 390×844, then the fix:
+
+- **Classic widget** (`assistant-widget.js`): actions are placed by claim order —
+  own section, else the notice that reports it, else "More actions" (omitted when
+  empty). Before, "Installation instructions" rendered three times and "Run
+  network diagnostics" two to three times, and the "Available actions" copies had
+  no toolkit hook. **Owner decisions:** the *Installation available* card keeps
+  its button beside the *Installation* section; diagnostics and recovery guidance
+  live only in *Diagnostics & recovery*, connection notices carry no button.
+- No empty sections (Installation only when installable; recovery steps are data).
+  Re-render keeps opened disclosures and focus; keyboard Dismiss leaves focus on
+  the close button. `.youge-recovery` / `.youge-adjust` state their own box and
+  type so host `details`/`summary` CSS does not reshape them.
+- **React example**: same rule in `examples/example/src/panel-actions.js`;
+  recovery guidance is a real disclosure; notice controls sit in the text column;
+  Escape is left to an open toolkit dialog; the offline alert no longer covers
+  the Assistant button below 992px (`example.css`).
+- Docs: `docs/guides/WIDGET.md` (*Where each action is offered*),
+  `CAPABILITY_ENFORCEMENT.md`, `PRECACHE_INTEGRITY.md` §10, `CHANGELOG.md` 1.2.4,
+  before/after screenshots in
+  `docs/design-system/you-ge-assistant/pages/screenshots/duplicated-ui-audit/`.
+
+## Verification
+
+`npm run check`: exit 0, 591/591, precache gate PASS (`3 of 13 precached assets
+changed … kit version 1.2.3 → 1.2.4 synchronized`). SDK 135/135, package
+validation and `npm pack --dry-run` pass. Example typecheck/build, syntax loop
+and manifest parse pass. Headless Chromium against the assembled Pages site,
+before (`125f0e2`) and after, online/offline, pointer and keyboard: no page
+errors, no horizontal scroll, each remaining control opens one dialog and fires
+one `youge:action`.
+
+## Limits, risks and exact next action
+
+- The deployed Pages URL is unreachable from the sandbox; verification used a
+  local `scripts/assemble-pages.mjs` build of the same commit. No physical
+  device, Safari/WebKit or Firefox.
+- The reported **empty "Recovery guidance" 1–4 list was not reproduced** and no
+  cause was found; it is guarded and tested but **not claimed fixed**. If it is
+  seen again, record browser, OS and page.
+- Not changed: page-level demo buttons next to the widget, the offline shell's
+  own diagnostics button, and small host-CSS differences in the widget header.
+- `git push` needs `-c http.postBuffer=52428800` here when a push exceeds 1 MB.
+
+Next action: `gh pr checks 47`; inspect any failure before changing anything.
+The owner reviews and merges. Do not merge, deploy, publish, tag or bump again.
+
+---
+
+## Historical handoff (superseded)
+
 # Agent Handoff — premium product website redesign
 
 **Date:** 2026-11-15

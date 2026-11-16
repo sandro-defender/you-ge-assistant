@@ -132,6 +132,14 @@ a { color: inherit; }
 .assistant-panel-action strong { font-size: 12px; font-weight: 700; }
 .assistant-panel-action small { margin-top: 2px; color: var(--youge-muted, #81798a); font-size: 10px; }
 .assistant-action-arrow { color: var(--youge-brand, #8b6bb4); text-align: right; }
+/* Recovery guidance: one disclosure under network diagnostics. The rules name
+   every property the host stylesheet sets on bare details/summary, so the
+   panel does not inherit page-level disclosure styling. */
+.assistant-panel-recovery { margin: 8px 0 0; padding: 0; border: var(--youge-border-width, 1px) solid var(--youge-line, #eee9f4); border-radius: var(--youge-radius-small, 13px); background: var(--youge-surface-soft, #fbf9ff); color: var(--youge-ink, #30283a); font-size: 12px; }
+.assistant-panel-action + .assistant-panel-recovery, .assistant-panel-recovery + .assistant-panel-action { margin-top: 8px; }
+.assistant-panel-recovery > summary { display: flex; align-items: center; min-height: 44px; padding: 10px 11px; font-size: 12px; font-weight: 700; line-height: 1.3; cursor: pointer; }
+.assistant-panel-recovery > summary:focus-visible { outline: 3px solid var(--youge-focus, #78b99a); outline-offset: -3px; border-radius: var(--youge-radius-small, 13px); }
+.assistant-panel-recovery > ol { display: grid; gap: 6px; margin: 0; padding: 0 12px 12px 30px; color: var(--youge-muted, #655477); font-size: 11.5px; line-height: 1.45; }
 .assistant-panel-link { display: flex; justify-content: space-between; margin: 12px 2px 0; color: var(--youge-muted, #655477); font-size: 11px; font-weight: 650; text-decoration: none; }
 .assistant-panel-link:hover { color: var(--youge-brand, #482d69); text-decoration: underline; }
 
@@ -832,7 +840,10 @@ article.foundation-card {
 .assistant-notice-copy { min-width: 0; }
 .assistant-notice-copy strong { display: block; font-size: 12px; color: var(--youge-ink, #30283a); }
 .assistant-notice-copy p { margin: 3px 0 0; font-size: 11px; line-height: 1.45; color: var(--youge-muted, #70697a); }
-.assistant-notice-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Controls sit under the notice text. Left to auto-placement they landed in the
+   icon column, whose width then grew to the widest button and squeezed the text
+   into a sliver on narrow panels. */
+.assistant-notice-controls { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; }
 .assistant-notice-controls button {
   min-height: 44px;
   min-width: 44px;
@@ -1255,4 +1266,15 @@ article.foundation-card {
     transition-duration: 0.01ms !important;
   }
   .theme-mode:hover, .theme-host:hover { border-color: var(--line); }
+}
+
+/* The toolkit's offline alert is fixed to the bottom of the viewport and, on a
+   narrow screen, spans its width — it covered the Assistant button and took its
+   taps exactly when the Assistant is needed. While the alert is visible the
+   widget sits above it. The breakpoint and the height are the alert's own
+   (pwa.css: full width and 170px tall up to 991px, 10px from the bottom). */
+@media (max-width: 991px) {
+  body:has(.youge-offline-alert:not([hidden])) .assistant-widget {
+    bottom: calc(190px + env(safe-area-inset-bottom));
+  }
 }
