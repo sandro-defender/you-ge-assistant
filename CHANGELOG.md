@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.5 (kit) — 2026-11-16 · runtime boundary and classic-control hardening
+
+Kit `1.2.4 → 1.2.5` (`you-ge-sw.js` `VERSION`, `PWA.version`, root
+`package.json`, SDK `KIT_COMPAT_VERSION`, regenerated `assistant-state.js`),
+**authorized by the owner** because `dns-diagnostics.js` and `pwa.css` are
+precached assets. `@youge/assistant-sdk` stays `0.3.0`; nothing is published,
+tagged or deployed by this entry. See
+[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §11.
+
+- **Notification navigation is scope-bound.** Push payload, action and fallback
+  targets must stay on the registered origin and inside the registered worker
+  scope before a client is focused or a new window is opened.
+- **Global DNS cancellation is preserved.** `window.YouGeDns.check(context,
+  { signal })` now forwards its run options to the lower-level cancellable
+  engine without changing factory-option compatibility.
+- **Classic PWA controls are keyboard-safe.** Generated close and reload
+  controls use native buttons, flow labels are text-only, visible focus rings
+  survive legacy outline resets, and modal focus returns to its trigger.
+- **Legacy install options are enforced.** `data-behavior="disable|hide"`,
+  `data-allow-ios` and `data-allow-samsung` now affect unavailable install
+  paths while retaining the documented defaults and legacy selectors.
+
 ## 1.2.4 (kit) — 2026-11-15 · duplicated Assistant controls
 
 Kit `1.2.3 → 1.2.4` (`you-ge-sw.js` `VERSION`, `PWA.version`, root

@@ -3,7 +3,7 @@
  */
 
 export const SDK_VERSION = '0.3.0';
-export const KIT_COMPAT_VERSION = '1.2.4';
+export const KIT_COMPAT_VERSION = '1.2.5';
 export const SCHEMA_VERSION = 1;
 
 export const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };

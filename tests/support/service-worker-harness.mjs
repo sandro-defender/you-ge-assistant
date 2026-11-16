@@ -200,11 +200,23 @@ function createManualTimers() {
 }
 
 /** Evaluate one worker generation against shared caches and a network. */
-export function bootWorker({ caches, network, source = workerSource, scope = 'https://app.test/', manualTimers = false } = {}) {
+export function bootWorker({ caches, network, source = workerSource, scope = 'https://app.test/', manualTimers = false, windowClients = [] } = {}) {
   const listeners = {};
-  const calls = { skipWaiting: 0, claim: 0 };
+  const calls = { skipWaiting: 0, claim: 0, openedWindows: [] };
   const timers = manualTimers ? createManualTimers() : null;
   caches.fetch = (input) => network.fetch(input);
+  const registration = {
+    scope,
+    async getNotifications() { return []; },
+  };
+  const clients = {
+    claim: async () => { calls.claim += 1; },
+    matchAll: async () => windowClients,
+    openWindow: async (href) => {
+      calls.openedWindows.push(href);
+      return null;
+    },
+  };
   const sandbox = {
     URL, Request, Response, Headers, AbortController, TypeError, Promise,
     setTimeout: timers ? timers.setTimeout : setTimeout,
@@ -215,11 +227,8 @@ export function bootWorker({ caches, network, source = workerSource, scope = 'ht
     caches,
     fetch: (input, init) => network.fetch(input, init),
     location: new URL('you-ge-sw.js', scope),
-    registration: { scope },
-    clients: {
-      claim: async () => { calls.claim += 1; },
-      matchAll: async () => [],
-    },
+    registration,
+    clients,
     skipWaiting: () => { calls.skipWaiting += 1; return Promise.resolve(); },
     addEventListener: (type, handler) => { listeners[type] = handler; },
     importScripts: (...urls) => {
@@ -275,6 +284,10 @@ export function bootWorker({ caches, network, source = workerSource, scope = 'ht
     install: () => dispatch('install'),
     activate: () => dispatch('activate'),
     message: (data) => dispatch('message', { data, ports: [] }),
+    notificationClick: ({ data = {}, action = '' } = {}) => dispatch('notificationclick', {
+      action,
+      notification: { data, close() {} },
+    }),
     request,
   };
 }

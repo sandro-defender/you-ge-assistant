@@ -1,60 +1,32 @@
-# Agent Handoff — duplicated Assistant controls (post-merge audit)
+# Agent Handoff — audited runtime follow-up fixes
 
-**Date:** 2026-11-15
-**Branch:** `arena/e36937e7-you-ge-assistant`, based on `125f0e293288a003821de4a28ec17799311cc559` (`main` after PR #46).
-**Commit / PR:** Implementation `1336dc3`; [PR #47](https://github.com/sandro-defender/you-ge-assistant/pull/47) against `main`, open, not merged. See `git log -1` for this documentation follow-up.
-**Working tree:** Committed and pushed; the tree should be clean. Browser tooling lives outside the repository and is not committed.
-**Versions:** Kit `1.2.3 → 1.2.4`, **authorized by the owner in this session** (two precached assets changed). SDK `0.3.0` unchanged. Nothing published, tagged or deployed.
+**Date:** 2026-11-16
+**Branch:** `arena/a259b4d2-you-ge-assistant`, based on `73a4c61ddb37369aab1baafd1e48c0e74d3d4db1` (`main`).
+**Commit / PR:** Implementation is committed on `HEAD`; [PR #48](https://github.com/sandro-defender/you-ge-assistant/pull/48) is open against `main`. No merge, release, publish, tag or deployment has occurred.
+**Working tree:** Runtime, focused regressions, synchronized kit declarations and documentation are modified locally. `examples/example/dist` and dependencies are generated/ignored. The host-owned worker contract remains unchanged.
+**Versions:** Kit `1.2.4 → 1.2.5`, **authorized by the owner because precached assets changed**; SDK package `@youge/assistant-sdk` remains `0.3.0`. No npm stage/publish or deployment was performed.
 
 ## Completed
 
-Audit of the rendered Pages site (`/`, `/example/`, `/example/workspace.html`) at
-1440×900 and 390×844, then the fix:
-
-- **Classic widget** (`assistant-widget.js`): actions are placed by claim order —
-  own section, else the notice that reports it, else "More actions" (omitted when
-  empty). Before, "Installation instructions" rendered three times and "Run
-  network diagnostics" two to three times, and the "Available actions" copies had
-  no toolkit hook. **Owner decisions:** the *Installation available* card keeps
-  its button beside the *Installation* section; diagnostics and recovery guidance
-  live only in *Diagnostics & recovery*, connection notices carry no button.
-- No empty sections (Installation only when installable; recovery steps are data).
-  Re-render keeps opened disclosures and focus; keyboard Dismiss leaves focus on
-  the close button. `.youge-recovery` / `.youge-adjust` state their own box and
-  type so host `details`/`summary` CSS does not reshape them.
-- **React example**: same rule in `examples/example/src/panel-actions.js`;
-  recovery guidance is a real disclosure; notice controls sit in the text column;
-  Escape is left to an open toolkit dialog; the offline alert no longer covers
-  the Assistant button below 992px (`example.css`).
-- Docs: `docs/guides/WIDGET.md` (*Where each action is offered*),
-  `CAPABILITY_ENFORCEMENT.md`, `PRECACHE_INTEGRITY.md` §10, `CHANGELOG.md` 1.2.4,
-  before/after screenshots in
-  `docs/design-system/you-ge-assistant/pages/screenshots/duplicated-ui-audit/`.
+- **Service-worker navigation boundary:** notification payload, action, fallback and hash navigation targets are resolved only against the registered worker scope and origin. The public `safeNavigationUrl()` helper keeps its broader documented HTTP contract.
+- **DNS cancellation:** `window.YouGeDns.check(context, options)` forwards the same run options to the cancellable engine, so caller `AbortSignal` cancellation remains distinct from timeout and connectivity results.
+- **Classic PWA controls:** generated close, reload, QR, flow and diagnostics controls use native buttons and explicit button types; labels are text-safe; dialogs restore focus and remove Escape listeners; banners, alerts and toolbox controls have visible focus styling while legacy classes/layout remain intact.
+- **Legacy install compatibility:** `data-behavior="disable|hide"`, `data-allow-ios`, `data-allow-samsung`, standalone handling and legacy `.progressier-*` selectors remain enforced.
+- `npm run sync:sdk` regenerated `src/assistant/assistant-state.js`; the synchronized kit declarations are `1.2.5` while SDK release version remains `0.3.0`.
 
 ## Verification
 
-`npm run check`: exit 0, 591/591, precache gate PASS (`3 of 13 precached assets
-changed … kit version 1.2.3 → 1.2.4 synchronized`). SDK 135/135, package
-validation and `npm pack --dry-run` pass. Example typecheck/build, syntax loop
-and manifest parse pass. Headless Chromium against the assembled Pages site,
-before (`125f0e2`) and after, online/offline, pointer and keyboard: no page
-errors, no horizontal scroll, each remaining control opens one dialog and fires
-one `youge:action`.
+- `npm run check`: **595 passed / 0 failed**; static contracts and package validation passed.
+- `npm run test:sdk`: **135 passed / 0 failed**.
+- `examples/example`: `npm run typecheck` and `npm run build` passed; Vite emitted its existing classic-script warnings. The generated `dist` is ignored.
+- `node scripts/precache-integrity.mjs`: passed — `3 of 13` precached assets changed (`assistant-state.js`, `dns-diagnostics.js`, `pwa.css`), with kit `1.2.4 → 1.2.5` synchronized.
+- `npm pack --dry-run --json`: passed for SDK `0.3.0`; `git diff --check` is clean.
 
 ## Limits, risks and exact next action
 
-- The deployed Pages URL is unreachable from the sandbox; verification used a
-  local `scripts/assemble-pages.mjs` build of the same commit. No physical
-  device, Safari/WebKit or Firefox.
-- The reported **empty "Recovery guidance" 1–4 list was not reproduced** and no
-  cause was found; it is guarded and tested but **not claimed fixed**. If it is
-  seen again, record browser, OS and page.
-- Not changed: page-level demo buttons next to the widget, the offline shell's
-  own diagnostics button, and small host-CSS differences in the widget header.
-- `git push` needs `-c http.postBuffer=52428800` here when a push exceeds 1 MB.
-
-Next action: `gh pr checks 47`; inspect any failure before changing anything.
-The owner reviews and merges. Do not merge, deploy, publish, tag or bump again.
+- No real-browser, physical-device, live DNS/push or deployed-Pages verification was performed in this follow-up.
+- Deferred M6/M7 scope, canonical identity, legacy aliases and host-owned service-worker registration were not redesigned.
+- Commit the current implementation, push only `arena/a259b4d2-you-ge-assistant`, then request owner review. Do not merge, publish, stage a release, tag or deploy without separate authorization.
 
 ---
 

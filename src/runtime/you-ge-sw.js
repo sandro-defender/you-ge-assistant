@@ -18,7 +18,7 @@
  * Configuration
  * ------------------------------------------------------------------ */
 
-const VERSION = '1.2.4';
+const VERSION = '1.2.5';
 const WORKER_DIRECTORY = new URL('./', self.location.href);
 const REGISTRATION_SCOPE = self.registration && self.registration.scope
   ? new URL(self.registration.scope, self.location.href)
@@ -41,17 +41,26 @@ const DOMAIN_CONFIG = self.YouGeDomain && typeof self.YouGeDomain.resolve === 'f
 const OFFLINE_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.offline !== false;
 
 // Navigation targets in notifications come from push payloads and action data:
-// data, never instructions. Restrict them to http(s) and in-scope paths so a
-// payload cannot drive `client.navigate()`/`openWindow()` into a script-capable
-// scheme (javascript:, data:) or a stripped-control-character look-alike.
+// data, never instructions. The registered scope is the trust boundary: a
+// payload may address only this worker's origin and scope, never an arbitrary
+// same-origin page outside the application or another origin.
+const REGISTERED_SCOPE_PATH = REGISTRATION_SCOPE.pathname;
+const REGISTERED_SCOPE_DIRECTORY = REGISTERED_SCOPE_PATH.endsWith('/')
+  ? REGISTERED_SCOPE_PATH
+  : `${REGISTERED_SCOPE_PATH}/`;
+
+function isNotificationTargetInScope(url) {
+  return Boolean(
+    url &&
+    url.origin === REGISTRATION_SCOPE.origin &&
+    (url.pathname === REGISTERED_SCOPE_PATH || url.pathname.startsWith(REGISTERED_SCOPE_DIRECTORY))
+  );
+}
+
 function resolveNotificationTarget(raw) {
-  if (self.YouGeDomain && typeof self.YouGeDomain.safeNavigationUrl === 'function') {
-    return self.YouGeDomain.safeNavigationUrl(raw, self.location.href);
-  }
   try {
-    const url = new URL(String(raw == null ? '' : raw).trim(), self.location.href);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return REGISTRATION_SCOPE.href;
-    return url.href;
+    const url = new URL(String(raw == null ? '' : raw).trim(), REGISTRATION_SCOPE);
+    return isNotificationTargetInScope(url) ? url.href : REGISTRATION_SCOPE.href;
   } catch (error) {
     return REGISTRATION_SCOPE.href;
   }
@@ -838,11 +847,11 @@ self.addEventListener('notificationclick', (event) => {
   }
   let targetUrl;
   try {
-    targetUrl = new URL(resolveNotificationTarget(target), self.location.origin);
+    targetUrl = new URL(resolveNotificationTarget(target), REGISTRATION_SCOPE);
   } catch (error) {
     targetUrl = new URL(REGISTRATION_SCOPE);
   }
-  if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') {
+  if (!isNotificationTargetInScope(targetUrl)) {
     targetUrl = new URL(REGISTRATION_SCOPE);
   }
   targetUrl.hash = data.hash || targetUrl.hash;

@@ -594,6 +594,10 @@
   root.YouGeDns = {
     endpoint: ENDPOINT,
     create: create,
-    check: function (context, options) { return create(options).check(context); },
+    // `options` contains both the legacy factory settings (fetch, timeoutMs,
+    // retries, AbortController) and the per-run signal. Keep passing it to
+    // `create()` for existing callers, and also pass it to `check()` so the
+    // documented global cancellation API is not silently dropped.
+    check: function (context, options) { return create(options).check(context, options); },
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

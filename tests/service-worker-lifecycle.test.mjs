@@ -184,3 +184,25 @@ test('the page client and the worker script itself are never answered from the c
   assert.equal(await active.request('pwa.js'), null);
   assert.equal(await active.request('progressier.js'), null);
 });
+
+test('notification, action and fallback targets stay same-origin and inside the registered scope', async () => {
+  const worker = bootWorker({
+    caches: createCacheStorage(),
+    network: createNetwork(),
+    scope: 'https://app.test/app/',
+  });
+
+  const click = async (data, action = '') => {
+    await worker.notificationClick({ data, action });
+    return worker.calls.openedWindows.at(-1);
+  };
+
+  assert.equal(await click({ url: 'https://evil.test/phish' }), 'https://app.test/app/');
+  assert.equal(await click({ url: 'https://app.test/outside' }), 'https://app.test/app/');
+  assert.equal(await click({ url: '//evil.test/phish' }), 'https://app.test/app/');
+  assert.equal(await click({ url: 'javascript:alert(1)' }), 'https://app.test/app/');
+  assert.equal(await click({ url: 'inbox?tab=alerts#top' }), 'https://app.test/app/inbox?tab=alerts#top');
+  assert.equal(await click({ url: '/app/default', actions: [{ action: 'open', url: 'https://evil.test/action' }] }, 'open'), 'https://app.test/app/');
+  assert.equal(await click({ url: '/app/default', actions: [{ action: 'open', url: '/app/action' }] }, 'open'), 'https://app.test/app/action');
+  assert.equal(await click({}), 'https://app.test/app/');
+});

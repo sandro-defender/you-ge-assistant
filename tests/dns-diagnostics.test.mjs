@@ -422,6 +422,32 @@ test('without a caller signal the engine keeps its existing signature and behavi
   assert.equal(result.status, undefined, 'no cancellation status leaks into ordinary results');
 });
 
+test('the global check forwards run options while preserving factory options and caller cancellation', async () => {
+  const signal = fakeSignal();
+  let requests = 0;
+  const fetch = async (input) => {
+    requests += 1;
+    const url = new URL(input);
+    if (url.href.startsWith(endpoint)) await new Promise((resolve) => setTimeout(resolve, 25));
+    return url.href.startsWith(endpoint) ? response(dnsAnswer(url)) : response({});
+  };
+
+  const pending = globalThis.YouGeDns.check(browserContext(), {
+    fetch,
+    retries: 0,
+    timeoutMs: 1000,
+    signal,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  signal.abort();
+  const result = await pending;
+
+  assert.equal(requests, 3, 'factory options still configure the global engine');
+  assert.equal(result.classification, 'cancelled', 'the second argument is also passed to the run');
+  assert.equal(result.cancelled, true);
+  assert.equal(signal.listenerCount, 0, 'the global wrapper releases the caller listener');
+});
+
 /* ------------------------------------------------------------------ *
  * Stage 5.3 / D3 — host classification: local vs private vs public IP
  * ------------------------------------------------------------------ */
