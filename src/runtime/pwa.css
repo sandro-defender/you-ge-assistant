@@ -304,6 +304,10 @@ body.force-fixed {
   margin-right: 20px;
   font-size: 16px;
   display: flex;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
   align-items: center;
   justify-content: center;
   width: 44px;
@@ -686,6 +690,20 @@ body.force-fixed {
   opacity: 1 !important;
 }
 
+.youge-push-banner-close,
+.progressier-push-banner-close {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
+}
+
+.youge-push-banner :focus-visible,
+.progressier-push-banner :focus-visible {
+  outline: 3px solid var(--youge-pwa-focus, #2563eb) !important;
+  outline-offset: 3px !important;
+}
+
 @media (min-width: 992px) {
   .youge-push-banner-text,
   .progressier-push-banner-text {
@@ -886,10 +904,13 @@ body.force-fixed {
   position: absolute;
   top: 0;
   right: 0;
+  border: 0;
   border-bottom-left-radius: 50%;
   padding: 5px;
   display: flex;
   color: #8a8a8a;
+  background: transparent;
+  appearance: none;
   cursor: pointer;
 }
 
@@ -897,6 +918,12 @@ body.force-fixed {
 .progressier-offline-alert-close svg {
   width: 20px;
   height: 20px;
+}
+
+.youge-offline-alert-close:focus-visible,
+.progressier-offline-alert-close:focus-visible {
+  outline: 3px solid var(--youge-pwa-focus, #2563eb) !important;
+  outline-offset: 3px !important;
 }
 
 @media (max-width: 991px) {
@@ -930,6 +957,8 @@ body.force-fixed {
 .progressier-prompt-reload-button {
   cursor: pointer;
   display: flex;
+  border: 0;
+  appearance: none;
   align-items: center;
   justify-content: center;
   color: #fff;
@@ -945,6 +974,12 @@ body.force-fixed {
 .youge-prompt-reload-button:hover,
 .progressier-prompt-reload-button:hover {
   filter: brightness(0.9);
+}
+
+.youge-prompt-reload-button:focus-visible,
+.progressier-prompt-reload-button:focus-visible {
+  outline: 3px solid var(--youge-pwa-focus, #2563eb) !important;
+  outline-offset: 3px !important;
 }
 
 /* ---------------------------------------------------------------- *
@@ -965,7 +1000,17 @@ body.force-fixed {
 
 .pwa-flow * {
   -webkit-tap-highlight-color: transparent !important;
-  outline: 0 !important;
+}
+
+.pwa-flow button,
+.pwa-flow a {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.pwa-flow button:focus-visible,
+.pwa-flow a:focus-visible {
+  outline: 3px solid var(--youge-pwa-focus, #2563eb) !important;
+  outline-offset: 3px !important;
 }
 
 .pwa-flow .pwa-flow-inner {
@@ -1020,6 +1065,10 @@ body.force-fixed {
 }
 
 .pwa-flow-close {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
   border-radius: 50%;
   width: 40px;
   height: 40px;

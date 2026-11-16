@@ -19,6 +19,7 @@ const source = readFileSync(new URL('../src/runtime/pwa.js', import.meta.url), '
 const CHROME_UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
 const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1';
 const IPADOS_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15';
+const SAMSUNG_UA = 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/24.0 Chrome/115.0 Mobile Safari/537.36';
 
 class ClassList {
   constructor() { this.values = new Set(); }
@@ -64,7 +65,12 @@ class FakeNode {
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
   hasAttribute(name) { return this.attributes.has(name); }
-  appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
+  appendChild(child) {
+    child.parentNode = this;
+    child.ownerDocument = this.ownerDocument;
+    this.children.push(child);
+    return child;
+  }
   removeChild(child) { this.children = this.children.filter((entry) => entry !== child); child.parentNode = null; return child; }
   addEventListener(type, listener) {
     const list = this.listeners.get(type) || [];
@@ -117,7 +123,10 @@ class FakeNode {
     }
     return null;
   }
-  focus() { this.focused = true; }
+  focus() {
+    this.focused = true;
+    if (this.ownerDocument) this.ownerDocument.activeElement = this;
+  }
   remove() { if (this.parentNode) this.parentNode.removeChild(this); }
   get isConnected() { return Boolean(this.parentNode); }
 }
@@ -181,10 +190,15 @@ function createContext(options = {}) {
     events,
     createElement(tag) {
       const node = new FakeNode(tag);
+      node.ownerDocument = doc;
       created.push(node);
       return node;
     },
-    createDocumentFragment() { return new FakeNode('fragment'); },
+    createDocumentFragment() {
+      const node = new FakeNode('fragment');
+      node.ownerDocument = doc;
+      return node;
+    },
     querySelector(selector) {
       if (selector === '[data-pwa-help]') return findHelpHost({ doc });
       return findAll(doc.body, (node) => node !== doc.body && node.matches(selector))[0] || null;
@@ -218,6 +232,9 @@ function createContext(options = {}) {
       }
     },
   };
+  doc.head.ownerDocument = doc;
+  doc.body.ownerDocument = doc;
+  doc.documentElement.ownerDocument = doc;
 
   const swListeners = new Map();
   const defaultRegistration = options.registration || createFakeRegistration();
@@ -590,7 +607,7 @@ test('install banner dismissal is persisted with the canonical cookie name', () 
   assert.ok(banner, 'banner is displayed for an eligible browser');
 
   const buttons = findAll(banner, (node) => node.tagName === 'BUTTON');
-  assert.equal(buttons.length, 2, 'install and Not now actions');
+  assert.equal(buttons.length, 3, 'install, Not now and the accessible close action');
   buttons[1].dispatch('click');
 
   assert.match(harness.doc.cookie, /youge_install_banner_/, 'dismissal is stored');
@@ -622,6 +639,71 @@ test('host-supplied install button labels are escaped, never parsed as HTML', ()
   assert.match(installButton.innerHTML, /class="pwa-btn-label"/, 'the button markup structure is preserved');
 });
 
+test('legacy install button compatibility flags control unavailable iOS and Samsung paths', () => {
+  const iosDisabled = new FakeNode('button');
+  iosDisabled.classList.add('progressier-install-button');
+  iosDisabled.setAttribute('data-allow-ios', 'false');
+  const iosHidden = new FakeNode('button');
+  iosHidden.classList.add('progressier-install-button');
+  iosHidden.setAttribute('data-allow-ios', 'false');
+  iosHidden.setAttribute('data-behavior', 'hide');
+  const ios = createContext({ userAgent: IPHONE_UA, installButtons: [iosDisabled, iosHidden] });
+
+  assert.equal(iosDisabled.hidden, false, 'disable is the default compatibility behavior');
+  assert.equal(iosDisabled.getAttribute('aria-disabled'), 'true');
+  assert.equal(iosDisabled.style.pointerEvents, 'none');
+  assert.equal(iosHidden.hidden, true, 'data-behavior=hide removes an unavailable path');
+
+  const samsung = new FakeNode('button');
+  samsung.classList.add('progressier-install-button');
+  samsung.setAttribute('data-allow-samsung', 'false');
+  const samsungHarness = createContext({ userAgent: SAMSUNG_UA, installButtons: [samsung] });
+  assert.equal(samsungHarness.win.PWA.isIOS(), false);
+  assert.equal(samsung.hidden, false);
+  assert.equal(samsung.getAttribute('aria-disabled'), 'true');
+
+  const allowedIosButton = new FakeNode('button');
+  allowedIosButton.classList.add('progressier-install-button');
+  const allowedIos = createContext({ userAgent: IPHONE_UA, installButtons: [allowedIosButton] });
+  assert.equal(allowedIosButton.hidden, false, 'iOS remains available by default for manual guidance');
+  assert.equal(allowedIosButton.getAttribute('aria-disabled'), 'false');
+  allowedIosButton.dispatch('click');
+  assert.ok(findHelpHost(allowedIos), 'the allowed iOS button still opens its instructions');
+});
+
+test('classic controls use native semantics, preserve focus, and keep flow labels as text', () => {
+  const harness = createContext();
+  const trigger = new FakeNode('button');
+  harness.doc.body.appendChild(trigger);
+  trigger.focus();
+
+  const flow = harness.win.PWA.showFlow({
+    title: 'Install',
+    app: false,
+    button: '<img src=x>',
+    secondary: 'Not now',
+  });
+  const flowClose = flow.querySelector('.pwa-flow-close');
+  assert.equal(flowClose.tagName, 'BUTTON');
+  assert.equal(flowClose.type, 'button');
+  assert.equal(harness.doc.activeElement, flowClose, 'opening a flow moves focus into the dialog');
+  const primary = flow.querySelector('.pwa-flow-btn');
+  assert.equal(primary.textContent, '<img src=x>');
+  assert.equal(primary.innerHTML, '', 'flow labels are never interpreted as HTML');
+  flowClose.dispatch('click');
+  assert.equal(harness.doc.activeElement, trigger, 'closing a flow restores the previous focus');
+
+  const offline = harness.win.PWA.showOfflineAlert();
+  const offlineClose = offline.querySelector('.youge-offline-alert-close');
+  assert.equal(offline.getAttribute('role'), 'alert');
+  assert.equal(offlineClose.tagName, 'BUTTON');
+  assert.equal(offlineClose.type, 'button');
+  const prompt = harness.win.PWA.showReloadPrompt();
+  const reload = prompt.querySelector('.youge-prompt-reload-button');
+  assert.equal(reload.tagName, 'BUTTON');
+  assert.equal(reload.type, 'button');
+});
+
 test('push permission requests support callback-only browsers and never throw', async () => {
   const legacy = createContext();
   legacy.win.Notification.requestPermission = function requestPermission(callback) { callback('granted'); };
@@ -650,7 +732,7 @@ function diagnosticsContext() {
 }
 
 function retryButtonOf(flow) {
-  return findAll(flow, (node) => node.tagName === 'BUTTON')[0] || null;
+  return flow.querySelector('.pwa-flow-btn') || null;
 }
 
 test('the diagnostics dialog publishes pwa:diagnostics when the check succeeds', async () => {
@@ -1126,7 +1208,7 @@ test('cache diagnostics examine only opted-in Assistant cache names without chan
   assert.equal(result.status, 'ok');
   assert.equal(result.staticCache, true);
   assert.equal(result.pageCache, false);
-  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.4', 'you-ge-assistant:example.test:%2F:pages:v1.2.4']);
+  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.5', 'you-ge-assistant:example.test:%2F:pages:v1.2.5']);
   flags.cacheDiagnostics = false;
   assert.equal((await harness.win.PWA.runCacheDiagnostics()).status, 'disabled');
   assert.equal(queried.length, 2);

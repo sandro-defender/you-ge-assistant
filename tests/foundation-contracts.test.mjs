@@ -253,18 +253,11 @@ test('build and type-check gates are wired into CI', () => {
 
 test('push payload navigation targets are validated before the client is moved', () => {
   assert.match(worker, /function resolveNotificationTarget\(raw\)/, 'the worker funnels every target through one guard');
-  assert.match(worker, /self\.YouGeDomain\.safeNavigationUrl\(raw, self\.location\.href\)/, 'the guard comes from the imported classic resolver');
-  assert.match(
-    worker,
-    /if \(url\.protocol !== 'https:' && url\.protocol !== 'http:'\) return REGISTRATION_SCOPE\.href;/,
-    'the fallback path still refuses script-capable schemes when domain-config.js is missing',
-  );
-  assert.match(worker, /targetUrl = new URL\(resolveNotificationTarget\(target\), self\.location\.origin\);/);
-  assert.match(
-    worker,
-    /if \(targetUrl\.protocol !== 'https:' && targetUrl\.protocol !== 'http:'\) \{\s*targetUrl = new URL\(REGISTRATION_SCOPE\);/,
-    'a re-check after URL construction, so an unusable value cannot reach navigate/openWindow',
-  );
+  assert.match(worker, /REGISTRATION_SCOPE\.origin/, 'targets are compared with the registered origin');
+  assert.match(worker, /REGISTRATION_SCOPE\.pathname/, 'targets are checked against the registered scope path');
+  assert.match(worker, /return REGISTRATION_SCOPE\.href;/, 'unsafe and out-of-scope values use the registered-scope fallback');
+  assert.match(worker, /targetUrl = new URL\(resolveNotificationTarget\(target\), REGISTRATION_SCOPE\);/);
+  assert.match(worker, /isNotificationTargetInScope\(targetUrl\)/, 'a re-check after URL construction protects navigate/openWindow');
   const handler = /self\.addEventListener\('notificationclick'[\s\S]*?\n\}\);/.exec(worker);
   assert.ok(handler, 'the notificationclick handler exists');
   assert.doesNotMatch(handler[0], /new URL\(\s*\(?\s*data\.url/, 'no raw payload url is ever turned into a navigation target');

@@ -1,18 +1,8 @@
-# Next Agent Prompt — review the duplicated-controls PR
+# Next Agent Prompt — review audited runtime follow-up
 
-Read `AGENTS.md`, the current `AGENT_HANDOFF.md` and `docs/guides/WIDGET.md`
-(*Where each action is offered*). Work only on `arena/e36937e7-you-ge-assistant`
-(base `125f0e2`). Review [PR #47](https://github.com/sandro-defender/you-ge-assistant/pull/47)
-and its checks (`gh pr checks 47`). The Assistant panel no longer repeats
-actions: the install card and the Installation section both keep the install
-button (owner decision), diagnostics and recovery guidance live only in
-*Diagnostics & recovery*, and "More actions" appears only when it has content.
-The React example follows the same rule through `src/panel-actions.js`. Kit is
-`1.2.4` (owner-authorized); SDK stays `0.3.0`. 591 tests pass locally. Inspect
-any CI failure before making a change. Do not merge, deploy, publish, tag, bump
-versions, or weaken tests or gates. Still open: the reported empty "Recovery
-guidance" list was never reproduced (Chromium only); real Safari/Firefox and
-physical devices remain unverified.
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/operations/PRECACHE_INTEGRITY.md` §11 and the focused regression files. Work only on `arena/a259b4d2-you-ge-assistant` (base `73a4c61`). The implementation is complete: service-worker notification/action/fallback/hash targets are confined to the registered scope; global DNS run options preserve caller cancellation; classic PWA controls use native semantics, focus cleanup and visible focus rings; and legacy install-button flags are enforced. Kit `1.2.5` is owner-authorized because precached assets changed; SDK package remains `0.3.0`.
+
+Verification is green: `npm run check` 595/595, `npm run test:sdk` 135/135, example typecheck/build, precache integrity, package validation and SDK dry-run pack. No release, publish, tag, deployment, merge or PR has occurred yet. Keep the host-owned worker registration contract, canonical You.Ge identity, legacy aliases and deferred M6/M7 scope unchanged. Do not bump versions again or weaken tests/gates. Commit and push only the current branch, then leave merge/release/deploy decisions to the owner.
 
 ---
 

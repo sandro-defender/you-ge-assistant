@@ -177,6 +177,10 @@
     return /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox|FxiOS|SamsungBrowser/.test(ua);
   }
 
+  function isSamsungInternet() {
+    return /SamsungBrowser/i.test(ua);
+  }
+
   function isStandalone() {
     try {
       if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
@@ -1847,8 +1851,10 @@
   }
 
   function closeButton() {
-    var button = make('div', 'pwa-flow-close', ICONS.close);
-    button.setAttribute('role', 'button');
+    var button = make('button', 'pwa-flow-close', ICONS.close);
+    button.type = 'button';
+    button.setAttribute('type', 'button');
+    button.setAttribute('aria-label', wording.get('close'));
     return button;
   }
 
@@ -1916,7 +1922,7 @@
 
   function installButtonData(node) {
     return {
-      behavior: node.getAttribute('data-behavior') || 'disable',
+      behavior: node.getAttribute('data-behavior') === 'hide' ? 'hide' : 'disable',
       hideStandalone: node.getAttribute('data-hide-standalone') !== 'false',
       allowIOS: node.getAttribute('data-allow-ios') !== 'false',
       allowSamsung: node.getAttribute('data-allow-samsung') !== 'false',
@@ -1924,6 +1930,24 @@
       installedLabel: localizedLabel(node, 'data-installed', 'Launch the app', 'launchTheApp'),
       icons: node.hasAttribute('data-icons') && node.getAttribute('data-icons') !== 'false',
     };
+  }
+
+  function installButtonPathAllowed(data) {
+    if (isIOS() && !data.allowIOS) return false;
+    if (isSamsungInternet() && !data.allowSamsung) return false;
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false || !assistantCapabilityEnabled('installationGuidance')) return false;
+    return true;
+  }
+
+  function setInstallButtonUnavailable(node, data, unavailable) {
+    node.setAttribute('aria-disabled', unavailable ? 'true' : 'false');
+    if (data.behavior === 'hide') {
+      setButtonHidden(node, unavailable);
+      setButtonDisabled(node, false);
+    } else {
+      setButtonHidden(node, false);
+      setButtonDisabled(node, unavailable);
+    }
   }
 
   // The hosted client treated its own default English labels as untranslated
@@ -1956,6 +1980,7 @@
     if (!node.hasAttribute('tabindex')) node.setAttribute('tabindex', '0');
 
     var lastStatus = '';
+    var unavailable = false;
 
     function render() {
       if (!node.isConnected) {
@@ -1968,15 +1993,25 @@
       var installedNow = installed || standalone;
 
       if (standalone && data.hideStandalone) {
+        unavailable = false;
+        node.setAttribute('aria-disabled', 'false');
         setButtonHidden(node, true);
         return;
       }
 
       setButtonHidden(node, false);
+      if (!installButtonPathAllowed(data)) {
+        unavailable = true;
+        setInstallButtonUnavailable(node, data, true);
+        return;
+      }
+      unavailable = false;
+      setInstallButtonUnavailable(node, data, false);
 
       // Legacy button contract: the button is only disabled when running
       // standalone with data-hide-standalone="false".
       setButtonDisabled(node, standalone);
+      node.setAttribute('aria-disabled', standalone ? 'true' : 'false');
 
       var status = installedNow ? 'installed' : 'default';
       if (status === lastStatus && node.querySelector('.pwa-btn-inner')) return;
@@ -1996,6 +2031,7 @@
     }
 
     function activate() {
+      if (unavailable) return;
       if (installed || isStandalone()) {
         promptInstall();
         return;
@@ -2215,9 +2251,10 @@
     buttons.appendChild(notNow);
     details.appendChild(buttons);
 
-    var close = make('div', 'youge-install-banner-close progressier-install-banner-close', ICONS.close);
-    close.setAttribute('role', 'button');
-    close.setAttribute('tabindex', '0');
+    var close = make('button', 'youge-install-banner-close progressier-install-banner-close', ICONS.close);
+    close.type = 'button';
+    close.setAttribute('type', 'button');
+    close.setAttribute('aria-label', wording.get('close'));
 
     inner.appendChild(icon);
     inner.appendChild(details);
@@ -2304,9 +2341,10 @@
     buttons.appendChild(subscribe);
     details.appendChild(buttons);
 
-    var close = make('div', 'youge-push-banner-close progressier-push-banner-close', ICONS.close);
-    close.setAttribute('role', 'button');
-    close.setAttribute('tabindex', '0');
+    var close = make('button', 'youge-push-banner-close progressier-push-banner-close', ICONS.close);
+    close.type = 'button';
+    close.setAttribute('type', 'button');
+    close.setAttribute('aria-label', wording.get('close'));
 
     inner.appendChild(details);
     inner.appendChild(close);
@@ -2371,6 +2409,7 @@
     if (offlineAlertElement) return offlineAlertElement;
 
     var alert = make('div', 'youge-offline-alert progressier-offline-alert');
+    alert.setAttribute('role', 'alert');
     if (wording.rtl()) alert.setAttribute('dir', 'rtl');
 
     var illustration = make('div', 'youge-offline-alert-illustration progressier-offline-alert-illustration', ICONS.wifiOff);
@@ -2389,8 +2428,9 @@
     alert.appendChild(wifi);
 
     if (options.dismissible !== false) {
-      var close = make('div', 'youge-offline-alert-close progressier-offline-alert-close', ICONS.close);
-      close.setAttribute('role', 'button');
+      var close = make('button', 'youge-offline-alert-close progressier-offline-alert-close', ICONS.close);
+      close.type = 'button';
+      close.setAttribute('type', 'button');
       close.setAttribute('aria-label', wording.get('close'));
       close.addEventListener('click', function (event) {
         event.stopPropagation();
@@ -2441,12 +2481,16 @@
       if (assistantCapabilityEnabled('userUpdate')) window.location.reload();
     });
 
-    var button = make('div', 'youge-prompt-reload-button progressier-prompt-reload-button');
+    var button = make('button', 'youge-prompt-reload-button progressier-prompt-reload-button');
+    button.type = 'button';
+    button.setAttribute('type', 'button');
+    button.setAttribute('aria-label', assistantCapabilityEnabled('userUpdate') ? (options.text || wording.get('tapToReload')) : 'Update available');
     button.textContent = assistantCapabilityEnabled('userUpdate') ? (options.text || wording.get('tapToReload')) : 'Update available';
     if (options.color) button.style.background = options.color;
     overlay.appendChild(button);
 
     document.body.appendChild(overlay);
+    if (button.focus) button.focus();
     return overlay;
   }
 
@@ -2485,6 +2529,9 @@
     if (wording.rtl()) flow.setAttribute('dir', 'rtl');
     flow.setAttribute('role', 'dialog');
     flow.setAttribute('aria-modal', 'true');
+    flow.setAttribute('aria-label', options.title || wording.get('welcomeTitle'));
+    var previousFocus = document.activeElement;
+    var closed = false;
 
     var inner = make('div', 'pwa-flow-inner');
 
@@ -2536,20 +2583,24 @@
     if (options.button || options.secondary) {
       var actions = make('div', 'pwa-flow-actions');
       if (options.button) {
-        var primary = make('button', 'pwa-flow-btn', options.button);
+        var primary = make('button', 'pwa-flow-btn');
         primary.type = 'button';
+        primary.setAttribute('type', 'button');
+        primary.textContent = options.button;
         primary.addEventListener('click', function () {
           if (typeof options.onPrimary === 'function') options.onPrimary();
-          closeFlow(flow);
+          destroy();
         });
         actions.appendChild(primary);
       }
       if (options.secondary) {
-        var secondary = make('button', 'pwa-flow-btn secondary', options.secondary);
+        var secondary = make('button', 'pwa-flow-btn secondary');
         secondary.type = 'button';
+        secondary.setAttribute('type', 'button');
+        secondary.textContent = options.secondary;
         secondary.addEventListener('click', function () {
           if (typeof options.onSecondary === 'function') options.onSecondary();
-          closeFlow(flow);
+          destroy();
         });
         actions.appendChild(secondary);
       }
@@ -2557,8 +2608,11 @@
     }
 
     function destroy() {
+      if (closed) return;
+      closed = true;
       document.removeEventListener('keydown', onKey);
       closeFlow(flow);
+      if (previousFocus && previousFocus.focus) previousFocus.focus();
     }
     function onKey(event) {
       if (event.key === 'Escape' && options.dismissible !== false) destroy();
@@ -2576,6 +2630,7 @@
 
     flow.appendChild(inner);
     document.body.appendChild(flow);
+    if (options.dismissible !== false && close.focus) close.focus();
     return flow;
   }
 
@@ -2649,13 +2704,13 @@
     flow.setAttribute('role', 'dialog');
     flow.setAttribute('aria-modal', 'true');
     flow.setAttribute('aria-label', 'Network diagnostics');
+    var previousFocus = document.activeElement;
+    var closed = false;
     var inner = make('div', 'pwa-flow-inner');
     var header = make('div', 'pwa-flow-header');
     var title = make('div', 'pwa-flow-title', 'Network diagnostics');
     var close = closeButton();
     close.setAttribute('aria-label', 'Close');
-    close.setAttribute('role', 'button');
-    close.setAttribute('tabindex', '0');
     header.appendChild(title);
     header.appendChild(close);
     inner.appendChild(header);
@@ -2680,6 +2735,7 @@
     var actions = make('div', 'pwa-flow-actions');
     var retry = make('button', 'pwa-flow-btn', 'Run diagnostics');
     retry.type = 'button';
+    retry.setAttribute('type', 'button');
     actions.appendChild(retry);
     inner.appendChild(actions);
 
@@ -2725,6 +2781,7 @@
     inner.appendChild(recovery);
     flow.appendChild(inner);
     document.body.appendChild(flow);
+    if (close.focus) close.focus();
 
     var running = false;
     function run() {
@@ -2759,8 +2816,11 @@
       });
     }
     function destroy() {
+      if (closed) return;
+      closed = true;
       document.removeEventListener('keydown', onKey);
       closeFlow(flow);
+      if (previousFocus && previousFocus.focus) previousFocus.focus();
     }
     function onKey(event) { if (event.key === 'Escape') destroy(); }
     close.addEventListener('click', destroy);
@@ -3024,6 +3084,8 @@
     flow.setAttribute('role', 'dialog');
     flow.setAttribute('aria-modal', 'true');
     flow.setAttribute('aria-label', options.title || wording.get('installTheApp'));
+    var previousFocus = document.activeElement;
+    var closed = false;
 
     var inner = make('div', 'pwa-flow-inner qrcode');
 
@@ -3055,9 +3117,12 @@
     inner.appendChild(body);
 
     function destroy() {
+      if (closed) return;
+      closed = true;
       document.removeEventListener('keydown', onKey);
       cleanInstallParam();
       closeFlow(flow);
+      if (previousFocus && previousFocus.focus) previousFocus.focus();
     }
     function onKey(event) {
       if (event.key === 'Escape' && options.dismissible !== false) destroy();
@@ -3075,6 +3140,7 @@
 
     flow.appendChild(inner);
     document.body.appendChild(flow);
+    if (options.dismissible !== false && close.focus) close.focus();
 
     track('qr_open', { url: url });
     renderQr(qrBox, url, options).catch(function () {
@@ -3111,17 +3177,28 @@
 
   function captureQrButton(node) {
     node.classList.add('pwa-qr-captured', 'captured');
-    node.setAttribute('role', 'button');
+    if (node.tagName !== 'BUTTON' && node.tagName !== 'A') {
+      node.setAttribute('role', 'button');
+      if (!node.hasAttribute('tabindex')) node.setAttribute('tabindex', '0');
+    }
+    function open() {
+      var value = node.getAttribute('data-youge-qr') || node.getAttribute('data-pwa-qr');
+      showQrDialog({
+        url: value && value !== 'true' ? value : undefined,
+      });
+    }
     if (isStandalone() && node.getAttribute('data-hide-standalone') !== 'false') {
       node.hidden = true;
       return;
     }
     node.addEventListener('click', function (event) {
       event.preventDefault();
-      var value = node.getAttribute('data-youge-qr') || node.getAttribute('data-pwa-qr');
-      showQrDialog({
-        url: value && value !== 'true' ? value : undefined,
-      });
+      open();
+    });
+    node.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      open();
     });
   }
 
@@ -3492,7 +3569,7 @@
   var PWA = {
     __pwaKit: true,
     __youGePwaKit: true,
-    version: '1.2.4',
+    version: '1.2.5',
     config: config,
 
     // install
