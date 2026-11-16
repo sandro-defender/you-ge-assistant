@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-16
 **Branch:** `arena/a259b4d2-you-ge-assistant`, based on `73a4c61ddb37369aab1baafd1e48c0e74d3d4db1` (`main`).
-**Commit / PR:** The implementation is committed at the current `HEAD`; no PR has been opened yet. No merge, release, publish, tag or deployment has occurred.
+**Commit / PR:** Implementation is committed on `HEAD`; [PR #48](https://github.com/sandro-defender/you-ge-assistant/pull/48) is open against `main`. No merge, release, publish, tag or deployment has occurred.
 **Working tree:** Runtime, focused regressions, synchronized kit declarations and documentation are modified locally. `examples/example/dist` and dependencies are generated/ignored. The host-owned worker contract remains unchanged.
 **Versions:** Kit `1.2.4 → 1.2.5`, **authorized by the owner because precached assets changed**; SDK package `@youge/assistant-sdk` remains `0.3.0`. No npm stage/publish or deployment was performed.
 

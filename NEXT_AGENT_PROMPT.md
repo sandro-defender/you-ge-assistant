@@ -2,7 +2,7 @@
 
 Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/operations/PRECACHE_INTEGRITY.md` §11 and the focused regression files. Work only on `arena/a259b4d2-you-ge-assistant` (base `73a4c61`). The implementation is complete: service-worker notification/action/fallback/hash targets are confined to the registered scope; global DNS run options preserve caller cancellation; classic PWA controls use native semantics, focus cleanup and visible focus rings; and legacy install-button flags are enforced. Kit `1.2.5` is owner-authorized because precached assets changed; SDK package remains `0.3.0`.
 
-Verification is green: `npm run check` 595/595, `npm run test:sdk` 135/135, example typecheck/build, precache integrity, package validation and SDK dry-run pack. No release, publish, tag, deployment, merge or PR has occurred yet. Keep the host-owned worker registration contract, canonical You.Ge identity, legacy aliases and deferred M6/M7 scope unchanged. Do not bump versions again or weaken tests/gates. Commit and push only the current branch, then leave merge/release/deploy decisions to the owner.
+Verification is green: `npm run check` 595/595, `npm run test:sdk` 135/135, example typecheck/build, precache integrity, package validation and SDK dry-run pack. [PR #48](https://github.com/sandro-defender/you-ge-assistant/pull/48) is open; no release, publish, tag, deployment or merge has occurred. Keep the host-owned worker registration contract, canonical You.Ge identity, legacy aliases and deferred M6/M7 scope unchanged. Do not bump versions again or weaken tests/gates; leave merge/release/deploy decisions to the owner.
 
 ---
 
