@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@playwright/test": "^1.65.1",
     "@youge/assistant-sdk": "file:../../packages/assistant-sdk",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

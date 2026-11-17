@@ -68,12 +68,24 @@ function connectDemo() {
   const clearNoticesBtn = document.createElement("button");
   clearNoticesBtn.type = "button";
   clearNoticesBtn.className = "secondary-button";
-  clearNoticesBtn.textContent = "Clear all notices";
+  clearNoticesBtn.textContent = "Clear dismissible notices";
   clearNoticesBtn.style.margin = "4px 0";
   clearNoticesBtn.addEventListener("click", () => {
     const state = assistant.getState();
-    state.notifications.forEach((n) => assistant.dismiss(n.id));
-    put("demo-feedback", "All notices cleared.");
+    let success = 0;
+    let failed = 0;
+    state.notifications.forEach((n) => {
+      if (assistant.dismiss(n.id)) {
+        success++;
+      } else {
+        failed++;
+      }
+    });
+    if (failed > 0) {
+      put("demo-feedback", `${success} notice(s) cleared, ${failed} persistent/critical notice(s) remain.`);
+    } else {
+      put("demo-feedback", `${success} notice(s) cleared.`);
+    }
   });
   if (controls) controls.appendChild(clearNoticesBtn);
 
