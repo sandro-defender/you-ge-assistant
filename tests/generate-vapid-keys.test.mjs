@@ -42,7 +42,7 @@ test('writing VAPID keys refuses to overwrite an existing key file', (t) => {
 
   const result = runGenerator(directory, '--write');
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /already exists/i);
+  assert.match(result.stderr, /refusing to overwrite existing/i);
   assert.equal(readFileSync(keyFile, 'utf8'), original);
   assert.doesNotMatch(result.stdout, /VAPID_PRIVATE_KEY|VAPID private key/);
 });
