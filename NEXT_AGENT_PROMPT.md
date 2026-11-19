@@ -1,6 +1,6 @@
 # Next Agent Prompt — PR #53 post-verification review
 
-Continue only on `arena/39cfa85d-you-ge-assistant`; PR #53 remains open and unmerged. The exact kit 1.2.7 assertion is fixed, demo builds are present in CI and release verification workflows, and Verify-only succeeded at HEAD `6017e3f…` (see current `AGENT_HANDOFF.md`). If handoff-only edits were pushed afterward, check PR check results and re-run Verify-only for the exact final SHA. Never choose Stage, publish, deploy, merge, tag or release.
+Continue only on `arena/39cfa85d-you-ge-assistant`; PR #53 remains open and unmerged. The exact kit 1.2.7 assertion is fixed, demo builds are present in CI and release verification workflows, and Verify-only succeeded at HEAD `6017e3f…` (see current `AGENT_HANDOFF.md`). The final Verify-only run [44435625117](https://github.com/sandro-defender/you-ge-assistant/actions/runs/44435625117) and PR static CI are successful at `b2bf465…`. Keep the PR open and unmerged; do not run any mutating release action. Never choose Stage, publish, deploy, merge, tag or release.
 ---
 
 # Next Agent Prompt — complete SDK-only demo PR
