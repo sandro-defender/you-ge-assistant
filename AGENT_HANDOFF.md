@@ -2,6 +2,7 @@
 
 **Date:** 2026-11-18
 **Branch:** `arena/b025b717-you-ge-assistant`, based on `b256c49faf3b0198c890d5165126e6c60db1b29a` (`main`).
+**PR:** [PR #51](https://github.com/sandro-defender/you-ge-assistant/pull/51) (open against `main`, awaiting review).
 **Working tree:** Complete implementation, multilingual coverage across all surfaces, tests, documentation, synchronized SDK/kit declarations, and `THIRD_PARTY_NOTICES.md`. Generated `dist/`, `examples/example/node_modules`, and `examples/example/dist` are gitignored. Host service-worker ownership remains unchanged.
 **Versions:** Kit `1.2.5 → 1.2.6`, **authorized by the owner because precached assets changed**; SDK package `@youge/assistant-sdk` remains `0.3.0`. No npm publish, tag, merge, or deployment was performed.
 
