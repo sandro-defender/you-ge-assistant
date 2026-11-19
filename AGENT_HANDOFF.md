@@ -3,6 +3,13 @@
 **Date:** 2026-11-19
 **Branch:** `arena/39cfa85d-you-ge-assistant`, based on merged SDK release-candidate PR #52 commit `95afaca`. PR #52 is **merged** (not open); implementation is in [PR #53](https://github.com/sandro-defender/you-ge-assistant/pull/53), open against `main`. Current task corrects PR #53’s stale precache test wording; SDK/kit versions remain 0.4.0/1.2.7. The SDK is prepared as 0.4.0 / kit 1.2.7; npm still reports 0.3.0 latest, and 0.4.0 is not published.
 
+## Final UI/UX and browser review
+
+- Reviewed PR #53 at `1c8174579465bda0ee3a618c246535c596132229`; PR remains open on `arena/39cfa85d-you-ge-assistant`. The `ui-ux-pro-max-skill` was found by following the repository-documented official GitHub clone path, cloned outside the repo to `/tmp/ui-ux-pro-max-skill`, and actively read (`.claude/skills/ui-ux-pro-max/SKILL.md`, quick-reference accessibility/layout rules, and professional UI pre-delivery rules). Applied relevant search results for contrast, keyboard focus, touch targets and product style; no skill data was added to the repo.
+- Review found low-contrast muted labels/microcopy, undersized mobile tap targets, unprovided fonts being named without loading, and DOM rerenders that reset focus and collapse the developer inspector. Updated `examples/sdk-demo/src/style.css` with measured darker text/status colors (tested pairs range 4.79:1–6.37:1), system font fallback, and 44px controls/links; `main.ts` restores the active control and details disclosure after render, and announces the latest API result through `aria-live`. No new dependency or SDK API/runtime change.
+- Real Chromium browser automation could not run. Playwright 1.65.1 is installed, but its expected browser executable is absent. A temporary npm-provided Chromium was attempted; launch failed because the host lacks `libnspr4.so`/NSS runtime libraries. No desktop or mobile browser session, screenshot or physical-device test is claimed. The Vite server responds HTTP 200, but that is not a browser execution test; physical iOS Safari/Android remain untested.
+- Checks after review: root `npm run check` **629/629**; SDK tests **150/150**; SDK package validation and sync pass; SDK demo typecheck/build and React example typecheck/build pass; Pages assembly includes `_final-review-site/sdk-demo/index.html`; integrity reports kit 1.2.7 synchronized; `git diff --check` clean. Review fixes and this record are pending push, followed by final Verify-only and PR CI.
+
 ## Release verification continuation
 
 - Final work continues on PR #53 / branch `arena/39cfa85d-you-ge-assistant`; PR #52 is confirmed MERGED. Implementation SHA verified by release workflow: `b2bf465adc5a42fbd2ee1bb8daeb403446578a3c`; PR #53 remains OPEN against `main`.

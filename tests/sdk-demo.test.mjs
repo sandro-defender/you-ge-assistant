@@ -27,10 +27,21 @@ test('Pages and verification workflows build the isolated /sdk-demo before assem
   assert.match(assembler, /examples\/sdk-demo\/dist/);
   assert.match(assembler, /join\(safeOutputDir, 'sdk-demo'\)/);
   assert.ok(existsSync(resolve(root, 'examples/sdk-demo/package-lock.json')));
-  for (const workflow of ['check.yml', 'sdk-release-prep.yml', 'pages.yml']) {
+  const expectedOrder = {
+    'check.yml': ['Build SDK-only consumer demo', 'Static checks and precache integrity gate'],
+    'sdk-release-prep.yml': ['Consumer build verification (SDK-only demo)', 'Static checks, contracts and unit tests'],
+    'pages.yml': ['Build SDK experience consumer demo', 'Assemble GitHub Pages site'],
+  };
+  for (const [workflow, [buildName, laterStepName]] of Object.entries(expectedOrder)) {
     const yaml = readFileSync(resolve(root, '.github/workflows', workflow), 'utf8');
-    assert.match(yaml, /working-directory: examples\/sdk-demo/);
-    assert.match(yaml, /npm ci && npm run typecheck && npm run build/);
+    const buildStart = yaml.indexOf(`- name: ${buildName}`);
+    const nextStart = yaml.indexOf('\n      - ', buildStart + 1);
+    const laterStart = yaml.indexOf(`- name: ${laterStepName}`);
+    assert.ok(buildStart >= 0 && laterStart > buildStart, `${workflow} builds before ${laterStepName}`);
+    assert.ok(nextStart < laterStart, `${workflow} build is its own preceding workflow step`);
+    const buildStep = yaml.slice(buildStart, nextStart);
+    assert.match(buildStep, /run: npm ci && npm run typecheck && npm run build/);
+    assert.match(buildStep, /working-directory: examples\/sdk-demo/);
   }
 });
 
@@ -45,6 +56,16 @@ test('all twelve public SDK locale helpers work and no SDK RTL locale is invente
 test('domain preset and host SDK overrides resolve through documented configuration exports', () => {
   const script = `import assert from 'node:assert/strict'; import {resolveAssistantConfig,resolveDomain} from '@youge/assistant-sdk'; const preset=resolveDomain('portal.example.test',{'portal.example.test':{identity:{name:'Domain preset',shortName:'Preset',description:'Host-specific'}}}); const resolved=resolveAssistantConfig({projectId:'demo-host',domain:'portal.example.test',branding:{name:'Explicit host override',shortName:'Host',icon:'',themeColor:'#4965e8'},installExperience:{enabled:false,presentation:'manual',locale:'en'}},{fallbackProjectId:'demo-host'}); assert.equal(preset.identity.name,'Domain preset'); assert.equal(resolved.config.branding.name,'Explicit host override'); assert.equal(resolved.config.installExperience.enabled,false); assert.equal(resolved.meta.source,'overrides');`;
   execFileSync(process.execPath, ['--input-type=module', '-e', script], { cwd: resolve(root, 'examples/sdk-demo'), stdio: 'pipe' });
+});
+
+test('interaction rerenders preserve keyboard focus, inspector disclosure and announce results', () => {
+  assert.match(source, /focusedId = app\.contains\(document\.activeElement\)/);
+  assert.match(source, /inspector\.open = inspectorWasOpen/);
+  assert.match(source, /id="api-result" aria-live="polite"/);
+  const styles = readFileSync(resolve(root, 'examples/sdk-demo/src/style.css'), 'utf8');
+  assert.match(styles, /\.button\{[^}]*min-height:44px/);
+  assert.match(styles, /\.text-button\{min-height:44px/);
+  assert.match(styles, /\.top nav a\{[^}]*min-height:44px/);
 });
 
 test('installation buttons call SDK exports and retain actual result/error semantics', () => {

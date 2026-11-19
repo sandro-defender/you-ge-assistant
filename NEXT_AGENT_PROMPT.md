@@ -1,6 +1,6 @@
-# Next Agent Prompt — PR #53 post-verification review
+# Next Agent Prompt — final PR #53 UI verification
 
-Continue only on `arena/39cfa85d-you-ge-assistant`; PR #53 remains open and unmerged. The exact kit 1.2.7 assertion is fixed, demo builds are present in CI and release verification workflows, and Verify-only succeeded at HEAD `6017e3f…` (see current `AGENT_HANDOFF.md`). The final Verify-only run [44435625117](https://github.com/sandro-defender/you-ge-assistant/actions/runs/44435625117) and PR static CI are successful at `b2bf465…`. Keep the PR open and unmerged; do not run any mutating release action. Never choose Stage, publish, deploy, merge, tag or release.
+Continue on fixed branch `arena/39cfa85d-you-ge-assistant`; PR #53 must remain open/unmerged. `ui-ux-pro-max-skill` was cloned from its official repo to `/tmp/ui-ux-pro-max-skill`, read and actively applied. Review fixes improve muted text contrast, use system fonts, enlarge mobile controls, and preserve focus/details across rerenders. Browser automation is blocked because Playwright has no browser binary and the temporary Chromium needs missing `libnspr4.so`/NSS system libraries; do not claim browser verification. Finish diff review, commit/push only to this branch, verify the release-prep workflow with **Verify only** and confirm PR CI on final SHA. No Stage, publish, deploy, merge, tag or release.
 ---
 
 # Next Agent Prompt — complete SDK-only demo PR
