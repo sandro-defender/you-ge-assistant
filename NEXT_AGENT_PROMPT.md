@@ -1,3 +1,9 @@
+# Next Agent Prompt — finish PR #53 release verify
+
+Continue only on `arena/39cfa85d-you-ge-assistant`; PR #53 stays open and unmerged. The sole code fix should be the exact kit 1.2.7 success-summary assertion in `tests/identity-migration.test.mjs`; preserve all demo files and the integrity gate. Run full checks, commit/push to PR #53, dispatch the actual `sdk-release-prep.yml` workflow on this branch with action **Verify only** if permitted, then record its URL/outcome. Never choose Stage, publish, deploy, merge, tag or release. Update the current section of `AGENT_HANDOFF.md` with actual final HEAD and workflow result.
+
+---
+
 # Next Agent Prompt — complete SDK-only demo PR
 
 Continue on fixed active branch `arena/39cfa85d-you-ge-assistant` only. PR #52 is merged into main at `95afaca`; no branch creation/switching. Read the current top section of `AGENT_HANDOFF.md`, `AGENTS.md`, and review `examples/sdk-demo/`. Verification is complete (root `npm run check`, SDK demo typecheck/build, React example typecheck/build, Pages assembly and clean diff); browser automation was unavailable and is documented. Keep the demo SDK-public-exports-only, isolate from production PWA/runtime and preserve release gates. Then commit/push this branch and open exactly one unmerged PR against `main`. Do not merge, stage, publish, tag, release or deploy.

@@ -1,7 +1,14 @@
 # Agent Handoff — SDK-only consumer experience demo
 
 **Date:** 2026-11-19
-**Branch:** `arena/39cfa85d-you-ge-assistant`, based on merged SDK release-candidate PR #52 commit `95afaca`. PR #52 is **merged** (not open); implementation is in [PR #53](https://github.com/sandro-defender/you-ge-assistant/pull/53), open against `main`. The SDK is prepared as 0.4.0 / kit 1.2.7; npm still reports 0.3.0 latest, and 0.4.0 is not published.
+**Branch:** `arena/39cfa85d-you-ge-assistant`, based on merged SDK release-candidate PR #52 commit `95afaca`. PR #52 is **merged** (not open); implementation is in [PR #53](https://github.com/sandro-defender/you-ge-assistant/pull/53), open against `main`. Current task corrects PR #53’s stale precache test wording; SDK/kit versions remain 0.4.0/1.2.7. The SDK is prepared as 0.4.0 / kit 1.2.7; npm still reports 0.3.0 latest, and 0.4.0 is not published.
+
+## Release verification continuation
+
+- PR #53 was OPEN on branch `arena/39cfa85d-you-ge-assistant`, initial HEAD `fae3bf82cf136e7bc656369315a84a42f627ef00`. PR #52 confirmed MERGED at `95afaca`. Initial PR CI failure: `check` run [44433010461](https://github.com/sandro-defender/you-ge-assistant/actions/runs/44433010461), job `static`, failed at Unit tests; earlier steps (example build, static/precache, syntax, SDK test/package dry-run) passed. The old test required a `1.2.6 → 1.2.7` historical string even though actual successful integrity output was `14 precached assets unchanged since 95afaca; kit version 1.2.7 synchronized`.
+- Narrow fix in `tests/identity-migration.test.mjs`: assert `/kit version 1\.2\.7 synchronized/` after the existing `verdict.status === 'pass'`. No integrity code or SDK/kit version modified. Focused test passed.
+- Current full verification on this continuation: `npm run check` 628/628; SDK suite 150/150; package validator and SDK `npm pack --dry-run` passed (27 files); SDK sync and precache integrity passed (`14 ... unchanged since 95afaca; kit version 1.2.7 synchronized`); SDK demo typecheck/build passed; React example `npm ci`, typecheck/build passed; Pages assembly contains `/sdk-demo/index.html`; `git diff --check` clean. The actual release-prep Verify-only workflow dispatch is pending (must report its actual result/link; never select Stage).
+- No Stage/npm publish, deploy, merge, tag or release performed. Working tree currently includes the single assertion fix pending commit/push; then dispatch `sdk-release-prep.yml` with action `Verify only` on this branch, and record the run outcome here and in PR #53.
 
 ## Current task state
 
