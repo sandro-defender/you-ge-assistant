@@ -237,7 +237,7 @@ dismissal (close/Escape), banner dismissal cookies, and service worker
 registration with `/progressier.js` and its computed scope. Static contract
 tests additionally pin the precache list, manifest identity and cache namespace.
 
-## 5. Self-contained `<pwa-install>` integration (kit `1.2.6`)
+## 5. Self-contained `<pwa-install>` integration (kit `1.2.6`, unchanged in `1.2.7`)
 
 Kit `1.2.6` integrates `@khmyznikov/pwa-install@0.7.0` (MIT, vendored as a self-contained
 runtime script `pwa-install.js` with zero CDN calls across 35 supported locales,
@@ -262,3 +262,67 @@ including native Georgian `ka`, Russian `ru`, and Estonian `et`):
   `hideInstallDialog` / `triggerInstall` / `getInstalledRelatedApps`, and
   `EVENT_NAMES.pwaInstallDialog` are mirrored in the SDK core and browser bundle
   (`assistant-state.js`).
+
+## 6. Driving it from the SDK `0.4.0`
+
+The SDK does not add a second installation flow: it reads and calls the runtime
+described above. Every helper returns an honest result instead of throwing, so a
+host can render guidance from one `switch` and never claim that a browser can
+install.
+
+```js
+import {
+  deriveInstallationState,
+  resolveInstallationCopy,
+  requestPwaInstall,
+  showPwaInstallDialog,
+  hidePwaInstallDialog,
+  triggerPwaInstall,
+  readInstalledRelatedApps,
+} from '@youge/assistant-sdk/installation';
+
+const state = deriveInstallationState({ pwa: window.YouGePWA });
+const copy = resolveInstallationCopy(state.locale); // 12 core locales
+
+switch (state.support) {
+  case 'native':                       // Chromium offered beforeinstallprompt
+    await requestPwaInstall({ pwa: window.YouGePWA });
+    break;
+  case 'manual-ios':                   // Safari: no programmatic prompt exists
+    hint.textContent = copy.iosShortcutHint;
+    break;
+  case 'manual-generic':               // menu-based install / component steps
+    await showPwaInstallDialog({ pwa: window.YouGePWA }, { locale: state.locale });
+    break;
+  case 'installed':
+    hideInstallUi();
+    break;
+  default:                             // 'none': no runtime or capability disabled
+    hint.textContent = copy.genericHint;
+}
+```
+
+- `deriveInstallationState()` reports `support`, `status`, `canInstall`,
+  `installed`, `ios`/`safari`, `platform`, `componentEnabled`,
+  `componentLoaded`, `dialogOpen`, `presentation`, `locale`, `backend` and
+  `relatedAppsInstalled`; `enabled: false` or `features.installation === false`
+  yields `support: 'none'`.
+- `showPwaInstallDialog()` prefers the component's `showInstallDialog()`, falls
+  back to `promptInstall()`, and returns
+  `{ shown, outcome, backend }`. `hidePwaInstallDialog()` returns `true` only
+  when the component was open.
+- `triggerPwaInstall()` prefers `triggerInstall()`; browsers without it fall
+  back to the prompt API. `outcome: 'accepted'` means the prompt was accepted —
+  confirm installation with `readInstalledRelatedApps()` or the runtime's
+  `pwa:installed` event.
+- **Two locale sets stay separate:** the SDK's copy, notices and widget use the
+  twelve core locales; the `<pwa-install>` dialog chrome uses its own 35. A
+  component-only locale localizes the dialog, while SDK strings fall back to
+  `en` (or the nearest supported core locale).
+- **Browser support is the browser's decision:** HTTPS, an eligible manifest and
+  Chromium engagement heuristics gate `beforeinstallprompt`; iOS Safari, Firefox
+  desktop and most in-app browsers have no install API and must get written
+  instructions.
+
+Host ownership is unchanged: no service worker registration, no manifest
+rewrite, no `beforeinstallprompt` capture and no CDN.

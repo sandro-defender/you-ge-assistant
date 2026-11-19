@@ -5,8 +5,11 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status:** SDK `0.3.0` is published on npm (registry verified
-> 2026-11-16). The compatible repository toolkit is `1.2.6`.
+> **Package status:** SDK `0.4.0` is prepared in this repository and **not yet
+> published**. npm still serves `0.3.0` (registry verified 2026-11-19) until the
+> owner approves the gated release (see [`RELEASE.md`](RELEASE.md)); `0.4.0` is
+> additive over `0.3.0`. The compatible repository toolkit is `1.2.7`
+> (`KIT_COMPAT_VERSION`).
 > See [`MIGRATION.md`](MIGRATION.md) for host-owned worker integration and
 > [`RELEASE.md`](RELEASE.md) for the authorization-gated release runbook.
 
@@ -62,10 +65,10 @@ Inside another package in this repository or a sibling local project:
 | `@youge/assistant-sdk/domain` | Multi-domain resolution, validation, and scoped Web App Manifest generation |
 | `@youge/assistant-sdk/config` | Data-only `publishedConfig` validator, Last-Known-Good storage helpers, and override resolver |
 | `@youge/assistant-sdk/diagnostics` | Single-flight diagnostics integration controller and classification helpers |
-| `@youge/assistant-sdk/installation` | `window.PWA` state reader, install prompt, and service-worker update delegation |
+| `@youge/assistant-sdk/installation` | `window.PWA` state reader, installation state/copy derivation, native prompt, `<pwa-install>` dialog open/hide, related-app lookup, and service-worker update delegation |
 | `@youge/assistant-sdk/browser` | Android in-app browser detection and best-effort Chrome handoff (`detectInAppBrowser`, `buildChromeIntentUrl`, `createChromeHandoff`) |
 | `@youge/assistant-sdk/theme` | Adaptive theme normalization/resolution, WCAG contrast helpers, `--youge-*` CSS variables, and notification-level taxonomy |
-| `@youge/assistant-sdk/i18n` | Unified 12-locale dictionary (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`), locale resolver, plural alert formatting, and DNS localization |
+| `@youge/assistant-sdk/i18n` | Unified 12-locale dictionary (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`), BCP-47 locale resolver, translation + plural helpers, RTL detection, DNS localization, and Chrome handoff labels |
 | `@youge/assistant-sdk/react` | Optional React 18/19 `useSyncExternalStore` adapter (zero runtime `react` import in SDK) |
 
 All entry points ship paired `.d.ts` TypeScript declarations.
@@ -423,6 +426,299 @@ versioned static/page cache names, without reading entries or modifying caches.
 Unsupported or unconnected environments return `unavailable`. These two methods
 are independently controlled and do not replace the existing DNS diagnostics.
 
+## Localization — 12 core locales (0.4.0)
+
+`@youge/assistant-sdk/i18n` is the single source of truth for the SDK's own
+wording: notices, actions, the floating widget, DNS classifications, the Chrome
+handoff offer and the installation copy the SDK derives. It ships the same
+twelve locales as the classic toolkit runtime:
+
+| Code | Language | Native name |
+| --- | --- | --- |
+| `en` | English (default/fallback) | English |
+| `ka` | Georgian | ქართული |
+| `ru` | Russian | Русский |
+| `fr` | French | Français |
+| `it` | Italian | Italiano |
+| `de` | German | Deutsch |
+| `sv` | Swedish | Svenska |
+| `nl` | Dutch | Nederlands |
+| `no` | Norwegian (`nb`, `nn` normalize to `no`) | Norsk |
+| `da` | Danish | Dansk |
+| `et` | Estonian | Eesti |
+| `es` | Spanish | Español |
+
+### Install and import
+
+```bash
+npm install @youge/assistant-sdk@0.4.0   # exact-pin the prepared release
+```
+
+```js
+import {
+  DEFAULT_LOCALE,            // 'en'
+  SUPPORTED_LOCALES,         // the 12 codes above, in published order
+  LOCALE_METADATA,           // { code, name, nativeName, dir }
+  RTL_LOCALES,               // ['ar', 'he', 'fa', 'ur'] — metadata, not core locales
+  resolveLocale,             // precedence-aware BCP-47 resolver
+  normalizeLocaleTag,        // any tag -> core locale code, or ''
+  normalizeInstallLocaleTag, // tag for the <pwa-install> component (keeps 'auto' / zh-*, ca-ES)
+  translate,                 // (locale, key, params?) -> string
+  formatAlertCount,          // (locale, count) -> localized plural
+  isRtlLocale,               // (locale) -> boolean
+  localizeDnsClassification, // (locale, classification, status?) -> label
+  localizeDnsMessage,        // (locale, classification, fallback?, caveat?) -> { message, caveat }
+  chromeHandoffLabels,       // (locale) -> localized "Open in Chrome" copy
+} from '@youge/assistant-sdk/i18n';
+```
+
+The same helpers are also exported from the root entry
+(`import { translate } from '@youge/assistant-sdk'`), and the frozen
+`YouGeAssistant` static object exposes `SUPPORTED_LOCALES`,
+`LOCALE_METADATA`, `resolveLocale`, `translate`, `formatAlertCount`,
+`isRtlLocale`, `normalizeLocaleTag`, `chromeHandoffLabels` and
+`resolveInstallationCopy` for classic-script parity. Declarations ship beside
+every entry (`SupportedLocale`, `LocaleMetadata`, `LocaleResolutionOptions`).
+
+### Resolve the user's locale
+
+`resolveLocale()` applies one documented precedence order and never reads
+storage:
+
+1. explicit selection (anything that is not `'auto'`),
+2. host/domain configured language (`domainLocale` or `domainConfig.language` /
+   `domainConfig.identity.language` / `domainConfig.installExperience.locale`),
+3. the browser list (`navigator.languages`, then `navigator.language`),
+4. `fallback` (default `en`).
+
+```js
+import { resolveLocale, LOCALE_METADATA, isRtlLocale } from '@youge/assistant-sdk/i18n';
+
+const locale = resolveLocale({
+  explicit: window.YOU_GE_ASSISTANT_LOCALE, // undefined / 'auto' falls through
+  navigatorLanguage: navigator.languages?.[0],
+});
+const { nativeName, dir } = LOCALE_METADATA[locale];
+document.documentElement.lang = locale;
+document.documentElement.dir = isRtlLocale(locale) ? 'rtl' : dir;
+```
+
+An attached Assistant tracks the same value: `assistant.getLocale()` returns the
+active core locale and `assistant.setLocale('ka' | 'auto')` updates localized
+notices/labels runtime-only (never persisted), syncs
+`window.YouGePWA.setLanguage()` when present, and emits
+`youge:locale-change`. Unsupported tags degrade to the fallback locale instead
+of throwing.
+
+### Show localized installation instructions
+
+`resolveInstallationCopy(locale?)` returns the frozen copy set the toolkit uses,
+so a host never re-implements strings:
+
+```js
+import { resolveInstallationCopy, translate } from '@youge/assistant-sdk/i18n';
+// or: import { resolveInstallationCopy } from '@youge/assistant-sdk/installation';
+
+const copy = resolveInstallationCopy('ka');
+// {
+//   language: 'ka',
+//   installActionLabel,        // button label
+//   instructionsActionLabel,
+//   installAvailableTitle,
+//   nativeAvailableMessage,    // Chromium: the browser offered a native prompt
+//   iosAvailableMessage,       // iOS Safari: add to Home Screen
+//   genericAvailableMessage,   // menu-based manual install
+//   iosShortcutHint,           // "Share → Add to Home Screen"
+//   genericHint,
+// }
+
+button.textContent = copy.installActionLabel;
+hint.textContent = translate('ka', 'iosShortcutHint');
+```
+
+Other localization helpers:
+
+```js
+import {
+  formatAlertCount,             // '1 alert' / '3 alerts' / '5 уведомлений'
+  localizeDnsClassification,    // 'dns_resolution_failure' -> localized label
+  localizeDnsMessage,           // -> { message, caveat }
+  chromeHandoffLabels,          // -> { title, intro, steps, button labels }
+} from '@youge/assistant-sdk/i18n';
+
+count.textContent = formatAlertCount(locale, notices.length);
+const dns = localizeDnsMessage(locale, result.classification, result.message, true);
+```
+
+### 12 core locales vs. 35 installation-dialog locales
+
+Two distinct locale sets exist and they are deliberately not merged:
+
+| Surface | Locales | Source |
+| --- | --- | --- |
+| **SDK core + classic toolkit wording** (notices, actions, widget, DNS, installation copy, handoff) | **12** | `@youge/assistant-sdk/i18n` (shared with `assistant-state.js`, `assistant-widget.js`, `pwa.js`, `dns-diagnostics.js`, `offline.html`) |
+| **`<pwa-install>` dialog chrome** (the optional installation component rendered by the runtime) | **35** | vendored `@khmyznikov/pwa-install@0.7.0` (`src/runtime/pwa-install.js`), reached through `window.YouGePWA` — never imported by the SDK |
+
+The component has its own locale list; `normalizeInstallLocaleTag()` maps a
+BCP-47 tag onto the component's expected casing (`nb`/`nn` → `no`, `zh-Hant` →
+`zh-TW`, `ca` → `ca-ES`) and preserves `'auto'` so the component can decide.
+A component locale outside the SDK's 12 core locales localizes *only the dialog
+chrome*; SDK notices and copy stay in the nearest supported core locale
+(fallback `en`). Both sets are local-only assets — no CDN, no runtime download.
+
+## PWA installation integration (0.4.0)
+
+The installation entry point is a thin, framework-independent adapter over the
+host's existing PWA runtime (`window.YouGePWA`, with the `window.PWA` alias).
+
+The component it can open is configured through the validated, data-only
+`installExperience` input (additive in `0.4.0`; every field is optional):
+
+```js
+YouGeAssistant.create({
+  projectId: 'my-app',
+  installExperience: {
+    enabled: true,            // default true
+    presentation: 'manual',   // 'manual' = gesture-triggered (default); 'auto' = opt-in prompt offer
+    locale: 'auto',           // 'auto' or a BCP-47 tag forwarded to the component
+    installDescription: '',   // optional, sanitized, max 280 chars
+    manifestUrl: '',          // optional same-origin manifest path
+    disableChrome: false,     // component flags pass through with validation
+    styles: {},               // safe --custom-property overrides only
+  },
+}); // classic pages: window.YOU_GE_ASSISTANT_CONFIG before pwa.js/assistant-state.js
+```
+
+The input never registers a worker and never overrides the host's manifest
+identity: `manifestId`/`manifestUrl` stay validated strings and are not applied
+by the SDK itself.
+It **never registers a service worker**, never captures `beforeinstallprompt`
+in competition with `pwa.js`, never calls `fetch`, and never claims an
+installation without a browser prompt.
+
+```js
+import {
+  deriveInstallationState,
+  resolveInstallationCopy,
+  requestPwaInstall,
+  showPwaInstallDialog,
+  hidePwaInstallDialog,
+  triggerPwaInstall,
+  readInstalledRelatedApps,
+} from '@youge/assistant-sdk/installation';
+```
+
+Types shipped with the entry: `InstallationSupport`
+(`'native' | 'manual-ios' | 'manual-generic' | 'installed' | 'none'`),
+`InstallationStatus`, `AssistantInstallationState`, `InstallationCopySet`,
+`InstallDialogResult`, `RelatedAppInfo`, `PwaRuntimeLike` (the injectable
+runtime shape, also usable with mocks/tests).
+
+### Read the installation state
+
+```js
+const state = deriveInstallationState({
+  pwa: window.YouGePWA,                       // host runtime; omit for "none"
+  installExperience: assistant.getConfig().installExperience,
+});
+
+state.support;            // 'native' | 'manual-ios' | 'manual-generic' | 'installed' | 'none'
+state.status;             // 'available' | 'installed' | 'unavailable'
+state.canInstall;         // native prompt is available in this browser
+state.installed;          // installed / standalone window
+state.ios; state.safari;  // iOS Safari manual flow
+state.platform;           // 'chromium' | 'ios' | 'generic'
+state.nativeAvailable;    // === canInstall
+state.componentEnabled;   // installation component allowed by config
+state.componentLoaded;    // <pwa-install> upgraded
+state.dialogOpen;         // component dialog currently open
+state.presentation;       // 'manual' (default) | 'auto' (opt-in)
+state.locale;             // locale handed to the component
+state.backend;            // 'beforeinstallprompt' | 'manual' | 'none'
+state.relatedAppsInstalled;
+```
+
+`deriveInstallationState({ enabled: false })` or a runtime whose
+`config.features.installation === false` reports `support: 'none'` so a disabled
+capability never advertises installation. `detection: false` stops state
+detection without disabling the rest of the SDK.
+
+### Open and hide the installation dialog
+
+```js
+const shown = await showPwaInstallDialog({ pwa: window.YouGePWA }, { locale });
+// { shown: true, outcome: 'shown', backend: 'pwa-install' }
+// Prefers window.YouGePWA.showInstallDialog(), falls back to promptInstall(),
+// and reports { shown: false, outcome: 'unsupported' | 'disabled' | 'error' }
+// instead of throwing.
+
+hidePwaInstallDialog({ pwa: window.YouGePWA }); // true when the component was open
+```
+
+### Trigger installation when the browser supports it
+
+```js
+const result = await triggerPwaInstall({ pwa: window.YouGePWA }, { source: 'assistant' });
+// { outcome: 'accepted' | 'dismissed' | 'unsupported' | 'error', backend?: string }
+
+if (result.outcome === 'accepted') {
+  announce('Installed — opening the app window'); // your own UI copy
+} else if (result.outcome === 'dismissed') {
+  // the visitor declined; offer the instructions again later
+}
+```
+
+`requestPwaInstall()` is the compatibility path that only delegates to
+`window.YouGePWA.promptInstall()`. Both helpers resolve to
+`{ outcome: 'unsupported' }` when the API is missing and never reject.
+
+### Browsers that only support manual installation
+
+Most browsers cannot open a native installation prompt programmatically. Use the
+derived state to choose the honest path:
+
+```js
+const state = deriveInstallationState({ pwa: window.YouGePWA });
+const copy = resolveInstallationCopy(state.locale);
+
+if (state.support === 'native') {
+  await requestPwaInstall({ pwa: window.YouGePWA });      // Chromium prompt
+} else if (state.support === 'manual-ios') {
+  instruction.textContent = copy.iosShortcutHint;        // Safari: Share → Add to Home Screen
+} else if (state.support === 'manual-generic') {
+  instruction.textContent = copy.genericHint;            // browser menu / install component
+  await showPwaInstallDialog({ pwa: window.YouGePWA });  // the component's written steps
+} else if (state.installed) {
+  hideInstallUi();
+}
+```
+
+What the SDK can and cannot promise:
+
+- A **native prompt** requires Chromium's `beforeinstallprompt`, an HTTPS
+  origin, an eligible manifest (name, icons, `start_url`, display mode) and the
+  browser's own engagement heuristics. The SDK surfaces availability; the
+  browser decides.
+- **iOS Safari** has no programmatic prompt. The SDK reports `manual-ios` and
+  provides localized instructions (`showInstallHelp`/`showHelp` in the classic
+  runtime).
+- **Firefox on desktop, in-app browsers and embedded webviews** generally offer
+  no install API. The SDK reports `manual-generic`/`none`.
+- `outcome: 'accepted'` means the browser accepted the prompt, not that the app
+  finished installing. Confirm with `readInstalledRelatedApps()` or the
+  `appinstalled`/`pwa:installed` signal from the host runtime.
+
+```js
+const related = await readInstalledRelatedApps({ pwa: window.YouGePWA });
+// Promise<RelatedAppInfo[]>; resolves [] when the browser has no
+// navigator.getInstalledRelatedApps (most browsers) or the query is denied.
+```
+
+Installation component state flows into the PWA events the classic runtime
+already dispatches (`youge:pwa:installable`, `youge:pwa:installed`,
+`youge:pwa:install-dialog` and their legacy `pwa:*` aliases); the SDK only
+observes them.
+
 ### Changing settings at runtime
 
 A host administrator's existing application can update the **same** Assistant
@@ -656,11 +952,20 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 - **Version sources are synchronized and machine-checked:** `package.json` ↔
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
-- **Publishing is gated, never automatic.** The registry currently reports
-  `0.3.0` as the current package version (checked 2026-11-15). The repository's
-  manual release workflow remains authorization-gated; no publication is needed
-  to consume the existing SDK `0.3.0`. Historical release decisions and the current
+- **Publishing is gated, never automatic.** `0.4.0` is prepared in this
+  repository; the registry still reports `0.3.0` as `latest` (verified
+  2026-11-19). The manual release workflow remains authorization-gated — no
+  push, pull request or merge publishes anything, and the owner approves the
+  staged version on npmjs.com. Historical release decisions and the current
   runbook are recorded in [`RELEASE.md`](RELEASE.md).
+- **`0.4.0` is additive.** Every `0.3.0` export, type, event and compatibility
+  alias is preserved; the release adds the `./i18n` subpath, the
+  `installExperience` configuration input, the installation state/dialog
+  helpers and their declarations. `SCHEMA_VERSION` stays `1`: the new input is
+  optional and defaulted (`enabled: true`, `presentation: 'manual'`,
+  `locale: 'auto'`), a `0.3.0` `publishedConfig` still validates unchanged, and
+  unknown or unsafe keys are dropped rather than accepted.
+  `KIT_COMPAT_VERSION` tracks the synchronized repository toolkit (`1.2.7`).
 - Replacing a vendored SDK copy (e.g. `staff.you.ge`): see
   [`MIGRATION.md`](MIGRATION.md).
 

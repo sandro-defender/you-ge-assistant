@@ -1,3 +1,8 @@
+> **0.4.0 prepared (not yet published; registry serves `0.3.0`):** additive over
+> `0.3.0` — no migration step is required. It adds the `./i18n` subpath and the
+> installation state/dialog helpers; imports, worker ownership, configuration
+> precedence and `SCHEMA_VERSION = 1` are unchanged.
+>
 > **0.3.0 published (registry verified 2026-11-15):** host-owned workers are never registered or
 > replaced by the toolkit. Deployments relying on automatic registration must
 > move registration to the host and opt in to the optional Assistant worker;

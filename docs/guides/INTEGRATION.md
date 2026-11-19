@@ -11,8 +11,14 @@ Existing compatibility migrations are described in
 
 For a new SDK integration, start with the [product and getting-started guide](https://sandro-defender.github.io/you-ge-assistant/example/).
 `npm install @youge/assistant-sdk` installs the published SDK (0.3.0 verified
-2026-11-15), not the classic UI/worker assets below. The SDK is ESM-only, ships
-TypeScript declarations, and has no core runtime dependencies.
+2026-11-19; `0.4.0` is prepared in this repository and publishes only through
+the owner-approved gated release), not the classic UI/worker assets below. The
+SDK is ESM-only, ships TypeScript declarations, and has no core runtime
+dependencies. `0.4.0` adds the localization module
+(`@youge/assistant-sdk/i18n`, twelve core locales) and the installation helpers
+(`@youge/assistant-sdk/installation`: `deriveInstallationState`,
+`resolveInstallationCopy`, `showPwaInstallDialog`, `hidePwaInstallDialog`,
+`triggerPwaInstall`, `readInstalledRelatedApps`); both are additive over `0.3.0`.
 
 Use `YouGeAssistant.create()` for an isolated instance and
 `YouGeAssistant.attach()` to share the page singleton with classic scripts.
