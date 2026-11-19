@@ -1,3 +1,36 @@
+# Agent Handoff — unified hub and Configuration Playground
+
+**Date:** 2026-11-19
+**Branch:** `arena/09fea09a-you-ge-assistant` (active), based on `8745456`.
+**PR:** [PR #54](https://github.com/sandro-defender/you-ge-assistant/pull/54) — open against `main`, intentionally unmerged.
+**Commit:** implementation `a88f3c302005b6643a5e44841404c37ca84acef0`; this handoff record is documentation only.
+**Versions:** SDK `0.4.0`, kit `1.2.7`. No version, release, credential, production config, deployment, tag or npm action occurred.
+
+## Completed
+
+- Root `/` is now a unified hub (`examples/landing/`): plain-language intro, four real destinations (Instructions, Demo, SDK Demo, Configuration Playground), a concise feature directory, explicit product vs SDK explanation and a short FAQ. It loads no Assistant runtime and registers no worker.
+- The original full feature-test playground remains intact at `/demo/` (`examples/demo/index.html` + scoped runtime/manifest). Its internal links were rebased to `../example/`, and section anchors (`demo-live`, `demo-install`, `demo-diagnostics`, `demo-ui`, `demo-theme`, `demo-language`, `demo-events`) now back the feature-directory links. Existing `/example/`, `/example/workspace.html` and `/sdk-demo/` routes are unchanged.
+- New isolated Vite app `examples/config-playground/` builds to `/config-playground/`. It imports only public SDK entrypoints (`@youge/assistant-sdk`, `/i18n`) through real package specifiers; it never loads `pwa.js`, `assistant-state.js`, a second worker or a CDN. Preview text is SDK i18n copy, resolved through `resolveAssistantConfig()`; the panel mock is explicitly labelled illustrative.
+- SDK settings cover `enabled`, `locale`, `theme` mode/host inheritance, `position`, install presentation/dialog locale, installation detection/guidance, Chrome handoff and all diagnostics/update feature controls. Full-runtime-only switches (`data-toolbox`, `data-install-banner`, `data-auto-update`) are separately labelled. Generated SDK and runtime snippets use the documented public formats, with Copy feedback and Reset to defaults. Settings stay in `sessionStorage`; invalid/unknown values are ignored with visible feedback.
+- Assembly, static checks and all three build workflows were updated so clean CI builds the Vite projects before validation. New tests live in `tests/hub-landing.test.mjs` and `tests/config-playground.test.mjs`; existing landing/structure tests now cover the new routes.
+- The `ui-ux-pro-max-skill` was cloned to `/tmp/ui-ux-pro-max-skill` (not committed), read and searched; exact queries and the accepted/rejected recommendations are recorded in `docs/guides/DESIGN_FOUNDATION.md` §16. Route rationale and configuration sources are in `docs/architecture/UNIFIED_HUB_AUDIT.md`.
+
+## Verification
+
+- `npm run check`: **643/643** tests pass plus static contracts, preview-gate and SDK package validation.
+- `npm run test:sdk`: **150/150**; `node scripts/sync-sdk-browser.mjs --check` in sync; `node scripts/precache-integrity.mjs` reports 14 unchanged assets and kit `1.2.7` synchronized.
+- `node packages/assistant-sdk/scripts/validate-package.mjs` pass; `npm run build` pass; React example, SDK demo (both typecheck + build) and playground (build) pass.
+- `node scripts/assemble-pages.mjs --out _site --base /you-ge-assistant` pass; HTTP smoke check returned 200 for `/`, `/demo/`, `/example/`, `/sdk-demo/`, `/config-playground/`, CSS and `/demo/pwa.js`. **No browser binary was available**, so no visual/browser/device test is claimed.
+- `git diff --check` clean. PR description contains the same verification summary.
+
+## Limits and exact next action
+
+- Physical desktop/mobile browsers, screen readers and real PWA installation prompts remain untested; these need owner review in a browser-capable environment.
+- The demo route moved from `/` to `/demo/` by necessity; previously installed root-scope apps keep their original root manifest while `/demo/` has its own scope.
+- **Next action:** review PR #54 and its CI on the final SHA. Keep it open/unmerged. Do not merge, deploy, publish, stage, tag or release from this branch.
+
+---
+
 # Agent Handoff — SDK-only consumer experience demo
 
 **Date:** 2026-11-19
