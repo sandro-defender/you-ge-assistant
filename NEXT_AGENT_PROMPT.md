@@ -1,7 +1,6 @@
-# Next Agent Prompt — finish PR #53 release verify
+# Next Agent Prompt — PR #53 post-verification review
 
-Continue only on `arena/39cfa85d-you-ge-assistant`; PR #53 stays open and unmerged. The focused fixes are the exact kit 1.2.7 summary assertion plus CI/release workflow builds of the SDK demo required before assembly tests; preserve all demo files and the integrity gate. Run full checks, commit/push to PR #53, dispatch the actual `sdk-release-prep.yml` workflow on this branch with action **Verify only** if permitted, then record its URL/outcome. Never choose Stage, publish, deploy, merge, tag or release. Update the current section of `AGENT_HANDOFF.md` with actual final HEAD and workflow result.
-
+Continue only on `arena/39cfa85d-you-ge-assistant`; PR #53 remains open and unmerged. The exact kit 1.2.7 assertion is fixed, demo builds are present in CI and release verification workflows, and Verify-only succeeded at HEAD `6017e3f…` (see current `AGENT_HANDOFF.md`). If handoff-only edits were pushed afterward, check PR check results and re-run Verify-only for the exact final SHA. Never choose Stage, publish, deploy, merge, tag or release.
 ---
 
 # Next Agent Prompt — complete SDK-only demo PR
