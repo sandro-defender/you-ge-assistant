@@ -432,8 +432,8 @@ const examplePages = [
     label: 'feature-test playground',
     html: 'examples/demo/index.html',
     manifest: 'examples/demo/manifest.webmanifest',
-    publishedHtml: 'index.html',
-    publishedManifest: 'manifest.webmanifest',
+    publishedHtml: 'demo/index.html',
+    publishedManifest: 'demo/manifest.webmanifest',
   },
   {
     label: 'user-facing example',
@@ -486,14 +486,15 @@ function pagesFile(url, label) {
   }
 
   const deployedPath = decodeURIComponent(url.pathname.slice(pagesBasePath.length));
-  if (deployedPath.startsWith('example/')) {
-    const exampleAsset = deployedPath.slice('example/'.length);
-    if (sharedRuntimeFiles.has(exampleAsset) || exampleAsset.startsWith('icons/')) {
-      return at(exampleAsset);
+  if (deployedPath.startsWith('example/') || deployedPath.startsWith('demo/')) {
+    const [scope, ...rest] = deployedPath.split('/');
+    const scopeAsset = rest.join('/');
+    if (sharedRuntimeFiles.has(scopeAsset) || scopeAsset.startsWith('icons/')) {
+      return at(scopeAsset);
     }
-    // Example-only files are assembled from the independent app source tree;
-    // the published URL remains /example/<asset>.
-    return at(join('examples/example', exampleAsset));
+    // Scoped page assets are assembled from their own source tree; the public
+    // runtime files are the same copies used by the root scope.
+    return at(join('examples', scope, scopeAsset));
   }
   return at(deployedPath);
 }

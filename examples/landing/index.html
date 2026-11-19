@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>You.Ge Assistant — Guides, demos and playground</title>
+    <meta
+      name="description"
+      content="Start with You.Ge Assistant: read the instructions, try the full Assistant demo, explore the standalone SDK, or configure your own example locally."
+    />
+    <link rel="icon" type="image/svg+xml" href="assistant-symbol.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="product.css" />
+    <link rel="stylesheet" href="landing.css" />
+    <script src="product.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="product-header" data-product-header>
+      <div class="product-width product-row">
+        <a class="product-brand" href="./"><img src="assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
+        <nav class="product-nav" id="product-navigation" aria-label="Main navigation">
+          <a href="./" aria-current="page">Home</a>
+          <a href="example/#quickstart">Instructions</a>
+          <a href="demo/">Demo</a>
+          <a href="sdk-demo/">SDK Demo</a>
+          <a href="config-playground/">Playground</a>
+        </nav>
+        <a class="product-start" href="config-playground/">Try the playground <span aria-hidden="true">↗</span></a>
+        <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden>Menu</button>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hub-hero" aria-labelledby="hub-title">
+        <div class="hub-width hub-hero-grid">
+          <div>
+            <p class="hub-kicker">AN OPEN WEB APP TOOLKIT</p>
+            <h1 id="hub-title">Make your web app feel at home.</h1>
+            <p class="hub-lead">
+              You.Ge Assistant adds install guidance, offline-aware status, diagnostics and a
+              flexible Assistant panel to a website. You choose where it goes and what it does.
+            </p>
+            <div class="hub-actions">
+              <a class="hub-button primary" href="example/#quickstart">Start with the instructions</a>
+              <a class="hub-button secondary" href="config-playground/">Open the Configuration Playground</a>
+            </div>
+            <p class="hub-note">No account. No build step required for the classic toolkit. SDK 0.4.0 · Kit 1.2.7</p>
+          </div>
+          <aside class="hub-hero-note" aria-label="What you can do here">
+            <p class="hub-kicker">START HERE</p>
+            <ul>
+              <li><strong>Understand</strong> the difference between the product and the SDK.</li>
+              <li><strong>See</strong> real demonstrations in a browser.</li>
+              <li><strong>Try</strong> supported settings without changing a live application.</li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section class="hub-width hub-section" id="destinations" aria-labelledby="destinations-title">
+        <p class="hub-kicker">CHOOSE A DESTINATION</p>
+        <h2 id="destinations-title">Four useful places to go</h2>
+        <p class="hub-section-lead">Each link opens a real page or a specific section of the existing guide.</p>
+        <ol class="hub-destinations">
+          <li>
+            <span class="hub-number">01</span>
+            <h3>Instructions</h3>
+            <p>Install the toolkit, configure modules and integrate it with your app. Troubleshooting is included.</p>
+            <ul>
+              <li><a href="example/#quickstart">Installation and quick start</a></li>
+              <li><a href="example/#configure">Configuration guide</a></li>
+              <li><a href="example/#integration">Integration and setup</a></li>
+              <li><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/README.md">Troubleshooting and FAQs</a></li>
+            </ul>
+          </li>
+          <li>
+            <span class="hub-number">02</span>
+            <h3>Demo</h3>
+            <p>The complete Assistant runtime with working install, diagnostics and UI controls.</p>
+            <ul>
+              <li><a href="demo/">Full Assistant playground</a></li>
+              <li><a href="demo/#demo-live">Live application state</a></li>
+              <li><a href="demo/#demo-install">Install and manual guidance</a></li>
+              <li><a href="demo/#demo-diagnostics">DNS diagnostics</a></li>
+            </ul>
+          </li>
+          <li>
+            <span class="hub-number">03</span>
+            <h3>SDK Demo</h3>
+            <p>A separate host app that uses only the public JavaScript package, without the full runtime.</p>
+            <ul>
+              <li><a href="sdk-demo/">Standalone SDK experience</a></li>
+              <li><a href="sdk-demo/#install">Installation API examples</a></li>
+              <li><a href="sdk-demo/#localization">Localization examples</a></li>
+              <li><a href="sdk-demo/#developer">Public API inspector</a></li>
+            </ul>
+          </li>
+          <li>
+            <span class="hub-number">04</span>
+            <h3>Configuration Playground</h3>
+            <p>Change supported settings, watch an illustrative preview and copy a usable example.</p>
+            <ul>
+              <li><a href="config-playground/">Open the playground</a></li>
+              <li><a href="config-playground/#installation">Installation settings</a></li>
+              <li><a href="config-playground/#localization">Localization settings</a></li>
+              <li><a href="config-playground/#diagnostics">Diagnostics settings</a></li>
+            </ul>
+          </li>
+        </ol>
+      </section>
+
+      <section class="hub-band" id="product-vs-sdk" aria-labelledby="product-vs-sdk-title">
+        <div class="hub-width hub-two-column">
+          <div>
+            <p class="hub-kicker">TWO THINGS, ONE NAME</p>
+            <h2 id="product-vs-sdk-title">The Assistant is not the same as the SDK.</h2>
+            <p class="hub-section-lead">Both are open source. One is the complete product; the other is a package for your own application.</p>
+          </div>
+          <div class="hub-compare">
+            <article>
+              <h3>You.Ge Assistant</h3>
+              <p>The complete PWA product and runtime: install presentation, offline fallback, service-worker capabilities, notices, the floating panel and its hosted demonstrations.</p>
+              <p class="hub-compare-links"><a href="demo/">See the full Assistant</a> · <a href="example/#features">Read how it works</a></p>
+            </article>
+            <article>
+              <h3>You.Ge Assistant SDK</h3>
+              <p>The framework-independent JavaScript package <code>@youge/assistant-sdk</code>. It exposes selected public capabilities—state, configuration, localization, diagnostics helpers and installation integration—to another website.</p>
+              <p class="hub-compare-links"><a href="sdk-demo/">Try the SDK demo</a> · <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/packages/assistant-sdk/README.md">Read the package guide</a></p>
+            </article>
+            <p class="hub-compare-note">The SDK does not replace the Assistant runtime. It is a way for a host app to use selected capabilities on its own terms; the host still owns its service worker and page.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="hub-width hub-section" id="features" aria-labelledby="features-title">
+        <p class="hub-kicker">FEATURE DIRECTORY</p>
+        <h2 id="features-title">What can it do?</h2>
+        <p class="hub-section-lead">Every link opens a real guide, section or working demonstration.</p>
+        <div class="hub-feature-groups">
+          <section id="get-started" aria-labelledby="get-started-title">
+            <h3 id="get-started-title">Get started</h3>
+            <ul>
+              <li><a href="example/#quickstart">Install the toolkit</a></li>
+              <li><a href="example/#configure">Configure modules</a></li>
+              <li><a href="example/#service-worker">Understand worker ownership</a></li>
+              <li><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/docs/guides/INTEGRATION.md">Integration and migration guide</a></li>
+            </ul>
+          </section>
+          <section id="install-pwa" aria-labelledby="install-pwa-title">
+            <h3 id="install-pwa-title">Install and browser support</h3>
+            <ul>
+              <li><a href="demo/#demo-install">Install dialog, QR and manual guidance</a></li>
+              <li><a href="demo/#demo-live">Installation status and browser support</a></li>
+              <li><a href="sdk-demo/#install">SDK installation integration</a></li>
+              <li><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/docs/reference/COMPATIBILITY_CONTRACTS.md">Browser and identifier compatibility</a></li>
+            </ul>
+          </section>
+          <section id="localization-features" aria-labelledby="localization-features-title">
+            <h3 id="localization-features-title">Languages and interface</h3>
+            <ul>
+              <li><a href="demo/#demo-language">Choose the UI language</a></li>
+              <li><a href="demo/#demo-theme">Assistant theme and custom colors</a></li>
+              <li><a href="sdk-demo/#localization">SDK localization helpers</a></li>
+              <li><a href="config-playground/#localization">Try languages in the playground</a></li>
+            </ul>
+          </section>
+          <section id="diagnostics-features" aria-labelledby="diagnostics-features-title">
+            <h3 id="diagnostics-features-title">Diagnostics and offline</h3>
+            <ul>
+              <li><a href="demo/#demo-diagnostics">Run DNS diagnostics</a></li>
+              <li><a href="demo/#demo-ui">Offline and update alerts</a></li>
+              <li><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/docs/guides/DNS_RECOVERY.md">DNS recovery guide</a></li>
+              <li><a href="config-playground/#diagnostics">Adjust diagnostic preferences</a></li>
+            </ul>
+          </section>
+          <section id="developer-features" aria-labelledby="developer-features-title">
+            <h3 id="developer-features-title">For developers</h3>
+            <ul>
+              <li><a href="sdk-demo/#developer">Inspect public SDK calls</a></li>
+              <li><a href="example/#try">Live Assistant state and controls</a></li>
+              <li><a href="demo/#demo-events">Watch runtime events</a></li>
+              <li><a href="config-playground/#code">Generate configuration code</a></li>
+            </ul>
+          </section>
+        </div>
+      </section>
+
+      <section class="hub-width hub-section hub-help" id="help" aria-labelledby="help-title">
+        <div>
+          <p class="hub-kicker">NEED A HAND?</p>
+          <h2 id="help-title">Common questions</h2>
+        </div>
+        <div class="hub-faq">
+          <details>
+            <summary>Do I need to install anything to use the SDK?</summary>
+            <p>Yes, in your own project: run <code>npm install @youge/assistant-sdk</code>. The classic toolkit itself has no build step; the guides show both approaches. See the <a href="example/#quickstart">quick start</a>.</p>
+          </details>
+          <details>
+            <summary>Will it take over my service worker?</summary>
+            <p>No. The host application owns worker registration, caching and updates. The <a href="example/#service-worker">worker ownership guide</a> explains the explicit opt-in.</p>
+          </details>
+          <details>
+            <summary>Why did installation not show a native prompt?</summary>
+            <p>Browsers decide when a prompt is available. The demo shows manual instructions and QR fallback when a native prompt is not offered. See <a href="demo/#demo-install">install behavior</a> and the <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/docs/guides/INSTALLATION_EXPERIENCE.md">installation contract</a>.</p>
+          </details>
+          <details>
+            <summary>Can I try settings without changing my site?</summary>
+            <p>Yes. The <a href="config-playground/">Configuration Playground</a> runs in your browser only, uses illustrative previews and generates example code to copy into your own app.</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="product-footer"><div class="product-width">
+      <a class="product-brand" href="./"><img src="assistant-symbol.svg" width="30" height="30" alt="" />You.Ge <b>Assistant</b></a>
+      <span class="footer-caption">Open source. Thoughtfully connected.</span>
+      <nav aria-label="Footer"><a href="example/#integration">Documentation</a><a href="config-playground/">Playground</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE">MIT license</a><a href="https://github.com/sandro-defender/you-ge-assistant/issues">Issues</a></nav>
+    </div></footer>
+  </body>
+</html>

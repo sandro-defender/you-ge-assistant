@@ -20,6 +20,11 @@ test('repository documentation and independent examples use their organized loca
     'docs/reference/COMPATIBILITY_CONTRACTS.md',
     'docs/design-system/you-ge-assistant/MASTER.md',
     'examples/demo/index.html',
+    'examples/landing/index.html',
+    'examples/landing/landing.css',
+    'examples/config-playground/index.html',
+    'examples/config-playground/package.json',
+    'examples/config-playground/package-lock.json',
     'examples/example/package.json',
     'examples/example/package-lock.json',
     'examples/push-server/README.md',
@@ -32,7 +37,7 @@ test('repository documentation and independent examples use their organized loca
     'ADAPTIVE_THEME_AUDIT.md', 'ASSISTANT_ARCHITECTURE.md',
     'COMPATIBILITY_CONTRACTS.md', 'DESIGN_FOUNDATION.md',
     'INTEGRATION.md', 'PRECACHE_INTEGRITY.md', 'snippet.html',
-    'demo/index.html', 'example/index.html', 'design-system/you-ge-assistant/MASTER.md',
+    'demo/index.html', 'example/index.html', 'config-playground/index.html', 'design-system/you-ge-assistant/MASTER.md',
   ]) assert.equal(exists(removed), false, `${removed} is no longer at the old location`);
 
   const examplePackage = JSON.parse(read('examples/example/package.json'));
@@ -193,7 +198,7 @@ test('source files are organized under src/ and public/ while build output prese
 test('assemblePages produces independent root and /example/ scopes with all runtime assets andrewritten paths', () => {
   const tempSite = mkdtempSync(join(tmpdir(), 'youge-pages-test-'));
   try {
-    const { outputDir, exampleOutDir } = assemblePages({
+    const { outputDir, exampleOutDir, demoOutDir, playgroundOutDir } = assemblePages({
       outputDir: tempSite,
       basePath: '/you-ge-assistant',
     });
@@ -209,7 +214,7 @@ test('assemblePages produces independent root and /example/ scopes with all runt
       'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png',
     ];
 
-    for (const scopeDir of [outputDir, exampleOutDir]) {
+    for (const scopeDir of [outputDir, demoOutDir, exampleOutDir]) {
       assert.ok(existsSync(join(scopeDir, 'index.html')), 'index.html exists');
       assert.ok(existsSync(join(scopeDir, 'manifest.webmanifest')), 'manifest.webmanifest exists');
       for (const file of sharedRuntime) {
@@ -221,8 +226,13 @@ test('assemblePages produces independent root and /example/ scopes with all runt
 
     // Root vs /example/ manifests and index.html are distinct (no accidental overwriting)
     const rootHtml = readFileSync(join(outputDir, 'index.html'), 'utf8');
+    const demoHtml = readFileSync(join(demoOutDir, 'index.html'), 'utf8');
     const exampleHtml = readFileSync(join(exampleOutDir, 'index.html'), 'utf8');
     assert.notEqual(rootHtml, exampleHtml, 'root and /example/ index.html must be distinct');
+    assert.notEqual(rootHtml, demoHtml, 'root and /demo/ index.html must be distinct');
+    assert.equal(demoHtml, readFileSync(new URL('../examples/demo/index.html', import.meta.url), 'utf8'));
+    assert.ok(existsSync(join(playgroundOutDir, 'index.html')), 'playground has its own route');
+    assert.ok(existsSync(join(outputDir, 'landing.css')), 'root landing stylesheet exists');
 
     const rootManifest = JSON.parse(readFileSync(join(outputDir, 'manifest.webmanifest'), 'utf8'));
     const exampleManifest = JSON.parse(readFileSync(join(exampleOutDir, 'manifest.webmanifest'), 'utf8'));

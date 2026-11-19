@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f6f7fb" />
+    <title>You.Ge Assistant — Configuration Playground</title>
+    <meta name="description" content="Try supported You.Ge Assistant SDK settings locally, see an illustrative preview and copy a real public-API configuration example." />
+    <link rel="icon" type="image/svg+xml" href="../assistant-symbol.svg" />
+    <link rel="stylesheet" href="../product.css" />
+    <link rel="stylesheet" href="src/playground.css" />
+    <script src="../product.js" defer></script>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="product-header" data-product-header>
+      <div class="product-width product-row">
+        <a class="product-brand" href="../"><img src="../assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
+        <nav class="product-nav" id="product-navigation" aria-label="Main navigation">
+          <a href="../">Home</a>
+          <a href="../example/#quickstart">Instructions</a>
+          <a href="../demo/">Demo</a>
+          <a href="../sdk-demo/">SDK Demo</a>
+          <a href="./" aria-current="page">Playground</a>
+        </nav>
+        <a class="product-start" href="../example/#quickstart">Read the guide <span aria-hidden="true">↗</span></a>
+        <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden>Menu</button>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="pg-head" aria-labelledby="pg-title">
+        <div class="pg-width">
+          <p class="pg-kicker">LOCAL CONFIGURATION PLAYGROUND</p>
+          <h1 id="pg-title">Try settings before you use them.</h1>
+          <p class="pg-lead">Choose the options you want. The preview updates right away, and the generated examples use the real public configuration format. Nothing here changes a live Assistant or a production service.</p>
+          <p class="pg-local-note"><strong>Local and illustrative:</strong> settings stay in this browser tab only. The preview is a mock interface, not a production Assistant instance.</p>
+        </div>
+      </section>
+
+      <div class="pg-width pg-layout">
+        <form class="pg-settings" id="settings-form">
+          <fieldset id="general">
+            <legend>General</legend>
+            <p class="pg-help">Basic behavior of the Assistant panel.</p>
+            <label class="pg-field pg-toggle" for="enabled">
+              <span>Enable the Assistant</span>
+              <input type="checkbox" id="enabled" name="enabled" />
+              <small>When off, the panel would not be shown.</small>
+            </label>
+            <label class="pg-field" for="themeMode">
+              <span>Appearance</span>
+              <select id="themeMode" name="themeMode">
+                <option value="auto">Auto (system preference)</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+              <small>Auto follows the device; light and dark pin a scheme.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="inheritHost">
+              <span>Follow the host page appearance</span>
+              <input type="checkbox" id="inheritHost" name="inheritHost" />
+              <small>Copies validated colors from the host page where possible.</small>
+            </label>
+            <label class="pg-field" for="position">
+              <span>Panel position</span>
+              <select id="position" name="position">
+                <option value="bottom-right">Bottom right</option>
+                <option value="bottom-left">Bottom left</option>
+                <option value="top-right">Top right</option>
+                <option value="top-left">Top left</option>
+              </select>
+              <small>Where the floating panel would appear on the page.</small>
+            </label>
+          </fieldset>
+
+          <fieldset id="installation">
+            <legend>Installation</legend>
+            <p class="pg-help">How installation help is presented. The browser always decides whether a native prompt is available.</p>
+            <label class="pg-field" for="presentation">
+              <span>Install presentation</span>
+              <select id="presentation" name="presentation">
+                <option value="manual">Manual (opens when asked)</option>
+                <option value="auto">Auto (may appear when idle)</option>
+              </select>
+              <small>Manual is the established default; auto is an opt-in behavior.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="installationGuidance">
+              <span>Show installation guidance</span>
+              <input type="checkbox" id="installationGuidance" name="installationGuidance" />
+              <small>Gates Assistant install guidance, not the browser's own UI.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="installationDetection">
+              <span>Report installation state</span>
+              <input type="checkbox" id="installationDetection" name="installationDetection" />
+              <small>When off, the Assistant masks its installation state.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="chromeHandoff">
+              <span>Offer Android Chrome handoff</span>
+              <input type="checkbox" id="chromeHandoff" name="chromeHandoff" />
+              <small>Only applies in supported in-app browsers, after user action.</small>
+            </label>
+          </fieldset>
+
+          <fieldset id="localization">
+            <legend>Localization</legend>
+            <p class="pg-help">Choose a supported language. Preview text comes from the SDK's public translation export.</p>
+            <label class="pg-field" for="locale">
+              <span>Assistant language</span>
+              <select id="locale" name="locale">
+                <option value="auto">Auto (browser or domain)</option>
+              </select>
+              <small>Auto resolves the closest supported core locale.</small>
+            </label>
+            <label class="pg-field" for="installLocale">
+              <span>Installation dialog locale</span>
+              <select id="installLocale" name="installLocale">
+                <option value="auto">Auto (browser decides)</option>
+              </select>
+              <small>Some tags localize only the installation dialog, not Assistant notices.</small>
+            </label>
+            <p class="pg-rtl-note">The 12 core SDK locales are left-to-right. The SDK can detect right-to-left tags, but no RTL core translation is published, so this preview never claims RTL support.</p>
+          </fieldset>
+
+          <fieldset id="diagnostics">
+            <legend>Diagnostics and updates</legend>
+            <p class="pg-help">Independent switches. Turning one off does not disable the others.</p>
+            <label class="pg-field pg-toggle" for="diagnostics">
+              <span>Network diagnostics</span>
+              <input type="checkbox" id="diagnostics" name="diagnostics" />
+              <small>On-demand DNS checks; never runs in a loop.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="offlineDiagnostics">
+              <span>Offline diagnostics</span>
+              <input type="checkbox" id="offlineDiagnostics" name="offlineDiagnostics" />
+              <small>Reports the browser's online hint, not a reachability proof.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="cacheDiagnostics">
+              <span>Cache diagnostics</span>
+              <input type="checkbox" id="cacheDiagnostics" name="cacheDiagnostics" />
+              <small>Reads cache status only when a host adapter provides it.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="recovery">
+              <span>Recovery guidance</span>
+              <input type="checkbox" id="recovery" name="recovery" />
+              <small>Shows remediation steps when a problem is reported.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="failover">
+              <span>Failover notices</span>
+              <input type="checkbox" id="failover" name="failover" />
+              <small>Shows notices when a host uses a backup endpoint.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="updates">
+              <span>Update features</span>
+              <input type="checkbox" id="updates" name="updates" />
+              <small>Broken legacy gate for update-related capabilities.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="updateDetection">
+              <span>Report available updates</span>
+              <input type="checkbox" id="updateDetection" name="updateDetection" />
+              <small>Masks update state and events when off.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="updateNotifications">
+              <span>Update notices</span>
+              <input type="checkbox" id="updateNotifications" name="updateNotifications" />
+              <small>Controls notices only, not worker update behavior.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="autoUpdate">
+              <span>Allow automatic activation</span>
+              <input type="checkbox" id="autoUpdate" name="autoUpdate" />
+              <small>Permission for a host's explicit opt-in; does not enable it by itself.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="userUpdate">
+              <span>Allow user-triggered refresh</span>
+              <input type="checkbox" id="userUpdate" name="userUpdate" />
+              <small>Lets a person apply an available update from the Assistant.</small>
+            </label>
+          </fieldset>
+
+          <fieldset id="runtime-only">
+            <legend>Full Assistant runtime only</legend>
+            <p class="pg-help">These switches are <strong>not SDK settings</strong>. They appear only in the separate full-runtime example below.</p>
+            <label class="pg-field pg-toggle" for="runtimeToolbox">
+              <span>Show floating install launcher</span>
+              <input type="checkbox" id="runtimeToolbox" name="runtimeToolbox" />
+              <small>Classic runtime attribute: <code>data-toolbox</code>.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="runtimeInstallBanner">
+              <span>Show install banner automatically</span>
+              <input type="checkbox" id="runtimeInstallBanner" name="runtimeInstallBanner" />
+              <small>Classic runtime attribute: <code>data-install-banner</code>.</small>
+            </label>
+            <label class="pg-field pg-toggle" for="runtimeAutoUpdate">
+              <span>Activate waiting updates automatically</span>
+              <input type="checkbox" id="runtimeAutoUpdate" name="runtimeAutoUpdate" />
+              <small>Classic runtime attribute: <code>data-auto-update</code>; keep it off unless your host opts in.</small>
+            </label>
+          </fieldset>
+
+          <div class="pg-form-actions">
+            <button type="button" id="reset-settings" class="pg-button secondary">Reset to defaults</button>
+            <p id="settings-status" class="pg-status" role="status" aria-live="polite">Settings are saved in this tab only.</p>
+          </div>
+        </form>
+
+        <div class="pg-output">
+          <section class="pg-preview" aria-labelledby="preview-title-heading">
+            <div class="pg-output-head">
+              <div>
+                <p class="pg-kicker">LIVE PREVIEW</p>
+                <h2 id="preview-title-heading">What the panel would look like</h2>
+              </div>
+              <span class="pg-badge">ILLUSTRATIVE</span>
+            </div>
+            <p class="pg-help">A mock page and mock panel. No Assistant instance or service worker is started.</p>
+            <div class="pg-browser" id="preview-frame" data-position="bottom-right" data-theme="auto">
+              <div class="pg-browser-bar"><span></span><span></span><span></span><em>your-app.example</em></div>
+              <div class="pg-browser-body">
+                <div class="pg-page-content"><span>YOUR APPLICATION</span><strong>Your content stays yours.</strong></div>
+                <div class="pg-mock-panel" id="preview-panel" data-enabled="true">
+                  <p class="pg-mock-title" id="preview-title">Assistant</p>
+                  <p class="pg-mock-message" id="preview-message">Install this app for quick access.</p>
+                  <ul class="pg-mock-modules">
+                    <li><span>Install guidance</span><b id="preview-module-guidance">on</b></li>
+                    <li><span>Diagnostics</span><b id="preview-module-diagnostics">on</b></li>
+                    <li><span>Offline check</span><b id="preview-module-offline">on</b></li>
+                    <li><span>Cache check</span><b id="preview-module-cache">on</b></li>
+                    <li><span>Recovery</span><b id="preview-module-recovery">on</b></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <dl class="pg-facts">
+              <div><dt>Resolved language</dt><dd id="preview-locale">—</dd></div>
+              <div><dt>Text direction</dt><dd id="preview-direction">—</dd></div>
+              <div><dt>Appearance</dt><dd id="preview-theme">—</dd></div>
+              <div><dt>Panel position</dt><dd id="preview-position">—</dd></div>
+              <div><dt>Install presentation</dt><dd id="preview-presentation">—</dd></div>
+              <div><dt>Dialog locale</dt><dd id="preview-install-locale">—</dd></div>
+            </dl>
+            <p class="pg-status" id="preview-live" role="status" aria-live="polite">Preview ready.</p>
+          </section>
+
+          <section class="pg-code-section" id="code" aria-labelledby="code-title">
+            <p class="pg-kicker">GENERATED EXAMPLES</p>
+            <h2 id="code-title">Copy into your project</h2>
+            <div class="pg-code-block">
+              <div class="pg-code-head"><h3>SDK configuration <span>(public package API)</span></h3><button type="button" class="pg-button copy" id="copy-sdk" aria-controls="sdk-code">Copy code</button></div>
+              <p class="pg-help">Place this in your host app after <code>npm install @youge/assistant-sdk</code>. Replace <code>my-app</code> with your project id.</p>
+              <pre id="sdk-code" tabindex="0"><code></code></pre>
+              <p class="pg-status" id="copy-sdk-status" role="status" aria-live="polite"></p>
+            </div>
+            <div class="pg-code-block">
+              <div class="pg-code-head"><h3>Full Assistant runtime <span>(separate, not the SDK)</span></h3><button type="button" class="pg-button copy" id="copy-runtime" aria-controls="runtime-code">Copy code</button></div>
+              <p class="pg-help">Put these tags in a page that loads the full toolkit. Your application still owns any service-worker registration.</p>
+              <pre id="runtime-code" tabindex="0"><code></code></pre>
+              <p class="pg-status" id="copy-runtime-status" role="status" aria-live="polite"></p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer class="product-footer"><div class="product-width">
+      <a class="product-brand" href="../"><img src="../assistant-symbol.svg" width="30" height="30" alt="" />You.Ge <b>Assistant</b></a>
+      <span class="footer-caption">Configuration stays in your browser.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="../example/#integration">Documentation</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE">MIT license</a></nav>
+    </div></footer>
+  </body>
+</html>

@@ -90,8 +90,11 @@ test("assembled Pages links and assets work under the project base path", (t) =>
   );
   for (const page of [
     "index.html",
+    "demo/index.html",
     "example/index.html",
     "example/workspace.html",
+    "sdk-demo/index.html",
+    "config-playground/index.html",
   ]) {
     const source = readFileSync(resolve(site, page), "utf8");
     for (const [, url] of source.matchAll(
@@ -117,8 +120,12 @@ test("assembled Pages links and assets work under the project base path", (t) =>
       if (url.pathname.endsWith("/")) target = join(target, "index.html");
       if (url.hash && target.endsWith(".html")) {
         const destination = readFileSync(target, "utf8");
+        // SDK demo sections are rendered at runtime from main.ts.
+        const anchorSource = target.endsWith("sdk-demo/index.html")
+          ? read("examples/sdk-demo/src/main.ts")
+          : destination;
         assert.ok(
-          destination.includes(`id="${decodeURIComponent(url.hash.slice(1))}"`),
+          anchorSource.includes(`id="${decodeURIComponent(url.hash.slice(1))}"`),
           `${page}: broken anchor ${href}`,
         );
       }
@@ -135,6 +142,8 @@ test("every product page uses shared identity and progressive mobile navigation"
     "examples/demo/index.html",
     "examples/example/index.html",
     "examples/example/workspace.html",
+    "examples/landing/index.html",
+    "examples/config-playground/index.html",
   ]) {
     const source = read(path);
     for (const attribute of [

@@ -15,9 +15,11 @@ you configure. Canonical technical surfaces use You.Ge Assistant names
 compatible during the `1.x` migration window, and that hostname is neither
 required nor used as a DNS test constant.
 
-**Live playground:** <https://sandro-defender.github.io/you-ge-assistant/> — test
-install, toolbox, QR, offline recovery, push, share, caches, theme, wording and
-network diagnostics.
+**Project hub:** <https://sandro-defender.github.io/you-ge-assistant/> — choose
+instructions, the full Assistant demo, the standalone SDK demo or the local
+configuration playground. **Live playground:**
+<https://sandro-defender.github.io/you-ge-assistant/demo/> — test install, toolbox,
+QR, offline recovery, push, share, caches, theme, wording and network diagnostics.
 
 **Product & integration guide:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
 discover the product, try the real Assistant, and integrate SDK 0.4.0 with verified
@@ -1103,14 +1105,25 @@ If the worker lives in a subdirectory but must control the root, set
 
 ## GitHub Pages
 
-This repository publishes two GitHub Pages routes through
+This repository publishes these GitHub Pages routes through
 `.github/workflows/pages.yml`:
 
-- <https://sandro-defender.github.io/you-ge-assistant/> — the full feature-test playground.
+- <https://sandro-defender.github.io/you-ge-assistant/> — the unified hub: a short
+  introduction and direct links to instructions, demos and the playground.
+- <https://sandro-defender.github.io/you-ge-assistant/demo/> — the preserved full
+  feature-test playground with its own runtime scope and manifest.
 - <https://sandro-defender.github.io/you-ge-assistant/example/> — a polished sample
   staff workspace showing the helper in a user-facing page.
+- <https://sandro-defender.github.io/you-ge-assistant/sdk-demo/> — an isolated
+  consumer that uses only the public SDK package.
+- <https://sandro-defender.github.io/you-ge-assistant/config-playground/> — a local-only
+  playground for supported settings and copyable examples.
 
-The workflow builds its source pages from `examples/demo/` and `examples/example/`. The demo is published at `/` with the shared runtime at the Pages root. The user-facing example is still published at `/example/` with its own runtime copy and manifest,
+The workflow builds the Vite examples and `examples/config-playground/` before
+`scripts/assemble-pages.mjs` copies the shared runtime to the root and `/demo/`.
+The original demo moved from `/` to `/demo/` so the root can be the central entry
+point; its controls, URLs inside its own scope and installable identity are kept.
+The user-facing example remains at `/example/` with its own runtime copy and manifest,
 service-worker scope and offline page so the sample is a separate installable app.
 GitHub Pages is static and uses the example's static manifest; it cannot execute
 the host-aware manifest function.
