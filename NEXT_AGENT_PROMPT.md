@@ -1,3 +1,35 @@
+# Next Agent Prompt — owner review of the SDK `0.4.0` release-preparation PR
+
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `packages/assistant-sdk/RELEASE.md`
+(§1, §4, §7 pass for 0.4.0), `docs/operations/PRECACHE_INTEGRITY.md` §13 and
+`packages/assistant-sdk/README.md` (localization and installation sections).
+Work only on `arena/ac2af8ea-you-ge-assistant` (base `017bcef`) until the PR is
+reviewed. SDK `0.4.0` and kit `1.2.7` are prepared and synchronized; the kit bump
+was **explicitly owner-authorized in this task** because the regenerated
+precached `assistant-state.js` mirrors `SDK_VERSION`. Nothing is published,
+tagged, released, merged or deployed; the registry still serves `0.3.0`.
+
+Verification is green on the branch: `npm run check` 622/622 plus 300 static
+contracts, `npm run test:sdk` 150/150, `validate-package.mjs`, `npm pack
+--dry-run` (27 files, no runtime dependencies), precache gate
+(`1.2.6 → 1.2.7 synchronized`), browser-sync check, example `npm ci`/typecheck/
+build, a real-tarball consumer install with `tsc` under `NodeNext` and `Bundler`,
+and root `npm run build`. The pre-existing `@playwright/test` assertion in
+`tests/example-theme.test.mjs` was verified failing on base `017bcef` and its
+stale expected list was corrected; no gate or rule was weakened.
+
+Remaining owner actions, in order: (1) review/merge the PR — merging also
+publishes kit `1.2.7` through the existing Pages workflow; (2) run the
+`sdk-release-prep` **Verify only** selection; (3) **Stage release on npm**;
+(4) approve the staged `0.4.0` on npmjs.com with 2FA. Do **not** set
+`SDK_RELEASE_ENABLED`, add npm tokens, edit the workflow's authorization, create
+tags, or publish from a branch. Physical Chromium/Safari and `<pwa-install>`
+35-locale browser checks remain recommended before approving the stage.
+
+---
+
+## Historical prompt (superseded)
+
 # Next Agent Prompt — review `<pwa-install>` integration and multilingual localization
 
 Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/operations/PRECACHE_INTEGRITY.md` §12, `docs/guides/INSTALLATION_EXPERIENCE.md` §5, and `THIRD_PARTY_NOTICES.md`. Work only on `arena/b025b717-you-ge-assistant` (base `b256c49`). The implementation is complete: `@khmyznikov/pwa-install@0.7.0` is vendored as the self-contained optional runtime `src/runtime/pwa-install.js` with MIT attribution and 35 built-in locales (including native Georgian `ka`, Russian `ru`, Estonian `et`, `nb`/`nn->no`, and accessible close labels); `pwa.js`, `dns-diagnostics.js`, `offline.{html,js}`, `assistant-widget.js`, `@youge/assistant-sdk/i18n`, `assistant-state.js`, and both example surfaces are unified across all 12 core locales (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`) with bidirectional locale sync, runtime-only `setLocale`, `domainRegistry` defaults, and `Escape` dialog ownership. Kit `1.2.6` is owner-authorized because precached assets changed; SDK package remains `0.3.0`.
