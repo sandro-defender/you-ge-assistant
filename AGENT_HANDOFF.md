@@ -2,7 +2,8 @@
 
 **Date:** 2026-11-19
 **Branch:** `arena/ac2af8ea-you-ge-assistant`, based on `017bcef09457d1388b5e0f219e63c218310f6695` (`main`).
-**PR:** opened against `main` (release preparation only — open and unmerged).
+**PR:** [PR #52](https://github.com/sandro-defender/you-ge-assistant/pull/52) (open against `main`, release preparation only — unmerged).
+**Commit:** verified release-candidate tree `6a18579` (this handoff commit adds documentation only).
 **Working tree:** Complete release-preparation change set: synchronized SDK/kit version bumps, public-surface audit, new tests, documentation and release records. Generated `dist/`, `examples/example/node_modules` and `examples/example/dist` stay gitignored.
 **Versions:** SDK package `@youge/assistant-sdk` `0.3.0 → 0.4.0` (prepared, **not published**); kit `1.2.6 → 1.2.7`, **explicitly authorized by the owner during this task** because the regenerated precached `assistant-state.js` mirrors `SDK_VERSION`. The registry still reports `0.3.0` as `latest` (`npm view` verified 2026-11-19; `@0.4.0` is 404). No npm stage/publish, tag, GitHub release, merge or deployment was performed.
 

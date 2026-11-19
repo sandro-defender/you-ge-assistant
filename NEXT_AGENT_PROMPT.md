@@ -3,6 +3,7 @@
 Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `packages/assistant-sdk/RELEASE.md`
 (§1, §4, §7 pass for 0.4.0), `docs/operations/PRECACHE_INTEGRITY.md` §13 and
 `packages/assistant-sdk/README.md` (localization and installation sections).
+PR: [PR #52](https://github.com/sandro-defender/you-ge-assistant/pull/52).
 Work only on `arena/ac2af8ea-you-ge-assistant` (base `017bcef`) until the PR is
 reviewed. SDK `0.4.0` and kit `1.2.7` are prepared and synchronized; the kit bump
 was **explicitly owner-authorized in this task** because the regenerated
