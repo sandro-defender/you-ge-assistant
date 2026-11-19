@@ -90,7 +90,14 @@ export function assemblePages({
     cpSync(join(rootDir, 'examples/example/public', file), join(safeOutputDir, file));
   }
 
-  // 3. Scope-specific browserconfig.xml tile paths
+  // 3. Independent SDK-only consumer experience at /sdk-demo/.
+  const sdkDemoDistDir = join(rootDir, 'examples/sdk-demo/dist');
+  if (!existsSync(sdkDemoDistDir)) {
+    throw new Error('Missing examples/sdk-demo/dist — run `npm ci && npm run build` in examples/sdk-demo first.');
+  }
+  cpSync(sdkDemoDistDir, join(safeOutputDir, 'sdk-demo'), { recursive: true });
+
+  // 4. Scope-specific browserconfig.xml tile paths
   const normalizedBase = basePath.replace(/\/+$/, '');
   const rootBrowserConfigPath = join(safeOutputDir, 'browserconfig.xml');
   writeFileSync(

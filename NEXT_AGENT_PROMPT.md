@@ -1,3 +1,14 @@
+# Next Agent Prompt — final PR #53 UI verification
+
+Continue on fixed branch `arena/39cfa85d-you-ge-assistant`; PR #53 must remain open/unmerged. `ui-ux-pro-max-skill` was cloned from its official repo to `/tmp/ui-ux-pro-max-skill`, read and actively applied. Review fixes improve muted text contrast, use system fonts, enlarge mobile controls, and preserve focus/details across rerenders. Browser automation is blocked because Playwright has no browser binary and the temporary Chromium needs missing `libnspr4.so`/NSS system libraries; do not claim browser verification. Finish diff review, commit/push only to this branch, verify the release-prep workflow with **Verify only** and confirm PR CI on final SHA. No Stage, publish, deploy, merge, tag or release.
+---
+
+# Next Agent Prompt — complete SDK-only demo PR
+
+Continue on fixed active branch `arena/39cfa85d-you-ge-assistant` only. PR #52 is merged into main at `95afaca`; no branch creation/switching. Read the current top section of `AGENT_HANDOFF.md`, `AGENTS.md`, and review `examples/sdk-demo/`. Verification is complete (root `npm run check`, SDK demo typecheck/build, React example typecheck/build, Pages assembly and clean diff); browser automation was unavailable and is documented. Keep the demo SDK-public-exports-only, isolate from production PWA/runtime and preserve release gates. Then commit/push this branch and open exactly one unmerged PR against `main`. Do not merge, stage, publish, tag, release or deploy.
+
+---
+
 # Next Agent Prompt — owner review of the SDK `0.4.0` release-preparation PR
 
 Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `packages/assistant-sdk/RELEASE.md`

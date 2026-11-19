@@ -1,0 +1,4 @@
+import { SDK_VERSION, KIT_COMPAT_VERSION, resolveAssistantConfig } from '@youge/assistant-sdk';
+import { SUPPORTED_LOCALES, normalizeLocaleTag, resolveLocale, translate, isRtlLocale, localizeDnsClassification, localizeDnsMessage, formatAlertCount, chromeHandoffLabels } from '@youge/assistant-sdk/i18n';
+import { deriveInstallationState, resolveInstallationCopy, requestPwaInstall, showPwaInstallDialog, hidePwaInstallDialog, triggerPwaInstall, readInstalledRelatedApps } from '@youge/assistant-sdk/installation';
+void [SDK_VERSION,KIT_COMPAT_VERSION,resolveAssistantConfig,SUPPORTED_LOCALES,normalizeLocaleTag,resolveLocale,translate,isRtlLocale,localizeDnsClassification,localizeDnsMessage,formatAlertCount,chromeHandoffLabels,deriveInstallationState,resolveInstallationCopy,requestPwaInstall,showPwaInstallDialog,hidePwaInstallDialog,triggerPwaInstall,readInstalledRelatedApps];

@@ -141,6 +141,10 @@ jobs:
         run: npm ci && npm run typecheck && npm run build
         working-directory: examples/example
 
+      - name: Consumer build verification (SDK-only demo)
+        run: npm ci && npm run typecheck && npm run build
+        working-directory: examples/sdk-demo
+
       - name: Static checks, contracts and unit tests
         run: npm run check
 

@@ -1,3 +1,41 @@
+# Agent Handoff — SDK-only consumer experience demo
+
+**Date:** 2026-11-19
+**Branch:** `arena/39cfa85d-you-ge-assistant`, based on merged SDK release-candidate PR #52 commit `95afaca`. PR #52 is **merged** (not open); implementation is in [PR #53](https://github.com/sandro-defender/you-ge-assistant/pull/53), open against `main`. Current task corrects PR #53’s stale precache test wording; SDK/kit versions remain 0.4.0/1.2.7. The SDK is prepared as 0.4.0 / kit 1.2.7; npm still reports 0.3.0 latest, and 0.4.0 is not published.
+
+## Final UI/UX and browser review
+
+- Reviewed PR #53 at `1c8174579465bda0ee3a618c246535c596132229`; PR remains open on `arena/39cfa85d-you-ge-assistant`. The `ui-ux-pro-max-skill` was found by following the repository-documented official GitHub clone path, cloned outside the repo to `/tmp/ui-ux-pro-max-skill`, and actively read (`.claude/skills/ui-ux-pro-max/SKILL.md`, quick-reference accessibility/layout rules, and professional UI pre-delivery rules). Applied relevant search results for contrast, keyboard focus, touch targets and product style; no skill data was added to the repo.
+- Review found low-contrast muted labels/microcopy, undersized mobile tap targets, unprovided fonts being named without loading, and DOM rerenders that reset focus and collapse the developer inspector. Updated `examples/sdk-demo/src/style.css` with measured darker text/status colors (tested pairs range 4.79:1–6.37:1), system font fallback, and 44px controls/links; `main.ts` restores the active control and details disclosure after render, and announces the latest API result through `aria-live`. No new dependency or SDK API/runtime change.
+- Real Chromium browser automation could not run. Playwright 1.65.1 is installed, but its expected browser executable is absent. A temporary npm-provided Chromium was attempted; launch failed because the host lacks `libnspr4.so`/NSS runtime libraries. No desktop or mobile browser session, screenshot or physical-device test is claimed. The Vite server responds HTTP 200, but that is not a browser execution test; physical iOS Safari/Android remain untested.
+- Checks after review: root `npm run check` **629/629**; SDK tests **150/150**; SDK package validation and sync pass; SDK demo typecheck/build and React example typecheck/build pass; Pages assembly includes `_final-review-site/sdk-demo/index.html`; integrity reports kit 1.2.7 synchronized; `git diff --check` clean. Review fixes and this record are pending push, followed by final Verify-only and PR CI.
+
+## Release verification continuation
+
+- Final work continues on PR #53 / branch `arena/39cfa85d-you-ge-assistant`; PR #52 is confirmed MERGED. Implementation SHA verified by release workflow: `b2bf465adc5a42fbd2ee1bb8daeb403446578a3c`; PR #53 remains OPEN against `main`.
+- The stale test in `tests/identity-migration.test.mjs` now asserts the exact present success marker `/kit version 1\.2\.7 synchronized/` after retaining `verdict.status === 'pass'`; it no longer requires or permits a historical 1.2.6 transition. `scripts/precache-integrity.mjs` was not changed, bypassed, or weakened; versions remain SDK 0.4.0 / kit 1.2.7.
+- PR CI failure diagnosis: the original check workflow built the existing React example but not the newly added SDK demo before tests that assemble Pages. Release Verify run [44435055769](https://github.com/sandro-defender/you-ge-assistant/actions/runs/44435055769) similarly failed in `npm run check`. Reproduced cleanly by removing generated `examples/sdk-demo/dist`, which makes the Pages assembly test fail with “Missing examples/sdk-demo/dist”. Added the independent demo build/typecheck before tests in both `.github/workflows/check.yml` and `.github/workflows/sdk-release-prep.yml`; `tests/sdk-demo.test.mjs` now guards build steps in Pages, check and release workflows.
+- The actual release-prep **Verify only** run [44435625117](https://github.com/sandro-defender/you-ge-assistant/actions/runs/44435625117) on final HEAD `b2bf465…` succeeded: React consumer build, SDK demo build, static contracts/unit tests, standalone SDK tests, SDK browser-sync check, package validation, pack dry-run, and registry “version not published” check all succeeded. Stage and publish jobs were skipped. PR `check` static job also passed on this SHA.
+- Local verification: `npm run check` 628/628; SDK tests 150/150; SDK package validation and 27-file SDK pack dry-run; `node scripts/sync-sdk-browser.mjs --check`; `node scripts/precache-integrity.mjs` reports 14 assets unchanged since 95afaca and kit 1.2.7 synchronized; SDK demo and React example typecheck/build pass; Pages assembly includes `/sdk-demo/index.html`; `git diff --check` clean.
+- Only source/config/test files changed for this continuation: `tests/identity-migration.test.mjs`, `tests/sdk-demo.test.mjs`, `.github/workflows/check.yml`, `.github/workflows/sdk-release-prep.yml`; this handoff and `NEXT_AGENT_PROMPT.md` document the work. PR static CI is SUCCESS on final HEAD (`check` run [44435627197](https://github.com/sandro-defender/you-ge-assistant/actions/runs/44435627197)). Working tree is clean. No npm Stage, publication, deployment, merge, tag or release has occurred.
+
+## Current task state
+
+- Added isolated Vite + TypeScript host app at `examples/sdk-demo/`; all SDK imports use explicit public package entrypoints (`@youge/assistant-sdk`, `/i18n`, `/installation`). It does not load or copy the PWA/assistant runtime. The package is locally linked as the release-candidate package and has no external runtime dependencies.
+- Added an installation experience using the public install integration contract. This bare host deliberately has no `window.PWA` adapter, so SDK results accurately report unsupported/manual behavior; the SDK does not itself capture browser install events or manufacture native prompts. Refresh, show/hide, prompt/trigger, installed-related-app lookup and state derivation call SDK functions.
+- Added public i18n demonstrations for all 12 core SDK locales, normalization/resolution, translation, DNS labels/messages, alert count, Chrome handoff labels and installed copy. Current SDK core locale set has no RTL locale; app reflects only SDK `isRtlLocale` results and does not invent one. Component’s 35 supported locales are described separately.
+- Configuration preview uses `resolveDomain` for a static domain registry preset plus `resolveAssistantConfig` for explicit host overrides; this does not claim remote or dynamic config.
+- Pages workflow builds this separate consumer and `scripts/assemble-pages.mjs` places it at `/sdk-demo/`. Regression tests added in `tests/sdk-demo.test.mjs`.
+- UI follows the repo’s `docs/design-system/you-ge-assistant/MASTER.md`, `mobile-native`, and `break-ui` practices (premium restrained product styling, responsive controls, keyboard focus, compact inspector, no fake native install). The requested `ui-ux-pro-max-skill` is not installed; AGENTS.md explicitly says not to claim it was applied.
+- Verification: SDK demo `npm run typecheck` and `npm run build` pass; `node --test tests/sdk-demo.test.mjs` passes 6/6 including runtime checks against all 12 locales and config precedence; root `npm run check` passes static gates and 628/628 tests; React example `npm ci --ignore-scripts`, typecheck/build pass; `node scripts/assemble-pages.mjs --out _site-test --base /you-ge-assistant` includes `_site-test/sdk-demo/index.html`; `git diff --check` is clean. Local Vite preview responds HTTP 200. No browser automation/browser binary was available, so desktop/mobile visual interactions were not automated or manually screenshot-verified.
+- No SDK release configuration, version, production PWA behavior, npm staging/publishing, tag, release, merge or deployment changes were made. Existing `examples/demo` and `examples/example` source files remain untouched.
+
+## Next steps
+
+All requested code, verification and PR steps are complete. PR #53 is pushed and intentionally open/unmerged for review. The local Vite preview is running on port 5173. Do not create or switch branches (Arena branch is fixed).
+
+---
+
 # Agent Handoff — SDK `0.4.0` release preparation (kit `1.2.7`)
 
 **Date:** 2026-11-19

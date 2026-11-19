@@ -1,0 +1,1 @@
+{"name":"you-ge-assistant-sdk-experience","private":true,"version":"0.1.0","type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","typecheck":"tsc --noEmit -p tsconfig.json"},"dependencies":{"@youge/assistant-sdk":"file:../../packages/assistant-sdk"},"devDependencies":{"typescript":"^5.9.3","vite":"^8.3.5"}}
