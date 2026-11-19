@@ -1,3 +1,25 @@
+# Agent Handoff — SDK-only consumer experience demo
+
+**Date:** 2026-11-19
+**Branch:** `arena/39cfa85d-you-ge-assistant`, based on merged SDK release-candidate PR #52 commit `95afaca`. PR #52 is **merged** (not open). The SDK is prepared as 0.4.0 / kit 1.2.7; npm still reports 0.3.0 latest, and 0.4.0 is not published.
+
+## Current task state
+
+- Added isolated Vite + TypeScript host app at `examples/sdk-demo/`; all SDK imports use explicit public package entrypoints (`@youge/assistant-sdk`, `/i18n`, `/installation`). It does not load or copy the PWA/assistant runtime. The package is locally linked as the release-candidate package and has no external runtime dependencies.
+- Added an installation experience using the public install integration contract. This bare host deliberately has no `window.PWA` adapter, so SDK results accurately report unsupported/manual behavior; the SDK does not itself capture browser install events or manufacture native prompts. Refresh, show/hide, prompt/trigger, installed-related-app lookup and state derivation call SDK functions.
+- Added public i18n demonstrations for all 12 core SDK locales, normalization/resolution, translation, DNS labels/messages, alert count, Chrome handoff labels and installed copy. Current SDK core locale set has no RTL locale; app reflects only SDK `isRtlLocale` results and does not invent one. Component’s 35 supported locales are described separately.
+- Configuration preview uses `resolveDomain` for a static domain registry preset plus `resolveAssistantConfig` for explicit host overrides; this does not claim remote or dynamic config.
+- Pages workflow builds this separate consumer and `scripts/assemble-pages.mjs` places it at `/sdk-demo/`. Regression tests added in `tests/sdk-demo.test.mjs`.
+- UI follows the repo’s `docs/design-system/you-ge-assistant/MASTER.md`, `mobile-native`, and `break-ui` practices (premium restrained product styling, responsive controls, keyboard focus, compact inspector, no fake native install). The requested `ui-ux-pro-max-skill` is not installed; AGENTS.md explicitly says not to claim it was applied.
+- Verification: SDK demo `npm run typecheck` and `npm run build` pass; `node --test tests/sdk-demo.test.mjs` passes 6/6 including runtime checks against all 12 locales and config precedence; root `npm run check` passes static gates and 628/628 tests; React example `npm ci --ignore-scripts`, typecheck/build pass; `node scripts/assemble-pages.mjs --out _site-test --base /you-ge-assistant` includes `_site-test/sdk-demo/index.html`; `git diff --check` is clean. Local Vite preview responds HTTP 200. No browser automation/browser binary was available, so desktop/mobile visual interactions were not automated or manually screenshot-verified.
+- No SDK release configuration, version, production PWA behavior, npm staging/publishing, tag, release, merge or deployment changes were made. Existing `examples/demo` and `examples/example` source files remain untouched.
+
+## Next steps
+
+Run full checks and existing React example build/typecheck; verify Pages assembly includes `_site/sdk-demo/`; inspect live preview visually if browser tooling exists; address any issues; update this handoff and `NEXT_AGENT_PROMPT.md`; commit and push only the active Arena branch and open one unmerged PR targeting `main`. Do not create or switch branches (Arena branch is fixed).
+
+---
+
 # Agent Handoff — SDK `0.4.0` release preparation (kit `1.2.7`)
 
 **Date:** 2026-11-19
