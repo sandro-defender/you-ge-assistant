@@ -17,20 +17,27 @@ import {
   STORAGE_PREFIXES,
 } from '../core/constants.js';
 import {
+  INSTALL_EXPERIENCE_DEFAULTS,
   clampNumber,
   clone,
   inspectConfigSafety,
+  inspectInstallExperienceIssues,
   isExecutableString,
+  normalizeInstallExperience,
+  normalizeInstallLocale,
   sanitizePlainData,
   safeText,
 } from '../core/sanitize.js';
 import { normalizeTheme } from '../theme/index.js';
+
+export { INSTALL_EXPERIENCE_DEFAULTS, normalizeInstallExperience };
 
 export const BUNDLED_DEFAULTS = {
   enabled: true,
   project: null,
   projectId: '',
   domain: '',
+  locale: 'auto',
   position: 'bottom-right',
   offsets: { x: 20, y: 20 },
   modules: {
@@ -63,6 +70,7 @@ export const BUNDLED_DEFAULTS = {
   },
   actions: [],
   features: [],
+  installExperience: clone(INSTALL_EXPERIENCE_DEFAULTS),
   // The documented public shape of `theme`. It is resolved into a stable record
   // by `src/theme/index.js`; the flat `themeMode` string preserves the original
   // 0.x `theme: 'auto' | 'light' | 'dark'` contract for `getConfig().theme`.
@@ -143,6 +151,12 @@ function extractLayerOverrides(raw) {
   if (source.project !== undefined) out.project = normalizeProjectConfig(source.project);
   if (source.projectId !== undefined) out.projectId = safeText(source.projectId, 80);
   if (typeof source.domain === 'string') out.domain = safeText(source.domain, 253);
+  if (source.locale !== undefined) {
+    const cleanedLocale = typeof source.locale === 'string' ? source.locale.trim().replace(/_/g, '-') : '';
+    if (cleanedLocale && (cleanedLocale.toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleanedLocale))) {
+      out.locale = normalizeInstallLocale(cleanedLocale, 'auto');
+    }
+  }
   if (source.position !== undefined && POSITIONS.indexOf(source.position) !== -1) {
     out.position = source.position;
   }
@@ -195,6 +209,17 @@ function extractLayerOverrides(raw) {
   }
   if (Array.isArray(source.actions)) out.actions = normalizeActions(source.actions);
   if (Array.isArray(source.features)) out.features = normalizeFeatures(source.features);
+  if (source.installExperience && typeof source.installExperience === 'object' && !Array.isArray(source.installExperience)) {
+    out.installExperience = normalizeInstallExperience(source.installExperience, {});
+    // Preserve only explicit keys in the override layer so layered merging doesn't clobber defaults/published keys.
+    const explicitInstall = {};
+    Object.keys(out.installExperience).forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(source.installExperience, key)) {
+        explicitInstall[key] = out.installExperience[key];
+      }
+    });
+    out.installExperience = explicitInstall;
+  }
   // `theme` accepts both the original string form (`'auto' | 'light' | 'dark'`)
   // and the object form (`{ mode, inheritHost, tokens, host, variables }`).
   // Anything else — an unsupported mode, an array, a number — is ignored here
@@ -226,6 +251,7 @@ function applyLayer(base, layer) {
   if (layer.project !== undefined) base.project = clone(layer.project);
   if (layer.projectId) base.projectId = layer.projectId;
   if (layer.domain) base.domain = layer.domain;
+  if (layer.locale) base.locale = layer.locale;
   if (layer.position) base.position = layer.position;
   if (layer.offsets) {
     if (layer.offsets.x !== undefined) base.offsets.x = layer.offsets.x;
@@ -248,6 +274,9 @@ function applyLayer(base, layer) {
   }
   if (layer.actions !== undefined) base.actions = clone(layer.actions);
   if (layer.features !== undefined) base.features = clone(layer.features);
+  if (layer.installExperience && typeof layer.installExperience === 'object') {
+    base.installExperience = normalizeInstallExperience(layer.installExperience, base.installExperience);
+  }
   if (layer.theme) {
     base.theme = clone(layer.theme);
     base.themeMode = layer.theme.mode || 'auto';
@@ -463,6 +492,18 @@ export function resolveAssistantConfig(rawInput, context) {
     normalizeTheme(input.theme).warnings.forEach(function (code) {
       if (warnings.indexOf(code) === -1) warnings.push(code);
     });
+  }
+  if (input.installExperience !== undefined) {
+    inspectInstallExperienceIssues(input.installExperience, 'installExperience').forEach(function (issue) {
+      if (warnings.indexOf(issue.code) === -1) warnings.push(issue.code);
+    });
+  }
+  if (input.locale !== undefined) {
+    const rawLoc = typeof input.locale === 'string' ? input.locale.trim().replace(/_/g, '-') : '';
+    const validLoc = Boolean(rawLoc && (rawLoc.toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(rawLoc)));
+    if (!validLoc && warnings.indexOf('invalid_locale') === -1) {
+      warnings.push('invalid_locale');
+    }
   }
 
   const overrideLayer = extractLayerOverrides(sanitizedOverrides);

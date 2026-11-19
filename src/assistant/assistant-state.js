@@ -22,7 +22,7 @@
   /* --- core/constants.js --- */
 
   const SDK_VERSION = '0.3.0';
-  const KIT_COMPAT_VERSION = '1.2.5';
+  const KIT_COMPAT_VERSION = '1.2.6';
   const SCHEMA_VERSION = 1;
   const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
   Object.freeze(PRIORITY);
@@ -46,6 +46,7 @@
   const EVENT_NAMES = {
     state: 'youge:state',
     action: 'youge:action',
+    localeChange: 'youge:locale-change',
     endpointStatus: 'youge:endpoint-status',
     sessionStatus: 'youge:session-status',
     dnsResult: 'youge:dns-result',
@@ -54,11 +55,13 @@
     yougePwaInstalled: 'youge:pwa:installed',
     yougePwaUpdate: 'youge:pwa:update',
     yougePwaDiagnostics: 'youge:pwa:diagnostics',
+    yougePwaInstallDialog: 'youge:pwa:install-dialog',
     pwaReady: 'pwa:ready',
     pwaInstallable: 'pwa:installable',
     pwaInstalled: 'pwa:installed',
     pwaUpdate: 'pwa:update',
     pwaDiagnostics: 'pwa:diagnostics',
+    pwaInstallDialog: 'pwa:install-dialog',
   };
   Object.freeze(EVENT_NAMES);
   const STORAGE_PREFIXES = {
@@ -66,6 +69,1918 @@
     lastKnownGood: 'youge-assistant:lkg:',
   };
   Object.freeze(STORAGE_PREFIXES);
+
+  /* --- core/i18n.js --- */
+
+  const DEFAULT_LOCALE = 'en';
+  const SUPPORTED_LOCALES = Object.freeze([
+    'en',
+    'ka',
+    'ru',
+    'fr',
+    'it',
+    'de',
+    'sv',
+    'nl',
+    'no',
+    'da',
+    'et',
+    'es',
+  ]);
+  const RTL_LOCALES = Object.freeze(['ar', 'he', 'fa', 'ur']);
+  const LOCALE_METADATA = Object.freeze({
+    en: Object.freeze({ code: 'en', name: 'English', nativeName: 'English', dir: 'ltr' }),
+    ka: Object.freeze({ code: 'ka', name: 'Georgian', nativeName: 'ქართული', dir: 'ltr' }),
+    ru: Object.freeze({ code: 'ru', name: 'Russian', nativeName: 'Русский', dir: 'ltr' }),
+    fr: Object.freeze({ code: 'fr', name: 'French', nativeName: 'Français', dir: 'ltr' }),
+    it: Object.freeze({ code: 'it', name: 'Italian', nativeName: 'Italiano', dir: 'ltr' }),
+    de: Object.freeze({ code: 'de', name: 'German', nativeName: 'Deutsch', dir: 'ltr' }),
+    sv: Object.freeze({ code: 'sv', name: 'Swedish', nativeName: 'Svenska', dir: 'ltr' }),
+    nl: Object.freeze({ code: 'nl', name: 'Dutch', nativeName: 'Nederlands', dir: 'ltr' }),
+    no: Object.freeze({ code: 'no', name: 'Norwegian', nativeName: 'Norsk', dir: 'ltr' }),
+    da: Object.freeze({ code: 'da', name: 'Danish', nativeName: 'Dansk', dir: 'ltr' }),
+    et: Object.freeze({ code: 'et', name: 'Estonian', nativeName: 'Eesti', dir: 'ltr' }),
+    es: Object.freeze({ code: 'es', name: 'Spanish', nativeName: 'Español', dir: 'ltr' }),
+  });
+
+  const SUPPORTED_LOCALE_SET = new Set(SUPPORTED_LOCALES);
+
+  const INSTALL_LOCALE_CASE_MAP = Object.freeze({
+    'zh-cn': 'zh-CN',
+    'zh-hans': 'zh-CN',
+    'zh-hk': 'zh-HK',
+    'zh-tw': 'zh-TW',
+    'zh-hant': 'zh-TW',
+    'ca-es': 'ca-ES',
+    ca: 'ca-ES',
+  });
+
+  /**
+   * Normalize any BCP-47 language tag to a supported project locale code
+   * (`en, ka, ru, fr, it, de, sv, nl, no, da, et, es`), or `''` if unsupported.
+   * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`) and maps Norwegian
+   * subtags (`nb`, `nn`) to `no`.
+   */
+  function normalizeLocaleTag(value) {
+    if (typeof value !== 'string') return '';
+    const cleaned = value.trim().replace(/_/g, '-');
+    if (!cleaned || cleaned.toLowerCase() === 'auto') return '';
+    if (!/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleaned)) return '';
+    let base = cleaned.toLowerCase().split('-')[0];
+    if (base === 'nb' || base === 'nn') base = 'no';
+    return SUPPORTED_LOCALE_SET.has(base) ? base : '';
+  }
+
+  /**
+   * Normalize a locale tag for `<pwa-install>` (preserving `'auto'` and
+   * regional tags such as `zh-CN`, `zh-HK`, `zh-TW`, `ca-ES`, plus `nb`/`nn` -> `no`).
+   */
+  function normalizeInstallLocaleTag(value, fallback) {
+    if (typeof value !== 'string') return fallback || 'auto';
+    const cleaned = value.trim().replace(/_/g, '-');
+    if (!cleaned || cleaned.toLowerCase() === 'auto') return 'auto';
+    if (!/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleaned)) return fallback || 'auto';
+    const lower = cleaned.toLowerCase();
+    if (INSTALL_LOCALE_CASE_MAP[lower]) return INSTALL_LOCALE_CASE_MAP[lower];
+    const parts = lower.split('-');
+    if (parts[0] === 'zh') {
+      if (parts.indexOf('tw') !== -1 || parts.indexOf('hant') !== -1) return 'zh-TW';
+      if (parts.indexOf('hk') !== -1) return 'zh-HK';
+      if (parts.indexOf('cn') !== -1 || parts.indexOf('hans') !== -1) return 'zh-CN';
+    }
+    if (parts[0] === 'nb' || parts[0] === 'nn' || parts[0] === 'no') return 'no';
+    if (parts[0] === 'ka' && parts.length > 1) return 'ka';
+    if (parts.length === 1) return parts[0];
+    return parts[0] + '-' + (parts[1].length === 2 ? parts[1].toUpperCase() : parts[1]);
+  }
+
+  function readNavigatorLanguage(navigatorLike) {
+    let nav = navigatorLike;
+    if (nav === undefined && typeof globalThis !== 'undefined' && globalThis.navigator) {
+      nav = globalThis.navigator;
+    }
+    if (!nav || typeof nav !== 'object') return '';
+    if (Array.isArray(nav.languages) && nav.languages.length > 0) {
+      for (let i = 0; i < nav.languages.length; i += 1) {
+        const candidate = normalizeLocaleTag(nav.languages[i]);
+        if (candidate) return candidate;
+      }
+    }
+    if (typeof nav.language === 'string') return nav.language;
+    if (typeof nav.userLanguage === 'string') return nav.userLanguage;
+    return '';
+  }
+
+  /**
+   * Unified priority order for locale resolution:
+   *   1. explicit user / API selection (if non-'auto' & supported)
+   *   2. domain default language (if non-'auto' & supported)
+   *   3. browser / navigator language (if supported)
+   *   4. fallback ('en' by default)
+   */
+  function resolveLocale(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const fallback = normalizeLocaleTag(opts.fallback) || DEFAULT_LOCALE;
+    const domainCfg = opts.domainConfig && typeof opts.domainConfig === 'object' ? opts.domainConfig : null;
+    const domainLangRaw = opts.domainLocale ||
+      (domainCfg && (domainCfg.language || (domainCfg.identity && domainCfg.identity.language) ||
+        (domainCfg.installExperience && domainCfg.installExperience.locale))) ||
+      '';
+
+    const candidates = [
+      opts.explicit,
+      opts.locale,
+      domainLangRaw,
+      opts.navigatorLanguage !== undefined ? opts.navigatorLanguage : readNavigatorLanguage(opts.navigator),
+    ];
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const resolved = normalizeLocaleTag(candidates[i]);
+      if (resolved) return resolved;
+    }
+    return fallback;
+  }
+  function isRtlLocale(locale) {
+    const base = String(locale || '').trim().toLowerCase().split(/[-_]/)[0];
+    return RTL_LOCALES.indexOf(base) !== -1;
+  }
+  const SDK_TRANSLATIONS = Object.freeze({
+    en: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'assistant',
+      noAlerts: 'No alerts',
+      noAlertsLower: 'no alerts',
+      noAlertsFabLabel: 'You.Ge Assistant, no alerts',
+      highestPriority: 'highest priority',
+      highestPrioritySentence: 'Highest priority',
+      installActionLabel: 'Install this app',
+      instructionsActionLabel: 'Installation instructions',
+      installAvailableTitle: 'Installation available',
+      nativeAvailableMessage: 'This browser offered a native install prompt.',
+      iosAvailableMessage: 'Add this app to your home screen from Safari.',
+      genericAvailableMessage: 'Use your browser menu to install this app.',
+      iosShortcutHint: 'Safari: Share → Add to Home Screen.',
+      genericHint: 'Open the browser install prompt or instructions.',
+      offlineTitle: 'No connection',
+      offlineMessage: 'The app cannot reach the network. Open diagnostics or recovery guidance.',
+      dnsTitle: 'DNS resolution problem',
+      dnsMessage: 'The current hostname could not be resolved. Diagnostics are available.',
+      unreachableTitle: 'Connection problem',
+      unreachableMessage: 'The application host or its backend did not respond.',
+      primaryApiTitle: 'Primary API unavailable',
+      primaryApiMessage: 'The primary application endpoint is not responding.',
+      sessionTitle: 'Session needs attention',
+      sessionMessage: 'Your project reported an authentication or session problem.',
+      backupTitle: 'Backup connection active',
+      backupMessage: 'This project is using its configured backup endpoint.',
+      restoredTitle: 'Primary connection restored',
+      restoredMessage: 'The primary endpoint is healthy again.',
+      updateTitle: 'App update available',
+      updateMessage: 'A new version is ready to apply.',
+      featureDefaultMessage: 'A new You.Ge Assistant capability is available.',
+      actionDiagnosticsLabel: 'Run network diagnostics',
+      actionDiagnosticsMessage: 'Check connectivity, DNS and app origin.',
+      actionRecoveryLabel: 'Recovery guidance',
+      actionRecoveryMessage: 'Steps to restore this connection.',
+      actionBackupLabel: 'Backup connection',
+      actionBackupMessage: 'The project is using its backup endpoint.',
+      actionUpdateLabel: 'Apply app update',
+      actionUpdateMessage: 'Activate the waiting service worker update.',
+      actionHelpLabel: 'Get help',
+      actionBackupStatusLabel: 'Backup status',
+      actionOpenLabel: 'Open',
+      diagDisabledProject: 'Network diagnostics are disabled for this project.',
+      diagDisabledDomain: 'Network diagnostics are disabled for this domain.',
+      diagModuleNotLoaded: 'The DNS diagnostics module is not loaded.',
+      diagCancelled: 'Diagnostics were cancelled.',
+      diagCancelledBeforeStart: 'Diagnostics were cancelled before they started.',
+      diagDestroyed: 'Assistant instance is destroyed.',
+      diagUnavailable: 'Network diagnostics are not available on this page.',
+      diagFailed: 'Diagnostics failed.',
+      levelCritical: 'Critical',
+      levelError: 'Error',
+      levelWarning: 'Warning',
+      levelInfo: 'Information',
+      levelSuccess: 'Success',
+      chromeTitle: 'Open this page in Chrome',
+      chromeIntro: 'This in-app browser can hide features and break links. Continue in Chrome instead.',
+      chromeStepCopy: 'Copy the page address shown below.',
+      chromeStepSwitch: 'Leave this app and open Chrome on your device.',
+      chromeStepPaste: 'Paste the address into Chrome’s address bar and open it.',
+      chromeOpenLabel: 'Open in Chrome',
+      chromeDismissLabel: 'Not now',
+      chromeCopyLabel: 'Copy address',
+      chromeCopiedLabel: 'Address copied.',
+      chromeCopyManual: 'Select the address above to copy it manually.',
+      widgetStatusTitle: 'Connection status',
+      widgetStatusDesc: 'Live conditions reported by this project.',
+      widgetNetworkLabel: 'Network',
+      widgetOnline: 'Online',
+      widgetOffline: 'Offline',
+      widgetPrimaryApiLabel: 'Primary API',
+      widgetBackupLabel: 'Backup',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'unknown',
+      widgetInactive: 'inactive',
+      widgetActive: 'active',
+      widgetHealthy: 'healthy',
+      widgetFailed: 'failed',
+      widgetUnavailable: 'unavailable',
+      widgetDegraded: 'degraded',
+      widgetNotChecked: 'not checked',
+      widgetAttentionTitle: 'What needs attention',
+      widgetAttentionDesc: 'Ordered by priority. Critical recovery stays visible until resolved or acknowledged.',
+      widgetAllClear: 'All clear — nothing needs your attention right now.',
+      widgetInstallationTitle: 'Installation',
+      widgetInstallIos: 'iPhone/iPad: open Share in Safari, then choose Add to Home Screen.',
+      widgetInstallNative: 'This browser offers a native install prompt. Use the install action below.',
+      widgetInstallGeneric: 'Desktop/mobile: open your browser menu and choose Install app, or Add to Home Screen.',
+      widgetDiagnosticsTitle: 'Diagnostics & recovery',
+      widgetDiagnosticsDesc: 'Checks run only when you choose; no background probing.',
+      widgetRecoverySummary: 'Recovery guidance',
+      widgetRecoveryStep1: 'Confirm device connectivity and retry diagnostics.',
+      widgetRecoveryStep2: 'If a backup endpoint is configured, let the project switch to it.',
+      widgetRecoveryStep3: 'If DNS results disagree, check DNS propagation before changing provider settings.',
+      widgetRecoveryStep4: 'Contact the project support channel if the primary API stays unavailable.',
+      widgetMoreActionsTitle: 'More actions',
+      widgetMoreActionsDesc: 'Other actions available for this project.',
+      widgetAdjustTitle: 'Adjust icon',
+      widgetAdjustDesc: 'Size and position are saved on this device. Reset returns to the automatic defaults.',
+      widgetAdjustSize: 'Icon size',
+      widgetAdjustX: 'Horizontal position',
+      widgetAdjustY: 'Vertical position',
+      widgetAdjustReset: 'Reset to automatic defaults',
+      widgetAcknowledge: 'Acknowledge',
+      widgetDismiss: 'Dismiss',
+      widgetClosePanel: 'Close assistant panel',
+      widgetCheckingConnection: 'Checking connection',
+      widgetNoticeSuffix: 'notice',
+    }),
+
+    ka: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'ასისტენტი',
+      noAlerts: 'შეტყობინებები არ არის',
+      noAlertsLower: 'შეტყობინებები არ არის',
+      noAlertsFabLabel: 'You.Ge Assistant, შეტყობინებები არ არის',
+      highestPriority: 'უმაღლესი პრიორიტეტი',
+      highestPrioritySentence: 'უმაღლესი პრიორიტეტი',
+      installActionLabel: 'აპის დაყენება',
+      instructionsActionLabel: 'დაყენების ინსტრუქცია',
+      installAvailableTitle: 'დაყენება ხელმისაწვდომია',
+      nativeAvailableMessage: 'ბრაუზერი გთავაზობთ აპის პირდაპირ დაყენებას.',
+      iosAvailableMessage: 'დაამატეთ ეს აპი მთავარ ეკრანზე Safari-დან.',
+      genericAvailableMessage: 'აპის დასაყენებლად გამოიყენეთ ბრაუზერის მენიუ.',
+      iosShortcutHint: 'Safari: გაზიარება → მთავარ ეკრანზე დამატება.',
+      genericHint: 'გახსენით ბრაუზერის დაყენების ფანჯარა ან ინსტრუქცია.',
+      offlineTitle: 'ინტერნეტი არ არის',
+      offlineMessage: 'აპლიკაცია ქსელს ვერ უკავშირდება. გახსენით დიაგნოსტიკა ან აღდგენის ინსტრუქცია.',
+      dnsTitle: 'DNS-ის გარჩევის ხარვეზი',
+      dnsMessage: 'მიმდინარე დომენის მისამართის გარჩევა ვერ მოხერხდა. დიაგნოსტიკა ხელმისაწვდომია.',
+      unreachableTitle: 'კავშირის პრობლემა',
+      unreachableMessage: 'აპლიკაციის ჰოსტმა ან სერვერმა პასუხი არ დააბრუნა.',
+      primaryApiTitle: 'ძირითადი API მიუწვდომელია',
+      primaryApiMessage: 'ძირითადი სერვერი ამჟამად არ პასუხობს.',
+      sessionTitle: 'სესია ყურადღებას საჭიროებს',
+      sessionMessage: 'თქვენმა პროექტმა დააფიქსირა ავტორიზაციის ან სესიის შეცდომა.',
+      backupTitle: 'სარეზერვო კავშირი აქტიურია',
+      backupMessage: 'პროექტი იყენებს კონფიგურირებულ სარეზერვო სერვერს.',
+      restoredTitle: 'ძირითადი კავშირი აღდგენილია',
+      restoredMessage: 'ძირითადი სერვერი კვლავ გამართულად მუშაობს.',
+      updateTitle: 'ხელმისაწვდომია განახლება',
+      updateMessage: 'აპის ახალი ვერსია მზად არის გასააქტიურებლად.',
+      featureDefaultMessage: 'ხელმისაწვდომია You.Ge Assistant-ის ახალი შესაძლებლობა.',
+      actionDiagnosticsLabel: 'ქსელის დიაგნოსტიკის გაშვება',
+      actionDiagnosticsMessage: 'შეამოწმეთ კავშირი, DNS და აპლიკაციის სერვერი.',
+      actionRecoveryLabel: 'აღდგენის ინსტრუქცია',
+      actionRecoveryMessage: 'ნაბიჯები კავშირის აღსადგენად.',
+      actionBackupLabel: 'სარეზერვო კავშირი',
+      actionBackupMessage: 'პროექტი იყენებს სარეზერვო სერვერს.',
+      actionUpdateLabel: 'განახლების გამოყენება',
+      actionUpdateMessage: 'გაააქტიურეთ მომზადებული სერვის-უორკერის განახლება.',
+      actionHelpLabel: 'დახმარება',
+      actionBackupStatusLabel: 'სარეზერვო არხის სტატუსი',
+      actionOpenLabel: 'გახსნა',
+      diagDisabledProject: 'ამ პროექტისთვის ქსელის დიაგნოსტიკა გამორთულია.',
+      diagDisabledDomain: 'ამ დომენისთვის ქსელის დიაგნოსტიკა გამორთულია.',
+      diagModuleNotLoaded: 'DNS დიაგნოსტიკის მოდული ჩატვირთული არ არის.',
+      diagCancelled: 'დიაგნოსტიკა გაუქმდა.',
+      diagCancelledBeforeStart: 'დიაგნოსტიკა დაწყებამდე გაუქმდა.',
+      diagDestroyed: 'ასისტენტის ეგზემპლარი გაუქმებულია.',
+      diagUnavailable: 'ქსელის დიაგნოსტიკა ამ გვერდზე ხელმისაწვდომი არ არის.',
+      diagFailed: 'დიაგნოსტიკა ვერ შესრულდა.',
+      levelCritical: 'კრიტიკული',
+      levelError: 'შეცდომა',
+      levelWarning: 'გაფრთხილება',
+      levelInfo: 'ინფორმაცია',
+      levelSuccess: 'წარმატება',
+      chromeTitle: 'გახსენით ეს გვერდი Chrome-ში',
+      chromeIntro: 'ეს აპშიდა ბრაუზერი შეიძლება ფარავდეს ფუნქციებს და აზიანებდეს ბმულებს. გააგრძელეთ Chrome-ში.',
+      chromeStepCopy: 'დააკოპირეთ ქვემოთ ნაჩვენები გვერდის მისამართი.',
+      chromeStepSwitch: 'დატოვეთ ეს აპი და გახსენით Chrome თქვენს მოწყობილობაზე.',
+      chromeStepPaste: 'ჩასვით მისამართი Chrome-ის მისამართების ველში და გახსენით.',
+      chromeOpenLabel: 'Chrome-ში გახსნა',
+      chromeDismissLabel: 'არა ახლა',
+      chromeCopyLabel: 'მისამართის კოპირება',
+      chromeCopiedLabel: 'მისამართი დაკოპირდა.',
+      chromeCopyManual: 'ხელით დასაკოპირებლად მონიშნეთ ზემოთ მოცემული მისამართი.',
+      widgetStatusTitle: 'კავშირის სტატუსი',
+      widgetStatusDesc: 'ამ პროექტის მიერ გადმოცემული მიმდინარე მდგომარეობა.',
+      widgetNetworkLabel: 'ქსელი',
+      widgetOnline: 'ონლაინ',
+      widgetOffline: 'ოფლაინ',
+      widgetPrimaryApiLabel: 'ძირითადი API',
+      widgetBackupLabel: 'სარეზერვო',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'უცნობი',
+      widgetInactive: 'არააქტიური',
+      widgetActive: 'აქტიური',
+      widgetHealthy: 'გამართული',
+      widgetFailed: 'ხარვეზი',
+      widgetUnavailable: 'მიუწვდომელი',
+      widgetDegraded: 'შეფერხებული',
+      widgetNotChecked: 'არ შემოწმებულა',
+      widgetAttentionTitle: 'რას სჭირდება ყურადღება',
+      widgetAttentionDesc: 'დალაგებულია პრიორიტეტის მიხედვით. კრიტიკული გაფრთხილება ჩანს მოგვარებამდე ან დადასტურებამდე.',
+      widgetAllClear: 'ყველაფერი წესრიგშია — ამჟამად ყურადღება არაფერს სჭირდება.',
+      widgetInstallationTitle: 'დაყენება',
+      widgetInstallIos: 'iPhone/iPad: გახსენით „გაზიარება“ Safari-ში და აირჩიეთ „მთავარ ეკრანზე დამატება“.',
+      widgetInstallNative: 'ბრაუზერი გთავაზობთ დაყენების სტანდარტულ ფანჯარას. გამოიყენეთ ქვემოთ მოცემული ღილაკი.',
+      widgetInstallGeneric: 'კომპიუტერი/მობილური: გახსენით ბრაუზერის მენიუ და აირჩიეთ „აპის დაყენება“ ან „მთავარ ეკრანზე დამატება“.',
+      widgetDiagnosticsTitle: 'დიაგნოსტიკა და აღდგენა',
+      widgetDiagnosticsDesc: 'შემოწმება ეშვება მხოლოდ თქვენი მოთხოვნით; ფონური სკანირება არ ხდება.',
+      widgetRecoverySummary: 'აღდგენის ინსტრუქცია',
+      widgetRecoveryStep1: 'დაადასტურეთ მოწყობილობის ინტერნეტ-კავშირი და თავიდან გაუშვით დიაგნოსტიკა.',
+      widgetRecoveryStep2: 'თუ სარეზერვო სერვერი კონფიგურირებულია, მიეცით პროექტს მასზე გადართვის საშუალება.',
+      widgetRecoveryStep3: 'თუ DNS შედეგები განსხვავდება, პროვაიდერის პარამეტრების შეცვლამდე შეამოწმეთ DNS განახლება.',
+      widgetRecoveryStep4: 'თუ ძირითადი API კვლავ მიუწვდომელია, დაუკავშირდით პროექტის მხარდაჭერას.',
+      widgetMoreActionsTitle: 'დამატებითი მოქმედებები',
+      widgetMoreActionsDesc: 'ამ პროექტისთვის ხელმისაწვდომი სხვა მოქმედებები.',
+      widgetAdjustTitle: 'ხატულას მორგება',
+      widgetAdjustDesc: 'ზომა და პოზიცია ინახება ამ მოწყობილობაზე. ჩამოყრა აბრუნებს ავტომატურ სტანდარტულ მნიშვნელობებს.',
+      widgetAdjustSize: 'ხატულას ზომა',
+      widgetAdjustX: 'ჰორიზონტალური პოზიცია',
+      widgetAdjustY: 'ვერტიკალური პოზიცია',
+      widgetAdjustReset: 'ავტომატურ პარამეტრებზე დაბრუნება',
+      widgetAcknowledge: 'დადასტურება',
+      widgetDismiss: 'დახურვა',
+      widgetClosePanel: 'ასისტენტის პანელის დახურვა',
+      widgetCheckingConnection: 'კავშირის შემოწმება',
+      widgetNoticeSuffix: 'შეტყობინება',
+    }),
+
+    ru: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'ассистент',
+      noAlerts: 'Нет уведомлений',
+      noAlertsLower: 'нет уведомлений',
+      noAlertsFabLabel: 'You.Ge Assistant, нет уведомлений',
+      highestPriority: 'наивысший приоритет',
+      highestPrioritySentence: 'Наивысший приоритет',
+      installActionLabel: 'Установить приложение',
+      instructionsActionLabel: 'Инструкция по установке',
+      installAvailableTitle: 'Доступна установка',
+      nativeAvailableMessage: 'Этот браузер предлагает встроенный диалог установки.',
+      iosAvailableMessage: 'Добавьте это приложение на экран «Домой» через Safari.',
+      genericAvailableMessage: 'Используйте меню браузера, чтобы установить это приложение.',
+      iosShortcutHint: 'Safari: Поделиться → На экран «Домой».',
+      genericHint: 'Откройте диалог установки браузера или инструкцию.',
+      offlineTitle: 'Нет подключения',
+      offlineMessage: 'Приложению не удаётся подключиться к сети. Откройте диагностику или руководство по восстановлению.',
+      dnsTitle: 'Проблема разрешения DNS',
+      dnsMessage: 'Не удалось определить текущий домен. Доступна сетевая диагностика.',
+      unreachableTitle: 'Проблема с подключением',
+      unreachableMessage: 'Сервер приложения или его бэкенд не отвечает.',
+      primaryApiTitle: 'Основной API недоступен',
+      primaryApiMessage: 'Основной сервер приложения не отвечает.',
+      sessionTitle: 'Требуется внимание к сеансу',
+      sessionMessage: 'Проект сообщил о проблеме с авторизацией или сеансом.',
+      backupTitle: 'Активно резервное подключение',
+      backupMessage: 'Проект использует настроенный резервный сервер.',
+      restoredTitle: 'Основное подключение восстановлено',
+      restoredMessage: 'Основной сервер снова работает стабильно.',
+      updateTitle: 'Доступно обновление приложения',
+      updateMessage: 'Новая версия готова к установке.',
+      featureDefaultMessage: 'Доступна новая возможность You.Ge Assistant.',
+      actionDiagnosticsLabel: 'Запустить диагностику сети',
+      actionDiagnosticsMessage: 'Проверить подключение, DNS и доступность приложения.',
+      actionRecoveryLabel: 'Руководство по восстановлению',
+      actionRecoveryMessage: 'Шаги для восстановления подключения.',
+      actionBackupLabel: 'Резервное подключение',
+      actionBackupMessage: 'Проект использует резервный сервер.',
+      actionUpdateLabel: 'Применить обновление',
+      actionUpdateMessage: 'Активировать подготовленное обновление сервис-воркера.',
+      actionHelpLabel: 'Получить помощь',
+      actionBackupStatusLabel: 'Статус резервного канала',
+      actionOpenLabel: 'Открыть',
+      diagDisabledProject: 'Сетевая диагностика отключена для этого проекта.',
+      diagDisabledDomain: 'Сетевая диагностика отключена для этого домена.',
+      diagModuleNotLoaded: 'Модуль диагностики DNS не загружен.',
+      diagCancelled: 'Диагностика была отменена.',
+      diagCancelledBeforeStart: 'Диагностика была отменена до начала.',
+      diagDestroyed: 'Экземпляр ассистента остановлен.',
+      diagUnavailable: 'Сетевая диагностика недоступна на этой странице.',
+      diagFailed: 'Сбой диагностики.',
+      levelCritical: 'Критично',
+      levelError: 'Ошибка',
+      levelWarning: 'Предупреждение',
+      levelInfo: 'Информация',
+      levelSuccess: 'Готово',
+      chromeTitle: 'Открыть страницу в Chrome',
+      chromeIntro: 'Этот встроенный браузер может скрывать функции и нарушать работу ссылок. Продолжите в Chrome.',
+      chromeStepCopy: 'Скопируйте адрес страницы, указанный ниже.',
+      chromeStepSwitch: 'Закройте это окно и откройте Chrome на устройстве.',
+      chromeStepPaste: 'Вставьте адрес в адресную строку Chrome и перейдите на страницу.',
+      chromeOpenLabel: 'Открыть в Chrome',
+      chromeDismissLabel: 'Не сейчас',
+      chromeCopyLabel: 'Копировать адрес',
+      chromeCopiedLabel: 'Адрес скопирован.',
+      chromeCopyManual: 'Выделите адрес выше, чтобы скопировать его вручную.',
+      widgetStatusTitle: 'Состояние подключения',
+      widgetStatusDesc: 'Актуальные показатели, переданные этим проектом.',
+      widgetNetworkLabel: 'Сеть',
+      widgetOnline: 'В сети',
+      widgetOffline: 'Не в сети',
+      widgetPrimaryApiLabel: 'Основной API',
+      widgetBackupLabel: 'Резерв',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'неизвестно',
+      widgetInactive: 'неактивен',
+      widgetActive: 'активен',
+      widgetHealthy: 'исправен',
+      widgetFailed: 'сбой',
+      widgetUnavailable: 'недоступен',
+      widgetDegraded: 'нестабилен',
+      widgetNotChecked: 'не проверялся',
+      widgetAttentionTitle: 'На что обратить внимание',
+      widgetAttentionDesc: 'Упорядочено по приоритету. Критические уведомления остаются видимыми до устранения или подтверждения.',
+      widgetAllClear: 'Всё в порядке — сейчас ничего не требует вашего внимания.',
+      widgetInstallationTitle: 'Установка',
+      widgetInstallIos: 'iPhone/iPad: откройте «Поделиться» в Safari и выберите «На экран „Домой“».',
+      widgetInstallNative: 'Этот браузер поддерживает встроенную установку. Нажмите кнопку ниже.',
+      widgetInstallGeneric: 'Компьютер или мобильное устройство: откройте меню браузера и выберите «Установить приложение» или «На экран „Домой“».',
+      widgetDiagnosticsTitle: 'Диагностика и восстановление',
+      widgetDiagnosticsDesc: 'Проверки запускаются только по вашему выбору — никакого фонового сканирования.',
+      widgetRecoverySummary: 'Руководство по восстановлению',
+      widgetRecoveryStep1: 'Убедитесь, что устройство подключено к интернету, и повторите диагностику.',
+      widgetRecoveryStep2: 'Если настроен резервный сервер, дайте проекту переключиться на него.',
+      widgetRecoveryStep3: 'Если ответы DNS расходятся, проверьте распространение DNS-записей перед изменением настроек провайдера.',
+      widgetRecoveryStep4: 'Если основной API по-прежнему недоступен, обратитесь в службу поддержки проекта.',
+      widgetMoreActionsTitle: 'Другие действия',
+      widgetMoreActionsDesc: 'Дополнительные действия, доступные для этого проекта.',
+      widgetAdjustTitle: 'Настроить значок',
+      widgetAdjustDesc: 'Размер и положение сохраняются на этом устройстве. Сброс возвращает автоматические параметры по умолчанию.',
+      widgetAdjustSize: 'Размер значка',
+      widgetAdjustX: 'Горизонтальный отступ',
+      widgetAdjustY: 'Вертикальный отступ',
+      widgetAdjustReset: 'Сбросить настройки по умолчанию',
+      widgetAcknowledge: 'Подтвердить',
+      widgetDismiss: 'Скрыть',
+      widgetClosePanel: 'Закрыть панель ассистента',
+      widgetCheckingConnection: 'Проверка подключения',
+      widgetNoticeSuffix: 'уведомление',
+    }),
+
+    fr: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'assistant',
+      noAlerts: 'Aucune alerte',
+      noAlertsLower: 'aucune alerte',
+      noAlertsFabLabel: 'You.Ge Assistant, aucune alerte',
+      highestPriority: 'priorité maximale',
+      highestPrioritySentence: 'Priorité maximale',
+      installActionLabel: 'Installer cette application',
+      instructionsActionLabel: 'Instructions d’installation',
+      installAvailableTitle: 'Installation disponible',
+      nativeAvailableMessage: 'Ce navigateur propose une invite d’installation native.',
+      iosAvailableMessage: 'Ajoutez cette application à votre écran d’accueil depuis Safari.',
+      genericAvailableMessage: 'Utilisez le menu du navigateur pour installer cette application.',
+      iosShortcutHint: 'Safari : Partager → Sur l’écran d’accueil.',
+      genericHint: 'Ouvrez l’invite d’installation du navigateur ou les instructions.',
+      offlineTitle: 'Aucune connexion',
+      offlineMessage: 'L’application ne parvient pas à joindre le réseau. Ouvrez le diagnostic ou les conseils de rétablissement.',
+      dnsTitle: 'Problème de résolution DNS',
+      dnsMessage: 'Le nom d’hôte actuel n’a pas pu être résolu. Un diagnostic est disponible.',
+      unreachableTitle: 'Problème de connexion',
+      unreachableMessage: 'L’hôte de l’application ou son serveur n’a pas répondu.',
+      primaryApiTitle: 'API principale indisponible',
+      primaryApiMessage: 'Le point d’accès principal de l’application ne répond pas.',
+      sessionTitle: 'La session requiert votre attention',
+      sessionMessage: 'Votre projet a signalé un problème d’authentification ou de session.',
+      backupTitle: 'Connexion de secours active',
+      backupMessage: 'Ce projet utilise son point d’accès de secours configuré.',
+      restoredTitle: 'Connexion principale rétablie',
+      restoredMessage: 'Le point d’accès principal fonctionne à nouveau normalement.',
+      updateTitle: 'Mise à jour disponible',
+      updateMessage: 'Une nouvelle version est prête à être appliquée.',
+      featureDefaultMessage: 'Une nouvelle fonctionnalité You.Ge Assistant est disponible.',
+      actionDiagnosticsLabel: 'Lancer le diagnostic réseau',
+      actionDiagnosticsMessage: 'Vérifier la connectivité, le DNS et l’origine de l’application.',
+      actionRecoveryLabel: 'Conseils de rétablissement',
+      actionRecoveryMessage: 'Étapes pour rétablir cette connexion.',
+      actionBackupLabel: 'Connexion de secours',
+      actionBackupMessage: 'Le projet utilise son point d’accès de secours.',
+      actionUpdateLabel: 'Appliquer la mise à jour',
+      actionUpdateMessage: 'Activer la mise à jour en attente du service worker.',
+      actionHelpLabel: 'Obtenir de l’aide',
+      actionBackupStatusLabel: 'État du secours',
+      actionOpenLabel: 'Ouvrir',
+      diagDisabledProject: 'Le diagnostic réseau est désactivé pour ce projet.',
+      diagDisabledDomain: 'Le diagnostic réseau est désactivé pour ce domaine.',
+      diagModuleNotLoaded: 'Le module de diagnostic DNS n’est pas chargé.',
+      diagCancelled: 'Le diagnostic a été annulé.',
+      diagCancelledBeforeStart: 'Le diagnostic a été annulé avant de démarrer.',
+      diagDestroyed: 'L’instance de l’assistant a été détruite.',
+      diagUnavailable: 'Le diagnostic réseau n’est pas disponible sur cette page.',
+      diagFailed: 'Échec du diagnostic.',
+      levelCritical: 'Critique',
+      levelError: 'Erreur',
+      levelWarning: 'Avertissement',
+      levelInfo: 'Information',
+      levelSuccess: 'Succès',
+      chromeTitle: 'Ouvrir cette page dans Chrome',
+      chromeIntro: 'Ce navigateur intégré peut masquer des fonctions et bloquer certains liens. Continuez plutôt dans Chrome.',
+      chromeStepCopy: 'Copiez l’adresse de la page affichée ci-dessous.',
+      chromeStepSwitch: 'Quittez cette application et ouvrez Chrome sur votre appareil.',
+      chromeStepPaste: 'Collez l’adresse dans la barre d’adresse de Chrome et ouvrez-la.',
+      chromeOpenLabel: 'Ouvrir dans Chrome',
+      chromeDismissLabel: 'Plus tard',
+      chromeCopyLabel: 'Copier l’adresse',
+      chromeCopiedLabel: 'Adresse copiée.',
+      chromeCopyManual: 'Sélectionnez l’adresse ci-dessus pour la copier manuellement.',
+      widgetStatusTitle: 'État de la connexion',
+      widgetStatusDesc: 'Conditions en direct signalées par ce projet.',
+      widgetNetworkLabel: 'Réseau',
+      widgetOnline: 'En ligne',
+      widgetOffline: 'Hors ligne',
+      widgetPrimaryApiLabel: 'API principale',
+      widgetBackupLabel: 'Secours',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'inconnu',
+      widgetInactive: 'inactif',
+      widgetActive: 'actif',
+      widgetHealthy: 'opérationnel',
+      widgetFailed: 'en échec',
+      widgetUnavailable: 'indisponible',
+      widgetDegraded: 'dégradé',
+      widgetNotChecked: 'non vérifié',
+      widgetAttentionTitle: 'Ce qui requiert votre attention',
+      widgetAttentionDesc: 'Trié par priorité. Les alertes critiques restent visibles jusqu’à résolution ou confirmation.',
+      widgetAllClear: 'Tout est bon — rien ne demande votre attention pour le moment.',
+      widgetInstallationTitle: 'Installation',
+      widgetInstallIos: 'iPhone/iPad : ouvrez Partager dans Safari, puis choisissez Sur l’écran d’accueil.',
+      widgetInstallNative: 'Ce navigateur propose une invite d’installation native. Utilisez l’action ci-dessous.',
+      widgetInstallGeneric: 'Ordinateur/mobile : ouvrez le menu du navigateur et choisissez Installer l’application ou Ajouter à l’écran d’accueil.',
+      widgetDiagnosticsTitle: 'Diagnostic et rétablissement',
+      widgetDiagnosticsDesc: 'Les vérifications ne s’exécutent qu’à votre demande, sans analyse en arrière-plan.',
+      widgetRecoverySummary: 'Conseils de rétablissement',
+      widgetRecoveryStep1: 'Vérifiez la connectivité de l’appareil et relancez le diagnostic.',
+      widgetRecoveryStep2: 'Si un point d’accès de secours est configuré, laissez le projet basculer dessus.',
+      widgetRecoveryStep3: 'Si les résultats DNS divergent, vérifiez la propagation DNS avant de modifier les réglages fournisseur.',
+      widgetRecoveryStep4: 'Contactez le support du projet si l’API principale reste indisponible.',
+      widgetMoreActionsTitle: 'Autres actions',
+      widgetMoreActionsDesc: 'Autres actions disponibles pour ce projet.',
+      widgetAdjustTitle: 'Ajuster l’icône',
+      widgetAdjustDesc: 'La taille et la position sont enregistrées sur cet appareil. Réinitialiser rétablit les valeurs automatiques.',
+      widgetAdjustSize: 'Taille de l’icône',
+      widgetAdjustX: 'Position horizontale',
+      widgetAdjustY: 'Position verticale',
+      widgetAdjustReset: 'Rétablir les valeurs automatiques',
+      widgetAcknowledge: 'Confirmer',
+      widgetDismiss: 'Ignorer',
+      widgetClosePanel: 'Fermer le panneau de l’assistant',
+      widgetCheckingConnection: 'Vérification de la connexion',
+      widgetNoticeSuffix: 'notification',
+    }),
+
+    it: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'assistente',
+      noAlerts: 'Nessun avviso',
+      noAlertsLower: 'nessun avviso',
+      noAlertsFabLabel: 'You.Ge Assistant, nessun avviso',
+      highestPriority: 'priorità massima',
+      highestPrioritySentence: 'Priorità massima',
+      installActionLabel: 'Installa questa app',
+      instructionsActionLabel: 'Istruzioni di installazione',
+      installAvailableTitle: 'Installazione disponibile',
+      nativeAvailableMessage: 'Questo browser offre un prompt di installazione nativo.',
+      iosAvailableMessage: 'Aggiungi questa app alla schermata Home da Safari.',
+      genericAvailableMessage: 'Usa il menu del browser per installare questa app.',
+      iosShortcutHint: 'Safari: Condividi → Aggiungi alla schermata Home.',
+      genericHint: 'Apri il prompt di installazione del browser o le istruzioni.',
+      offlineTitle: 'Nessuna connessione',
+      offlineMessage: 'L’app non riesce a raggiungere la rete. Apri la diagnostica o la guida al ripristino.',
+      dnsTitle: 'Problema di risoluzione DNS',
+      dnsMessage: 'Impossibile risolvere il nome host corrente. La diagnostica è disponibile.',
+      unreachableTitle: 'Problema di connessione',
+      unreachableMessage: 'L’host dell’applicazione o il relativo server non ha risposto.',
+      primaryApiTitle: 'API principale non disponibile',
+      primaryApiMessage: 'L’endpoint principale dell’applicazione non risponde.',
+      sessionTitle: 'La sessione richiede attenzione',
+      sessionMessage: 'Il progetto ha segnalato un problema di autenticazione o di sessione.',
+      backupTitle: 'Connessione di backup attiva',
+      backupMessage: 'Questo progetto sta usando l’endpoint di backup configurato.',
+      restoredTitle: 'Connessione principale ripristinata',
+      restoredMessage: 'L’endpoint principale è di nuovo operativo.',
+      updateTitle: 'Aggiornamento app disponibile',
+      updateMessage: 'Una nuova versione è pronta per essere applicata.',
+      featureDefaultMessage: 'È disponibile una nuova funzionalità di You.Ge Assistant.',
+      actionDiagnosticsLabel: 'Esegui diagnostica di rete',
+      actionDiagnosticsMessage: 'Controlla connettività, DNS e origine dell’app.',
+      actionRecoveryLabel: 'Guida al ripristino',
+      actionRecoveryMessage: 'Passaggi per ripristinare questa connessione.',
+      actionBackupLabel: 'Connessione di backup',
+      actionBackupMessage: 'Il progetto sta usando l’endpoint di backup.',
+      actionUpdateLabel: 'Applica aggiornamento app',
+      actionUpdateMessage: 'Attiva l’aggiornamento in attesa del service worker.',
+      actionHelpLabel: 'Ottieni assistenza',
+      actionBackupStatusLabel: 'Stato backup',
+      actionOpenLabel: 'Apri',
+      diagDisabledProject: 'La diagnostica di rete è disabilitata per questo progetto.',
+      diagDisabledDomain: 'La diagnostica di rete è disabilitata per questo dominio.',
+      diagModuleNotLoaded: 'Il modulo di diagnostica DNS non è caricato.',
+      diagCancelled: 'La diagnostica è stata annullata.',
+      diagCancelledBeforeStart: 'La diagnostica è stata annullata prima di iniziare.',
+      diagDestroyed: 'L’istanza dell’assistente è stata eliminata.',
+      diagUnavailable: 'La diagnostica di rete non è disponibile in questa pagina.',
+      diagFailed: 'Diagnostica non riuscita.',
+      levelCritical: 'Critico',
+      levelError: 'Errore',
+      levelWarning: 'Avviso',
+      levelInfo: 'Informazione',
+      levelSuccess: 'Completato',
+      chromeTitle: 'Apri questa pagina in Chrome',
+      chromeIntro: 'Questo browser integrato può nascondere funzioni e bloccare i link. Continua invece in Chrome.',
+      chromeStepCopy: 'Copia l’indirizzo della pagina mostrato qui sotto.',
+      chromeStepSwitch: 'Esci da questa app e apri Chrome sul dispositivo.',
+      chromeStepPaste: 'Incolla l’indirizzo nella barra di Chrome e aprilo.',
+      chromeOpenLabel: 'Apri in Chrome',
+      chromeDismissLabel: 'Non ora',
+      chromeCopyLabel: 'Copia indirizzo',
+      chromeCopiedLabel: 'Indirizzo copiato.',
+      chromeCopyManual: 'Seleziona l’indirizzo sopra per copiarlo manualmente.',
+      widgetStatusTitle: 'Stato della connessione',
+      widgetStatusDesc: 'Condizioni in tempo reale segnalate dal progetto.',
+      widgetNetworkLabel: 'Rete',
+      widgetOnline: 'Online',
+      widgetOffline: 'Offline',
+      widgetPrimaryApiLabel: 'API principale',
+      widgetBackupLabel: 'Backup',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'sconosciuto',
+      widgetInactive: 'inattivo',
+      widgetActive: 'attivo',
+      widgetHealthy: 'funzionante',
+      widgetFailed: 'non riuscito',
+      widgetUnavailable: 'non disponibile',
+      widgetDegraded: 'degradato',
+      widgetNotChecked: 'non verificato',
+      widgetAttentionTitle: 'Cosa richiede attenzione',
+      widgetAttentionDesc: 'Ordinato per priorità. Gli avvisi critici restano visibili finché non vengono risolti o confermati.',
+      widgetAllClear: 'Tutto regolare — al momento non serve alcuna azione.',
+      widgetInstallationTitle: 'Installazione',
+      widgetInstallIos: 'iPhone/iPad: apri Condividi in Safari, poi scegli Aggiungi alla schermata Home.',
+      widgetInstallNative: 'Questo browser offre un prompt di installazione nativo. Usa il pulsante qui sotto.',
+      widgetInstallGeneric: 'Desktop/mobile: apri il menu del browser e scegli Installa app o Aggiungi alla schermata Home.',
+      widgetDiagnosticsTitle: 'Diagnostica e ripristino',
+      widgetDiagnosticsDesc: 'I controlli vengono eseguiti solo su tua richiesta; nessun controllo in background.',
+      widgetRecoverySummary: 'Guida al ripristino',
+      widgetRecoveryStep1: 'Verifica la connettività del dispositivo e ripeti la diagnostica.',
+      widgetRecoveryStep2: 'Se è configurato un endpoint di backup, consenti al progetto di usarlo.',
+      widgetRecoveryStep3: 'Se i risultati DNS sono discordanti, controlla la propagazione DNS prima di cambiare le impostazioni del provider.',
+      widgetRecoveryStep4: 'Contatta il supporto del progetto se l’API principale resta non disponibile.',
+      widgetMoreActionsTitle: 'Altre azioni',
+      widgetMoreActionsDesc: 'Altre azioni disponibili per questo progetto.',
+      widgetAdjustTitle: 'Regola icona',
+      widgetAdjustDesc: 'Dimensioni e posizione vengono salvate su questo dispositivo. Il ripristino torna ai valori automatici.',
+      widgetAdjustSize: 'Dimensione icona',
+      widgetAdjustX: 'Posizione orizzontale',
+      widgetAdjustY: 'Posizione verticale',
+      widgetAdjustReset: 'Ripristina valori automatici',
+      widgetAcknowledge: 'Conferma',
+      widgetDismiss: 'Ignora',
+      widgetClosePanel: 'Chiudi pannello assistente',
+      widgetCheckingConnection: 'Verifica connessione',
+      widgetNoticeSuffix: 'avviso',
+    }),
+
+    de: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'Assistent',
+      noAlerts: 'Keine Hinweise',
+      noAlertsLower: 'keine Hinweise',
+      noAlertsFabLabel: 'You.Ge Assistant, keine Hinweise',
+      highestPriority: 'höchste Priorität',
+      highestPrioritySentence: 'Höchste Priorität',
+      installActionLabel: 'Diese App installieren',
+      instructionsActionLabel: 'Installationsanleitung',
+      installAvailableTitle: 'Installation verfügbar',
+      nativeAvailableMessage: 'Dieser Browser bietet einen nativen Installationsdialog an.',
+      iosAvailableMessage: 'Fügen Sie diese App in Safari zu Ihrem Home-Bildschirm hinzu.',
+      genericAvailableMessage: 'Verwenden Sie das Browser-Menü, um diese App zu installieren.',
+      iosShortcutHint: 'Safari: Teilen → Zum Home-Bildschirm.',
+      genericHint: 'Öffnen Sie den Installationsdialog des Browsers oder die Anleitung.',
+      offlineTitle: 'Keine Verbindung',
+      offlineMessage: 'Die App kann das Netzwerk nicht erreichen. Öffnen Sie die Diagnose oder Wiederherstellungshinweise.',
+      dnsTitle: 'DNS-Auflösungsproblem',
+      dnsMessage: 'Der aktuelle Hostname konnte nicht aufgelöst werden. Eine Diagnose ist verfügbar.',
+      unreachableTitle: 'Verbindungsproblem',
+      unreachableMessage: 'Der Anwendungshost oder sein Backend hat nicht geantwortet.',
+      primaryApiTitle: 'Primäre API nicht verfügbar',
+      primaryApiMessage: 'Der primäre Anwendungsendpunkt antwortet nicht.',
+      sessionTitle: 'Sitzung erfordert Aufmerksamkeit',
+      sessionMessage: 'Ihr Projekt hat ein Authentifizierungs- oder Sitzungsproblem gemeldet.',
+      backupTitle: 'Backup-Verbindung aktiv',
+      backupMessage: 'Dieses Projekt nutzt seinen konfigurierten Backup-Endpunkt.',
+      restoredTitle: 'Primäre Verbindung wiederhergestellt',
+      restoredMessage: 'Der primäre Endpunkt funktioniert wieder normal.',
+      updateTitle: 'App-Update verfügbar',
+      updateMessage: 'Eine neue Version steht zum Anwenden bereit.',
+      featureDefaultMessage: 'Eine neue You.Ge-Assistant-Funktion ist verfügbar.',
+      actionDiagnosticsLabel: 'Netzwerkdiagnose starten',
+      actionDiagnosticsMessage: 'Konnektivität, DNS und App-Ursprung prüfen.',
+      actionRecoveryLabel: 'Wiederherstellungshinweise',
+      actionRecoveryMessage: 'Schritte zur Wiederherstellung dieser Verbindung.',
+      actionBackupLabel: 'Backup-Verbindung',
+      actionBackupMessage: 'Das Projekt nutzt seinen Backup-Endpunkt.',
+      actionUpdateLabel: 'App-Update anwenden',
+      actionUpdateMessage: 'Wartendes Service-Worker-Update aktivieren.',
+      actionHelpLabel: 'Hilfe erhalten',
+      actionBackupStatusLabel: 'Backup-Status',
+      actionOpenLabel: 'Öffnen',
+      diagDisabledProject: 'Die Netzwerkdiagnose ist für dieses Projekt deaktiviert.',
+      diagDisabledDomain: 'Die Netzwerkdiagnose ist für diese Domain deaktiviert.',
+      diagModuleNotLoaded: 'Das DNS-Diagnosemodul ist nicht geladen.',
+      diagCancelled: 'Die Diagnose wurde abgebrochen.',
+      diagCancelledBeforeStart: 'Die Diagnose wurde vor dem Start abgebrochen.',
+      diagDestroyed: 'Die Assistenten-Instanz wurde beendet.',
+      diagUnavailable: 'Die Netzwerkdiagnose ist auf dieser Seite nicht verfügbar.',
+      diagFailed: 'Diagnose fehlgeschlagen.',
+      levelCritical: 'Kritisch',
+      levelError: 'Fehler',
+      levelWarning: 'Warnung',
+      levelInfo: 'Information',
+      levelSuccess: 'Erfolg',
+      chromeTitle: 'Diese Seite in Chrome öffnen',
+      chromeIntro: 'Dieser In-App-Browser kann Funktionen verbergen und Links beschädigen. Wechseln Sie stattdessen zu Chrome.',
+      chromeStepCopy: 'Kopieren Sie die unten angezeigte Seitenadresse.',
+      chromeStepSwitch: 'Verlassen Sie diese App und öffnen Sie Chrome auf Ihrem Gerät.',
+      chromeStepPaste: 'Fügen Sie die Adresse in die Adressleiste von Chrome ein und öffnen Sie sie.',
+      chromeOpenLabel: 'In Chrome öffnen',
+      chromeDismissLabel: 'Nicht jetzt',
+      chromeCopyLabel: 'Adresse kopieren',
+      chromeCopiedLabel: 'Adresse kopiert.',
+      chromeCopyManual: 'Markieren Sie die obige Adresse, um sie manuell zu kopieren.',
+      widgetStatusTitle: 'Verbindungsstatus',
+      widgetStatusDesc: 'Aktuelle Zustände, die von diesem Projekt gemeldet werden.',
+      widgetNetworkLabel: 'Netzwerk',
+      widgetOnline: 'Online',
+      widgetOffline: 'Offline',
+      widgetPrimaryApiLabel: 'Primäre API',
+      widgetBackupLabel: 'Backup',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'unbekannt',
+      widgetInactive: 'inaktiv',
+      widgetActive: 'aktiv',
+      widgetHealthy: 'fehlerfrei',
+      widgetFailed: 'fehlgeschlagen',
+      widgetUnavailable: 'nicht verfügbar',
+      widgetDegraded: 'beeinträchtigt',
+      widgetNotChecked: 'nicht geprüft',
+      widgetAttentionTitle: 'Was Aufmerksamkeit erfordert',
+      widgetAttentionDesc: 'Nach Priorität geordnet. Kritische Hinweise bleiben sichtbar, bis sie behoben oder bestätigt sind.',
+      widgetAllClear: 'Alles in Ordnung — im Moment erfordert nichts Ihre Aufmerksamkeit.',
+      widgetInstallationTitle: 'Installation',
+      widgetInstallIos: 'iPhone/iPad: Öffnen Sie „Teilen“ in Safari und wählen Sie „Zum Home-Bildschirm“.',
+      widgetInstallNative: 'Dieser Browser bietet eine native Installation. Nutzen Sie die Schaltfläche unten.',
+      widgetInstallGeneric: 'Desktop/Mobil: Öffnen Sie das Browser-Menü und wählen Sie „App installieren“ oder „Zum Startbildschirm hinzufügen“.',
+      widgetDiagnosticsTitle: 'Diagnose & Wiederherstellung',
+      widgetDiagnosticsDesc: 'Prüfungen laufen nur auf Ihren Wunsch; keine Hintergrundabfragen.',
+      widgetRecoverySummary: 'Wiederherstellungshinweise',
+      widgetRecoveryStep1: 'Prüfen Sie die Geräteverbindung und wiederholen Sie die Diagnose.',
+      widgetRecoveryStep2: 'Wenn ein Backup-Endpunkt eingerichtet ist, lassen Sie das Projekt darauf umschalten.',
+      widgetRecoveryStep3: 'Bei widersprüchlichen DNS-Ergebnissen prüfen Sie die DNS-Propagation vor Änderungen an Provider-Einstellungen.',
+      widgetRecoveryStep4: 'Wenden Sie sich an den Projekt-Support, falls die primäre API weiter nicht erreichbar bleibt.',
+      widgetMoreActionsTitle: 'Weitere Aktionen',
+      widgetMoreActionsDesc: 'Weitere für dieses Projekt verfügbare Aktionen.',
+      widgetAdjustTitle: 'Symbol anpassen',
+      widgetAdjustDesc: 'Größe und Position werden auf diesem Gerät gespeichert. Zurücksetzen stellt die automatischen Vorgaben wieder her.',
+      widgetAdjustSize: 'Symbolgröße',
+      widgetAdjustX: 'Horizontale Position',
+      widgetAdjustY: 'Vertikale Position',
+      widgetAdjustReset: 'Automatische Vorgaben wiederherstellen',
+      widgetAcknowledge: 'Bestätigen',
+      widgetDismiss: 'Ausblenden',
+      widgetClosePanel: 'Assistentenbereich schließen',
+      widgetCheckingConnection: 'Verbindung wird geprüft',
+      widgetNoticeSuffix: 'Hinweis',
+    }),
+
+    sv: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'assistent',
+      noAlerts: 'Inga aviseringar',
+      noAlertsLower: 'inga aviseringar',
+      noAlertsFabLabel: 'You.Ge Assistant, inga aviseringar',
+      highestPriority: 'högsta prioritet',
+      highestPrioritySentence: 'Högsta prioritet',
+      installActionLabel: 'Installera den här appen',
+      instructionsActionLabel: 'Installationsanvisningar',
+      installAvailableTitle: 'Installation tillgänglig',
+      nativeAvailableMessage: 'Den här webbläsaren erbjuder en inbyggd installationsdialog.',
+      iosAvailableMessage: 'Lägg till appen på hemskärmen från Safari.',
+      genericAvailableMessage: 'Använd webbläsarens meny för att installera den här appen.',
+      iosShortcutHint: 'Safari: Dela → Lägg till på hemskärmen.',
+      genericHint: 'Öppna webbläsarens installationsdialog eller anvisningar.',
+      offlineTitle: 'Ingen anslutning',
+      offlineMessage: 'Appen kan inte nå nätverket. Öppna diagnostik eller återställningsguide.',
+      dnsTitle: 'Problem med DNS-uppslag',
+      dnsMessage: 'Det nuvarande värdnamnet kunde inte slås upp. Diagnostik är tillgänglig.',
+      unreachableTitle: 'Anslutningsproblem',
+      unreachableMessage: 'Appvärden eller dess backend svarade inte.',
+      primaryApiTitle: 'Primärt API otillgängligt',
+      primaryApiMessage: 'Appens primära slutpunkt svarar inte.',
+      sessionTitle: 'Sessionen behöver uppmärksamhet',
+      sessionMessage: 'Projektet rapporterade ett autentiserings- eller sessionsproblem.',
+      backupTitle: 'Reservanslutning aktiv',
+      backupMessage: 'Projektet använder sin konfigurerade reservslutpunkt.',
+      restoredTitle: 'Primär anslutning återställd',
+      restoredMessage: 'Den primära slutpunkten fungerar normalt igen.',
+      updateTitle: 'Appuppdatering tillgänglig',
+      updateMessage: 'En ny version är redo att aktiveras.',
+      featureDefaultMessage: 'En ny funktion i You.Ge Assistant är tillgänglig.',
+      actionDiagnosticsLabel: 'Kör nätverksdiagnostik',
+      actionDiagnosticsMessage: 'Kontrollera anslutning, DNS och appens ursprung.',
+      actionRecoveryLabel: 'Återställningsguide',
+      actionRecoveryMessage: 'Steg för att återställa den här anslutningen.',
+      actionBackupLabel: 'Reservanslutning',
+      actionBackupMessage: 'Projektet använder sin reservslutpunkt.',
+      actionUpdateLabel: 'Uppdatera appen',
+      actionUpdateMessage: 'Aktivera den väntande uppdateringen av service workern.',
+      actionHelpLabel: 'Få hjälp',
+      actionBackupStatusLabel: 'Reservstatus',
+      actionOpenLabel: 'Öppna',
+      diagDisabledProject: 'Nätverksdiagnostik är inaktiverad för det här projektet.',
+      diagDisabledDomain: 'Nätverksdiagnostik är inaktiverad för den här domänen.',
+      diagModuleNotLoaded: 'DNS-diagnostikmodulen är inte laddad.',
+      diagCancelled: 'Diagnostiken avbröts.',
+      diagCancelledBeforeStart: 'Diagnostiken avbröts innan den startade.',
+      diagDestroyed: 'Assistentinstansen har förstörts.',
+      diagUnavailable: 'Nätverksdiagnostik är inte tillgänglig på den här sidan.',
+      diagFailed: 'Diagnostiken misslyckades.',
+      levelCritical: 'Kritisk',
+      levelError: 'Fel',
+      levelWarning: 'Varning',
+      levelInfo: 'Information',
+      levelSuccess: 'Klart',
+      chromeTitle: 'Öppna den här sidan i Chrome',
+      chromeIntro: 'Den här inbyggda webbläsaren kan dölja funktioner och bryta länkar. Fortsätt i Chrome i stället.',
+      chromeStepCopy: 'Kopiera sidans adress nedan.',
+      chromeStepSwitch: 'Lämna den här appen och öppna Chrome på enheten.',
+      chromeStepPaste: 'Klistra in adressen i Chromes adressfält och öppna den.',
+      chromeOpenLabel: 'Öppna i Chrome',
+      chromeDismissLabel: 'Inte nu',
+      chromeCopyLabel: 'Kopiera adress',
+      chromeCopiedLabel: 'Adress kopierad.',
+      chromeCopyManual: 'Markera adressen ovan för att kopiera den manuellt.',
+      widgetStatusTitle: 'Anslutningsstatus',
+      widgetStatusDesc: 'Aktuella förhållanden rapporterade av det här projektet.',
+      widgetNetworkLabel: 'Nätverk',
+      widgetOnline: 'Online',
+      widgetOffline: 'Offline',
+      widgetPrimaryApiLabel: 'Primärt API',
+      widgetBackupLabel: 'Reserv',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'okänd',
+      widgetInactive: 'inaktiv',
+      widgetActive: 'aktiv',
+      widgetHealthy: 'fungerar',
+      widgetFailed: 'misslyckades',
+      widgetUnavailable: 'otillgänglig',
+      widgetDegraded: 'försämrad',
+      widgetNotChecked: 'inte kontrollerad',
+      widgetAttentionTitle: 'Det här kräver uppmärksamhet',
+      widgetAttentionDesc: 'Sorterat efter prioritet. Kritiska varningar visas tills de åtgärdats eller bekräftats.',
+      widgetAllClear: 'Allt klart — inget kräver din uppmärksamhet just nu.',
+      widgetInstallationTitle: 'Installation',
+      widgetInstallIos: 'iPhone/iPad: öppna Dela i Safari och välj Lägg till på hemskärmen.',
+      widgetInstallNative: 'Den här webbläsaren erbjuder inbyggd installation. Använd knappen nedan.',
+      widgetInstallGeneric: 'Dator/mobil: öppna webbläsarens meny och välj Installera app eller Lägg till på startskärmen.',
+      widgetDiagnosticsTitle: 'Diagnostik och återställning',
+      widgetDiagnosticsDesc: 'Kontroller körs bara när du väljer det; ingen bakgrundsskanning.',
+      widgetRecoverySummary: 'Återställningsguide',
+      widgetRecoveryStep1: 'Bekräfta enhetens anslutning och kör diagnostiken igen.',
+      widgetRecoveryStep2: 'Om en reservslutpunkt är konfigurerad, låt projektet växla till den.',
+      widgetRecoveryStep3: 'Om DNS-resultaten skiljer sig åt, kontrollera DNS-spridningen innan du ändrar leverantörsinställningar.',
+      widgetRecoveryStep4: 'Kontakta projektets support om det primära API:t förblir otillgängligt.',
+      widgetMoreActionsTitle: 'Fler åtgärder',
+      widgetMoreActionsDesc: 'Andra åtgärder tillgängliga för det här projektet.',
+      widgetAdjustTitle: 'Justera ikon',
+      widgetAdjustDesc: 'Storlek och position sparas på den här enheten. Återställning återgår till automatiska standardvärden.',
+      widgetAdjustSize: 'Ikonstorlek',
+      widgetAdjustX: 'Horisontell position',
+      widgetAdjustY: 'Vertikal position',
+      widgetAdjustReset: 'Återställ till automatiska standardvärden',
+      widgetAcknowledge: 'Bekräfta',
+      widgetDismiss: 'Stäng',
+      widgetClosePanel: 'Stäng assistentpanelen',
+      widgetCheckingConnection: 'Kontrollerar anslutning',
+      widgetNoticeSuffix: 'avisering',
+    }),
+
+    nl: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'assistent',
+      noAlerts: 'Geen meldingen',
+      noAlertsLower: 'geen meldingen',
+      noAlertsFabLabel: 'You.Ge Assistant, geen meldingen',
+      highestPriority: 'hoogste prioriteit',
+      highestPrioritySentence: 'Hoogste prioriteit',
+      installActionLabel: 'Deze app installeren',
+      instructionsActionLabel: 'Installatie-instructies',
+      installAvailableTitle: 'Installatie beschikbaar',
+      nativeAvailableMessage: 'Deze browser biedt een eigen installatievenster aan.',
+      iosAvailableMessage: 'Voeg deze app via Safari toe aan je beginscherm.',
+      genericAvailableMessage: 'Gebruik het browsermenu om deze app te installeren.',
+      iosShortcutHint: 'Safari: Deel → Zet op beginscherm.',
+      genericHint: 'Open de installatiemelding van de browser of bekijk de instructies.',
+      offlineTitle: 'Geen verbinding',
+      offlineMessage: 'De app kan het netwerk niet bereiken. Open diagnostiek of herstelinstructies.',
+      dnsTitle: 'DNS-vertaalprobleem',
+      dnsMessage: 'De huidige hostnaam kon niet worden opgelost. Diagnostiek is beschikbaar.',
+      unreachableTitle: 'Verbindingsprobleem',
+      unreachableMessage: 'De applicatiehost of de backend heeft niet gereageerd.',
+      primaryApiTitle: 'Primaire API niet beschikbaar',
+      primaryApiMessage: 'Het primaire eindpunt van de applicatie reageert niet.',
+      sessionTitle: 'Sessie vereist aandacht',
+      sessionMessage: 'Dit project heeft een authenticatie- of sessieprobleem gemeld.',
+      backupTitle: 'Back-upverbinding actief',
+      backupMessage: 'Dit project gebruikt het geconfigureerde back-upeindpunt.',
+      restoredTitle: 'Primaire verbinding hersteld',
+      restoredMessage: 'Het primaire eindpunt werkt weer normaal.',
+      updateTitle: 'App-update beschikbaar',
+      updateMessage: 'Er staat een nieuwe versie klaar om toe te passen.',
+      featureDefaultMessage: 'Er is een nieuwe functie van You.Ge Assistant beschikbaar.',
+      actionDiagnosticsLabel: 'Netwerkdiagnostiek uitvoeren',
+      actionDiagnosticsMessage: 'Controleer connectiviteit, DNS en app-herkomst.',
+      actionRecoveryLabel: 'Herstelinstructies',
+      actionRecoveryMessage: 'Stappen om deze verbinding te herstellen.',
+      actionBackupLabel: 'Back-upverbinding',
+      actionBackupMessage: 'Het project gebruikt het back-upeindpunt.',
+      actionUpdateLabel: 'App-update toepassen',
+      actionUpdateMessage: 'Activeer de wachtende update van de service worker.',
+      actionHelpLabel: 'Hulp krijgen',
+      actionBackupStatusLabel: 'Back-upstatus',
+      actionOpenLabel: 'Openen',
+      diagDisabledProject: 'Netwerkdiagnostiek is uitgeschakeld voor dit project.',
+      diagDisabledDomain: 'Netwerkdiagnostiek is uitgeschakeld voor dit domein.',
+      diagModuleNotLoaded: 'De module voor DNS-diagnostiek is niet geladen.',
+      diagCancelled: 'Diagnostiek is geannuleerd.',
+      diagCancelledBeforeStart: 'Diagnostiek is geannuleerd voordat deze kon starten.',
+      diagDestroyed: 'De assistent-instantie is afgesloten.',
+      diagUnavailable: 'Netwerkdiagnostiek is op deze pagina niet beschikbaar.',
+      diagFailed: 'Diagnostiek mislukt.',
+      levelCritical: 'Kritiek',
+      levelError: 'Fout',
+      levelWarning: 'Waarschuwing',
+      levelInfo: 'Informatie',
+      levelSuccess: 'Geslaagd',
+      chromeTitle: 'Open deze pagina in Chrome',
+      chromeIntro: 'Deze ingebouwde browser kan functies verbergen en links verstoren. Ga liever verder in Chrome.',
+      chromeStepCopy: 'Kopieer het pagina-adres hieronder.',
+      chromeStepSwitch: 'Sluit deze app en open Chrome op je apparaat.',
+      chromeStepPaste: 'Plak het adres in de adresbalk van Chrome en open de pagina.',
+      chromeOpenLabel: 'Openen in Chrome',
+      chromeDismissLabel: 'Niet nu',
+      chromeCopyLabel: 'Adres kopiëren',
+      chromeCopiedLabel: 'Adres gekopieerd.',
+      chromeCopyManual: 'Selecteer het adres hierboven om het handmatig te kopiëren.',
+      widgetStatusTitle: 'Verbindingsstatus',
+      widgetStatusDesc: 'Actuele omstandigheden die door dit project zijn gemeld.',
+      widgetNetworkLabel: 'Netwerk',
+      widgetOnline: 'Online',
+      widgetOffline: 'Offline',
+      widgetPrimaryApiLabel: 'Primaire API',
+      widgetBackupLabel: 'Back-up',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'onbekend',
+      widgetInactive: 'inactief',
+      widgetActive: 'actief',
+      widgetHealthy: 'gezond',
+      widgetFailed: 'mislukt',
+      widgetUnavailable: 'niet beschikbaar',
+      widgetDegraded: 'verslechterd',
+      widgetNotChecked: 'niet gecontroleerd',
+      widgetAttentionTitle: 'Wat aandacht vraagt',
+      widgetAttentionDesc: 'Gesorteerd op prioriteit. Kritieke meldingen blijven zichtbaar tot ze zijn opgelost of bevestigd.',
+      widgetAllClear: 'Alles in orde — er vraagt op dit moment niets om aandacht.',
+      widgetInstallationTitle: 'Installatie',
+      widgetInstallIos: 'iPhone/iPad: open Deel in Safari en kies Zet op beginscherm.',
+      widgetInstallNative: 'Deze browser biedt een directe installatiemelding. Gebruik de knop hieronder.',
+      widgetInstallGeneric: 'Desktop/mobiel: open het browsermenu en kies App installeren of Toevoegen aan startscherm.',
+      widgetDiagnosticsTitle: 'Diagnostiek & herstel',
+      widgetDiagnosticsDesc: 'Controles worden alleen uitgevoerd wanneer jij dat kiest; er wordt niet op de achtergrond getest.',
+      widgetRecoverySummary: 'Herstelinstructies',
+      widgetRecoveryStep1: 'Controleer de apparaatverbinding en voer de diagnostiek opnieuw uit.',
+      widgetRecoveryStep2: 'Als er een back-upeindpunt is ingesteld, laat het project daarnaar overschakelen.',
+      widgetRecoveryStep3: 'Als DNS-resultaten verschillen, controleer dan de DNS-propagatie voordat je providerinstellingen wijzigt.',
+      widgetRecoveryStep4: 'Neem contact op met de projectondersteuning als de primaire API onbereikbaar blijft.',
+      widgetMoreActionsTitle: 'Meer acties',
+      widgetMoreActionsDesc: 'Andere acties die beschikbaar zijn voor dit project.',
+      widgetAdjustTitle: 'Pictogram aanpassen',
+      widgetAdjustDesc: 'Grootte en positie worden op dit apparaat opgeslagen. Resetten herstelt de automatische standaardwaarden.',
+      widgetAdjustSize: 'Pictogramgrootte',
+      widgetAdjustX: 'Horizontale positie',
+      widgetAdjustY: 'Verticale positie',
+      widgetAdjustReset: 'Automatische standaardwaarden herstellen',
+      widgetAcknowledge: 'Bevestigen',
+      widgetDismiss: 'Negeren',
+      widgetClosePanel: 'Assistentenpaneel sluiten',
+      widgetCheckingConnection: 'Verbinding controleren',
+      widgetNoticeSuffix: 'melding',
+    }),
+
+    no: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'assistent',
+      noAlerts: 'Ingen varsler',
+      noAlertsLower: 'ingen varsler',
+      noAlertsFabLabel: 'You.Ge Assistant, ingen varsler',
+      highestPriority: 'høyeste prioritet',
+      highestPrioritySentence: 'Høyeste prioritet',
+      installActionLabel: 'Installer denne appen',
+      instructionsActionLabel: 'Installasjonsveiledning',
+      installAvailableTitle: 'Installasjon tilgjengelig',
+      nativeAvailableMessage: 'Denne nettleseren tilbyr en innebygd installasjonsforespørsel.',
+      iosAvailableMessage: 'Legg denne appen til på hjemskjermen fra Safari.',
+      genericAvailableMessage: 'Bruk nettlesermenyen for å installere denne appen.',
+      iosShortcutHint: 'Safari: Del → Legg til på Hjem-skjerm.',
+      genericHint: 'Åpne nettleserens installasjonsforespørsel eller veiledning.',
+      offlineTitle: 'Ingen tilkobling',
+      offlineMessage: 'Appen når ikke nettverket. Åpne diagnostikk eller gjenopprettingsveiledning.',
+      dnsTitle: 'DNS-oppslagsproblem',
+      dnsMessage: 'Det nåværende vertsnavnet kunne ikke slås opp. Diagnostikk er tilgjengelig.',
+      unreachableTitle: 'Tilkoblingsproblem',
+      unreachableMessage: 'Appens vert eller backend svarte ikke.',
+      primaryApiTitle: 'Primær-API utilgjengelig',
+      primaryApiMessage: 'Appens primære endepunkt svarer ikke.',
+      sessionTitle: 'Økten trenger oppmerksomhet',
+      sessionMessage: 'Prosjektet meldte om et autentiserings- eller øktproblem.',
+      backupTitle: 'Reservetilkobling aktiv',
+      backupMessage: 'Dette prosjektet bruker sitt konfigurerte reserveendepunkt.',
+      restoredTitle: 'Primærtilkobling gjenopprettet',
+      restoredMessage: 'Det primære endepunktet er friskt igjen.',
+      updateTitle: 'Appoppdatering tilgjengelig',
+      updateMessage: 'En ny versjon er klar til å tas i bruk.',
+      featureDefaultMessage: 'En ny funksjon i You.Ge Assistant er tilgjengelig.',
+      actionDiagnosticsLabel: 'Kjør nettverksdiagnostikk',
+      actionDiagnosticsMessage: 'Kontroller tilkobling, DNS og appens opprinnelse.',
+      actionRecoveryLabel: 'Gjenopprettingsveiledning',
+      actionRecoveryMessage: 'Trinn for å gjenopprette denne tilkoblingen.',
+      actionBackupLabel: 'Reservetilkobling',
+      actionBackupMessage: 'Prosjektet bruker reserveendepunktet.',
+      actionUpdateLabel: 'Oppdater appen',
+      actionUpdateMessage: 'Aktiver den ventende oppdateringen for service workeren.',
+      actionHelpLabel: 'Få hjelp',
+      actionBackupStatusLabel: 'Reservestatus',
+      actionOpenLabel: 'Åpne',
+      diagDisabledProject: 'Nettverksdiagnostikk er deaktivert for dette prosjektet.',
+      diagDisabledDomain: 'Nettverksdiagnostikk er deaktivert for dette domenet.',
+      diagModuleNotLoaded: 'DNS-diagnostikkmodulen er ikke lastet.',
+      diagCancelled: 'Diagnostikken ble avbrutt.',
+      diagCancelledBeforeStart: 'Diagnostikken ble avbrutt før den startet.',
+      diagDestroyed: 'Assistentinstansen er avsluttet.',
+      diagUnavailable: 'Nettverksdiagnostikk er ikke tilgjengelig på denne siden.',
+      diagFailed: 'Diagnostikken mislyktes.',
+      levelCritical: 'Kritisk',
+      levelError: 'Feil',
+      levelWarning: 'Advarsel',
+      levelInfo: 'Informasjon',
+      levelSuccess: 'Fullført',
+      chromeTitle: 'Åpne denne siden i Chrome',
+      chromeIntro: 'Denne nettleseren inne i appen kan skjule funksjoner og ødelegge lenker. Fortsett i Chrome i stedet.',
+      chromeStepCopy: 'Kopier sideadressen vist nedenfor.',
+      chromeStepSwitch: 'Forlat denne appen og åpne Chrome på enheten din.',
+      chromeStepPaste: 'Lim inn adressen i Chromes adressefelt og åpne den.',
+      chromeOpenLabel: 'Åpne i Chrome',
+      chromeDismissLabel: 'Ikke nå',
+      chromeCopyLabel: 'Kopier adresse',
+      chromeCopiedLabel: 'Adresse kopiert.',
+      chromeCopyManual: 'Merk adressen ovenfor for å kopiere den manuelt.',
+      widgetStatusTitle: 'Tilkoblingsstatus',
+      widgetStatusDesc: 'Gjeldende forhold rapportert av dette prosjektet.',
+      widgetNetworkLabel: 'Nettverk',
+      widgetOnline: 'Tilkoblet',
+      widgetOffline: 'Frakoblet',
+      widgetPrimaryApiLabel: 'Primær-API',
+      widgetBackupLabel: 'Reserve',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'ukjent',
+      widgetInactive: 'inaktiv',
+      widgetActive: 'aktiv',
+      widgetHealthy: 'i orden',
+      widgetFailed: 'mislyktes',
+      widgetUnavailable: 'utilgjengelig',
+      widgetDegraded: 'redusert',
+      widgetNotChecked: 'ikke sjekket',
+      widgetAttentionTitle: 'Dette krever oppmerksomhet',
+      widgetAttentionDesc: 'Ordnet etter prioritet. Kritiske varsler forblir synlige til de er løst eller bekreftet.',
+      widgetAllClear: 'Alt i orden — ingenting krever oppmerksomhet akkurat nå.',
+      widgetInstallationTitle: 'Installasjon',
+      widgetInstallIos: 'iPhone/iPad: åpne Del i Safari, og velg Legg til på Hjem-skjerm.',
+      widgetInstallNative: 'Denne nettleseren tilbyr innebygd installasjon. Bruk knappen nedenfor.',
+      widgetInstallGeneric: 'Datamaskin/mobil: åpne nettlesermenyen og velg Installer app eller Legg til på startskjermen.',
+      widgetDiagnosticsTitle: 'Diagnostikk og gjenoppretting',
+      widgetDiagnosticsDesc: 'Kontroller kjøres bare når du velger det; ingen bakgrunnsskanning.',
+      widgetRecoverySummary: 'Gjenopprettingsveiledning',
+      widgetRecoveryStep1: 'Bekreft enhetens tilkobling og prøv diagnostikken på nytt.',
+      widgetRecoveryStep2: 'Hvis et reserveendepunkt er konfigurert, la prosjektet bytte til det.',
+      widgetRecoveryStep3: 'Hvis DNS-resultatene avviker, kontroller DNS-utbredelse før du endrer leverandørinnstillinger.',
+      widgetRecoveryStep4: 'Kontakt prosjektets brukerstøtte hvis primær-API-et fortsatt er utilgjengelig.',
+      widgetMoreActionsTitle: 'Flere handlinger',
+      widgetMoreActionsDesc: 'Andre handlinger som er tilgjengelige for dette prosjektet.',
+      widgetAdjustTitle: 'Juster ikon',
+      widgetAdjustDesc: 'Størrelse og plassering lagres på denne enheten. Tilbakestilling går tilbake til automatiske standardverdier.',
+      widgetAdjustSize: 'Ikonstørrelse',
+      widgetAdjustX: 'Horisontal posisjon',
+      widgetAdjustY: 'Vertikal posisjon',
+      widgetAdjustReset: 'Tilbakestill til automatiske standarder',
+      widgetAcknowledge: 'Bekreft',
+      widgetDismiss: 'Lukk',
+      widgetClosePanel: 'Lukk assistentpanelet',
+      widgetCheckingConnection: 'Kontrollerer tilkobling',
+      widgetNoticeSuffix: 'varsel',
+    }),
+
+    da: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'assistent',
+      noAlerts: 'Ingen advarsler',
+      noAlertsLower: 'ingen advarsler',
+      noAlertsFabLabel: 'You.Ge Assistant, ingen advarsler',
+      highestPriority: 'højeste prioritet',
+      highestPrioritySentence: 'Højeste prioritet',
+      installActionLabel: 'Installer denne app',
+      instructionsActionLabel: 'Installationsvejledning',
+      installAvailableTitle: 'Installation tilgængelig',
+      nativeAvailableMessage: 'Denne browser tilbyder en indbygget installationsprompt.',
+      iosAvailableMessage: 'Føj denne app til din hjemmeskærm fra Safari.',
+      genericAvailableMessage: 'Brug browsermenuen til at installere denne app.',
+      iosShortcutHint: 'Safari: Del → Føj til hjemmeskærm.',
+      genericHint: 'Åbn browserens installationsprompt eller vejledning.',
+      offlineTitle: 'Ingen forbindelse',
+      offlineMessage: 'Appen kan ikke nå netværket. Åbn diagnosticering eller gendannelsesvejledning.',
+      dnsTitle: 'Problem med DNS-opslag',
+      dnsMessage: 'Det aktuelle værtsnavn kunne ikke slås op. Diagnosticering er tilgængelig.',
+      unreachableTitle: 'Forbindelsesproblem',
+      unreachableMessage: 'Appens vært eller backend svarede ikke.',
+      primaryApiTitle: 'Primær API utilgængelig',
+      primaryApiMessage: 'Appens primære slutpunkt svarer ikke.',
+      sessionTitle: 'Session kræver opmærksomhed',
+      sessionMessage: 'Dit projekt rapporterede et godkendelses- eller sessionsproblem.',
+      backupTitle: 'Reserveforbindelse aktiv',
+      backupMessage: 'Dette projekt bruger sit konfigurerede reserveslutpunkt.',
+      restoredTitle: 'Primær forbindelse gendannet',
+      restoredMessage: 'Det primære slutpunkt fungerer normalt igen.',
+      updateTitle: 'Appopdatering tilgængelig',
+      updateMessage: 'En ny version er klar til at blive taget i brug.',
+      featureDefaultMessage: 'En ny funktion i You.Ge Assistant er tilgængelig.',
+      actionDiagnosticsLabel: 'Kør netværksdiagnosticering',
+      actionDiagnosticsMessage: 'Kontrollér forbindelse, DNS og appens oprindelse.',
+      actionRecoveryLabel: 'Gendannelsesvejledning',
+      actionRecoveryMessage: 'Trin til at gendanne denne forbindelse.',
+      actionBackupLabel: 'Reserveforbindelse',
+      actionBackupMessage: 'Projektet bruger sit reserveslutpunkt.',
+      actionUpdateLabel: 'Opdater appen',
+      actionUpdateMessage: 'Aktivér den ventende service worker-opdatering.',
+      actionHelpLabel: 'Få hjælp',
+      actionBackupStatusLabel: 'Reservestatus',
+      actionOpenLabel: 'Åbn',
+      diagDisabledProject: 'Netværksdiagnosticering er deaktiveret for dette projekt.',
+      diagDisabledDomain: 'Netværksdiagnosticering er deaktiveret for dette domæne.',
+      diagModuleNotLoaded: 'DNS-diagnosticeringsmodulet er ikke indlæst.',
+      diagCancelled: 'Diagnosticeringen blev annulleret.',
+      diagCancelledBeforeStart: 'Diagnosticeringen blev annulleret før start.',
+      diagDestroyed: 'Assistentinstansen er afsluttet.',
+      diagUnavailable: 'Netværksdiagnosticering er ikke tilgængelig på denne side.',
+      diagFailed: 'Diagnosticering mislykkedes.',
+      levelCritical: 'Kritisk',
+      levelError: 'Fejl',
+      levelWarning: 'Advarsel',
+      levelInfo: 'Information',
+      levelSuccess: 'Gennemført',
+      chromeTitle: 'Åbn denne side i Chrome',
+      chromeIntro: 'Denne indbyggede browser kan skjule funktioner og ødelægge links. Fortsæt i Chrome i stedet.',
+      chromeStepCopy: 'Kopiér sideadressen vist nedenfor.',
+      chromeStepSwitch: 'Forlad denne app og åbn Chrome på din enhed.',
+      chromeStepPaste: 'Indsæt adressen i Chromes adresselinje og åbn den.',
+      chromeOpenLabel: 'Åbn i Chrome',
+      chromeDismissLabel: 'Ikke nu',
+      chromeCopyLabel: 'Kopiér adresse',
+      chromeCopiedLabel: 'Adresse kopieret.',
+      chromeCopyManual: 'Markér adressen ovenfor for at kopiere den manuelt.',
+      widgetStatusTitle: 'Forbindelsesstatus',
+      widgetStatusDesc: 'Aktuelle forhold rapporteret af dette projekt.',
+      widgetNetworkLabel: 'Netværk',
+      widgetOnline: 'Online',
+      widgetOffline: 'Offline',
+      widgetPrimaryApiLabel: 'Primær API',
+      widgetBackupLabel: 'Reserve',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'ukendt',
+      widgetInactive: 'inaktiv',
+      widgetActive: 'aktiv',
+      widgetHealthy: 'velfungerende',
+      widgetFailed: 'mislykkedes',
+      widgetUnavailable: 'utilgængelig',
+      widgetDegraded: 'forringet',
+      widgetNotChecked: 'ikke tjekket',
+      widgetAttentionTitle: 'Det kræver opmærksomhed',
+      widgetAttentionDesc: 'Sorteret efter prioritet. Kritiske advarsler forbliver synlige, indtil de løses eller bekræftes.',
+      widgetAllClear: 'Alt er fint — intet kræver din opmærksomhed lige nu.',
+      widgetInstallationTitle: 'Installation',
+      widgetInstallIos: 'iPhone/iPad: åbn Del i Safari, og vælg Føj til hjemmeskærm.',
+      widgetInstallNative: 'Denne browser tilbyder en indbygget installationsprompt. Brug knappen nedenfor.',
+      widgetInstallGeneric: 'Computer/mobil: åbn browsermenuen og vælg Installer app eller Føj til startskærm.',
+      widgetDiagnosticsTitle: 'Diagnosticering & gendannelse',
+      widgetDiagnosticsDesc: 'Kontrol kører kun, når du vælger det; ingen baggrundsscanning.',
+      widgetRecoverySummary: 'Gendannelsesvejledning',
+      widgetRecoveryStep1: 'Bekræft enhedens forbindelse og prøv diagnosticeringen igen.',
+      widgetRecoveryStep2: 'Hvis et reserveslutpunkt er konfigureret, lad projektet skifte til det.',
+      widgetRecoveryStep3: 'Hvis DNS-resultaterne er uenige, kontrollér DNS-udbredelse før ændring af udbyderindstillinger.',
+      widgetRecoveryStep4: 'Kontakt projektets support, hvis den primære API fortsat er utilgængelig.',
+      widgetMoreActionsTitle: 'Flere handlinger',
+      widgetMoreActionsDesc: 'Andre handlinger tilgængelige for dette projekt.',
+      widgetAdjustTitle: 'Tilpas ikon',
+      widgetAdjustDesc: 'Størrelse og placering gemmes på denne enhed. Nulstilling vender tilbage til automatiske standarder.',
+      widgetAdjustSize: 'Ikonstørrelse',
+      widgetAdjustX: 'Vandret position',
+      widgetAdjustY: 'Lodret position',
+      widgetAdjustReset: 'Nulstil til automatiske standarder',
+      widgetAcknowledge: 'Bekræft',
+      widgetDismiss: 'Afvis',
+      widgetClosePanel: 'Luk assistentpanel',
+      widgetCheckingConnection: 'Kontrollerer forbindelse',
+      widgetNoticeSuffix: 'advarsel',
+    }),
+
+    et: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'abiline',
+      noAlerts: 'Teateid pole',
+      noAlertsLower: 'teateid pole',
+      noAlertsFabLabel: 'You.Ge Assistant, teateid pole',
+      highestPriority: 'kõrgeim prioriteet',
+      highestPrioritySentence: 'Kõrgeim prioriteet',
+      installActionLabel: 'Paigalda see rakendus',
+      instructionsActionLabel: 'Paigaldamisjuhised',
+      installAvailableTitle: 'Paigaldamine saadaval',
+      nativeAvailableMessage: 'See brauser pakub sisseehitatud paigaldusdialoogi.',
+      iosAvailableMessage: 'Lisa see rakendus Safarist oma avakuvale.',
+      genericAvailableMessage: 'Kasuta rakenduse paigaldamiseks brauseri menüüd.',
+      iosShortcutHint: 'Safari: Jaga → Lisa avakuvale.',
+      genericHint: 'Ava brauseri paigaldusaken või juhised.',
+      offlineTitle: 'Ühendus puudub',
+      offlineMessage: 'Rakendus ei saa võrguga ühendust. Ava diagnostika või taastamisjuhised.',
+      dnsTitle: 'DNS-i lahendamise tõrge',
+      dnsMessage: 'Praegust hostinime ei õnnestunud lahendada. Diagnostika on saadaval.',
+      unreachableTitle: 'Ühenduse tõrge',
+      unreachableMessage: 'Rakenduse host või selle taustateenus ei vastanud.',
+      primaryApiTitle: 'Peamine API pole saadaval',
+      primaryApiMessage: 'Rakenduse peamine lõpp-punkt ei vasta.',
+      sessionTitle: 'Seanss vajab tähelepanu',
+      sessionMessage: 'Projekt teatas autentimis- või seansiprobleemist.',
+      backupTitle: 'Varuühendus aktiivne',
+      backupMessage: 'Projekt kasutab oma seadistatud varulõpp-punkti.',
+      restoredTitle: 'Peamine ühendus taastatud',
+      restoredMessage: 'Peamine lõpp-punkt töötab taas korralikult.',
+      updateTitle: 'Rakenduse uuendus saadaval',
+      updateMessage: 'Uus versioon on rakendamiseks valmis.',
+      featureDefaultMessage: 'Saadaval on uus You.Ge Assistant funktsioon.',
+      actionDiagnosticsLabel: 'Käivita võrgudiagnostika',
+      actionDiagnosticsMessage: 'Kontrolli ühendust, DNS-i ja rakenduse päritolu.',
+      actionRecoveryLabel: 'Taastamisjuhised',
+      actionRecoveryMessage: 'Sammud ühenduse taastamiseks.',
+      actionBackupLabel: 'Varuühendus',
+      actionBackupMessage: 'Projekt kasutab varulõpp-punkti.',
+      actionUpdateLabel: 'Uuenda rakendust',
+      actionUpdateMessage: 'Aktiveeri ootel olev service workeri uuendus.',
+      actionHelpLabel: 'Küsi abi',
+      actionBackupStatusLabel: 'Varuühenduse olek',
+      actionOpenLabel: 'Ava',
+      diagDisabledProject: 'Võrgudiagnostika on selle projekti jaoks keelatud.',
+      diagDisabledDomain: 'Võrgudiagnostika on selle domeeni jaoks keelatud.',
+      diagModuleNotLoaded: 'DNS-diagnostika moodul pole laaditud.',
+      diagCancelled: 'Diagnostika tühistati.',
+      diagCancelledBeforeStart: 'Diagnostika tühistati enne käivitamist.',
+      diagDestroyed: 'Abilise eksemplar on hävitatud.',
+      diagUnavailable: 'Võrgudiagnostika pole sellel lehel saadaval.',
+      diagFailed: 'Diagnostika ebaõnnestus.',
+      levelCritical: 'Kriitiline',
+      levelError: 'Tõrge',
+      levelWarning: 'Hoiatus',
+      levelInfo: 'Teave',
+      levelSuccess: 'Õnnestus',
+      chromeTitle: 'Ava see leht Chrome’is',
+      chromeIntro: 'See rakendusesisene brauser võib funktsioone peita ja linke rikkuda. Jätka parem Chrome’is.',
+      chromeStepCopy: 'Kopeeri allpool kuvatav lehe aadress.',
+      chromeStepSwitch: 'Lahku sellest rakendusest ja ava oma seadmes Chrome.',
+      chromeStepPaste: 'Kleebi aadress Chrome’i aadressiribale ja ava leht.',
+      chromeOpenLabel: 'Ava Chrome’is',
+      chromeDismissLabel: 'Mitte praegu',
+      chromeCopyLabel: 'Kopeeri aadress',
+      chromeCopiedLabel: 'Aadress kopeeritud.',
+      chromeCopyManual: 'Vali ülaltoodud aadress käsitsi kopeerimiseks.',
+      widgetStatusTitle: 'Ühenduse olek',
+      widgetStatusDesc: 'Selle projekti edastatud reaalajas tingimused.',
+      widgetNetworkLabel: 'Võrk',
+      widgetOnline: 'Võrgus',
+      widgetOffline: 'Võrguta',
+      widgetPrimaryApiLabel: 'Peamine API',
+      widgetBackupLabel: 'Varuühendus',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'teadmata',
+      widgetInactive: 'mitteaktiivne',
+      widgetActive: 'aktiivne',
+      widgetHealthy: 'korras',
+      widgetFailed: 'tõrge',
+      widgetUnavailable: 'pole saadaval',
+      widgetDegraded: 'häiritud',
+      widgetNotChecked: 'kontrollimata',
+      widgetAttentionTitle: 'Mis vajab tähelepanu',
+      widgetAttentionDesc: 'Järjestatud prioriteedi alusel. Kriitiline teave püsib nähtavana kuni lahendamise või kinnitamiseni.',
+      widgetAllClear: 'Kõik on korras — praegu ei vaja miski tähelepanu.',
+      widgetInstallationTitle: 'Paigaldamine',
+      widgetInstallIos: 'iPhone/iPad: ava Safaris Jaga ja vali Lisa avakuvale.',
+      widgetInstallNative: 'See brauser pakub sisseehitatud paigaldamist. Kasuta allolevat nuppu.',
+      widgetInstallGeneric: 'Arvuti/mobiil: ava brauseri menüü ja vali Paigalda rakendus või Lisa avakuvale.',
+      widgetDiagnosticsTitle: 'Diagnostika ja taastamine',
+      widgetDiagnosticsDesc: 'Kontrollid käivituvad ainult sinu valikul; taustal ei kontrollita midagi.',
+      widgetRecoverySummary: 'Taastamisjuhised',
+      widgetRecoveryStep1: 'Veendu seadme ühenduses ja käivita diagnostika uuesti.',
+      widgetRecoveryStep2: 'Kui varulõpp-punkt on seadistatud, lase projektil sellele lülituda.',
+      widgetRecoveryStep3: 'Kui DNS-tulemused erinevad, kontrolli DNS-i levimist enne teenusepakkuja sätete muutmist.',
+      widgetRecoveryStep4: 'Kui peamine API jääb kättesaamatuks, võta ühendust projekti toega.',
+      widgetMoreActionsTitle: 'Veel toiminguid',
+      widgetMoreActionsDesc: 'Muud selle projekti jaoks saadaolevad toimingud.',
+      widgetAdjustTitle: 'Kohanda ikooni',
+      widgetAdjustDesc: 'Suurus ja asukoht salvestatakse sellesse seadmesse. Lähtestamine taastab automaatsed vaikeväärtused.',
+      widgetAdjustSize: 'Ikooni suurus',
+      widgetAdjustX: 'Horisontaalne asukoht',
+      widgetAdjustY: 'Vertikaalne asukoht',
+      widgetAdjustReset: 'Taasta automaatsed vaikeväärtused',
+      widgetAcknowledge: 'Kinnita',
+      widgetDismiss: 'Sulge',
+      widgetClosePanel: 'Sulge abilise paneel',
+      widgetCheckingConnection: 'Ühenduse kontrollimine',
+      widgetNoticeSuffix: 'teade',
+    }),
+
+    es: Object.freeze({
+      assistantName: 'You.Ge Assistant',
+      assistantSuffix: 'asistente',
+      noAlerts: 'Sin avisos',
+      noAlertsLower: 'sin avisos',
+      noAlertsFabLabel: 'You.Ge Assistant, sin avisos',
+      highestPriority: 'prioridad máxima',
+      highestPrioritySentence: 'Prioridad máxima',
+      installActionLabel: 'Instalar esta app',
+      instructionsActionLabel: 'Instrucciones de instalación',
+      installAvailableTitle: 'Instalación disponible',
+      nativeAvailableMessage: 'Este navegador ofrece un aviso de instalación nativo.',
+      iosAvailableMessage: 'Añade esta aplicación a tu pantalla de inicio desde Safari.',
+      genericAvailableMessage: 'Usa el menú del navegador para instalar esta aplicación.',
+      iosShortcutHint: 'Safari: Compartir → Añadir a pantalla de inicio.',
+      genericHint: 'Abre el aviso de instalación del navegador o las instrucciones.',
+      offlineTitle: 'Sin conexión',
+      offlineMessage: 'La aplicación no puede acceder a la red. Abre el diagnóstico o la guía de recuperación.',
+      dnsTitle: 'Problema de resolución DNS',
+      dnsMessage: 'No se pudo resolver el nombre de host actual. El diagnóstico está disponible.',
+      unreachableTitle: 'Problema de conexión',
+      unreachableMessage: 'El host de la aplicación o su servidor no respondió.',
+      primaryApiTitle: 'API principal no disponible',
+      primaryApiMessage: 'El punto de acceso principal de la aplicación no responde.',
+      sessionTitle: 'La sesión requiere atención',
+      sessionMessage: 'Tu proyecto informó de un problema de autenticación o de sesión.',
+      backupTitle: 'Conexión de respaldo activa',
+      backupMessage: 'Este proyecto está usando su servidor de respaldo configurado.',
+      restoredTitle: 'Conexión principal restablecida',
+      restoredMessage: 'El servidor principal vuelve a estar operativo.',
+      updateTitle: 'Actualización disponible',
+      updateMessage: 'Hay una nueva versión lista para aplicar.',
+      featureDefaultMessage: 'Hay una nueva función de You.Ge Assistant disponible.',
+      actionDiagnosticsLabel: 'Ejecutar diagnóstico de red',
+      actionDiagnosticsMessage: 'Comprueba la conectividad, el DNS y el origen de la app.',
+      actionRecoveryLabel: 'Guía de recuperación',
+      actionRecoveryMessage: 'Pasos para restablecer esta conexión.',
+      actionBackupLabel: 'Conexión de respaldo',
+      actionBackupMessage: 'El proyecto está usando su servidor de respaldo.',
+      actionUpdateLabel: 'Aplicar actualización',
+      actionUpdateMessage: 'Activa la actualización pendiente del service worker.',
+      actionHelpLabel: 'Obtener ayuda',
+      actionBackupStatusLabel: 'Estado de respaldo',
+      actionOpenLabel: 'Abrir',
+      diagDisabledProject: 'El diagnóstico de red está desactivado para este proyecto.',
+      diagDisabledDomain: 'El diagnóstico de red está desactivado para este dominio.',
+      diagModuleNotLoaded: 'El módulo de diagnóstico DNS no está cargado.',
+      diagCancelled: 'Se canceló el diagnóstico.',
+      diagCancelledBeforeStart: 'Se canceló el diagnóstico antes de iniciarse.',
+      diagDestroyed: 'La instancia del asistente ha sido destruida.',
+      diagUnavailable: 'El diagnóstico de red no está disponible en esta página.',
+      diagFailed: 'Error en el diagnóstico.',
+      levelCritical: 'Crítico',
+      levelError: 'Error',
+      levelWarning: 'Advertencia',
+      levelInfo: 'Información',
+      levelSuccess: 'Correcto',
+      chromeTitle: 'Abrir esta página en Chrome',
+      chromeIntro: 'Este navegador integrado puede ocultar funciones y romper enlaces. Continúa en Chrome en su lugar.',
+      chromeStepCopy: 'Copia la dirección de la página que se muestra abajo.',
+      chromeStepSwitch: 'Sal de esta aplicación y abre Chrome en tu dispositivo.',
+      chromeStepPaste: 'Pega la dirección en la barra de Chrome y ábrela.',
+      chromeOpenLabel: 'Abrir en Chrome',
+      chromeDismissLabel: 'Ahora no',
+      chromeCopyLabel: 'Copiar dirección',
+      chromeCopiedLabel: 'Dirección copiada.',
+      chromeCopyManual: 'Selecciona la dirección anterior para copiarla manualmente.',
+      widgetStatusTitle: 'Estado de conexión',
+      widgetStatusDesc: 'Condiciones en directo informadas por este proyecto.',
+      widgetNetworkLabel: 'Red',
+      widgetOnline: 'En línea',
+      widgetOffline: 'Sin conexión',
+      widgetPrimaryApiLabel: 'API principal',
+      widgetBackupLabel: 'Respaldo',
+      widgetDnsLabel: 'DNS',
+      widgetUnknown: 'desconocido',
+      widgetInactive: 'inactivo',
+      widgetActive: 'activo',
+      widgetHealthy: 'saludable',
+      widgetFailed: 'con fallo',
+      widgetUnavailable: 'no disponible',
+      widgetDegraded: 'degradado',
+      widgetNotChecked: 'sin comprobar',
+      widgetAttentionTitle: 'Qué requiere atención',
+      widgetAttentionDesc: 'Ordenado por prioridad. Los avisos críticos permanecen visibles hasta resolverse o confirmarse.',
+      widgetAllClear: 'Todo en orden — nada requiere tu atención en este momento.',
+      widgetInstallationTitle: 'Instalación',
+      widgetInstallIos: 'iPhone/iPad: abre Compartir en Safari y elige Añadir a pantalla de inicio.',
+      widgetInstallNative: 'Este navegador ofrece instalación nativa. Usa el botón de abajo.',
+      widgetInstallGeneric: 'Escritorio/móvil: abre el menú del navegador y elige Instalar aplicación o Añadir a pantalla de inicio.',
+      widgetDiagnosticsTitle: 'Diagnóstico y recuperación',
+      widgetDiagnosticsDesc: 'Las comprobaciones solo se ejecutan cuando tú lo eliges; sin sondeo en segundo plano.',
+      widgetRecoverySummary: 'Guía de recuperación',
+      widgetRecoveryStep1: 'Confirma la conectividad del dispositivo y repite el diagnóstico.',
+      widgetRecoveryStep2: 'Si hay un servidor de respaldo configurado, deja que el proyecto cambie a él.',
+      widgetRecoveryStep3: 'Si los resultados DNS no coinciden, comprueba la propagación DNS antes de cambiar la configuración del proveedor.',
+      widgetRecoveryStep4: 'Contacta con el soporte del proyecto si la API principal sigue sin estar disponible.',
+      widgetMoreActionsTitle: 'Más acciones',
+      widgetMoreActionsDesc: 'Otras acciones disponibles para este proyecto.',
+      widgetAdjustTitle: 'Ajustar icono',
+      widgetAdjustDesc: 'El tamaño y la posición se guardan en este dispositivo. Restablecer vuelve a los valores automáticos.',
+      widgetAdjustSize: 'Tamaño del icono',
+      widgetAdjustX: 'Posición horizontal',
+      widgetAdjustY: 'Posición vertical',
+      widgetAdjustReset: 'Restablecer valores automáticos',
+      widgetAcknowledge: 'Confirmar',
+      widgetDismiss: 'Ocultar',
+      widgetClosePanel: 'Cerrar el panel del asistente',
+      widgetCheckingConnection: 'Comprobando conexión',
+      widgetNoticeSuffix: 'aviso',
+    }),
+  });
+  function translate(locale, key, params) {
+    const code = resolveLocale({ explicit: locale });
+    const dict = SDK_TRANSLATIONS[code] || SDK_TRANSLATIONS[DEFAULT_LOCALE];
+    const raw = Object.prototype.hasOwnProperty.call(dict, key)
+      ? dict[key]
+      : (Object.prototype.hasOwnProperty.call(SDK_TRANSLATIONS[DEFAULT_LOCALE], key)
+        ? SDK_TRANSLATIONS[DEFAULT_LOCALE][key]
+        : String(key || ''));
+    if (!params || typeof params !== 'object') return raw;
+    return String(raw).replace(/\{([a-zA-Z0-9_]+)\}/g, function (match, name) {
+      return Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match;
+    });
+  }
+
+  const ALERT_PLURAL_FORMS = Object.freeze({
+    en: ['alert', 'alerts'],
+    ka: ['შეტყობინება', 'შეტყობინება'],
+    ru: ['уведомление', 'уведомления', 'уведомлений'],
+    fr: ['alerte', 'alertes'],
+    it: ['avviso', 'avvisi'],
+    de: ['Hinweis', 'Hinweise'],
+    sv: ['avisering', 'aviseringar'],
+    nl: ['melding', 'meldingen'],
+    no: ['varsel', 'varsler'],
+    da: ['advarsel', 'advarsler'],
+    et: ['teade', 'teadet'],
+    es: ['aviso', 'avisos'],
+  });
+  function formatAlertCount(locale, count) {
+    const code = resolveLocale({ explicit: locale });
+    const n = Math.max(0, Math.round(Number(count) || 0));
+    const forms = ALERT_PLURAL_FORMS[code] || ALERT_PLURAL_FORMS.en;
+    if (code === 'ru') {
+      const mod10 = n % 10;
+      const mod100 = n % 100;
+      const word = (mod10 === 1 && mod100 !== 11)
+        ? forms[0]
+        : (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) ? forms[1] : forms[2];
+      return n + ' ' + word;
+    }
+    return n + ' ' + (n === 1 ? forms[0] : forms[1]);
+  }
+  const DNS_CLASSIFICATION_LABELS = Object.freeze({
+    en: Object.freeze({
+      unknown: 'not checked',
+      normal_connectivity: 'normal connectivity',
+      general_internet_failure: 'general internet failure',
+      dns_resolution_failure: 'dns resolution failure',
+      dns_records_missing: 'dns records missing',
+      application_host_unavailable: 'application host unavailable',
+      backend_unavailable: 'backend unavailable',
+      cloudflare_doh_unavailable: 'cloudflare doh unavailable',
+      possible_dns_interference: 'possible dns interference',
+      inconclusive: 'inconclusive',
+      disabled: 'disabled',
+      cancelled: 'cancelled',
+      error: 'error',
+    }),
+    ka: Object.freeze({
+      unknown: 'არ შემოწმებულა',
+      normal_connectivity: 'კავშირი ნორმალურია',
+      general_internet_failure: 'ინტერნეტ-კავშირი გაწყვეტილია',
+      dns_resolution_failure: 'DNS-ის გარჩევა ვერ მოხერხდა',
+      dns_records_missing: 'DNS ჩანაწერები არ მოიძებნა',
+      application_host_unavailable: 'აპის სერვერი მიუწვდომელია',
+      backend_unavailable: 'ბექენდი მიუწვდომელია',
+      cloudflare_doh_unavailable: 'Cloudflare DoH მიუწვდომელია',
+      possible_dns_interference: 'შესაძლო DNS შეფერხება',
+      inconclusive: 'შედეგი არასაკმარისია',
+      disabled: 'გამორთულია',
+      cancelled: 'გაუქმებულია',
+      error: 'შეცდომა',
+    }),
+    ru: Object.freeze({
+      unknown: 'не проверялся',
+      normal_connectivity: 'связь в норме',
+      general_internet_failure: 'нет доступа к интернету',
+      dns_resolution_failure: 'сбой разрешения DNS',
+      dns_records_missing: 'отсутствуют DNS-записи',
+      application_host_unavailable: 'хост приложения недоступен',
+      backend_unavailable: 'бэкенд недоступен',
+      cloudflare_doh_unavailable: 'Cloudflare DoH недоступен',
+      possible_dns_interference: 'возможны помехи DNS',
+      inconclusive: 'результат неоднозначен',
+      disabled: 'отключено',
+      cancelled: 'отменено',
+      error: 'ошибка',
+    }),
+    fr: Object.freeze({
+      unknown: 'non vérifié',
+      normal_connectivity: 'connectivité normale',
+      general_internet_failure: 'panne Internet générale',
+      dns_resolution_failure: 'échec de résolution DNS',
+      dns_records_missing: 'enregistrements DNS manquants',
+      application_host_unavailable: 'hôte de l’application indisponible',
+      backend_unavailable: 'serveur principal indisponible',
+      cloudflare_doh_unavailable: 'Cloudflare DoH indisponible',
+      possible_dns_interference: 'interférence DNS possible',
+      inconclusive: 'non concluant',
+      disabled: 'désactivé',
+      cancelled: 'annulé',
+      error: 'erreur',
+    }),
+    it: Object.freeze({
+      unknown: 'non verificato',
+      normal_connectivity: 'connettività normale',
+      general_internet_failure: 'assenza di rete Internet',
+      dns_resolution_failure: 'errore di risoluzione DNS',
+      dns_records_missing: 'record DNS mancanti',
+      application_host_unavailable: 'host dell’app non disponibile',
+      backend_unavailable: 'backend non disponibile',
+      cloudflare_doh_unavailable: 'Cloudflare DoH non disponibile',
+      possible_dns_interference: 'possibile interferenza DNS',
+      inconclusive: 'inconcludente',
+      disabled: 'disabilitato',
+      cancelled: 'annullato',
+      error: 'errore',
+    }),
+    de: Object.freeze({
+      unknown: 'nicht geprüft',
+      normal_connectivity: 'normale Konnektivität',
+      general_internet_failure: 'allgemeiner Internetausfall',
+      dns_resolution_failure: 'DNS-Auflösung fehlgeschlagen',
+      dns_records_missing: 'DNS-Einträge fehlen',
+      application_host_unavailable: 'Anwendungshost nicht erreichbar',
+      backend_unavailable: 'Backend nicht erreichbar',
+      cloudflare_doh_unavailable: 'Cloudflare DoH nicht erreichbar',
+      possible_dns_interference: 'mögliche DNS-Störung',
+      inconclusive: 'nicht eindeutig',
+      disabled: 'deaktiviert',
+      cancelled: 'abgebrochen',
+      error: 'Fehler',
+    }),
+    sv: Object.freeze({
+      unknown: 'inte kontrollerad',
+      normal_connectivity: 'normal anslutning',
+      general_internet_failure: 'allmänt internetavbrott',
+      dns_resolution_failure: 'DNS-uppslag misslyckades',
+      dns_records_missing: 'DNS-poster saknas',
+      application_host_unavailable: 'appvärden är otillgänglig',
+      backend_unavailable: 'backend är otillgänglig',
+      cloudflare_doh_unavailable: 'Cloudflare DoH otillgänglig',
+      possible_dns_interference: 'möjlig DNS-störning',
+      inconclusive: 'otydligt resultat',
+      disabled: 'inaktiverad',
+      cancelled: 'avbruten',
+      error: 'fel',
+    }),
+    nl: Object.freeze({
+      unknown: 'niet gecontroleerd',
+      normal_connectivity: 'normale connectiviteit',
+      general_internet_failure: 'algemene internetstoring',
+      dns_resolution_failure: 'DNS-omzetting mislukt',
+      dns_records_missing: 'DNS-records ontbreken',
+      application_host_unavailable: 'applicatiehost niet bereikbaar',
+      backend_unavailable: 'backend niet bereikbaar',
+      cloudflare_doh_unavailable: 'Cloudflare DoH niet beschikbaar',
+      possible_dns_interference: 'mogelijke DNS-storing',
+      inconclusive: 'onbeslist',
+      disabled: 'uitgeschakeld',
+      cancelled: 'geannuleerd',
+      error: 'fout',
+    }),
+    no: Object.freeze({
+      unknown: 'ikke sjekket',
+      normal_connectivity: 'normal tilkobling',
+      general_internet_failure: 'generelt internettbrudd',
+      dns_resolution_failure: 'DNS-oppslag mislyktes',
+      dns_records_missing: 'DNS-oppføringer mangler',
+      application_host_unavailable: 'appvert utilgjengelig',
+      backend_unavailable: 'backend utilgjengelig',
+      cloudflare_doh_unavailable: 'Cloudflare DoH utilgjengelig',
+      possible_dns_interference: 'mulig DNS-forstyrrelse',
+      inconclusive: 'ikke entydig',
+      disabled: 'deaktivert',
+      cancelled: 'avbrutt',
+      error: 'feil',
+    }),
+    da: Object.freeze({
+      unknown: 'ikke tjekket',
+      normal_connectivity: 'normal forbindelse',
+      general_internet_failure: 'generelt internetudfald',
+      dns_resolution_failure: 'DNS-opslag mislykkedes',
+      dns_records_missing: 'DNS-poster mangler',
+      application_host_unavailable: 'app-vært utilgængelig',
+      backend_unavailable: 'backend utilgængelig',
+      cloudflare_doh_unavailable: 'Cloudflare DoH utilgængelig',
+      possible_dns_interference: 'mulig DNS-forstyrrelse',
+      inconclusive: 'ikke entydig',
+      disabled: 'deaktiveret',
+      cancelled: 'annulleret',
+      error: 'fejl',
+    }),
+    et: Object.freeze({
+      unknown: 'kontrollimata',
+      normal_connectivity: 'tavaline ühenduvus',
+      general_internet_failure: 'üldine internetikatkestus',
+      dns_resolution_failure: 'DNS-i lahendamine ebaõnnestus',
+      dns_records_missing: 'DNS-kirjed puuduvad',
+      application_host_unavailable: 'rakenduse host pole saadaval',
+      backend_unavailable: 'taustateenus pole saadaval',
+      cloudflare_doh_unavailable: 'Cloudflare DoH pole saadaval',
+      possible_dns_interference: 'võimalik DNS-i häire',
+      inconclusive: 'ebaselge tulemus',
+      disabled: 'keelatud',
+      cancelled: 'tühistatud',
+      error: 'viga',
+    }),
+    es: Object.freeze({
+      unknown: 'sin comprobar',
+      normal_connectivity: 'conectividad normal',
+      general_internet_failure: 'fallo general de Internet',
+      dns_resolution_failure: 'fallo de resolución DNS',
+      dns_records_missing: 'faltan registros DNS',
+      application_host_unavailable: 'host de la app no disponible',
+      backend_unavailable: 'backend no disponible',
+      cloudflare_doh_unavailable: 'Cloudflare DoH no disponible',
+      possible_dns_interference: 'posible interferencia DNS',
+      inconclusive: 'no concluyente',
+      disabled: 'desactivado',
+      cancelled: 'cancelado',
+      error: 'error',
+    }),
+  });
+  function localizeDnsClassification(locale, classification, status) {
+    const code = resolveLocale({ explicit: locale });
+    const key = String(classification || 'unknown').toLowerCase();
+    const map = DNS_CLASSIFICATION_LABELS[code] || DNS_CLASSIFICATION_LABELS.en;
+    if (Object.prototype.hasOwnProperty.call(map, key)) return map[key];
+    const fallback = String(classification || '').replace(/_/g, ' ').trim();
+    if (fallback && fallback !== 'unknown') return fallback;
+    return status && status !== 'idle' ? String(status) : translate(code, 'widgetNotChecked');
+  }
+
+  const DNS_MESSAGES = Object.freeze({
+    en: Object.freeze({
+      disabled: 'Network diagnostics are disabled for this project.',
+      cancelled: 'Diagnostics were cancelled before they finished.',
+      normal_connectivity: 'Cloudflare DNS resolved this hostname and the application host responded.',
+      general_internet_failure: 'The browser reports no network connection, and the application host did not respond.',
+      backend_unavailable: 'The application host responds, but its configured backend health endpoint did not.',
+      dns_resolution_failure: 'Cloudflare DNS returned NXDOMAIN for the current hostname.',
+      dns_records_missing: 'Cloudflare returned NOERROR but no A or AAAA address records for this hostname.',
+      application_host_unavailable: 'The application host did not respond. DNS, routing, TLS, firewall, or server availability may be involved.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS could not be reached or validated.',
+      possible_dns_interference: 'DNS checks returned mixed results. Retry; this is not enough evidence to identify DNS interference.',
+      inconclusive: 'Results are inconclusive. Retry the diagnostics.',
+      caveat: 'JavaScript cannot inspect your device’s normal DNS resolver. A DoH result does not prove that the browser resolver is blocked.',
+    }),
+    ka: Object.freeze({
+      disabled: 'ამ პროექტისთვის ქსელის დიაგნოსტიკა გამორთულია.',
+      cancelled: 'დიაგნოსტიკა დასრულებამდე გაუქმდა.',
+      normal_connectivity: 'Cloudflare DNS-მა დომენი წარმატებით გაარჩია და აპლიკაციის ჰოსტმა უპასუხა.',
+      general_internet_failure: 'ბრაუზერს ინტერნეტ-კავშირი არ აქვს და აპლიკაციის ჰოსტმაც არ უპასუხა.',
+      backend_unavailable: 'აპლიკაციის ჰოსტი პასუხობს, თუმცა კონფიგურირებული ბექენდის სერვერი არ პასუხობს.',
+      dns_resolution_failure: 'Cloudflare DNS-მა მიმდინარე დომენისთვის NXDOMAIN დააბრუნა.',
+      dns_records_missing: 'Cloudflare-მა NOERROR დააბრუნა, თუმცა ამ დომენისთვის A ან AAAA ჩანაწერები არ იძებნება.',
+      application_host_unavailable: 'აპლიკაციის ჰოსტმა არ უპასუხა. მიზეზი შეიძლება იყოს DNS, მარშრუტიზაცია, TLS, ფაირვოლი ან სერვერი.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS-თან დაკავშირება ან პასუხის დადასტურება ვერ მოხერხდა.',
+      possible_dns_interference: 'DNS შემოწმებამ არაერთგვაროვანი შედეგი დააბრუნა. სცადეთ ხელახლა — ეს DNS-ის ბლოკირების დასადგენად საკმარისი არ არის.',
+      inconclusive: 'შედეგები არასაკმარისია. სცადეთ დიაგნოსტიკის ხელახლა გაშვება.',
+      caveat: 'JavaScript-ს არ შეუძლია მოწყობილობის ჩვეულებრივი DNS გამრჩევის შემოწმება. DoH შედეგი არ ამტკიცებს, რომ ბრაუზერის DNS დაბლოკილია.',
+    }),
+    ru: Object.freeze({
+      disabled: 'Сетевая диагностика отключена для этого проекта.',
+      cancelled: 'Диагностика была отменена до завершения.',
+      normal_connectivity: 'Cloudflare DNS успешно разрешил имя хоста, и сервер приложения ответил.',
+      general_internet_failure: 'Браузер сообщает об отсутствии подключения к сети, и сервер приложения не отвечает.',
+      backend_unavailable: 'Сервер приложения отвечает, но настроенный бэкенд не отвечает.',
+      dns_resolution_failure: 'Cloudflare DNS вернул NXDOMAIN для текущего имени хоста.',
+      dns_records_missing: 'Cloudflare вернул NOERROR, но не нашёл записей A или AAAA для этого имени хоста.',
+      application_host_unavailable: 'Сервер приложения не ответил. Причиной могут быть DNS, маршрутизация, TLS, брандмауэр или недоступность сервера.',
+      cloudflare_doh_unavailable: 'Не удалось связаться с Cloudflare DNS-over-HTTPS или проверить его ответ.',
+      possible_dns_interference: 'Проверки DNS дали неоднозначные результаты. Повторите попытку; этих данных недостаточно для подтверждения блокировки DNS.',
+      inconclusive: 'Результаты неоднозначны. Повторите диагностику.',
+      caveat: 'JavaScript не может проверить стандартный DNS-резолвер вашего устройства. Результат DoH не доказывает блокировку браузерного резолвера.',
+    }),
+    fr: Object.freeze({
+      disabled: 'Le diagnostic réseau est désactivé pour ce projet.',
+      cancelled: 'Le diagnostic a été annulé avant la fin.',
+      normal_connectivity: 'Cloudflare DNS a résolu ce nom d’hôte et l’hôte de l’application a répondu.',
+      general_internet_failure: 'Le navigateur signale l’absence de connexion réseau et l’hôte de l’application n’a pas répondu.',
+      backend_unavailable: 'L’hôte de l’application répond, mais pas son point d’accès principal configuré.',
+      dns_resolution_failure: 'Cloudflare DNS a renvoyé NXDOMAIN pour le nom d’hôte actuel.',
+      dns_records_missing: 'Cloudflare a renvoyé NOERROR sans enregistrement A ni AAAA pour ce nom d’hôte.',
+      application_host_unavailable: 'L’hôte de l’application n’a pas répondu. Le DNS, le routage, TLS, un pare-feu ou le serveur peut être en cause.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS n’a pas pu être joint ou validé.',
+      possible_dns_interference: 'Les vérifications DNS ont donné des résultats mitigés. Réessayez ; cela ne suffit pas à confirmer une interférence DNS.',
+      inconclusive: 'Les résultats ne sont pas concluants. Relancez le diagnostic.',
+      caveat: 'JavaScript ne peut pas inspecter le résolveur DNS normal de votre appareil. Un résultat DoH ne prouve pas que le résolveur du navigateur est bloqué.',
+    }),
+    it: Object.freeze({
+      disabled: 'La diagnostica di rete è disabilitata per questo progetto.',
+      cancelled: 'La diagnostica è stata annullata prima del completamento.',
+      normal_connectivity: 'Cloudflare DNS ha risolto questo nome host e l’host dell’app ha risposto.',
+      general_internet_failure: 'Il browser segnala assenza di connessione e l’host dell’applicazione non ha risposto.',
+      backend_unavailable: 'L’host dell’applicazione risponde, ma il backend configurato non risponde.',
+      dns_resolution_failure: 'Cloudflare DNS ha restituito NXDOMAIN per il nome host corrente.',
+      dns_records_missing: 'Cloudflare ha restituito NOERROR ma nessun record A o AAAA per questo nome host.',
+      application_host_unavailable: 'L’host dell’app non ha risposto. Possono essere coinvolti DNS, instradamento, TLS, firewall o disponibilità del server.',
+      cloudflare_doh_unavailable: 'Impossibile raggiungere o verificare Cloudflare DNS-over-HTTPS.',
+      possible_dns_interference: 'I controlli DNS hanno prodotto risultati contrastanti. Riprova; non ci sono prove sufficienti di interferenza DNS.',
+      inconclusive: 'I risultati non sono conclusivi. Ripeti la diagnostica.',
+      caveat: 'JavaScript non può esaminare il resolver DNS normale del dispositivo. Un risultato DoH non dimostra che il resolver del browser sia bloccato.',
+    }),
+    de: Object.freeze({
+      disabled: 'Die Netzwerkdiagnose ist für dieses Projekt deaktiviert.',
+      cancelled: 'Die Diagnose wurde vor dem Abschluss abgebrochen.',
+      normal_connectivity: 'Cloudflare DNS hat diesen Hostnamen aufgelöst und der Anwendungshost hat geantwortet.',
+      general_internet_failure: 'Der Browser meldet keine Netzwerkverbindung und der Anwendungshost hat nicht geantwortet.',
+      backend_unavailable: 'Der Anwendungshost antwortet, aber der konfigurierte Backend-Endpunkt nicht.',
+      dns_resolution_failure: 'Cloudflare DNS hat NXDOMAIN für den aktuellen Hostnamen zurückgegeben.',
+      dns_records_missing: 'Cloudflare hat NOERROR gemeldet, aber keine A- oder AAAA-Adresseinträge gefunden.',
+      application_host_unavailable: 'Der Anwendungshost hat nicht geantwortet. Mögliche Ursachen sind DNS, Routing, TLS, Firewall oder der Server.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS konnte nicht erreicht oder bestätigt werden.',
+      possible_dns_interference: 'DNS-Prüfungen lieferten gemischte Ergebnisse. Bitte erneut prüfen; das belegt keine DNS-Störung.',
+      inconclusive: 'Die Ergebnisse sind nicht eindeutig. Wiederholen Sie die Diagnose.',
+      caveat: 'JavaScript kann den regulären DNS-Resolver Ihres Geräts nicht einsehen. Ein DoH-Ergebnis beweist keine Blockierung im Browser.',
+    }),
+    sv: Object.freeze({
+      disabled: 'Nätverksdiagnostik är inaktiverad för det här projektet.',
+      cancelled: 'Diagnostiken avbröts innan den slutfördes.',
+      normal_connectivity: 'Cloudflare DNS slog upp värdnamnet och appvärden svarade.',
+      general_internet_failure: 'Webbläsaren rapporterar ingen nätverksanslutning och appvärden svarade inte.',
+      backend_unavailable: 'Appvärden svarar, men dess konfigurerade backend gjorde det inte.',
+      dns_resolution_failure: 'Cloudflare DNS returnerade NXDOMAIN för det aktuella värdnamnet.',
+      dns_records_missing: 'Cloudflare returnerade NOERROR men inga A- eller AAAA-poster för värdnamnet.',
+      application_host_unavailable: 'Appvärden svarade inte. DNS, routing, TLS, brandvägg eller serverfel kan ligga bakom.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS kunde inte nås eller verifieras.',
+      possible_dns_interference: 'DNS-kontrollerna gav blandade resultat. Försök igen; det räcker inte som bevis på DNS-störning.',
+      inconclusive: 'Resultaten är otydliga. Försök köra diagnostiken igen.',
+      caveat: 'JavaScript kan inte inspektera enhetens vanliga DNS-resolver. Ett DoH-resultat bevisar inte att webbläsarens resolver är blockerad.',
+    }),
+    nl: Object.freeze({
+      disabled: 'Netwerkdiagnostiek is uitgeschakeld voor dit project.',
+      cancelled: 'Diagnostiek is geannuleerd voordat deze was voltooid.',
+      normal_connectivity: 'Cloudflare DNS heeft deze hostnaam omgezet en de applicatiehost heeft gereageerd.',
+      general_internet_failure: 'De browser meldt geen netwerkverbinding en de applicatiehost heeft niet gereageerd.',
+      backend_unavailable: 'De applicatiehost reageert, maar de geconfigureerde backend niet.',
+      dns_resolution_failure: 'Cloudflare DNS gaf NXDOMAIN terug voor de huidige hostnaam.',
+      dns_records_missing: 'Cloudflare gaf NOERROR terug maar geen A- of AAAA-adresrecords voor deze hostnaam.',
+      application_host_unavailable: 'De applicatiehost reageerde niet. DNS, routering, TLS, firewall of de server kan de oorzaak zijn.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS kon niet worden bereikt of gevalideerd.',
+      possible_dns_interference: 'DNS-controles gaven gemengde resultaten. Probeer opnieuw; dit is onvoldoende bewijs voor DNS-storing.',
+      inconclusive: 'Resultaten zijn onbeslist. Voer de diagnostiek opnieuw uit.',
+      caveat: 'JavaScript kan de normale DNS-resolver van je apparaat niet inspecteren. Een DoH-resultaat bewijst niet dat de browser-resolver is geblokkeerd.',
+    }),
+    no: Object.freeze({
+      disabled: 'Nettverksdiagnostikk er deaktivert for dette prosjektet.',
+      cancelled: 'Diagnostikken ble avbrutt før den ble ferdig.',
+      normal_connectivity: 'Cloudflare DNS løste dette vertsnavnet og appverten svarte.',
+      general_internet_failure: 'Nettleseren melder ingen nettverkstilkobling, og appverten svarte ikke.',
+      backend_unavailable: 'Appverten svarer, men det konfigurerte backend-endepunktet gjorde det ikke.',
+      dns_resolution_failure: 'Cloudflare DNS returnerte NXDOMAIN for gjeldende vertsnavn.',
+      dns_records_missing: 'Cloudflare returnerte NOERROR, men ingen A- eller AAAA-adresseoppføringer for dette vertsnavnet.',
+      application_host_unavailable: 'Appverten svarte ikke. DNS, ruting, TLS, brannmur eller servertilgjengelighet kan være årsaken.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS kunne ikke nås eller bekreftes.',
+      possible_dns_interference: 'DNS-sjekker ga blandede resultater. Prøv igjen; dette er ikke nok til å påvise DNS-forstyrrelse.',
+      inconclusive: 'Resultatene er ikke entydige. Kjør diagnostikken på nytt.',
+      caveat: 'JavaScript kan ikke inspisere enhetens vanlige DNS-løser. Et DoH-resultat beviser ikke at nettleserens løser er blokkert.',
+    }),
+    da: Object.freeze({
+      disabled: 'Netværksdiagnosticering er deaktiveret for dette projekt.',
+      cancelled: 'Diagnosticeringen blev annulleret, før den blev færdig.',
+      normal_connectivity: 'Cloudflare DNS slog værtsnavnet op, og app-værten svarede.',
+      general_internet_failure: 'Browseren melder om ingen netværksforbindelse, og app-værten svarede ikke.',
+      backend_unavailable: 'App-værten svarer, men det konfigurerede backend-slutpunkt gjorde ikke.',
+      dns_resolution_failure: 'Cloudflare DNS returnerede NXDOMAIN for det aktuelle værtsnavn.',
+      dns_records_missing: 'Cloudflare returnerede NOERROR, men ingen A- eller AAAA-adresseposter for dette værtsnavn.',
+      application_host_unavailable: 'App-værten svarede ikke. DNS, routing, TLS, firewall eller serverfejl kan være årsagen.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS kunne ikke nås eller bekræftes.',
+      possible_dns_interference: 'DNS-tjek gav blandede resultater. Prøv igen; dette er ikke bevis nok på DNS-forstyrrelse.',
+      inconclusive: 'Resultaterne er ikke entydige. Kør diagnosticeringen igen.',
+      caveat: 'JavaScript kan ikke inspicere enhedens almindelige DNS-resolver. Et DoH-resultat beviser ikke, at browserens resolver er blokeret.',
+    }),
+    et: Object.freeze({
+      disabled: 'Võrgudiagnostika on selle projekti jaoks keelatud.',
+      cancelled: 'Diagnostika tühistati enne lõpuleviimist.',
+      normal_connectivity: 'Cloudflare DNS lahendas selle hostinime ja rakenduse host vastas.',
+      general_internet_failure: 'Brauser teatab võrguühenduse puudumisest ja rakenduse host ei vastanud.',
+      backend_unavailable: 'Rakenduse host vastab, kuid seadistatud taustateenuse lõpp-punkt mitte.',
+      dns_resolution_failure: 'Cloudflare DNS tagastas selle hostinime kohta vastuse NXDOMAIN.',
+      dns_records_missing: 'Cloudflare tagastas NOERROR, kuid A- või AAAA-aadressikirjeid sellele hostinimele ei leitud.',
+      application_host_unavailable: 'Rakenduse host ei vastanud. Põhjuseks võib olla DNS, marsruutimine, TLS, tulemüür või serveri tõrge.',
+      cloudflare_doh_unavailable: 'Cloudflare DNS-over-HTTPS teenusega ei õnnestunud ühendust saada ega vastust kinnitada.',
+      possible_dns_interference: 'DNS-kontrollid andsid vastakaid tulemusi. Proovi uuesti; see ei tõenda DNS-i häirimist.',
+      inconclusive: 'Tulemused on ebaselged. Korda diagnostikat.',
+      caveat: 'JavaScript ei saa kontrollida seadme tavapärast DNS-lahendajat. DoH-tulemus ei tõenda, et brauseri lahendaja on blokeeritud.',
+    }),
+    es: Object.freeze({
+      disabled: 'El diagnóstico de red está desactivado para este proyecto.',
+      cancelled: 'El diagnóstico se canceló antes de terminar.',
+      normal_connectivity: 'Cloudflare DNS resolvió este nombre de host y el host de la aplicación respondió.',
+      general_internet_failure: 'El navegador informa que no hay conexión de red y el host de la aplicación no respondió.',
+      backend_unavailable: 'El host de la aplicación responde, pero su backend configurado no.',
+      dns_resolution_failure: 'Cloudflare DNS devolvió NXDOMAIN para el nombre de host actual.',
+      dns_records_missing: 'Cloudflare devolvió NOERROR pero sin registros A ni AAAA para este nombre de host.',
+      application_host_unavailable: 'El host de la aplicación no respondió. Puede deberse a DNS, enrutamiento, TLS, cortafuegos o disponibilidad del servidor.',
+      cloudflare_doh_unavailable: 'No se pudo conectar con Cloudflare DNS-over-HTTPS ni validar su respuesta.',
+      possible_dns_interference: 'Las comprobaciones DNS arrojaron resultados mixtos. Vuelve a intentarlo; no basta para identificar una interferencia DNS.',
+      inconclusive: 'Los resultados no son concluyentes. Vuelve a ejecutar el diagnóstico.',
+      caveat: 'JavaScript no puede inspeccionar el resolvedor DNS habitual de tu dispositivo. Un resultado DoH no demuestra que el resolvedor del navegador esté bloqueado.',
+    }),
+  });
+  function localizeDnsMessage(locale, classification, fallbackMessage, includeCaveat) {
+    const code = resolveLocale({ explicit: locale });
+    if (code === 'en' && fallbackMessage) {
+      return includeCaveat ? { message: fallbackMessage, caveat: DNS_MESSAGES.en.caveat } : { message: fallbackMessage, caveat: '' };
+    }
+    const key = String(classification || 'inconclusive').toLowerCase();
+    const table = DNS_MESSAGES[code] || DNS_MESSAGES.en;
+    const message = Object.prototype.hasOwnProperty.call(table, key)
+      ? table[key]
+      : (fallbackMessage || table.inconclusive);
+    const caveat = includeCaveat ? (table.caveat || DNS_MESSAGES.en.caveat) : '';
+    return { message: message, caveat: caveat };
+  }
+  function chromeHandoffLabels(locale) {
+    const code = resolveLocale({ explicit: locale });
+    return Object.freeze({
+      title: translate(code, 'chromeTitle'),
+      intro: translate(code, 'chromeIntro'),
+      stepCopy: translate(code, 'chromeStepCopy'),
+      stepSwitch: translate(code, 'chromeStepSwitch'),
+      stepPaste: translate(code, 'chromeStepPaste'),
+      openLabel: translate(code, 'chromeOpenLabel'),
+      dismissLabel: translate(code, 'chromeDismissLabel'),
+      copyLabel: translate(code, 'chromeCopyLabel'),
+      copiedLabel: translate(code, 'chromeCopiedLabel'),
+      copyManual: translate(code, 'chromeCopyManual'),
+    });
+  }
 
   /* --- core/capabilities.js --- */
 
@@ -340,6 +2255,165 @@
       return out;
     }
     return undefined;
+  }
+  const INSTALL_EXPERIENCE_DEFAULTS = Object.freeze({
+    enabled: true,
+    presentation: 'manual',
+    locale: 'auto',
+    installDescription: '',
+    disableInstallDescription: false,
+    disableScreenshots: false,
+    disableScreenshotsApple: false,
+    disableScreenshotsChrome: false,
+    manualHowTo: false,
+    disableChrome: false,
+    disableClose: false,
+    disableAndroidFallback: false,
+    useLocalStorage: false,
+    manifestUrl: '',
+    manifestId: '',
+    styles: Object.freeze({}),
+  });
+
+  const INSTALL_EXPERIENCE_BOOLEAN_KEYS = [
+    'enabled',
+    'disableInstallDescription',
+    'disableScreenshots',
+    'disableScreenshotsApple',
+    'disableScreenshotsChrome',
+    'manualHowTo',
+    'disableChrome',
+    'disableClose',
+    'disableAndroidFallback',
+    'useLocalStorage',
+  ];
+
+  function isSafeInstallStyleValue(value) {
+    if (typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.length > 120) return false;
+    if (/[;{}<>\\]/.test(trimmed)) return false;
+    if (/(?:url|expression|javascript|vbscript|data)\s*[:(]/i.test(trimmed)) return false;
+    return true;
+  }
+  function normalizeInstallLocale(value, fallback) {
+    if (typeof value !== 'string') return fallback || 'auto';
+    const trimmed = value.trim().replace(/_/g, '-');
+    if (!trimmed || trimmed.toLowerCase() === 'auto') return 'auto';
+    if (/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(trimmed)) return trimmed;
+    return fallback || 'auto';
+  }
+  function normalizeInstallExperience(raw, fallbackConfig) {
+    const base = fallbackConfig && typeof fallbackConfig === 'object'
+      ? clone(fallbackConfig)
+      : clone(INSTALL_EXPERIENCE_DEFAULTS);
+    base.styles = base.styles && typeof base.styles === 'object' && !Array.isArray(base.styles) ? base.styles : {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base;
+
+    INSTALL_EXPERIENCE_BOOLEAN_KEYS.forEach(function (key) {
+      if (typeof raw[key] === 'boolean') base[key] = raw[key];
+    });
+    if (raw.presentation === 'manual' || raw.presentation === 'auto') {
+      base.presentation = raw.presentation;
+    }
+    if (raw.locale !== undefined) {
+      base.locale = normalizeInstallLocale(raw.locale, base.locale);
+    }
+    if (typeof raw.installDescription === 'string' && !isExecutableString(raw.installDescription)) {
+      base.installDescription = safeText(raw.installDescription, 280).trim();
+    }
+    if (typeof raw.manifestId === 'string' && !isExecutableString(raw.manifestId)) {
+      base.manifestId = safeText(raw.manifestId, 180).trim();
+    }
+    if (typeof raw.manifestUrl === 'string') {
+      const candidate = raw.manifestUrl.trim();
+      if (!candidate) base.manifestUrl = '';
+      else if (safeRelativeUrl(candidate) && !isExecutableString(candidate)) base.manifestUrl = safeText(candidate, 200);
+    }
+    if (raw.styles && typeof raw.styles === 'object' && !Array.isArray(raw.styles)) {
+      const safeStyles = Object.assign({}, base.styles);
+      Object.keys(raw.styles).slice(0, 20).forEach(function (prop) {
+        if (isUnsafeKey(prop) || !/^--[a-zA-Z0-9_-]{1,50}$/.test(prop)) return;
+        if (isSafeInstallStyleValue(raw.styles[prop])) {
+          safeStyles[prop] = raw.styles[prop].trim();
+        }
+      });
+      base.styles = safeStyles;
+    }
+    return base;
+  }
+  function inspectInstallExperienceIssues(raw, prefix) {
+    const issues = [];
+    const basePath = prefix || 'installExperience';
+    if (raw === undefined) return issues;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      issues.push({
+        code: 'invalid_install_experience',
+        path: basePath,
+        message: 'Install experience configuration must be a plain object.',
+      });
+      return issues;
+    }
+    INSTALL_EXPERIENCE_BOOLEAN_KEYS.forEach(function (key) {
+      if (raw[key] !== undefined && typeof raw[key] !== 'boolean') {
+        issues.push({
+          code: 'invalid_install_flag',
+          path: basePath + '.' + key,
+          message: 'Install experience flags must use boolean values.',
+        });
+      }
+    });
+    if (raw.presentation !== undefined && raw.presentation !== 'manual' && raw.presentation !== 'auto') {
+      issues.push({
+        code: 'invalid_install_presentation',
+        path: basePath + '.presentation',
+        message: 'Install presentation must be "manual" or "auto".',
+      });
+    }
+    if (raw.locale !== undefined) {
+      const cleanedLocale = typeof raw.locale === 'string' ? raw.locale.trim().replace(/_/g, '-') : '';
+      const validLocale = typeof raw.locale === 'string' &&
+        (cleanedLocale.toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleanedLocale));
+      if (!validLocale) {
+        issues.push({
+          code: 'invalid_install_locale',
+          path: basePath + '.locale',
+          message: 'Install locale must be "auto" or a valid BCP-47 language tag.',
+        });
+      }
+    }
+    if (raw.manifestUrl !== undefined) {
+      const validUrl = typeof raw.manifestUrl === 'string' &&
+        (raw.manifestUrl.trim() === '' || (safeRelativeUrl(raw.manifestUrl.trim()) && !isExecutableString(raw.manifestUrl)));
+      if (!validUrl) {
+        issues.push({
+          code: 'unsafe_install_manifest_url',
+          path: basePath + '.manifestUrl',
+          message: 'Install manifest URL must be a safe relative path.',
+        });
+      }
+    }
+    if (raw.styles !== undefined) {
+      if (!raw.styles || typeof raw.styles !== 'object' || Array.isArray(raw.styles)) {
+        issues.push({
+          code: 'invalid_install_styles',
+          path: basePath + '.styles',
+          message: 'Install styles must be a plain object of CSS custom properties.',
+        });
+      } else {
+        Object.keys(raw.styles).forEach(function (key) {
+          if (isUnsafeKey(key)) return;
+          if (!/^--[a-zA-Z0-9_-]{1,50}$/.test(key) || !isSafeInstallStyleValue(raw.styles[key])) {
+            issues.push({
+              code: 'unsafe_install_style',
+              path: basePath + '.styles.' + key,
+              message: 'Install styles must use safe CSS custom property names and values.',
+            });
+          }
+        });
+      }
+    }
+    return issues;
   }
 
   /* --- theme/index.js --- */
@@ -1109,6 +3183,7 @@
   /* --- domain/index.js --- */
 
   const DOMAIN_DEFAULTS = {
+    language: 'auto',
     identity: {
       name: 'You.Ge Assistant',
       shortName: 'You.Ge',
@@ -1146,6 +3221,7 @@
       diagnostics: true,
       dnsRecovery: true,
     },
+    installExperience: clone(INSTALL_EXPERIENCE_DEFAULTS),
     instructions: {},
     metadata: {},
     project: null,
@@ -1340,6 +3416,7 @@
   function validateDomainConfig(raw) {
     const safeInput = isRecord(raw) ? raw : {};
     const config = merge(clone(DOMAIN_DEFAULTS), {
+      language: safeInput.language,
       identity: safeInput.identity,
       branding: safeInput.branding,
       pwa: safeInput.pwa,
@@ -1348,12 +3425,18 @@
       metadata: safeInput.metadata,
       shortcuts: safeInput.shortcuts,
       diagnostics: safeInput.diagnostics,
+      installExperience: safeInput.installExperience,
       project: safeInput.project,
     });
 
-    ['identity', 'branding', 'pwa', 'features', 'instructions', 'metadata', 'diagnostics'].forEach(function (key) {
+    ['identity', 'branding', 'pwa', 'features', 'installExperience', 'instructions', 'metadata', 'diagnostics'].forEach(function (key) {
       if (!isRecord(config[key])) config[key] = clone(DOMAIN_DEFAULTS[key] || {});
     });
+
+    const rawLanguage = safeInput.language !== undefined
+      ? safeInput.language
+      : (isRecord(safeInput.identity) && safeInput.identity.language !== undefined ? safeInput.identity.language : 'auto');
+    config.language = normalizeInstallLocale(rawLanguage, DOMAIN_DEFAULTS.language);
 
     if (safeInput.project && typeof safeInput.project === 'object' && !Array.isArray(safeInput.project)) {
       const projectId = safeText(safeInput.project.id, 80).trim();
@@ -1431,6 +3514,7 @@
     }) : [];
 
     config.diagnostics = sanitizeDiagnosticsConfig(config.diagnostics, config.pwa.basePath || '/');
+    config.installExperience = normalizeInstallExperience(safeInput.installExperience, DOMAIN_DEFAULTS.installExperience);
 
     config.features = merge(clone(DOMAIN_DEFAULTS.features), config.features || {});
     Object.keys(DOMAIN_DEFAULTS.features).forEach(function (key) {
@@ -1461,6 +3545,15 @@
         const normalizedProjectId = typeof projectId === 'string' ? safeText(projectId, 80).trim() : '';
         if (typeof projectId !== 'string' || !normalizedProjectId || projectId.length > 80 || normalizedProjectId !== projectId.trim()) {
           add('invalid_project_id', 'project.id', 'Project configuration requires a non-empty, safe string id of at most 80 characters.');
+        }
+      }
+
+      if (source.language !== undefined) {
+        const cleanedLang = typeof source.language === 'string' ? source.language.trim().replace(/_/g, '-') : '';
+        const validLang = typeof source.language === 'string' &&
+          (cleanedLang.toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleanedLang));
+        if (!validLang) {
+          add('invalid_language', 'language', 'Language must be "auto" or a valid BCP-47 language tag.');
         }
       }
 
@@ -1538,6 +3631,12 @@
             add('invalid_diagnostics_probe', 'diagnostics.' + key,
               'Diagnostics probe paths must be safe same-origin relative or root-relative paths.');
           }
+        });
+      }
+
+      if (source.installExperience !== undefined) {
+        inspectInstallExperienceIssues(source.installExperience, 'installExperience').forEach(function (issue) {
+          add(issue.code, issue.path, issue.message);
         });
       }
     } catch (error) {
@@ -1869,6 +3968,7 @@
       },
     };
     if (resolved.features.sharing === false) delete output.share_target;
+    if (resolved.language && resolved.language !== 'auto') output.lang = resolved.language;
     return output;
   }
 
@@ -1914,6 +4014,7 @@
     project: null,
     projectId: '',
     domain: '',
+    locale: 'auto',
     position: 'bottom-right',
     offsets: { x: 20, y: 20 },
     modules: {
@@ -1946,6 +4047,7 @@
     },
     actions: [],
     features: [],
+    installExperience: clone(INSTALL_EXPERIENCE_DEFAULTS),
     // The documented public shape of `theme`. It is resolved into a stable record
     // by `src/theme/index.js`; the flat `themeMode` string preserves the original
     // 0.x `theme: 'auto' | 'light' | 'dark'` contract for `getConfig().theme`.
@@ -2024,6 +4126,12 @@
     if (source.project !== undefined) out.project = normalizeProjectConfig(source.project);
     if (source.projectId !== undefined) out.projectId = safeText(source.projectId, 80);
     if (typeof source.domain === 'string') out.domain = safeText(source.domain, 253);
+    if (source.locale !== undefined) {
+      const cleanedLocale = typeof source.locale === 'string' ? source.locale.trim().replace(/_/g, '-') : '';
+      if (cleanedLocale && (cleanedLocale.toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleanedLocale))) {
+        out.locale = normalizeInstallLocale(cleanedLocale, 'auto');
+      }
+    }
     if (source.position !== undefined && POSITIONS.indexOf(source.position) !== -1) {
       out.position = source.position;
     }
@@ -2076,6 +4184,17 @@
     }
     if (Array.isArray(source.actions)) out.actions = normalizeActions(source.actions);
     if (Array.isArray(source.features)) out.features = normalizeFeatures(source.features);
+    if (source.installExperience && typeof source.installExperience === 'object' && !Array.isArray(source.installExperience)) {
+      out.installExperience = normalizeInstallExperience(source.installExperience, {});
+      // Preserve only explicit keys in the override layer so layered merging doesn't clobber defaults/published keys.
+      const explicitInstall = {};
+      Object.keys(out.installExperience).forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(source.installExperience, key)) {
+          explicitInstall[key] = out.installExperience[key];
+        }
+      });
+      out.installExperience = explicitInstall;
+    }
     // `theme` accepts both the original string form (`'auto' | 'light' | 'dark'`)
     // and the object form (`{ mode, inheritHost, tokens, host, variables }`).
     // Anything else — an unsupported mode, an array, a number — is ignored here
@@ -2107,6 +4226,7 @@
     if (layer.project !== undefined) base.project = clone(layer.project);
     if (layer.projectId) base.projectId = layer.projectId;
     if (layer.domain) base.domain = layer.domain;
+    if (layer.locale) base.locale = layer.locale;
     if (layer.position) base.position = layer.position;
     if (layer.offsets) {
       if (layer.offsets.x !== undefined) base.offsets.x = layer.offsets.x;
@@ -2129,6 +4249,9 @@
     }
     if (layer.actions !== undefined) base.actions = clone(layer.actions);
     if (layer.features !== undefined) base.features = clone(layer.features);
+    if (layer.installExperience && typeof layer.installExperience === 'object') {
+      base.installExperience = normalizeInstallExperience(layer.installExperience, base.installExperience);
+    }
     if (layer.theme) {
       base.theme = clone(layer.theme);
       base.themeMode = layer.theme.mode || 'auto';
@@ -2339,6 +4462,18 @@
         if (warnings.indexOf(code) === -1) warnings.push(code);
       });
     }
+    if (input.installExperience !== undefined) {
+      inspectInstallExperienceIssues(input.installExperience, 'installExperience').forEach(function (issue) {
+        if (warnings.indexOf(issue.code) === -1) warnings.push(issue.code);
+      });
+    }
+    if (input.locale !== undefined) {
+      const rawLoc = typeof input.locale === 'string' ? input.locale.trim().replace(/_/g, '-') : '';
+      const validLoc = Boolean(rawLoc && (rawLoc.toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(rawLoc)));
+      if (!validLoc && warnings.indexOf('invalid_locale') === -1) {
+        warnings.push('invalid_locale');
+      }
+    }
 
     const overrideLayer = extractLayerOverrides(sanitizedOverrides);
     if (Object.keys(overrideLayer).length > 0 && source === 'defaults') {
@@ -2401,19 +4536,21 @@
    * Shared by the SDK API boundary and the adapter's live gate so a disabled
    * capability always reports the same thing, without touching the network.
    */
-  function disabledDiagnosticsResult(message) {
+  function disabledDiagnosticsResult(message, locale) {
+    const lang = resolveLocale({ explicit: locale });
     return {
       status: 'disabled',
       classification: 'disabled',
-      message: safeText(message, 240) || 'Network diagnostics are disabled for this project.',
+      message: safeText(message, 240) || translate(lang, 'diagDisabledProject'),
       failed: false,
     };
   }
-  function cancelledDiagnosticsResult(reason) {
+  function cancelledDiagnosticsResult(reason, locale) {
+    const lang = resolveLocale({ explicit: locale });
     return {
       status: 'cancelled',
       classification: 'cancelled',
-      message: safeText(reason, 200) || 'Diagnostics were cancelled.',
+      message: safeText(reason, 200) || translate(lang, 'diagCancelled'),
       failed: false,
       cancelled: true,
     };
@@ -2496,6 +4633,10 @@
     function enabled() {
       return typeof opts.isEnabled === 'function' ? opts.isEnabled() !== false : true;
     }
+    function currentLocale() {
+      const rawLocale = typeof opts.getLocale === 'function' ? opts.getLocale() : opts.locale;
+      return resolveLocale({ explicit: rawLocale });
+    }
     // Per-run ownership record: the run that started last owns the controller,
     // its abort listeners and its detach function. A run's finalizer retires
     // only its own record, so a stale run can never detach a newer run's
@@ -2507,15 +4648,16 @@
 
     function run(runOptions) {
       if (inFlight) return inFlight;
+      const lang = currentLocale();
       if (!enabled()) {
-        const disabled = disabledDiagnosticsResult();
+        const disabled = disabledDiagnosticsResult(undefined, lang);
         if (typeof opts.onResult === 'function') opts.onResult(disabled);
         return Promise.resolve(disabled);
       }
       const runOpts = Object.assign({}, runOptions || {});
       const callerSignal = resolveRunSignal(runOpts.signal);
       if (callerSignal && callerSignal.aborted) {
-        const cancelled = cancelledDiagnosticsResult('Diagnostics were cancelled before they started.');
+        const cancelled = cancelledDiagnosticsResult(translate(lang, 'diagCancelledBeforeStart'), lang);
         if (typeof opts.onResult === 'function') opts.onResult(cancelled);
         return Promise.resolve(cancelled);
       }
@@ -2523,7 +4665,7 @@
       if (!runner) {
         const unavailable = {
           classification: 'unknown',
-          message: 'Network diagnostics are not available on this page.',
+          message: translate(lang, 'diagUnavailable'),
           status: 'unavailable',
         };
         if (typeof opts.onResult === 'function') opts.onResult(unavailable);
@@ -2572,26 +4714,27 @@
       const finished = Promise.resolve()
         .then(function () {
           // Cancelled before the runner started: skip the network work entirely.
-          if (cancelled) throw Object.assign(new Error('Diagnostics were cancelled.'), { kind: 'cancelled' });
+          if (cancelled) throw Object.assign(new Error(translate(currentLocale(), 'diagCancelled')), { kind: 'cancelled' });
           // The capability may have been disabled between the API call and this
           // microtask (a synchronous `configure()` can do that): never start the
           // runner for a disabled capability.
-          if (!enabled()) throw Object.assign(new Error('Network diagnostics are disabled for this project.'), { kind: 'disabled' });
+          if (!enabled()) throw Object.assign(new Error(translate(currentLocale(), 'diagDisabledProject')), { kind: 'disabled' });
           return runner(runOpts);
         })
         .then(function (result) {
+          const activeLocale = currentLocale();
           // Disabled while the runner was in flight: the late result is dropped.
           // Checked before cancellation, because disabling the capability aborts
           // the owned controller too — the reason a run stopped is "disabled".
           if (!enabled()) {
-            const disabled = disabledDiagnosticsResult();
+            const disabled = disabledDiagnosticsResult(undefined, activeLocale);
             if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
             return disabled;
           }
           // Once the run was cancelled, a late resolution is discarded: a
           // cancellation must never turn into a reported result.
           if (cancelled) {
-            const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
+            const stopped = cancelledDiagnosticsResult(translate(activeLocale, 'diagCancelled'), activeLocale);
             if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
             return stopped;
           }
@@ -2600,22 +4743,23 @@
           return safeResult;
         })
         .catch(function (error) {
+          const activeLocale = currentLocale();
           // A capability disabled before or during the run is a state, not a
           // failure and not a cancellation: it must not raise a critical notice.
           if (!enabled() || (error && error.kind === 'disabled')) {
-            const disabled = disabledDiagnosticsResult();
+            const disabled = disabledDiagnosticsResult(undefined, activeLocale);
             if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
             return disabled;
           }
           // A run stopped by its own signal is a cancellation, never a failure.
           if (cancelled || (error && error.kind === 'cancelled')) {
-            const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
+            const stopped = cancelledDiagnosticsResult(translate(activeLocale, 'diagCancelled'), activeLocale);
             if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
             return stopped;
           }
           const failed = {
             classification: 'error',
-            message: safeText(error && error.message, 200) || 'Diagnostics failed.',
+            message: safeText(error && error.message, 200) || translate(activeLocale, 'diagFailed'),
             status: 'error',
             failed: true,
           };
@@ -2675,19 +4819,34 @@
     }
     return state;
   }
+  function resolveInstallationCopy(locale) {
+    const lang = resolveLocale({ explicit: locale });
+    return Object.freeze({
+      language: lang,
+      installActionLabel: translate(lang, 'installActionLabel'),
+      instructionsActionLabel: translate(lang, 'instructionsActionLabel'),
+      installAvailableTitle: translate(lang, 'installAvailableTitle'),
+      nativeAvailableMessage: translate(lang, 'nativeAvailableMessage'),
+      iosAvailableMessage: translate(lang, 'iosAvailableMessage'),
+      genericAvailableMessage: translate(lang, 'genericAvailableMessage'),
+      iosShortcutHint: translate(lang, 'iosShortcutHint'),
+      genericHint: translate(lang, 'genericHint'),
+    });
+  }
   function deriveInstallationState(options) {
     const opts = options || {};
     const pwa = opts.pwa || null;
     const moduleEnabled = opts.enabled !== false;
-    const state = opts.detection === false ? {} : readPwaSnapshot(pwa);
+    const detectionEnabled = opts.detection !== false;
+    const state = detectionEnabled ? readPwaSnapshot(pwa) : {};
 
     let installed = Boolean(state.installed || state.standalone);
     let canInstall = Boolean(state.canInstall);
     let ios = Boolean(state.ios);
     let safari = Boolean(state.safari);
 
-    try { if (opts.detection !== false && !installed && pwa && typeof pwa.isInstalled === 'function') installed = Boolean(pwa.isInstalled()); } catch (error) { /* ignore */ }
-    try { if (opts.detection !== false && !canInstall && pwa && typeof pwa.canInstall === 'function') canInstall = Boolean(pwa.canInstall()); } catch (error) { /* ignore */ }
+    try { if (detectionEnabled && !installed && pwa && typeof pwa.isInstalled === 'function') installed = Boolean(pwa.isInstalled()); } catch (error) { /* ignore */ }
+    try { if (detectionEnabled && !canInstall && pwa && typeof pwa.canInstall === 'function') canInstall = Boolean(pwa.canInstall()); } catch (error) { /* ignore */ }
     try { if (!ios && pwa && typeof pwa.isIOS === 'function') ios = Boolean(pwa.isIOS()); } catch (error) { /* ignore */ }
     try { if (!safari && pwa && typeof pwa.isSafari === 'function') safari = Boolean(pwa.isSafari()); } catch (error) { /* ignore */ }
 
@@ -2702,6 +4861,18 @@
       else support = 'manual-generic';
     }
 
+    const installExp = opts.installExperience && typeof opts.installExperience === 'object' ? opts.installExperience : {};
+    const componentEnabled = Boolean(enabled && installExp.enabled !== false && state.installComponentEnabled !== false);
+    const presentation = installExp.presentation === 'auto'
+      ? 'auto'
+      : (installExp.presentation === 'manual'
+        ? 'manual'
+        : (state.installPresentation === 'auto' ? 'auto' : 'manual'));
+    const locale = String(installExp.locale || state.installLocale || 'auto');
+    const backend = !detectionEnabled || !enabled
+      ? 'none'
+      : String(state.installBackend || (canInstall ? 'beforeinstallprompt' : ((ios && safari) || support === 'manual-generic' ? 'manual' : 'none')));
+
     return {
       support: support,
       status: installed ? 'installed' : (support === 'none' ? 'unavailable' : 'available'),
@@ -2712,6 +4883,13 @@
       safari: safari,
       platform: ios ? 'ios' : (canInstall ? 'chromium' : 'generic'),
       nativeAvailable: canInstall,
+      componentEnabled: componentEnabled,
+      componentLoaded: detectionEnabled ? Boolean(state.installComponentLoaded) : false,
+      dialogOpen: detectionEnabled ? Boolean(state.installDialogOpen) : false,
+      presentation: presentation,
+      locale: locale,
+      backend: backend,
+      relatedAppsInstalled: detectionEnabled ? Boolean(state.relatedAppsInstalled) : false,
     };
   }
   function requestPwaInstall(options, promptOptions) {
@@ -2725,6 +4903,81 @@
     } catch (error) {
       return Promise.resolve({ outcome: 'error' });
     }
+  }
+  function showPwaInstallDialog(options, dialogOptions) {
+    const opts = options || {};
+    const pwa = opts.pwa || null;
+    if (opts.enabled === false || !pwa) {
+      return Promise.resolve({ shown: false, outcome: opts.enabled === false ? 'disabled' : 'unsupported', backend: 'none' });
+    }
+    try {
+      if (typeof pwa.showInstallDialog === 'function') {
+        return Promise.resolve(pwa.showInstallDialog(dialogOptions)).then(function (res) {
+          if (res && typeof res === 'object') return res;
+          return { shown: Boolean(res), outcome: res ? 'shown' : 'unsupported', backend: 'pwa-install' };
+        });
+      }
+      if (typeof pwa.promptInstall === 'function') {
+        return Promise.resolve(pwa.promptInstall(dialogOptions)).then(function (res) {
+          const outcome = res && res.outcome ? res.outcome : 'shown';
+          return { shown: outcome !== 'unsupported' && outcome !== 'error', outcome: outcome, backend: 'classic' };
+        });
+      }
+      return Promise.resolve({ shown: false, outcome: 'unsupported', backend: 'none' });
+    } catch (error) {
+      return Promise.resolve({ shown: false, outcome: 'error', backend: 'none' });
+    }
+  }
+  function hidePwaInstallDialog(options) {
+    const opts = options || {};
+    const pwa = opts.pwa || null;
+    if (!pwa || typeof pwa.hideInstallDialog !== 'function') {
+      return false;
+    }
+    try {
+      return Boolean(pwa.hideInstallDialog());
+    } catch (error) {
+      return false;
+    }
+  }
+  function triggerPwaInstall(options, promptOptions) {
+    const opts = options || {};
+    const pwa = opts.pwa || null;
+    if (opts.enabled === false || !pwa) {
+      return Promise.resolve({ outcome: opts.enabled === false ? 'disabled' : 'unsupported', backend: 'none' });
+    }
+    try {
+      if (typeof pwa.triggerInstall === 'function') {
+        return Promise.resolve(pwa.triggerInstall(promptOptions));
+      }
+      if (typeof pwa.promptInstall === 'function') {
+        return Promise.resolve(pwa.promptInstall(Object.assign({}, promptOptions, { immediate: true })));
+      }
+      return Promise.resolve({ outcome: 'unsupported', backend: 'none' });
+    } catch (error) {
+      return Promise.resolve({ outcome: 'error', backend: 'none' });
+    }
+  }
+  function readInstalledRelatedApps(options) {
+    const opts = options || {};
+    if (opts.detection === false) return Promise.resolve([]);
+    const pwa = opts.pwa || null;
+    const nav = opts.navigator || null;
+    try {
+      if (pwa && typeof pwa.getInstalledRelatedApps === 'function') {
+        return Promise.resolve(pwa.getInstalledRelatedApps()).then(function (apps) {
+          return Array.isArray(apps) ? apps : [];
+        }, function () { return []; });
+      }
+      if (nav && typeof nav.getInstalledRelatedApps === 'function') {
+        return Promise.resolve(nav.getInstalledRelatedApps()).then(function (apps) {
+          return Array.isArray(apps) ? apps : [];
+        }, function () { return []; });
+      }
+    } catch (error) {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve([]);
   }
 
   function readPwaHasUpdate(pwa) {
@@ -3198,6 +5451,7 @@
     let unsubscribePwa = null;
     let lastConditionKeys = new Set();
     let lastPwaHasUpdate;
+    let syncingPwaLocale = false;
 
     const nav = getNavigator();
     const conditions = {
@@ -3334,6 +5588,20 @@
       };
     }
 
+    function resolveActiveLocale(domainResolved) {
+      const dom = domainResolved || domainContext();
+      const explicitLocale = config.locale && config.locale !== 'auto'
+        ? config.locale
+        : (config.installExperience && config.installExperience.locale && config.installExperience.locale !== 'auto'
+            ? config.installExperience.locale
+            : 'auto');
+      return resolveLocale({
+        explicit: explicitLocale,
+        domainConfig: dom,
+        navigator: getNavigator(),
+      });
+    }
+
     function persistPublishedLkgIfDerivedProject() {
       if (configMeta.source === 'published' && !config.projectId && !(config.project && config.project.id) && rawOptionsState.publishedConfig) {
         const storage = getStorage();
@@ -3388,7 +5656,8 @@
       return endpoints.primary === 'failed' || endpoints.primary === 'unavailable' || endpoints.primary === 'degraded';
     }
 
-    function buildNotifications(project, installation, network) {
+    function buildNotifications(project, installation, network, lang) {
+      const locale = lang || resolveActiveLocale();
       const out = [];
       const activeKeys = new Set();
 
@@ -3407,82 +5676,82 @@
       if (!network.online) {
         add({
           id: 'network:offline', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
-          critical: true, dismissible: false, title: 'No connection',
-          message: 'The app cannot reach the network. Open diagnostics or recovery guidance.',
+          critical: true, dismissible: false, title: translate(locale, 'offlineTitle'),
+          message: translate(locale, 'offlineMessage'),
           actionId: 'diagnostics',
         }, 'network:offline');
       }
       if (dnsFailure(network.dns)) {
         add({
           id: 'dns:failure', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
-          critical: true, dismissible: false, title: 'DNS resolution problem',
-          message: network.dns.message || 'The current hostname could not be resolved. Diagnostics are available.',
+          critical: true, dismissible: false, title: translate(locale, 'dnsTitle'),
+          message: network.dns.message || translate(locale, 'dnsMessage'),
           actionId: 'diagnostics',
         }, 'dns:failure');
       }
       if (network.online && connectivityFailure(network.dns)) {
         add({
           id: 'network:unreachable', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
-          critical: true, dismissible: false, title: 'Connection problem',
-          message: network.dns.message || 'The application host or its backend did not respond.',
+          critical: true, dismissible: false, title: translate(locale, 'unreachableTitle'),
+          message: network.dns.message || translate(locale, 'unreachableMessage'),
           actionId: 'diagnostics',
         }, 'network:unreachable');
       }
       if (endpointFailure(network.endpoints)) {
         add({
           id: 'api:primary-failed', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
-          critical: true, dismissible: false, title: 'Primary API unavailable',
-          message: network.endpoints.reason || 'The primary application endpoint is not responding.',
+          critical: true, dismissible: false, title: translate(locale, 'primaryApiTitle'),
+          message: network.endpoints.reason || translate(locale, 'primaryApiMessage'),
           actionId: 'diagnostics',
         }, 'api:primary-failed');
       }
       if (network.session.state === 'issue') {
         add({
           id: 'session:issue', priority: PRIORITY.auth, tone: TONE[PRIORITY.auth],
-          critical: false, dismissible: true, title: 'Session needs attention',
-          message: network.session.message || 'Your project reported an authentication or session problem.',
+          critical: false, dismissible: true, title: translate(locale, 'sessionTitle'),
+          message: network.session.message || translate(locale, 'sessionMessage'),
           actionId: 'help',
         }, 'session:issue');
       }
       if (network.endpoints.backup === 'active' || network.endpoints.active === 'backup') {
         add({
           id: 'api:backup-active', priority: PRIORITY.backup, tone: TONE[PRIORITY.backup],
-          critical: false, dismissible: true, title: 'Backup connection active',
-          message: network.endpoints.reason || 'This project is using its configured backup endpoint.',
+          critical: false, dismissible: true, title: translate(locale, 'backupTitle'),
+          message: network.endpoints.reason || translate(locale, 'backupMessage'),
           actionId: 'backup-status',
         }, 'api:backup-active');
       }
       if (installation.status === 'available' && installation.support !== 'none') {
         add({
           id: 'install:available', priority: PRIORITY.install, tone: TONE[PRIORITY.install],
-          critical: false, dismissible: true, title: 'Installation available',
+          critical: false, dismissible: true, title: translate(locale, 'installAvailableTitle'),
           message: installation.nativeAvailable
-            ? 'This browser offered a native install prompt.'
+            ? translate(locale, 'nativeAvailableMessage')
             : (installation.support === 'manual-ios'
-              ? 'Add this app to your home screen from Safari.'
-              : 'Use your browser menu to install this app.'),
+              ? translate(locale, 'iosAvailableMessage')
+              : translate(locale, 'genericAvailableMessage')),
           actionId: 'install',
         }, 'install:available');
       }
       if (network.recovery) {
         add({
           id: 'api:primary-restored', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
-          critical: false, dismissible: true, title: 'Primary connection restored',
-          message: 'The primary endpoint is healthy again.', actionId: 'diagnostics',
+          critical: false, dismissible: true, title: translate(locale, 'restoredTitle'),
+          message: translate(locale, 'restoredMessage'), actionId: 'diagnostics',
         }, 'api:primary-restored');
       }
       if (config.modules.updates && capabilityEnabled('updateNotifications') && network.updateAvailable) {
         add({
           id: 'app:update', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
-          critical: false, dismissible: true, title: 'App update available',
-          message: 'A new version is ready to apply.', actionId: capabilityEnabled('userUpdate') ? 'update' : undefined,
+          critical: false, dismissible: true, title: translate(locale, 'updateTitle'),
+          message: translate(locale, 'updateMessage'), actionId: capabilityEnabled('userUpdate') ? 'update' : undefined,
         }, 'app:update');
       }
       config.features.forEach(function (feature) {
         add({
           id: 'feature:' + feature.id, priority: PRIORITY.info, tone: TONE[PRIORITY.info],
           critical: false, dismissible: true, title: feature.label,
-          message: feature.message || 'A new You.Ge Assistant capability is available.',
+          message: feature.message || translate(locale, 'featureDefaultMessage'),
           actionId: 'feature:' + feature.id,
         }, 'feature:' + feature.id);
       });
@@ -3502,7 +5771,8 @@
       return out;
     }
 
-    function buildActions(project, installation, network, notifications) {
+    function buildActions(project, installation, network, notifications, lang) {
+      const locale = lang || resolveActiveLocale();
       const actions = [];
       function add(action) {
         if (actions.some(function (entry) { return entry.id === action.id; })) return;
@@ -3510,35 +5780,35 @@
       }
       if (capabilityEnabled('diagnostics')) {
         add({
-          id: 'diagnostics', label: 'Run network diagnostics', icon: 'diagnostics',
+          id: 'diagnostics', label: translate(locale, 'actionDiagnosticsLabel'), icon: 'diagnostics',
           priority: notifications.some(function (n) { return n.critical; }) ? 1 : 5,
-          kind: 'diagnostics', event: EVENT_NAMES.action, message: 'Check connectivity, DNS and app origin.',
+          kind: 'diagnostics', event: EVENT_NAMES.action, message: translate(locale, 'actionDiagnosticsMessage'),
         });
       }
       if (capabilityEnabled('recovery') && (!network.online || dnsFailure(network.dns) ||
           connectivityFailure(network.dns) || endpointFailure(network.endpoints))) {
         add({
-          id: 'recovery', label: 'Recovery guidance', icon: 'recovery', priority: 1,
-          kind: 'recovery', event: EVENT_NAMES.action, message: 'Steps to restore this connection.',
+          id: 'recovery', label: translate(locale, 'actionRecoveryLabel'), icon: 'recovery', priority: 1,
+          kind: 'recovery', event: EVENT_NAMES.action, message: translate(locale, 'actionRecoveryMessage'),
         });
       }
       if (config.modules.installation && installation.status === 'available') {
         add({
-          id: 'install', label: installation.nativeAvailable ? 'Install this app' : 'Installation instructions',
+          id: 'install', label: installation.nativeAvailable ? translate(locale, 'installActionLabel') : translate(locale, 'instructionsActionLabel'),
           icon: 'install', priority: 4, kind: 'install', event: EVENT_NAMES.action,
-          message: installation.support === 'manual-ios' ? 'Safari: Share → Add to Home Screen.' : 'Open the browser install prompt or instructions.',
+          message: installation.support === 'manual-ios' ? translate(locale, 'iosShortcutHint') : translate(locale, 'genericHint'),
         });
       }
       if (capabilityEnabled('failover') && (network.endpoints.backup === 'active' || network.endpoints.active === 'backup')) {
         add({
-          id: 'backup-status', label: 'Backup connection', icon: 'backup', priority: 3,
-          kind: 'backup', event: EVENT_NAMES.action, message: 'The project is using its backup endpoint.',
+          id: 'backup-status', label: translate(locale, 'actionBackupLabel'), icon: 'backup', priority: 3,
+          kind: 'backup', event: EVENT_NAMES.action, message: translate(locale, 'actionBackupMessage'),
         });
       }
       if (config.modules.updates && capabilityEnabled('userUpdate') && network.updateAvailable) {
         add({
-          id: 'update', label: 'Apply app update', icon: 'update', priority: 5,
-          kind: 'update', event: EVENT_NAMES.action, message: 'Activate the waiting service worker update.',
+          id: 'update', label: translate(locale, 'actionUpdateLabel'), icon: 'update', priority: 5,
+          kind: 'update', event: EVENT_NAMES.action, message: translate(locale, 'actionUpdateMessage'),
         });
       }
       // Project-supplied actions are data, but they can address a gated
@@ -3553,6 +5823,7 @@
 
     function computeState() {
       const project = projectInfo();
+      const lang = resolveActiveLocale();
       const pwa = getPwa();
       const pwaSnapshot = readPwaSnapshot(pwa);
       let pwaHasUpdate = pwaSnapshot.hasUpdate;
@@ -3569,6 +5840,7 @@
         pwa: pwa,
         enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
         detection: capabilityEnabled('installationDetection'),
+        installExperience: effectiveInstallConfig(),
       });
       const dns = {
         status: conditions.dns.status,
@@ -3594,11 +5866,13 @@
         updateAvailable: capabilityEnabled('updateDetection') && (conditions.updateAvailable || pwaHasUpdate === true),
         recovery: conditions.recovery,
       };
-      const notifications = buildNotifications(project, installation, network);
-      const availableActions = buildActions(project, installation, network, notifications);
+      const notifications = buildNotifications(project, installation, network, lang);
+      const availableActions = buildActions(project, installation, network, notifications, lang);
       const top = notifications[0] || null;
       return {
         enabled: config.enabled,
+        locale: lang,
+        dir: isRtlLocale(lang) ? 'rtl' : 'ltr',
         project: project,
         installation: installation,
         network: network,
@@ -3608,7 +5882,7 @@
         badge: {
           count: notifications.length,
           tone: top ? top.tone : 'none',
-          label: top ? top.title : 'No alerts',
+          label: top ? top.title : translate(lang, 'noAlerts'),
           priority: top ? top.priority : null,
         },
         appearance: {
@@ -3640,6 +5914,7 @@
 
     function emit() {
       if (destroyed) return;
+      const prevLocale = snapshot ? snapshot.locale : null;
       const next = computeState();
       // Snapshot identity stability. A repeated emit of an unchanged state must
       // not churn listeners, React `useSyncExternalStore` consumers (which would
@@ -3648,16 +5923,54 @@
       if (snapshot && statesEqual(snapshot, next)) return;
       snapshot = next;
       const doc = getDoc();
-      if (shouldBindEvents && exposeGlobal) {
+      if (shouldBindEvents) {
         try {
-          if (doc && typeof doc.dispatchEvent === 'function' && root.CustomEvent) {
-            doc.dispatchEvent(new root.CustomEvent(EVENT_NAMES.state, { detail: snapshot }));
+          const localeChanged = Boolean(prevLocale && prevLocale !== snapshot.locale);
+          const CustomEventCtor = root.CustomEvent || (typeof CustomEvent !== 'undefined' ? CustomEvent : null);
+          if (localeChanged && CustomEventCtor && (exposeGlobal || envIn.window || rawInit.window || envIn.document || rawInit.document)) {
+            const localeDetail = { locale: snapshot.locale, dir: snapshot.dir, configuredLocale: config.locale };
+            if (doc && typeof doc.dispatchEvent === 'function') {
+              doc.dispatchEvent(new CustomEventCtor(EVENT_NAMES.localeChange, { bubbles: false, detail: localeDetail }));
+            }
+            if (root && root !== doc && typeof root.dispatchEvent === 'function') {
+              root.dispatchEvent(new CustomEventCtor(EVENT_NAMES.localeChange, { bubbles: false, detail: localeDetail }));
+            }
+          }
+          if (exposeGlobal && doc && typeof doc.dispatchEvent === 'function' && CustomEventCtor) {
+            doc.dispatchEvent(new CustomEventCtor(EVENT_NAMES.state, { detail: snapshot }));
           }
         } catch (error) { /* ignore */ }
       }
       listeners.forEach(function (listener) {
         try { listener(snapshot); } catch (error) { /* keep other listeners alive */ }
       });
+    }
+
+    function effectiveInstallConfig() {
+      const domainInstall = domainContext().installExperience;
+      const merged = normalizeInstallExperience(domainInstall, INSTALL_EXPERIENCE_DEFAULTS);
+      const rawInstall = rawOptionsState && rawOptionsState.installExperience && typeof rawOptionsState.installExperience === 'object'
+        ? rawOptionsState.installExperience
+        : {};
+      const cfgInstall = config.installExperience || INSTALL_EXPERIENCE_DEFAULTS;
+      Object.keys(INSTALL_EXPERIENCE_DEFAULTS).forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(rawInstall, key) ||
+            JSON.stringify(cfgInstall[key]) !== JSON.stringify(INSTALL_EXPERIENCE_DEFAULTS[key])) {
+          merged[key] = clone(cfgInstall[key]);
+        }
+      });
+      if (merged.locale === 'auto' && config.locale && config.locale !== 'auto') {
+        merged.locale = config.locale;
+      }
+      return normalizeInstallExperience(merged, INSTALL_EXPERIENCE_DEFAULTS);
+    }
+
+    function syncPwaInstallConfig() {
+      const pwa = getPwa();
+      if (!pwa || typeof pwa.configureInstallExperience !== 'function') return;
+      try {
+        pwa.configureInstallExperience(effectiveInstallConfig());
+      } catch (error) { /* ignore */ }
     }
 
     function syncPwaSubscription() {
@@ -3687,6 +6000,7 @@
       // Only the capability: `destroy()` already aborts its own run through
       // `clear()`, and that aborted run must stay a cancellation.
       isEnabled: function () { return capabilityEnabled('diagnostics'); },
+      getLocale: function () { return resolveActiveLocale(); },
       get services() { return services; },
       getPwa: getPwa,
       getDns: getDns,
@@ -3779,7 +6093,7 @@
       if (!capabilityEnabled('diagnostics')) {
         diagnosticsController.clear();
         if (conditions.dns.status === 'running') {
-          conditions.dns = normalizeDnsResult(disabledDiagnosticsResult(), DateCtor);
+          conditions.dns = normalizeDnsResult(disabledDiagnosticsResult(undefined, resolveActiveLocale()), DateCtor);
         }
       }
       persistPublishedLkgIfDerivedProject();
@@ -3792,7 +6106,34 @@
       }
       loadNotices(projectInfo().id);
       syncPwaSubscription();
+      syncPwaInstallConfig();
       emit();
+      return snapshot;
+    }
+
+    function setLocale(nextLocale, localeOptions) {
+      if (destroyed) return snapshot;
+      const cleaned = typeof nextLocale === 'string' && nextLocale.trim() ? nextLocale.trim() : 'auto';
+      const fromPwa = Boolean(localeOptions && localeOptions.fromPwa);
+      if (fromPwa) {
+        syncingPwaLocale = true;
+        try {
+          configure({ locale: cleaned });
+        } finally {
+          syncingPwaLocale = false;
+        }
+        return snapshot;
+      }
+      configure({ locale: cleaned });
+      const pwa = getPwa();
+      if (pwa && typeof pwa.setLanguage === 'function' && !syncingPwaLocale) {
+        try {
+          syncingPwaLocale = true;
+          pwa.setLanguage(cleaned, { fromAssistant: true });
+        } catch (error) { /* ignore */ } finally {
+          syncingPwaLocale = false;
+        }
+      }
       return snapshot;
     }
 
@@ -3802,6 +6143,7 @@
         project: clone(config.project),
         projectId: config.projectId,
         domain: config.domain,
+        locale: config.locale,
         position: config.position,
         offsets: { x: config.offsets.x, y: config.offsets.y },
         modules: clone(config.modules),
@@ -3809,6 +6151,7 @@
         branding: clone(config.branding),
         actions: clone(config.actions),
         features: clone(config.features),
+        installExperience: effectiveInstallConfig(),
         // Backward compatible string (0.x contract) plus the validated record.
         theme: config.themeMode || (config.theme && config.theme.mode) || 'auto',
         themeConfig: clone(config.theme || normalizeTheme('auto')),
@@ -3884,11 +6227,12 @@
     }
 
     function runDiagnostics(runOptions) {
+      const lang = resolveActiveLocale();
       if (destroyed) {
-        return Promise.resolve({ classification: 'unknown', message: 'Assistant instance is destroyed.', status: 'unavailable' });
+        return Promise.resolve({ classification: 'unknown', message: translate(lang, 'diagDestroyed'), status: 'unavailable' });
       }
       if (!capabilityEnabled('diagnostics')) {
-        const disabled = disabledDiagnosticsResult();
+        const disabled = disabledDiagnosticsResult(undefined, lang);
         setDnsResult(disabled);
         return Promise.resolve(disabled);
       }
@@ -3904,6 +6248,40 @@
         pwa: getPwa(),
         enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
       }, promptOptions);
+    }
+
+    function showInstallDialog(dialogOptions) {
+      if (destroyed) return Promise.resolve({ shown: false, outcome: 'unsupported', backend: 'none' });
+      const installCfg = effectiveInstallConfig();
+      const enabled = Boolean(config.modules.installation && capabilityEnabled('installationGuidance') && installCfg.enabled !== false);
+      return showPwaInstallDialog({
+        pwa: getPwa(),
+        enabled: enabled,
+      }, Object.assign({ installExperience: installCfg }, dialogOptions || {}));
+    }
+
+    function hideInstallDialog() {
+      if (destroyed) return false;
+      const hidden = hidePwaInstallDialog({ pwa: getPwa() });
+      emit();
+      return hidden;
+    }
+
+    function triggerInstall(promptOptions) {
+      if (destroyed) return Promise.resolve({ outcome: 'unsupported', backend: 'none' });
+      return triggerPwaInstall({
+        pwa: getPwa(),
+        enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
+      }, promptOptions);
+    }
+
+    function getInstalledRelatedApps() {
+      if (destroyed) return Promise.resolve([]);
+      return readInstalledRelatedApps({
+        pwa: getPwa(),
+        navigator: getNavigator(),
+        detection: capabilityEnabled('installationDetection'),
+      });
     }
 
     function applyUpdate() {
@@ -3985,16 +6363,24 @@
       installed: function (event) { if (event && event.__youGeBridged) return; syncPwaSubscription(); emit(); },
       update: function (event) { if (event && event.__youGeBridged) return; conditions.updateAvailable = true; emit(); },
       diagnostics: function (event) { if (event && event.__youGeBridged) return; setDnsResult((event && event.detail) || {}); },
+      installDialog: function (event) { if (event && event.__youGeBridged) return; syncPwaSubscription(); emit(); },
       yougePwaReady: function () { syncPwaSubscription(); emit(); },
       yougeInstallable: function () { syncPwaSubscription(); emit(); },
       yougeInstalled: function () { syncPwaSubscription(); emit(); },
       yougeUpdate: function () { conditions.updateAvailable = true; emit(); },
       yougeDiagnostics: function (event) { setDnsResult((event && event.detail) || {}); },
+      yougeInstallDialog: function () { syncPwaSubscription(); emit(); },
       action: function () { /* widgets dispatch actions; host apps listen. No state change. */ },
       storage: function (event) {
         if (!event || !event.key || event.key.indexOf(STORAGE_PREFIXES.notices) !== 0) return;
         loadNotices(snapshot ? snapshot.project.id : projectInfo().id);
         emit();
+      },
+      languagechange: function () {
+        if (config.locale === 'auto') {
+          syncPwaInstallConfig();
+          emit();
+        }
       },
     };
 
@@ -4006,6 +6392,7 @@
         root.addEventListener('online', handlers.online);
         root.addEventListener('offline', handlers.offline);
         root.addEventListener('storage', handlers.storage);
+        root.addEventListener('languagechange', handlers.languagechange);
       }
       if (doc && typeof doc.addEventListener === 'function') {
         doc.addEventListener('visibilitychange', handlers.visibility);
@@ -4017,14 +6404,17 @@
         doc.addEventListener(EVENT_NAMES.yougePwaInstalled, handlers.yougeInstalled);
         doc.addEventListener(EVENT_NAMES.yougePwaUpdate, handlers.yougeUpdate);
         doc.addEventListener(EVENT_NAMES.yougePwaDiagnostics, handlers.yougeDiagnostics);
+        doc.addEventListener(EVENT_NAMES.yougePwaInstallDialog, handlers.yougeInstallDialog);
         doc.addEventListener(EVENT_NAMES.pwaReady, handlers.pwaReady);
         doc.addEventListener(EVENT_NAMES.pwaInstallable, handlers.installable);
         doc.addEventListener(EVENT_NAMES.pwaInstalled, handlers.installed);
         doc.addEventListener(EVENT_NAMES.pwaUpdate, handlers.update);
         doc.addEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
+        doc.addEventListener(EVENT_NAMES.pwaInstallDialog, handlers.installDialog);
         doc.addEventListener(EVENT_NAMES.action, handlers.action);
       }
       syncPwaSubscription();
+      syncPwaInstallConfig();
     }
 
     function destroy() {
@@ -4036,6 +6426,7 @@
           root.removeEventListener('online', handlers.online);
           root.removeEventListener('offline', handlers.offline);
           root.removeEventListener('storage', handlers.storage);
+          root.removeEventListener('languagechange', handlers.languagechange);
         }
         if (doc && typeof doc.removeEventListener === 'function') {
           doc.removeEventListener('visibilitychange', handlers.visibility);
@@ -4047,11 +6438,13 @@
           doc.removeEventListener(EVENT_NAMES.yougePwaInstalled, handlers.yougeInstalled);
           doc.removeEventListener(EVENT_NAMES.yougePwaUpdate, handlers.yougeUpdate);
           doc.removeEventListener(EVENT_NAMES.yougePwaDiagnostics, handlers.yougeDiagnostics);
+          doc.removeEventListener(EVENT_NAMES.yougePwaInstallDialog, handlers.yougeInstallDialog);
           doc.removeEventListener(EVENT_NAMES.pwaReady, handlers.pwaReady);
           doc.removeEventListener(EVENT_NAMES.pwaInstallable, handlers.installable);
           doc.removeEventListener(EVENT_NAMES.pwaInstalled, handlers.installed);
           doc.removeEventListener(EVENT_NAMES.pwaUpdate, handlers.update);
           doc.removeEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
+          doc.removeEventListener(EVENT_NAMES.pwaInstallDialog, handlers.installDialog);
           doc.removeEventListener(EVENT_NAMES.action, handlers.action);
         }
       }
@@ -4073,6 +6466,8 @@
       configure: configure,
       getConfig: getConfig,
       getState: function () { return snapshot; },
+      getLocale: function () { return snapshot ? snapshot.locale : resolveActiveLocale(); },
+      setLocale: setLocale,
       subscribe: subscribe,
       setConnectivity: setConnectivity,
       setEndpointStatus: setEndpointStatus,
@@ -4085,7 +6480,12 @@
       // Read-only capability introspection, used by renderers and by the classic
       // runtime files that delegate to the toolkit (pwa.js, offline.js, DoH).
       isCapabilityEnabled: function (capability) { return capabilityEnabled(capability); },
+      getInstallConfig: effectiveInstallConfig,
       requestInstall: requestInstall,
+      showInstallDialog: showInstallDialog,
+      hideInstallDialog: hideInstallDialog,
+      triggerInstall: triggerInstall,
+      getInstalledRelatedApps: getInstalledRelatedApps,
       applyUpdate: applyUpdate,
       dismiss: dismiss,
       acknowledge: acknowledge,
@@ -4146,6 +6546,22 @@
     // Module capability policy: one mapping shared by every classic renderer
     // and runtime file, so a gated capability cannot be re-enabled locally.
     GATED_CAPABILITIES: GATED_CAPABILITIES,
+    // Unified i18n dictionary, locale resolver, plural helpers and DNS copy.
+    DEFAULT_LOCALE: DEFAULT_LOCALE,
+    SUPPORTED_LOCALES: SUPPORTED_LOCALES,
+    RTL_LOCALES: RTL_LOCALES,
+    LOCALE_METADATA: LOCALE_METADATA,
+    SDK_TRANSLATIONS: SDK_TRANSLATIONS,
+    DNS_CLASSIFICATION_LABELS: DNS_CLASSIFICATION_LABELS,
+    normalizeLocaleTag: normalizeLocaleTag,
+    normalizeInstallLocaleTag: normalizeInstallLocaleTag,
+    resolveLocale: resolveLocale,
+    isRtlLocale: isRtlLocale,
+    translate: translate,
+    chromeHandoffLabels: chromeHandoffLabels,
+    formatAlertCount: formatAlertCount,
+    localizeDnsClassification: localizeDnsClassification,
+    localizeDnsMessage: localizeDnsMessage,
     isCapabilityEnabled: isCapabilityEnabled,
     capabilityForAction: capabilityForAction,
     capabilitiesRecord: capabilitiesRecord,
@@ -4159,6 +6575,13 @@
     validateDomainRegistry: validateDomainRegistry,
     domain: createDomainResolver(root.YOU_GE_DOMAIN_REGISTRY || {}),
     validatePublishedConfig: validatePublishedConfig,
+    INSTALL_EXPERIENCE_DEFAULTS: INSTALL_EXPERIENCE_DEFAULTS,
+    normalizeInstallExperience: normalizeInstallExperience,
+    resolveInstallationCopy: resolveInstallationCopy,
+    showPwaInstallDialog: showPwaInstallDialog,
+    hidePwaInstallDialog: hidePwaInstallDialog,
+    triggerPwaInstall: triggerPwaInstall,
+    readInstalledRelatedApps: readInstalledRelatedApps,
     // Adaptive theming — same validation/resolution in classic and ESM pages.
     THEME_MODES: THEME_MODES,
     THEME_TOKEN_KEYS: THEME_TOKEN_KEYS,

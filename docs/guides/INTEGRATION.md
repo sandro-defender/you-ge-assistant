@@ -30,7 +30,7 @@ Copy the runtime files into the application root (or the app's scoped public
 folder):
 
 ```text
-pwa.js pwa.css you-ge-sw.js progressier.js manifest.webmanifest qrcode.js
+pwa.js pwa.css pwa-install.js you-ge-sw.js progressier.js manifest.webmanifest qrcode.js
 domain-config.js domain-registry.js dns-diagnostics.js manifest-handler.js
 offline.html offline.css offline.js browserconfig.xml favicon.ico icons/
 ```

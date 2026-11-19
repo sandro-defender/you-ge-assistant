@@ -212,9 +212,12 @@ a { color: inherit; }
 .main-nav a { color: #66766e; font-size: 13px; font-weight: 600; text-decoration: none; transition: color 140ms ease; }
 .main-nav a:hover, .main-nav a[aria-current="page"] { color: var(--brand); }
 
-.header-actions { display: flex; align-items: center; gap: 15px; }
+.header-actions { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
 .header-actions [data-pwa-diagnostics] { min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
 .header-actions [data-pwa-diagnostics]:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.workspace-lang-control { display: inline-flex; align-items: center; }
+.workspace-lang-control select { min-height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.workspace-lang-control select:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
 
 .connection-pill, .app-mode-pill {
   display: inline-flex;

@@ -65,7 +65,7 @@ GitHub to start from a clean copy).
 CRA, SvelteKit):
 
 ```
-pwa.js  pwa.css  you-ge-sw.js  progressier.js  manifest.webmanifest  qrcode.js
+pwa.js  pwa.css  pwa-install.js  you-ge-sw.js  progressier.js  manifest.webmanifest  qrcode.js
 domain-config.js  domain-registry.js  dns-diagnostics.js  manifest-handler.js
 offline.html  offline.css  offline.js  browserconfig.xml  favicon.ico  icons/
 ```
@@ -388,6 +388,7 @@ Supported typed package subpaths (all resolve through `package.json` `exports`):
 | `@youge/assistant-sdk/installation` | Existing PWA install/update adapter — [`installation/index.d.ts`](packages/assistant-sdk/src/installation/index.d.ts) |
 | `@youge/assistant-sdk/browser` | Android browser handoff helpers — [`browser/index.d.ts`](packages/assistant-sdk/src/browser/index.d.ts) |
 | `@youge/assistant-sdk/theme` | Theme tokens and resolution — [`theme/index.d.ts`](packages/assistant-sdk/src/theme/index.d.ts) |
+| `@youge/assistant-sdk/i18n` | 12-locale dictionary and locale utilities — [`core/i18n.d.ts`](packages/assistant-sdk/src/core/i18n.d.ts) |
 | `@youge/assistant-sdk/react` | Optional React external-store adapter — [`adapters/react.d.ts`](packages/assistant-sdk/src/adapters/react.d.ts) |
 
 `@youge/assistant-sdk/package.json` is also exported for package tooling; it is
@@ -450,7 +451,7 @@ The root also intentionally serves classic public runtime files directly. Names 
 | `pwa.js`, `pwa.css`, `domain-config.js`, `domain-registry.js`, `dns-diagnostics.js` | Classic client runtime and public configuration modules |
 | `assistant-state.js`, `assistant-widget.js`, `assistant-widget.css` | Generated state bundle and optional Assistant renderer |
 | `manifest.webmanifest`, `offline.html`, `offline.css`, `offline.js` | Install identity and offline fallback assets |
-| `qrcode.js`, `browserconfig.xml`, `favicon.ico`, `icons/` | Optional QR script and public browser/branding assets |
+| `qrcode.js`, `pwa-install.js`, `browserconfig.xml`, `favicon.ico`, `icons/` | Optional QR and self-contained `<pwa-install>` runtimes, plus public browser/branding assets |
 | `manifest-handler.js`, `functions/` | Host-aware server helper and Cloudflare Pages adapter |
 | `packages/assistant-sdk/` | `@youge/assistant-sdk` package boundary |
 | `scripts/`, `tests/`, `.github/workflows/` | Repository tooling, tests and automation |
@@ -786,8 +787,10 @@ helpers) so existing calls keep working.
 
 ### Wording
 
-Bundled languages: English, French, Italian, German, Swedish, Dutch, Norwegian,
-Danish, Estonian and Spanish. The language is auto-detected and can be overridden:
+Bundled languages: English, Georgian, Russian, French, Italian, German, Swedish,
+Dutch, Norwegian, Danish, Estonian and Spanish (`pwa-install.js` additionally supports
+35 locales independently). The language is auto-detected (or taken from configured
+domain/host defaults) and can be overridden at runtime without reload:
 
 ```js
 PWA.wording.setLanguage('de');
@@ -1200,7 +1203,7 @@ implement:
 | Push notifications | Included — supply your own VAPID keys and sender |
 | Push history (`you-ge-notifications`, migrated from `progressierSavedPushNotifications`) | Included |
 | App badge & protocol handlers | Included |
-| Component theming, adaptive Assistant themes, 10 languages | Included |
+| Component theming, adaptive Assistant themes, 12 languages | Included |
 | Apple splash screens, Windows tiles, favicon | Included |
 | QR-code install dialog (`qrcode.js`) | Included (local, zero external calls) |
 | Analytics dashboard, A/B tests, funnel reports | Server-side / optional `data-analytics` beacon |
@@ -1221,6 +1224,9 @@ Bundled third-party code:
 
 - `qrcode.js` — [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
   2.0.4, MIT, © 2009 Kazuhiko Arase. Kept verbatim with its license header.
+- `pwa-install.js` — `@khmyznikov/pwa-install` 0.7.0, MIT, © 2023 Gleb Khmyznikov
+  (re-bundled cleanly for self-contained browser usage with Georgian `ka` localization;
+  see `THIRD_PARTY_NOTICES.md`).
 - `examples/push-server/` uses the `web-push` npm package at runtime; it is not
   vendored here.
 

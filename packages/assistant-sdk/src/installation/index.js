@@ -6,6 +6,8 @@
  * pwa.js, and never claims programmatic installation without a browser prompt.
  */
 
+import { resolveLocale, translate } from '../core/i18n.js';
+
 export function readPwaSnapshot(pwa) {
   let state = {};
   if (!pwa) return state;
@@ -17,19 +19,35 @@ export function readPwaSnapshot(pwa) {
   return state;
 }
 
+export function resolveInstallationCopy(locale) {
+  const lang = resolveLocale({ explicit: locale });
+  return Object.freeze({
+    language: lang,
+    installActionLabel: translate(lang, 'installActionLabel'),
+    instructionsActionLabel: translate(lang, 'instructionsActionLabel'),
+    installAvailableTitle: translate(lang, 'installAvailableTitle'),
+    nativeAvailableMessage: translate(lang, 'nativeAvailableMessage'),
+    iosAvailableMessage: translate(lang, 'iosAvailableMessage'),
+    genericAvailableMessage: translate(lang, 'genericAvailableMessage'),
+    iosShortcutHint: translate(lang, 'iosShortcutHint'),
+    genericHint: translate(lang, 'genericHint'),
+  });
+}
+
 export function deriveInstallationState(options) {
   const opts = options || {};
   const pwa = opts.pwa || null;
   const moduleEnabled = opts.enabled !== false;
-  const state = opts.detection === false ? {} : readPwaSnapshot(pwa);
+  const detectionEnabled = opts.detection !== false;
+  const state = detectionEnabled ? readPwaSnapshot(pwa) : {};
 
   let installed = Boolean(state.installed || state.standalone);
   let canInstall = Boolean(state.canInstall);
   let ios = Boolean(state.ios);
   let safari = Boolean(state.safari);
 
-  try { if (opts.detection !== false && !installed && pwa && typeof pwa.isInstalled === 'function') installed = Boolean(pwa.isInstalled()); } catch (error) { /* ignore */ }
-  try { if (opts.detection !== false && !canInstall && pwa && typeof pwa.canInstall === 'function') canInstall = Boolean(pwa.canInstall()); } catch (error) { /* ignore */ }
+  try { if (detectionEnabled && !installed && pwa && typeof pwa.isInstalled === 'function') installed = Boolean(pwa.isInstalled()); } catch (error) { /* ignore */ }
+  try { if (detectionEnabled && !canInstall && pwa && typeof pwa.canInstall === 'function') canInstall = Boolean(pwa.canInstall()); } catch (error) { /* ignore */ }
   try { if (!ios && pwa && typeof pwa.isIOS === 'function') ios = Boolean(pwa.isIOS()); } catch (error) { /* ignore */ }
   try { if (!safari && pwa && typeof pwa.isSafari === 'function') safari = Boolean(pwa.isSafari()); } catch (error) { /* ignore */ }
 
@@ -44,6 +62,18 @@ export function deriveInstallationState(options) {
     else support = 'manual-generic';
   }
 
+  const installExp = opts.installExperience && typeof opts.installExperience === 'object' ? opts.installExperience : {};
+  const componentEnabled = Boolean(enabled && installExp.enabled !== false && state.installComponentEnabled !== false);
+  const presentation = installExp.presentation === 'auto'
+    ? 'auto'
+    : (installExp.presentation === 'manual'
+      ? 'manual'
+      : (state.installPresentation === 'auto' ? 'auto' : 'manual'));
+  const locale = String(installExp.locale || state.installLocale || 'auto');
+  const backend = !detectionEnabled || !enabled
+    ? 'none'
+    : String(state.installBackend || (canInstall ? 'beforeinstallprompt' : ((ios && safari) || support === 'manual-generic' ? 'manual' : 'none')));
+
   return {
     support: support,
     status: installed ? 'installed' : (support === 'none' ? 'unavailable' : 'available'),
@@ -54,6 +84,13 @@ export function deriveInstallationState(options) {
     safari: safari,
     platform: ios ? 'ios' : (canInstall ? 'chromium' : 'generic'),
     nativeAvailable: canInstall,
+    componentEnabled: componentEnabled,
+    componentLoaded: detectionEnabled ? Boolean(state.installComponentLoaded) : false,
+    dialogOpen: detectionEnabled ? Boolean(state.installDialogOpen) : false,
+    presentation: presentation,
+    locale: locale,
+    backend: backend,
+    relatedAppsInstalled: detectionEnabled ? Boolean(state.relatedAppsInstalled) : false,
   };
 }
 
@@ -68,6 +105,85 @@ export function requestPwaInstall(options, promptOptions) {
   } catch (error) {
     return Promise.resolve({ outcome: 'error' });
   }
+}
+
+export function showPwaInstallDialog(options, dialogOptions) {
+  const opts = options || {};
+  const pwa = opts.pwa || null;
+  if (opts.enabled === false || !pwa) {
+    return Promise.resolve({ shown: false, outcome: opts.enabled === false ? 'disabled' : 'unsupported', backend: 'none' });
+  }
+  try {
+    if (typeof pwa.showInstallDialog === 'function') {
+      return Promise.resolve(pwa.showInstallDialog(dialogOptions)).then(function (res) {
+        if (res && typeof res === 'object') return res;
+        return { shown: Boolean(res), outcome: res ? 'shown' : 'unsupported', backend: 'pwa-install' };
+      });
+    }
+    if (typeof pwa.promptInstall === 'function') {
+      return Promise.resolve(pwa.promptInstall(dialogOptions)).then(function (res) {
+        const outcome = res && res.outcome ? res.outcome : 'shown';
+        return { shown: outcome !== 'unsupported' && outcome !== 'error', outcome: outcome, backend: 'classic' };
+      });
+    }
+    return Promise.resolve({ shown: false, outcome: 'unsupported', backend: 'none' });
+  } catch (error) {
+    return Promise.resolve({ shown: false, outcome: 'error', backend: 'none' });
+  }
+}
+
+export function hidePwaInstallDialog(options) {
+  const opts = options || {};
+  const pwa = opts.pwa || null;
+  if (!pwa || typeof pwa.hideInstallDialog !== 'function') {
+    return false;
+  }
+  try {
+    return Boolean(pwa.hideInstallDialog());
+  } catch (error) {
+    return false;
+  }
+}
+
+export function triggerPwaInstall(options, promptOptions) {
+  const opts = options || {};
+  const pwa = opts.pwa || null;
+  if (opts.enabled === false || !pwa) {
+    return Promise.resolve({ outcome: opts.enabled === false ? 'disabled' : 'unsupported', backend: 'none' });
+  }
+  try {
+    if (typeof pwa.triggerInstall === 'function') {
+      return Promise.resolve(pwa.triggerInstall(promptOptions));
+    }
+    if (typeof pwa.promptInstall === 'function') {
+      return Promise.resolve(pwa.promptInstall(Object.assign({}, promptOptions, { immediate: true })));
+    }
+    return Promise.resolve({ outcome: 'unsupported', backend: 'none' });
+  } catch (error) {
+    return Promise.resolve({ outcome: 'error', backend: 'none' });
+  }
+}
+
+export function readInstalledRelatedApps(options) {
+  const opts = options || {};
+  if (opts.detection === false) return Promise.resolve([]);
+  const pwa = opts.pwa || null;
+  const nav = opts.navigator || null;
+  try {
+    if (pwa && typeof pwa.getInstalledRelatedApps === 'function') {
+      return Promise.resolve(pwa.getInstalledRelatedApps()).then(function (apps) {
+        return Array.isArray(apps) ? apps : [];
+      }, function () { return []; });
+    }
+    if (nav && typeof nav.getInstalledRelatedApps === 'function') {
+      return Promise.resolve(nav.getInstalledRelatedApps()).then(function (apps) {
+        return Array.isArray(apps) ? apps : [];
+      }, function () { return []; });
+    }
+  } catch (error) {
+    return Promise.resolve([]);
+  }
+  return Promise.resolve([]);
 }
 
 function readPwaHasUpdate(pwa) {

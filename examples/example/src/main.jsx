@@ -12,6 +12,15 @@ import {
 import FoundationPreview from './FoundationPreview.tsx';
 import ThemeStudio from './ThemeStudio.jsx';
 import { RECOVERY_STEPS, planPanelActions } from './panel-actions.js';
+import {
+  applyWorkspaceStaticTranslations,
+  buildLocaleOptions,
+  getExampleDictionary,
+  getLocaleDirection,
+  resolveExampleLocale,
+  syncExampleLocale,
+  tExample,
+} from './i18n.js';
 import GlareHover from './react-bits/GlareHover';
 import LatticeLoader from './react-bits/LatticeLoader';
 import SpotlightCard from './react-bits/SpotlightCard';
@@ -101,19 +110,8 @@ const NOTICE_ACTION_LABELS = {
   update: 'Apply app update',
 };
 
-/* The red state is not a second source of truth: it reads the SDK badge tone,
- * which is already the tone of the highest-priority notice the user has not
- * dismissed or acknowledged. This list is the same actionable set
- * assistant-widget.css applies to .youge-fab (critical, auth, install); it
- * exists only so the animated accent follows the same rule as the fill.
- * `backup` and `info` stay calm — they describe what is happening, not what to
- * do — and a running diagnostic adds no notice at all, so loading never reads
- * as urgent. */
 const ACTIONABLE_TONES = new Set(['critical', 'auth', 'install']);
 
-/* Capability enforcement (CD-1). The SDK publishes `state.capabilities` and the
- * action -> capability mapping, so this renderer never re-implements the policy:
- * a disabled capability has no section, no quick action and no notice action. */
 function capabilityEnabled(state, name) {
   const capabilities = state && state.capabilities;
   if (!capabilities) return true;
@@ -139,17 +137,19 @@ function toolkitHook(id) {
 function noticeActionLabel(state, notice) {
   const match = (state.availableActions || []).find((action) => action.id === notice.actionId);
   if (match && match.label) return match.label;
+  const locale = resolveExampleLocale(state?.locale);
+  const dict = getExampleDictionary(locale);
+  if (locale !== 'en' && dict.noticeActionLabels && dict.noticeActionLabels[notice.actionId]) {
+    return dict.noticeActionLabels[notice.actionId];
+  }
   return NOTICE_ACTION_LABELS[notice.actionId] || 'Open';
 }
 
-/* Android in-app browser → Chrome handoff (SDK 0.1.1). The SDK only ever
- * reports a confident restricted in-app detection (Facebook, Messenger,
- * Instagram or an Android webview on Android); every other browser — normal
- * Chrome, Safari, or an unknown user agent — renders nothing at all, and no
- * navigation happens unless the visitor presses "Open in Chrome". */
+/* Android in-app browser → Chrome handoff (SDK 0.1.1). */
 const CHROME_OFFER_DISMISS_KEY = 'youge-assistant:chrome-offer-dismissed';
 
-function ChromeHandoffBanner() {
+function ChromeHandoffBanner({ locale = 'en' }) {
+  const activeLocale = resolveExampleLocale(locale);
   const [dismissed, setDismissed] = useState(() => {
     try {
       return window.localStorage.getItem(CHROME_OFFER_DISMISS_KEY) === '1';
@@ -159,12 +159,15 @@ function ChromeHandoffBanner() {
   });
   const [manual, setManual] = useState(null);
   const [copied, setCopied] = useState('');
-  const [handoff] = useState(() =>
-    createChromeHandoff({
-      userAgent: navigator.userAgent,
-      location: window.location,
-      document,
-    })
+  const handoff = useMemo(
+    () =>
+      createChromeHandoff({
+        userAgent: navigator.userAgent,
+        location: window.location,
+        document,
+        locale: activeLocale,
+      }),
+    [activeLocale]
   );
 
   useEffect(() => () => handoff.destroy(), [handoff]);
@@ -186,12 +189,12 @@ function ChromeHandoffBanner() {
       await navigator.clipboard.writeText(instructions.url);
       setCopied(instructions.copiedLabel);
     } catch (error) {
-      setCopied('Select the address above to copy it manually.');
+      setCopied(tExample(activeLocale, 'chromeCopyFallback'));
     }
   }
 
   return (
-    <aside className="chrome-handoff" role="region" aria-label="Open in Chrome">
+    <aside className="chrome-handoff" role="region" aria-label={tExample(activeLocale, 'chromeHandoffRegion')}>
       <p className="chrome-handoff-text">{instructions.intro}</p>
       <div className="chrome-handoff-actions">
         <button
@@ -234,6 +237,8 @@ function AssistantFloatingWidget() {
     assistantStore.getServerSnapshot
   );
   const [open, setOpen] = useState(false);
+  const activeLocale = resolveExampleLocale(state.locale);
+  const dict = useMemo(() => getExampleDictionary(activeLocale), [activeLocale]);
   const appearance = state.appearance || fallbackState.appearance;
   const resolvedTheme = useResolvedTheme(appearance);
   const widgetRef = useRef(null);
@@ -248,18 +253,18 @@ function AssistantFloatingWidget() {
   const installation = state.installation || fallbackState.installation;
   const project = state.project || fallbackState.project;
   const capabilities = state.capabilities || fallbackState.capabilities;
-  // The plan says where each action is drawn — its own panel entry, the notice
-  // that refers to it, or the extra list — so no action is repeated (the install
-  // card deliberately keeps its button beside the install entry).
   const panelPlan = planPanelActions(state, (id, kind) => actionEnabled(state, id, kind));
+  const recoverySteps = activeLocale === 'en' ? RECOVERY_STEPS : (dict.recoverySteps || RECOVERY_STEPS);
+
+  useEffect(() => {
+    applyWorkspaceStaticTranslations(activeLocale);
+  }, [activeLocale]);
 
   useEffect(() => {
     if (!open) return undefined;
 
     function closeOnEscape(event) {
       if (event.key !== 'Escape') return;
-      // An install or diagnostics dialog opened on top of the panel owns
-      // Escape; closing both at once would drop the user out of the flow.
       if (document.querySelector('.pwa-flow')) return;
       closePanel(true);
     }
@@ -275,10 +280,6 @@ function AssistantFloatingWidget() {
     };
   }, [open]);
 
-  // A control can leave the panel while it has focus: Dismiss removes its own
-  // notice, and recovery guidance goes away when the connection returns. The
-  // browser then drops focus to <body>; keep it in the dialog instead. Focus
-  // that the user moved elsewhere is never taken back.
   useEffect(() => {
     const panel = panelRef.current;
     if (!open || !panel) {
@@ -301,10 +302,13 @@ function AssistantFloatingWidget() {
     if (restoreFocus && toggleRef.current) toggleRef.current.focus({ preventScroll: true });
   }
 
+  const fabOpenLabel = `${dict.openAssistantMenu}${badge.count ? `, ${tExample(activeLocale, 'alerts', { count: badge.count })}, ${badge.label}` : `, ${dict.noAlerts}`}`;
+
   return (
     <div
       className="assistant-widget"
       ref={widgetRef}
+      dir={getLocaleDirection(activeLocale)}
       data-position={appearance.position || 'bottom-right'}
       data-theme={resolvedTheme.mode}
       data-scheme={resolvedTheme.scheme}
@@ -329,7 +333,7 @@ function AssistantFloatingWidget() {
           <button
             className="assistant-panel-close"
             type="button"
-            aria-label="Close assistant menu"
+            aria-label={dict.closeAssistantMenu}
             ref={closeRef}
             onClick={() => closePanel(true)}
           >
@@ -337,7 +341,7 @@ function AssistantFloatingWidget() {
           </button>
         </header>
         <p className="assistant-panel-description" id="assistant-panel-description">
-          {(project.shortName || 'You.Ge')} · {(project.hostname || 'localhost')} — prioritized help for this workspace.
+          {(project.shortName || 'You.Ge')} · {(project.hostname || 'localhost')} — {dict.workspaceHint}
         </p>
 
         <SpotlightCard
@@ -355,15 +359,15 @@ function AssistantFloatingWidget() {
           flare={false}
           grain={0}
         >
-          <div className="assistant-status-grid" role="group" aria-label="Connection status">
-            <span><i className={`connection-dot${network.online === false ? ' is-offline' : ''}`} aria-hidden="true" />{network.online === false ? 'Offline' : 'Online'}</span>
-            <span>Primary: {network.endpoints?.primary || 'unknown'}</span>
-            {capabilities.failover !== false ? <span>Backup: {network.endpoints?.backup || 'inactive'}</span> : null}
-            <span>DNS: {(network.dns?.classification || 'not checked').replace(/_/g, ' ')}</span>
+          <div className="assistant-status-grid" role="group" aria-label={dict.connectionStatusLabel}>
+            <span><i className={`connection-dot${network.online === false ? ' is-offline' : ''}`} aria-hidden="true" />{network.online === false ? dict.offline : dict.online}</span>
+            <span>{dict.primaryLabel}: {network.endpoints?.primary || 'unknown'}</span>
+            {capabilities.failover !== false ? <span>{dict.backupLabel}: {network.endpoints?.backup || 'inactive'}</span> : null}
+            <span>{dict.dnsLabel}: {(network.dns?.classification || 'not checked').replace(/_/g, ' ')}</span>
           </div>
           {network.dns?.status === 'running' ? (
             <LatticeLoader
-              label="Checking connection"
+              label={dict.checking}
               status="working"
               showTimer={false}
               fontSize={11}
@@ -382,7 +386,7 @@ function AssistantFloatingWidget() {
                   key={notice.id}
                   data-tone={notice.tone}
                   data-level={notice.level}
-                  aria-label={`${notificationLevelLabel(notice.level)} notice`}
+                  aria-label={tExample(activeLocale, 'noticeAria', { level: notificationLevelLabel(notice.level, activeLocale) })}
                 >
                   <NotificationIcon level={notice.level} />
                   <div className="assistant-notice-copy">
@@ -400,21 +404,19 @@ function AssistantFloatingWidget() {
                       </button>
                     ) : null}
                     {notice.critical ? (
-                      <button type="button" onClick={() => YouGeAssistant.attach().acknowledge(notice.id)}>Acknowledge</button>
+                      <button type="button" onClick={() => YouGeAssistant.attach().acknowledge(notice.id)}>{dict.acknowledge}</button>
                     ) : (
-                      <button type="button" onClick={() => YouGeAssistant.attach().dismiss(notice.id)}>Dismiss</button>
+                      <button type="button" onClick={() => YouGeAssistant.attach().dismiss(notice.id)}>{dict.dismiss}</button>
                     )}
                   </div>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="assistant-panel-empty" role="status">All clear — the Assistant is still available for help.</p>
+            <p className="assistant-panel-empty" role="status">{dict.allClear}</p>
           )}
         </div>
 
-        {/* The capability is re-checked here, at the element that carries the
-            toolkit hook, as well as in the plan (CD-1 renderer enforcement). */}
         {capabilities.diagnostics !== false && panelPlan.showDiagnostics ? (
           <button
             className="assistant-panel-action"
@@ -423,15 +425,15 @@ function AssistantFloatingWidget() {
             onClick={() => { dispatchWidgetAction('diagnostics', 'diagnostics'); closePanel(true); }}
           >
             <span aria-hidden="true">⌁</span>
-            <span><strong>Network diagnostics</strong><small>Check this connection on demand</small></span>
+            <span><strong>{dict.networkDiagnostics}</strong><small>{dict.diagnosticsSubtitle}</small></span>
             <span className="assistant-action-arrow" aria-hidden="true">→</span>
           </button>
         ) : null}
         {panelPlan.showRecovery ? (
           <details className="assistant-panel-recovery">
-            <summary>Recovery guidance</summary>
+            <summary>{dict.recoveryGuidance}</summary>
             <ol>
-              {RECOVERY_STEPS.map((step) => <li key={step}>{step}</li>)}
+              {recoverySteps.map((step) => <li key={step}>{step}</li>)}
             </ol>
           </details>
         ) : null}
@@ -443,7 +445,7 @@ function AssistantFloatingWidget() {
             onClick={() => { dispatchWidgetAction('install', 'install'); closePanel(true); }}
           >
             <span aria-hidden="true">＋</span>
-            <span><strong>{installation.nativeAvailable ? 'Install this app' : 'Installation instructions'}</strong><small>Add it to your home screen</small></span>
+            <span><strong>{installation.nativeAvailable ? dict.installApp : dict.installInstructions}</strong><small>{dict.installSubtitle}</small></span>
             <span className="assistant-action-arrow" aria-hidden="true">→</span>
           </button>
         ) : null}
@@ -456,21 +458,21 @@ function AssistantFloatingWidget() {
             onClick={() => { dispatchWidgetAction(action.id, action.kind); if (action.id !== 'update') closePanel(true); }}
           >
             <span aria-hidden="true">↗</span>
-            <span><strong>{action.label}</strong><small>{action.message || 'Project-specific action'}</small></span>
+            <span><strong>{action.label}</strong><small>{action.message || dict.projectActionFallback}</small></span>
             <span className="assistant-action-arrow" aria-hidden="true">→</span>
           </button>
         ))}
         <a className="assistant-panel-link" href="#today" onClick={() => closePanel(false)}>
-          Go to today’s workspace <span aria-hidden="true">↗</span>
+          {dict.goToWorkspace} <span aria-hidden="true">↗</span>
         </a>
       </section>
 
       <span className="visually-hidden" role="status" aria-live="polite">
-        {badge.count ? `${badge.count} alerts. Highest priority: ${badge.label}.` : 'No alerts.'}
+        {badge.count ? tExample(activeLocale, 'alertSummary', { count: badge.count, label: badge.label }) : dict.noAlertSummary}
       </span>
 
       {/* The offer unmounts while the panel is open so it never covers it. */}
-      {open ? null : <ChromeHandoffBanner />}
+      {open ? null : <ChromeHandoffBanner locale={activeLocale} />}
 
       <GlareHover
         className="assistant-fab-glare"
@@ -489,7 +491,7 @@ function AssistantFloatingWidget() {
           className="assistant-fab"
           ref={toggleRef}
           type="button"
-          aria-label={open ? 'Close You.Ge Assistant menu' : `Open You.Ge Assistant menu${badge.count ? `, ${badge.count} alerts, ${badge.label}` : ', no alerts'}`}
+          aria-label={open ? dict.closeAssistantMenu : fabOpenLabel}
           aria-controls="assistant-panel"
           aria-expanded={open}
           aria-haspopup="dialog"
@@ -505,17 +507,14 @@ function AssistantFloatingWidget() {
               {badge.count > 9 ? '9+' : badge.count}
             </span>
           ) : null}
-          <span className="visually-hidden">{open ? 'Close assistant' : 'Open assistant'}</span>
+          <span className="visually-hidden">{open ? dict.closeAssistant : dict.openAssistant}</span>
         </button>
       </GlareHover>
     </div>
   );
 }
 
-/* Theme ownership lives here, once. The studio writes configuration into the
- * shared assistant singleton; the floating widget reads it back through the same
- * `useSyncExternalStore` subscription the rest of the sample uses. Nothing in the
- * example keeps a parallel theme model. */
+/* Theme ownership lives here, once. */
 function ThemeStudioHost() {
   const state = useSyncExternalStore(
     assistantStore.subscribe,
@@ -524,6 +523,7 @@ function ThemeStudioHost() {
   );
   const appearance = state.appearance || fallbackState.appearance;
   const badge = state.badge || fallbackState.badge;
+  const activeLocale = resolveExampleLocale(state.locale);
   const hostScheme = useMemo(() => {
     const probe = resolveAppearanceTheme({ ...appearance, theme: 'auto', themeConfig: { mode: 'auto' } }, { root: window, document });
     return probe.scheme;
@@ -539,8 +539,43 @@ function ThemeStudioHost() {
       onChange={changeTheme}
       hostScheme={hostScheme}
       badgeCount={badge.count || 0}
+      locale={activeLocale}
     />
   );
+}
+
+const workspaceLangSelect = document.getElementById('workspace-language');
+if (workspaceLangSelect) {
+  const assistant = YouGeAssistant.attach();
+  const populateOptions = (locale, configuredLocale) => {
+    const active = resolveExampleLocale(locale);
+    const targetConfigured =
+      configuredLocale !== undefined
+        ? configuredLocale
+        : (typeof assistant.getConfig === 'function' ? assistant.getConfig().locale : 'auto');
+    const desiredVal = targetConfigured === 'auto' ? 'auto' : active;
+    const options = buildLocaleOptions(active);
+    workspaceLangSelect.textContent = '';
+    options.forEach((opt) => {
+      const el = document.createElement('option');
+      el.value = opt.value;
+      el.textContent = opt.label;
+      workspaceLangSelect.appendChild(el);
+    });
+    const exists = options.some((o) => o.value === desiredVal);
+    workspaceLangSelect.value = exists ? desiredVal : active;
+    const labelEl = document.getElementById('workspace-language-label');
+    if (labelEl) labelEl.textContent = tExample(active, 'languageLabel');
+  };
+  populateOptions(assistant.getLocale());
+  workspaceLangSelect.addEventListener('change', (event) => {
+    const val = event.target.value;
+    syncExampleLocale(val, assistant);
+    populateOptions(assistant.getLocale(), val);
+  });
+  window.addEventListener('youge:locale-change', (event) => {
+    populateOptions(assistant.getLocale(), event?.detail?.configuredLocale);
+  });
 }
 
 const mount = document.getElementById('assistant-floating-root');

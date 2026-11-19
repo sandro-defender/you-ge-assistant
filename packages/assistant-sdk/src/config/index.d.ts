@@ -1,4 +1,4 @@
-import type { DomainRegistry, ProjectConfig } from '../domain/index.js';
+import type { DomainRegistry, InstallExperienceConfig, InstallExperienceInput, ProjectConfig } from '../domain/index.js';
 import type { AssistantThemeConfig, NormalizedTheme } from '../theme/index.js';
 
 export type AssistantPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
@@ -91,6 +91,7 @@ export interface PublishedAssistantConfig {
   project?: ProjectConfig | null;
   enabled?: boolean;
   domain?: string;
+  locale?: string;
   position?: AssistantPosition;
   offsets?: Partial<AssistantOffsets>;
   modules?: Partial<AssistantModulesConfig>;
@@ -98,6 +99,7 @@ export interface PublishedAssistantConfig {
   branding?: Partial<AssistantBrandingConfig>;
   actions?: AssistantActionInput[];
   features?: AssistantFeatureInput[];
+  installExperience?: InstallExperienceInput;
   /** A published (remote) revision may select a mode, but never carries custom
    * tokens: published configuration stays data-only and identity-neutral. */
   theme?: 'auto' | 'light' | 'dark';
@@ -114,6 +116,7 @@ export interface AssistantConfigInput {
   project?: ProjectConfig | null;
   projectId?: string;
   domain?: string;
+  locale?: string;
   position?: AssistantPosition;
   offsets?: Partial<AssistantOffsets>;
   modules?: Partial<AssistantModulesConfig>;
@@ -121,6 +124,7 @@ export interface AssistantConfigInput {
   branding?: Partial<AssistantBrandingConfig>;
   actions?: AssistantActionInput[];
   features?: AssistantFeatureInput[];
+  installExperience?: InstallExperienceInput;
   domainRegistry?: DomainRegistry;
   publishedConfig?: PublishedAssistantConfig | string | null;
   useLastKnownGood?: boolean;
@@ -138,6 +142,7 @@ export interface ResolvedAssistantConfig {
   project: ProjectConfig | null;
   projectId: string;
   domain: string;
+  locale: string;
   position: AssistantPosition;
   offsets: AssistantOffsets;
   modules: AssistantModulesConfig;
@@ -145,6 +150,7 @@ export interface ResolvedAssistantConfig {
   branding: AssistantBrandingConfig;
   actions: AssistantAction[];
   features: AssistantFeature[];
+  installExperience: InstallExperienceConfig;
   domainRegistry: DomainRegistry | null;
   services: {
     diagnostics: (() => Promise<Record<string, unknown>> | Record<string, unknown>) | null;
@@ -179,6 +185,11 @@ export interface StorageLike {
 }
 
 export declare const BUNDLED_DEFAULTS: Omit<ResolvedAssistantConfig, 'domainRegistry' | 'services'>;
+export declare const INSTALL_EXPERIENCE_DEFAULTS: InstallExperienceConfig;
+export declare function normalizeInstallExperience(
+  raw?: InstallExperienceInput | null,
+  fallback?: InstallExperienceConfig
+): InstallExperienceConfig;
 export declare function normalizeActions(raw?: unknown): AssistantAction[];
 export declare function normalizeFeatures(raw?: unknown): AssistantFeature[];
 export declare function validatePublishedConfig(

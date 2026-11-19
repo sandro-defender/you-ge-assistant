@@ -61,6 +61,7 @@ const at = (relative) => resolveSourcePath(root, relative);
 const requiredFiles = [
   'pwa.js',
   'pwa.css',
+  'pwa-install.js',
   'you-ge-sw.js',
   'progressier.js',
   'domain-config.js',
@@ -95,6 +96,7 @@ for (const file of requiredFiles) {
 section('JavaScript syntax');
 for (const file of [
   'pwa.js',
+  'pwa-install.js',
   'you-ge-sw.js',
   'progressier.js',
   'offline.js',
@@ -374,7 +376,7 @@ if (precacheIntegrity.status === 'fail') {
   pass(precacheIntegrity.summary);
 }
 
-for (const name of ['share-target', 'offline.html', 'qrcode.js']) {
+for (const name of ['share-target', 'offline.html', 'qrcode.js', 'pwa-install.js']) {
   if (!worker.includes(name)) warn(`you-ge-sw.js does not mention ${name}`);
 }
 
@@ -463,6 +465,7 @@ if (/base:\s*['"]\.\/['"]/.test(exampleViteConfig)) {
 const sharedRuntimeFiles = new Set([
   'pwa.js',
   'pwa.css',
+  'pwa-install.js',
   'you-ge-sw.js',
   'progressier.js',
   'qrcode.js',
@@ -756,9 +759,18 @@ contract(reactBitsStyles.every((text) => text.includes('prefers-reduced-motion')
 const examplePackage = JSON.parse(readFileSync(at('examples/example/package.json'), 'utf8'));
 contract(Boolean(examplePackage.scripts && examplePackage.scripts.typecheck), 'React example exposes a typecheck script');
 const noticeSource = readFileSync(at('examples/example/THIRD_PARTY_NOTICES.md'), 'utf8');
-for (const name of ['SpotlightCard', 'GlareHover', 'LatticeLoader']) {
+for (const name of ['SpotlightCard', 'GlareHover', 'LatticeLoader', '@khmyznikov/pwa-install']) {
   contract(noticeSource.includes(name), `third-party notices list ${name}`);
 }
+const rootNoticeSource = readFileSync(at('THIRD_PARTY_NOTICES.md'), 'utf8');
+contract(
+  rootNoticeSource.includes('@khmyznikov/pwa-install') && rootNoticeSource.includes('MIT License'),
+  'root THIRD_PARTY_NOTICES.md documents MIT attribution for pwa-install.js'
+);
+contract(
+  client.includes('showInstallDialog') && client.includes('pwa-install.js'),
+  'pwa.js integrates the self-contained <pwa-install> component with classic fallback'
+);
 
 const exampleHtmlSource = readFileSync(at('examples/example/workspace.html'), 'utf8');
 contract(exampleHtmlSource.includes('id="assistant-foundation-root"') && exampleHtmlSource.includes('<article class="foundation-card">'), 'foundation preview has a no-JS static fallback');

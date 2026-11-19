@@ -1,0 +1,13 @@
+export const DEFAULT_LOCALE: string;
+export const SUPPORTED_LOCALES: readonly string[];
+export const LOCALE_METADATA: Record<string, { code: string; name: string; nativeName: string; dir: 'ltr' | 'rtl' }>;
+export function resolveLocale(options?: import('@youge/assistant-sdk/i18n').LocaleResolutionOptions): string;
+export function isRtlLocale(locale?: string): boolean;
+export function resolveExampleLocale(candidate?: string): string;
+export function getLocaleDirection(locale?: string): 'ltr' | 'rtl';
+export function buildLocaleOptions(locale?: string): Array<{ value: string; label: string }>;
+export function getExampleDictionary(locale?: string): Record<string, any>;
+export function tExample(locale: string | undefined, key: string, params?: Record<string, unknown>): string;
+export function applyWorkspaceStaticTranslations(locale?: string): void;
+export function applyLandingStaticTranslations(locale?: string): void;
+export function syncExampleLocale(requestedLocale: string, assistantInstance?: { setLocale?: (locale: string) => unknown }): void;

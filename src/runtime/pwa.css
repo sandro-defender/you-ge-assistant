@@ -1400,3 +1400,14 @@ html.pwa-standalone .pwa-hide-standalone,
 html.pwa-installed .pwa-hide-installed {
   display: none !important;
 }
+
+/* Self-contained <pwa-install> host stays layout-neutral so its shadow-DOM
+   install dialog participates cleanly in viewport stacking above widgets. */
+
+pwa-install[data-youge-pwa-install] {
+  display: block;
+  position: static;
+  z-index: auto;
+  margin: 0;
+  padding: 0;
+}

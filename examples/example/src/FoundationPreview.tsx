@@ -6,6 +6,7 @@ import {
   type AssistantState,
 } from '@youge/assistant-sdk';
 import { createUseAssistant } from '@youge/assistant-sdk/react';
+import { resolveExampleLocale, tExample } from './i18n.js';
 import GlareHover from './react-bits/GlareHover';
 import LatticeLoader from './react-bits/LatticeLoader';
 import SpotlightCard from './react-bits/SpotlightCard';
@@ -50,22 +51,21 @@ function StatusIcon({ name }: { name: IconName }) {
   );
 }
 
-function describeInstallation(state: AssistantState): string {
+function describeInstallation(state: AssistantState, locale: string): string {
   const { installation } = state;
-  if (installation.standalone || installation.installed) return 'Installed on this device';
-  if (installation.nativeAvailable || installation.canInstall) return 'Native install prompt ready';
-  if (installation.ios) return 'Manual iOS instructions';
-  return 'Manual browser instructions';
+  if (installation.standalone || installation.installed) return tExample(locale, 'installedStatus');
+  if (installation.nativeAvailable || installation.canInstall) return tExample(locale, 'nativePromptStatus');
+  if (installation.ios) return tExample(locale, 'iosPromptStatus');
+  return tExample(locale, 'genericPromptStatus');
 }
 
 export default function FoundationPreview() {
   const assistantState = useAssistant();
+  const locale = resolveExampleLocale(assistantState.locale);
   const [phase, setPhase] = useState<'checking' | 'ready'>('checking');
-  const [connectionNotice, setConnectionNotice] = useState('');
+  const [connectionNoticeKey, setConnectionNoticeKey] = useState<'' | 'connectionRestoredNotice' | 'offlineNotice'>('');
 
   useEffect(() => {
-    // A short capability read gives the loading state a real job and is cleaned
-    // up on unmount. No network request is made here.
     const timer = window.setTimeout(() => {
       setPhase('ready');
     }, 320);
@@ -74,10 +74,10 @@ export default function FoundationPreview() {
 
   useEffect(() => {
     const handleOnline = () => {
-      setConnectionNotice('Connection restored. Cached pages remain available.');
+      setConnectionNoticeKey('connectionRestoredNotice');
     };
     const handleOffline = () => {
-      setConnectionNotice('You are offline. The offline fallback is still available.');
+      setConnectionNoticeKey('offlineNotice');
     };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -91,33 +91,34 @@ export default function FoundationPreview() {
   const online = assistantState.network.online !== false;
   const activeOrigin = assistantState.project.hostname || summary.hostname || window.location.hostname;
   const configMeta = YouGeAssistant.attach().getConfig().meta;
+  const connectionNotice = connectionNoticeKey ? tExample(locale, connectionNoticeKey) : '';
 
   const cards = [
     {
       id: 'installation',
       icon: 'install' as IconName,
-      kicker: 'INSTALLATION',
-      title: 'One install experience, many brands',
-      body: 'Native prompts, iOS Safari steps and desktop QR are driven by browser events and project-specific copy — never by a fake install button.',
-      status: describeInstallation(assistantState),
+      kicker: tExample(locale, 'fpCard1Kicker'),
+      title: tExample(locale, 'fpCard1Title'),
+      body: tExample(locale, 'fpCard1Body'),
+      status: describeInstallation(assistantState, locale),
       tone: 'ready' as const,
     },
     {
       id: 'offline',
       icon: 'offline' as IconName,
-      kicker: 'OFFLINE & DNS',
-      title: 'Scoped caches and honest diagnostics',
-      body: 'Host and scope isolated caches, a precached offline fallback, and user-triggered DNS checks with deliberately cautious classifications.',
-      status: 'Bundled in this toolkit',
+      kicker: tExample(locale, 'fpCard2Kicker'),
+      title: tExample(locale, 'fpCard2Title'),
+      body: tExample(locale, 'fpCard2Body'),
+      status: tExample(locale, 'fpCard2Status'),
       tone: 'neutral' as const,
     },
     {
       id: 'independence',
       icon: 'network' as IconName,
-      kicker: 'RESILIENCE',
-      title: 'Projects work on their own',
-      body: 'Assistant configuration is optional at runtime. Each project keeps its own authentication, authorization and business logic.',
-      status: `SDK v${SDK_VERSION} · config: ${configMeta.source}`,
+      kicker: tExample(locale, 'fpCard3Kicker'),
+      title: tExample(locale, 'fpCard3Title'),
+      body: tExample(locale, 'fpCard3Body'),
+      status: tExample(locale, 'fpCard3Status', { version: SDK_VERSION, source: configMeta.source }),
       tone: 'neutral' as const,
     },
   ];
@@ -127,7 +128,7 @@ export default function FoundationPreview() {
       <div className="foundation-status-row">
         {phase === 'checking' ? (
           <LatticeLoader
-            label="Checking platform capabilities"
+            label={tExample(locale, 'checkingCapabilities')}
             status="working"
             showTimer={false}
             fontSize={12}
@@ -138,7 +139,7 @@ export default function FoundationPreview() {
           <p className="foundation-status" role="status">
             <span className={`foundation-status-dot${online ? '' : ' is-offline'}`} aria-hidden="true" />
             <span>
-              <strong>{online ? 'Connected' : 'Offline'}</strong> · Active origin: {activeOrigin} · SDK v{SDK_VERSION}
+              <strong>{online ? tExample(locale, 'connectedWord') : tExample(locale, 'offlineWord')}</strong> · {tExample(locale, 'activeOriginWord')}: {activeOrigin} · SDK v{SDK_VERSION}
             </span>
           </p>
         )}
@@ -185,8 +186,8 @@ export default function FoundationPreview() {
           <StatusIcon name="empty" />
         </span>
         <div className="foundation-empty-copy">
-          <strong>No projects registered yet</strong>
-          <p>Project registration, domain verification and configuration publishing arrive with the standalone dashboard.</p>
+          <strong>{tExample(locale, 'noProjectsTitle')}</strong>
+          <p>{tExample(locale, 'noProjectsBody')}</p>
         </div>
         <button
           className="foundation-empty-action"
@@ -194,16 +195,16 @@ export default function FoundationPreview() {
           disabled
           aria-describedby="foundation-empty-note"
         >
-          Register a project
+          {tExample(locale, 'registerProject')}
         </button>
         <span className="visually-hidden" id="foundation-empty-note">
-          Unavailable in this foundation preview.
+          {tExample(locale, 'emptyNote')}
         </span>
       </div>
 
       <div className="foundation-actions">
         <p className="foundation-actions-copy">
-          This preview is a design reference. Installation still uses the existing You.Ge Assistant prompt flow.
+          {tExample(locale, 'installCtaCopy')}
         </p>
         <GlareHover
           className="foundation-cta-glare"
@@ -219,7 +220,7 @@ export default function FoundationPreview() {
         >
           <button className="foundation-cta" type="button" data-pwa-install>
             <StatusIcon name="install" />
-            Install You.Ge Assistant
+            {tExample(locale, 'installCtaBtn')}
           </button>
         </GlareHover>
       </div>

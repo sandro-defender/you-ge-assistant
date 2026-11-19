@@ -13,7 +13,7 @@
     <main>
       <img class="icon" src="icons/icon-192.png" alt="" />
       <p class="app-name" id="appName">You.Ge Assistant</p>
-      <p class="domain-context">This installation: <strong id="currentDomain">your current domain</strong></p>
+      <p class="domain-context"><span id="domainLabel">This installation:</span> <strong id="currentDomain">your current domain</strong></p>
       <!-- One atomic live region for the connection status: offline.js rewrites
            this text on online/offline events, and the "Connection restored"
            message is otherwise silent for screen-reader users. -->
@@ -24,12 +24,12 @@
       <button class="button secondary-button" id="diagnosticsButton" type="button">Run network diagnostics</button>
       <p class="hint" id="diagnosticsResult" role="status" aria-live="polite"></p>
       <details class="recovery-guide" id="recoveryGuide">
-        <summary>DNS recovery instructions</summary>
-        <p>Android: Settings → Network &amp; internet → Private DNS → Provider hostname → enter <code>one.one.one.one</code> → Save. Return to this domain and retry.</p>
-        <p><a href="https://developers.cloudflare.com/1.1.1.1/setup/android/" target="_blank" rel="noopener noreferrer">Official Android instructions</a></p>
-        <p>iPhone or iPad: use Cloudflare 1.1.1.1 in DNS-only mode. WARP is not required. Return to this domain and retry.</p>
-        <p><a href="https://developers.cloudflare.com/1.1.1.1/setup/ios/" target="_blank" rel="noopener noreferrer">Official iOS instructions</a></p>
-        <p><a href="https://play.google.com/store/apps/details?id=com.cloudflare.onedotonedotonedotone" target="_blank" rel="noopener noreferrer">Android app</a> · <a href="https://apps.apple.com/app/1-1-1-1-faster-internet/id1423538627" target="_blank" rel="noopener noreferrer">iPhone app</a></p>
+        <summary id="recoverySummary">DNS recovery instructions</summary>
+        <p id="recoveryAndroid">Android: Settings → Network &amp; internet → Private DNS → Provider hostname → enter <code>one.one.one.one</code> → Save. Return to this domain and retry.</p>
+        <p><a id="recoveryAndroidLink" href="https://developers.cloudflare.com/1.1.1.1/setup/android/" target="_blank" rel="noopener noreferrer">Official Android instructions</a></p>
+        <p id="recoveryIos">iPhone or iPad: use Cloudflare 1.1.1.1 in DNS-only mode. WARP is not required. Return to this domain and retry.</p>
+        <p><a id="recoveryIosLink" href="https://developers.cloudflare.com/1.1.1.1/setup/ios/" target="_blank" rel="noopener noreferrer">Official iOS instructions</a></p>
+        <p><a id="recoveryAndroidApp" href="https://play.google.com/store/apps/details?id=com.cloudflare.onedotonedotonedotone" target="_blank" rel="noopener noreferrer">Android app</a> · <a id="recoveryIosApp" href="https://apps.apple.com/app/1-1-1-1-faster-internet/id1423538627" target="_blank" rel="noopener noreferrer">iPhone app</a></p>
       </details>
       <div class="hint" id="hint">Connection recovery instructions remain available on this page.</div>
     </main>

@@ -355,6 +355,10 @@ function updateConfiguration() {
   const assistant = YouGeAssistant.attach();
   assistant.configure({
     theme: "dark",
+    installExperience: {
+      presentation: "manual",
+      locale: "auto",
+    },
     modules: {
       ...assistant.getConfig().modules,
       updateNotifications: false,
@@ -544,26 +548,33 @@ function disableAssistant() {
             </div>
             <dl>
               <div>
-                <dt>Project</dt>
+                <dt id="live-project-label">Project</dt>
                 <dd id="live-project">Enable JavaScript</dd>
               </div>
               <div>
-                <dt>Connectivity</dt>
+                <dt id="live-connectivity-label">Connectivity</dt>
                 <dd id="live-connectivity">Not connected</dd>
               </div>
               <div>
-                <dt>Notices</dt>
+                <dt id="live-notices-label">Notices</dt>
                 <dd id="live-notices">—</dd>
               </div>
               <div>
-                <dt>Theme</dt>
+                <dt id="live-theme-label">Theme</dt>
                 <dd id="live-theme">—</dd>
               </div>
             </dl>
             <label class="theme-control" for="demo-theme"
-              >Widget appearance<select id="demo-theme">
+              ><span id="demo-theme-label">Widget appearance</span
+              ><select id="demo-theme">
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
+                <option value="auto">Auto</option>
+              </select></label
+            >
+            <label class="theme-control" for="demo-language"
+              ><span id="demo-language-label">Language</span
+              ><select id="demo-language">
                 <option value="auto">Auto</option>
               </select></label
             >

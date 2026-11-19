@@ -7,6 +7,7 @@
   'use strict';
 
   var DEFAULTS = {
+    language: 'auto',
     identity: {
       name: 'You.Ge Assistant',
       shortName: 'You.Ge',
@@ -43,6 +44,24 @@
       qr: true,
       diagnostics: true,
       dnsRecovery: true,
+    },
+    installExperience: {
+      enabled: true,
+      presentation: 'manual',
+      locale: 'auto',
+      installDescription: '',
+      disableInstallDescription: false,
+      disableScreenshots: false,
+      disableScreenshotsApple: false,
+      disableScreenshotsChrome: false,
+      manualHowTo: false,
+      disableChrome: false,
+      disableClose: false,
+      disableAndroidFallback: false,
+      useLocalStorage: false,
+      manifestUrl: '',
+      manifestId: '',
+      styles: {},
     },
     instructions: {},
     metadata: {},
@@ -241,12 +260,105 @@
     return VALID_COLOR_HEX.test(color) || VALID_COLOR_FUNCTION.test(color) || Object.prototype.hasOwnProperty.call(CSS_COLOR_NAMES, color);
   }
 
+  var INSTALL_EXPERIENCE_BOOLEAN_KEYS = [
+    'enabled',
+    'disableInstallDescription',
+    'disableScreenshots',
+    'disableScreenshotsApple',
+    'disableScreenshotsChrome',
+    'manualHowTo',
+    'disableChrome',
+    'disableClose',
+    'disableAndroidFallback',
+    'useLocalStorage',
+  ];
+
+  function isSafeInstallStyleValue(value) {
+    if (typeof value !== 'string') return false;
+    var trimmed = value.trim();
+    if (!trimmed || trimmed.length > 120) return false;
+    if (/[;{}<>\\]/.test(trimmed)) return false;
+    if (/(?:url|expression|javascript|vbscript|data)\s*[:(]/i.test(trimmed)) return false;
+    return true;
+  }
+
+  function isExecutableInstallString(value) {
+    if (typeof value !== 'string') return false;
+    var trimmed = value.trim();
+    if (/^(?:javascript|vbscript|data:text\/html)/i.test(trimmed)) return true;
+    if (/<script\b|on[a-z]+\s*=|new\s+Function\b|\beval\s*\(/i.test(trimmed)) return true;
+    return false;
+  }
+
+  function safeInstallRelativeUrl(value) {
+    if (typeof value !== 'string') return false;
+    var trimmed = value.trim();
+    if (!trimmed) return false;
+    if (/^(?:[a-z]+:|\/\/)/i.test(trimmed) || trimmed.indexOf(String.fromCharCode(92)) !== -1 || /[\u0000-\u001f]/.test(trimmed)) return false;
+    var path = trimmed.split(/[?#]/)[0];
+    try { path = decodeURIComponent(path); } catch (error) { return false; }
+    return !path.split('/').some(function (part) { return part === '..'; });
+  }
+
+  function normalizeInstallExperience(raw, fallbackConfig) {
+    var base = clone(fallbackConfig || DEFAULTS.installExperience);
+    base.styles = isRecord(base.styles) ? base.styles : {};
+    if (!isRecord(raw)) return base;
+    INSTALL_EXPERIENCE_BOOLEAN_KEYS.forEach(function (key) {
+      if (typeof raw[key] === 'boolean') base[key] = raw[key];
+    });
+    if (raw.presentation === 'manual' || raw.presentation === 'auto') {
+      base.presentation = raw.presentation;
+    }
+    if (raw.locale !== undefined && typeof raw.locale === 'string') {
+      var loc = raw.locale.trim().replace(/_/g, '-');
+      if (!loc || loc.toLowerCase() === 'auto') base.locale = 'auto';
+      else if (/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(loc)) base.locale = loc;
+    }
+    if (typeof raw.installDescription === 'string' && !isExecutableInstallString(raw.installDescription)) {
+      base.installDescription = raw.installDescription.replace(/[\u0000-\u001f<>]/g, ' ').slice(0, 280).trim();
+    }
+    if (typeof raw.manifestId === 'string' && !isExecutableInstallString(raw.manifestId)) {
+      base.manifestId = raw.manifestId.replace(/[\u0000-\u001f<>]/g, ' ').slice(0, 180).trim();
+    }
+    if (typeof raw.manifestUrl === 'string') {
+      var candidate = raw.manifestUrl.trim();
+      if (!candidate) base.manifestUrl = '';
+      else if (safeInstallRelativeUrl(candidate) && !isExecutableInstallString(candidate)) {
+        base.manifestUrl = candidate.replace(/[\u0000-\u001f<>]/g, ' ').slice(0, 200);
+      }
+    }
+    if (isRecord(raw.styles)) {
+      var safeStyles = clone(base.styles);
+      Object.keys(raw.styles).slice(0, 20).forEach(function (prop) {
+        if (prop === '__proto__' || prop === 'constructor' || prop === 'prototype') return;
+        if (!/^--[a-zA-Z0-9_-]{1,50}$/.test(prop)) return;
+        if (isSafeInstallStyleValue(raw.styles[prop])) {
+          safeStyles[prop] = raw.styles[prop].trim();
+        }
+      });
+      base.styles = safeStyles;
+    }
+    return base;
+  }
+
   function validConfig(raw) {
     var safeInput = isRecord(raw) ? raw : {};
     var config = merge(clone(DEFAULTS), safeInput);
-    ['identity', 'branding', 'pwa', 'features', 'instructions', 'metadata', 'diagnostics'].forEach(function (key) {
+    ['identity', 'branding', 'pwa', 'features', 'installExperience', 'instructions', 'metadata', 'diagnostics'].forEach(function (key) {
       if (!isRecord(config[key])) config[key] = clone(DEFAULTS[key] || {});
     });
+    var rawLang = safeInput.language !== undefined
+      ? safeInput.language
+      : (isRecord(safeInput.identity) && safeInput.identity.language !== undefined ? safeInput.identity.language : 'auto');
+    if (typeof rawLang === 'string') {
+      var cleanedLang = rawLang.trim().replace(/_/g, '-');
+      if (!cleanedLang || cleanedLang.toLowerCase() === 'auto') config.language = 'auto';
+      else if (/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleanedLang)) config.language = cleanedLang;
+      else config.language = DEFAULTS.language;
+    } else {
+      config.language = DEFAULTS.language;
+    }
     if (isRecord(safeInput.project)) {
       var projectId = String(safeInput.project.id == null ? '' : safeInput.project.id)
         .replace(/[\u0000-\u001f<>]/g, ' ').slice(0, 80).trim();
@@ -311,6 +423,7 @@
       return safe;
     }) : [];
     config.diagnostics = sanitizeDiagnosticsConfig(config.diagnostics, config.pwa.basePath || '/');
+    config.installExperience = normalizeInstallExperience(safeInput.installExperience, DEFAULTS.installExperience);
     config.features = merge(clone(DEFAULTS.features), config.features || {});
     Object.keys(DEFAULTS.features).forEach(function (key) { config.features[key] = config.features[key] !== false; });
     config.pwa.enabled = config.pwa.enabled !== false;
@@ -340,6 +453,14 @@
         add('invalid_domain_config', 'config', 'Domain configuration must be a plain object.');
       }
       var source = isRecord(raw) ? raw : {};
+      if (source.language !== undefined) {
+        var cleanedSourceLang = typeof source.language === 'string' ? source.language.trim().replace(/_/g, '-') : '';
+        var validSourceLang = typeof source.language === 'string' &&
+          (cleanedSourceLang.toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleanedSourceLang));
+        if (!validSourceLang) {
+          add('invalid_language', 'language', 'Language must be "auto" or a valid BCP-47 language tag.');
+        }
+      }
       if (source.project !== undefined && source.project !== null) {
         var projectId = isRecord(source.project) ? source.project.id : undefined;
         var normalizedProjectId = typeof projectId === 'string'
@@ -417,6 +538,50 @@
               'Diagnostics probe paths must be safe same-origin relative or root-relative paths.');
           }
         });
+      }
+      if (source.installExperience !== undefined) {
+        if (!isRecord(source.installExperience)) {
+          add('invalid_install_experience', 'installExperience', 'Install experience configuration must be a plain object.');
+        } else {
+          INSTALL_EXPERIENCE_BOOLEAN_KEYS.forEach(function (key) {
+            if (source.installExperience[key] !== undefined && typeof source.installExperience[key] !== 'boolean') {
+              add('invalid_install_flag', 'installExperience.' + key, 'Install experience flags must use boolean values.');
+            }
+          });
+          if (source.installExperience.presentation !== undefined &&
+              source.installExperience.presentation !== 'manual' &&
+              source.installExperience.presentation !== 'auto') {
+            add('invalid_install_presentation', 'installExperience.presentation', 'Install presentation must be "manual" or "auto".');
+          }
+          if (source.installExperience.locale !== undefined) {
+            var rawLocale = source.installExperience.locale;
+            var validLocale = typeof rawLocale === 'string' &&
+              (rawLocale.trim().toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(rawLocale.trim()));
+            if (!validLocale) {
+              add('invalid_install_locale', 'installExperience.locale', 'Install locale must be "auto" or a valid BCP-47 language tag.');
+            }
+          }
+          if (source.installExperience.manifestUrl !== undefined) {
+            var rawManifestUrl = source.installExperience.manifestUrl;
+            var validManifestUrl = typeof rawManifestUrl === 'string' &&
+              (rawManifestUrl.trim() === '' || (safeInstallRelativeUrl(rawManifestUrl) && !isExecutableInstallString(rawManifestUrl)));
+            if (!validManifestUrl) {
+              add('unsafe_install_manifest_url', 'installExperience.manifestUrl', 'Install manifest URL must be a safe relative path.');
+            }
+          }
+          if (source.installExperience.styles !== undefined) {
+            if (!isRecord(source.installExperience.styles)) {
+              add('invalid_install_styles', 'installExperience.styles', 'Install styles must be a plain object of CSS custom properties.');
+            } else {
+              Object.keys(source.installExperience.styles).forEach(function (key) {
+                if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+                if (!/^--[a-zA-Z0-9_-]{1,50}$/.test(key) || !isSafeInstallStyleValue(source.installExperience.styles[key])) {
+                  add('unsafe_install_style', 'installExperience.styles.' + key, 'Install styles must use safe CSS custom property names and values.');
+                }
+              });
+            }
+          }
+        }
       }
     } catch (error) {
       add('invalid_domain_config', 'config', 'Domain configuration could not be read safely.');
@@ -702,6 +867,7 @@
       },
     };
     if (resolved.features.sharing === false) delete output.share_target;
+    if (resolved.language && resolved.language !== 'auto') output.lang = resolved.language;
     return output;
   }
 

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 export const PUBLIC_TO_SOURCE = {
   'pwa.js': 'src/runtime/pwa.js',
   'pwa.css': 'src/runtime/pwa.css',
+  'pwa-install.js': 'src/runtime/pwa-install.js',
   'you-ge-sw.js': 'src/runtime/you-ge-sw.js',
   'progressier.js': 'src/runtime/progressier.js',
   'assistant-state.js': 'src/assistant/assistant-state.js',

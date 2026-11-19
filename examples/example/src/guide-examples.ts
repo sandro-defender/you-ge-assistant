@@ -32,6 +32,10 @@ export function updateConfiguration() {
   const assistant = YouGeAssistant.attach();
   assistant.configure({
     theme: "dark",
+    installExperience: {
+      presentation: "manual",
+      locale: "auto",
+    },
     modules: {
       ...assistant.getConfig().modules,
       updateNotifications: false,

@@ -6,7 +6,7 @@
  * directories (`src/`, `public/`, `icons/`).
  *
  * Preserves all existing root-level public URLs:
- *   /pwa.js, /pwa.css, /you-ge-sw.js, /progressier.js
+ *   /pwa.js, /pwa.css, /pwa-install.js, /you-ge-sw.js, /progressier.js
  *   /assistant-state.js, /assistant-widget.js, /assistant-widget.css
  *   /domain-config.js, /domain-registry.js, /dns-diagnostics.js, /manifest-handler.js
  *   /offline.html, /offline.css, /offline.js
@@ -26,6 +26,7 @@ const FILE_MAPPINGS = [
   // Runtime core & service worker
   ['src/runtime/pwa.js', 'pwa.js'],
   ['src/runtime/pwa.css', 'pwa.css'],
+  ['src/runtime/pwa-install.js', 'pwa-install.js'],
   ['src/runtime/you-ge-sw.js', 'you-ge-sw.js'],
   ['src/runtime/progressier.js', 'progressier.js'],
 

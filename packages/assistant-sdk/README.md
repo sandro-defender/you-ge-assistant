@@ -6,7 +6,7 @@ fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
 > **Package status:** SDK `0.3.0` is published on npm (registry verified
-> 2026-11-16). The compatible repository toolkit is `1.2.5`.
+> 2026-11-16). The compatible repository toolkit is `1.2.6`.
 > See [`MIGRATION.md`](MIGRATION.md) for host-owned worker integration and
 > [`RELEASE.md`](RELEASE.md) for the authorization-gated release runbook.
 
@@ -17,7 +17,7 @@ installation integration.
 | Layer | Responsibility | Dependencies |
 | --- | --- | --- |
 | **SDK core** (`@youge/assistant-sdk`) | Public initialization (`create`, `attach`), data-only config & LKG validation, multi-domain resolution & manifest generation, centralized assistant state & subscriptions, connectivity/endpoint/session updates, explicit diagnostics & install delegation, `.d.ts` TypeScript contracts | **Zero** runtime dependencies (no React, Vue, Angular, or bundler runtime) |
-| **PWA toolkit** (`pwa.js`, `/you-ge-sw.js`, `dns-diagnostics.js`) | `window.YouGePWA` / `window.PWA` APIs, `beforeinstallprompt` / iOS / QR install UI, single `/you-ge-sw.js` service worker (plus `/progressier.js` migration shim), host+scope+version cache isolation, offline fallback, Cloudflare DoH A/AAAA checks | Dependency-free classic browser scripts |
+| **PWA toolkit** (`pwa.js`, `pwa-install.js`, `/you-ge-sw.js`, `dns-diagnostics.js`) | `window.YouGePWA` / `window.PWA` APIs, integrated `<pwa-install>` dialog (`manual` default / opt-in `auto`, native Georgian `ka` and Estonian `et` support), `beforeinstallprompt` / iOS / QR fallback UI, single `/you-ge-sw.js` service worker (plus `/progressier.js` migration shim), host+scope+version cache isolation, offline fallback, Cloudflare DoH A/AAAA checks | Dependency-free classic browser scripts |
 | **UI / Widget layer** (`assistant-widget.js`, `examples/example/`) | Floating assistant DOM renderer — auto-scaling launcher, manual size/position adjustment, Android Chrome handoff offer — plus the optional React external-store adapter (`@youge/assistant-sdk/react` + `examples/example/`) | SDK works independently of any widget or UI framework |
 
 ---
@@ -65,6 +65,7 @@ Inside another package in this repository or a sibling local project:
 | `@youge/assistant-sdk/installation` | `window.PWA` state reader, install prompt, and service-worker update delegation |
 | `@youge/assistant-sdk/browser` | Android in-app browser detection and best-effort Chrome handoff (`detectInAppBrowser`, `buildChromeIntentUrl`, `createChromeHandoff`) |
 | `@youge/assistant-sdk/theme` | Adaptive theme normalization/resolution, WCAG contrast helpers, `--youge-*` CSS variables, and notification-level taxonomy |
+| `@youge/assistant-sdk/i18n` | Unified 12-locale dictionary (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`), locale resolver, plural alert formatting, and DNS localization |
 | `@youge/assistant-sdk/react` | Optional React 18/19 `useSyncExternalStore` adapter (zero runtime `react` import in SDK) |
 
 All entry points ship paired `.d.ts` TypeScript declarations.
@@ -533,6 +534,8 @@ without replacing the instance.
 | --- | --- | --- |
 | `getState()` | `() => AssistantState` | Returns the current immutable-convention JSON-serializable state snapshot (`project`, `installation`, `network`, `capabilities`, `notifications`, `availableActions`, `badge`, `appearance`, `dismissed`, `acknowledged`). |
 | `getConfig()` | `() => AssistantConfigSummary` | Returns resolved sanitized configuration plus `meta` (`source`, `revision`, `usedLastKnownGood`, `warnings`). |
+| `getLocale()` | `() => SupportedLocale` | Returns the resolved active UI locale (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`). |
+| `setLocale(locale)` | `(string) => AssistantState` | Resolves `'auto'` (honoring `domainConfig.language` before browser `navigator.languages`) or an explicit BCP-47 tag, updates localized notices/labels runtime-only (never written to `localStorage`), syncs `window.PWA.setLanguage()` when attached, and emits `youge:locale-change`. |
 | `configure(options)` | `(AssistantConfigInput) => AssistantState` | Re-runs configuration resolution, reloads project-scoped notice state, and emits an updated snapshot without duplicating listeners. |
 | `subscribe(fn, opts?)` | `(fn, { immediate?: boolean }) => () => void` | Subscribes to state transitions. Calls `fn(state)` immediately unless `{ immediate: false }`. Returns an `unsubscribe` function. |
 | `setConnectivity(online)` | `(boolean) => AssistantState` | Updates online/offline condition explicitly. |

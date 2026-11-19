@@ -94,6 +94,7 @@
     swScope: '',
     manifestUrl: resolveUrl(dataset.manifest || 'manifest.webmanifest'),
     cssUrl: resolveUrl(dataset.css || 'pwa.css'),
+    installComponentUrl: resolveUrl(dataset.installUrl || 'pwa-install.js'),
     analytics: dataset.analytics || '',
     pushEndpoint: dataset.pushEndpoint || '',
     vapidPublicKey: dataset.vapidPublicKey || '',
@@ -108,6 +109,7 @@
     domain: domainConfig.domain,
     domainConfig: domainConfig,
     features: domainConfig.features,
+    installExperience: null,
     itunesAppId: dataset.itunesAppId || '',
     viewportFit: 'viewportFit' in dataset,
     autoUpdate: 'autoUpdate' in dataset,
@@ -287,10 +289,20 @@
   }
 
   function getState() {
+    var detection = assistantCapabilityEnabled('installationDetection');
+    var componentDefined = isInstallComponentDefined();
+    var dialogOpen = Boolean(
+      detection &&
+      installComponentElement &&
+      installComponentElement.isInstallAvailable &&
+      !installComponentElement.isDialogHidden
+    );
+    var backend = installComponentBackend ||
+      (installPromptEvent ? 'beforeinstallprompt' : ((typeof navigator.install === 'function') ? 'web-install' : ((isIOS() && isSafari()) ? 'manual' : 'none')));
     return {
-      standalone: assistantCapabilityEnabled('installationDetection') && isStandalone(),
-      installed: assistantCapabilityEnabled('installationDetection') && (installed || isStandalone()),
-      canInstall: assistantCapabilityEnabled('installationDetection') && Boolean(installPromptEvent),
+      standalone: detection && isStandalone(),
+      installed: detection && (installed || isStandalone()),
+      canInstall: detection && Boolean(installPromptEvent),
       hasUpdate: assistantCapabilityEnabled('updateDetection') && isUpdateAvailable(),
       ios: isIOS(),
       safari: isSafari(),
@@ -300,6 +312,14 @@
       basePath: domainConfig.domain.basePath,
       pushSupported: pushSupported(),
       pushPermission: 'Notification' in window ? Notification.permission : 'denied',
+      installComponentEnabled: isInstallComponentEnabled(),
+      installComponentLoaded: componentDefined,
+      installDialogOpen: dialogOpen,
+      installPresentation: installExperienceConfig.presentation,
+      installLocale: effectiveInstallLocale(),
+      installBackend: detection ? backend : 'none',
+      relatedAppsInstalled: Boolean(detection && installComponentElement && installComponentElement.isRelatedAppsInstalled),
+      language: wording.language,
     };
   }
 
@@ -945,13 +965,494 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Install flow
+   * Install flow & self-contained <pwa-install> component
    * ------------------------------------------------------------------ */
+
+  var INSTALL_EXPERIENCE_BOOLEAN_KEYS = [
+    'enabled',
+    'disableInstallDescription',
+    'disableScreenshots',
+    'disableScreenshotsApple',
+    'disableScreenshotsChrome',
+    'manualHowTo',
+    'disableChrome',
+    'disableClose',
+    'disableAndroidFallback',
+    'useLocalStorage',
+  ];
+
+  function resolveInitialInstallExperience() {
+    var base = {
+      enabled: true,
+      presentation: 'manual',
+      locale: 'auto',
+      installDescription: '',
+      disableInstallDescription: false,
+      disableScreenshots: false,
+      disableScreenshotsApple: false,
+      disableScreenshotsChrome: false,
+      manualHowTo: false,
+      disableChrome: false,
+      disableClose: false,
+      disableAndroidFallback: false,
+      useLocalStorage: false,
+      manifestUrl: '',
+      manifestId: '',
+      styles: {},
+    };
+    var domainInstall = domainConfig && domainConfig.installExperience && typeof domainConfig.installExperience === 'object'
+      ? domainConfig.installExperience
+      : null;
+    var assistantGlobalInstall = window.YOU_GE_ASSISTANT_CONFIG &&
+      window.YOU_GE_ASSISTANT_CONFIG.installExperience &&
+      typeof window.YOU_GE_ASSISTANT_CONFIG.installExperience === 'object'
+      ? window.YOU_GE_ASSISTANT_CONFIG.installExperience
+      : null;
+
+    function mergeInstall(src) {
+      if (!src || typeof src !== 'object' || Array.isArray(src)) return;
+      INSTALL_EXPERIENCE_BOOLEAN_KEYS.forEach(function (key) {
+        if (typeof src[key] === 'boolean') base[key] = src[key];
+      });
+      if (src.presentation === 'manual' || src.presentation === 'auto') base.presentation = src.presentation;
+      if (typeof src.locale === 'string' && src.locale.trim()) base.locale = src.locale.trim();
+      if (typeof src.installDescription === 'string') base.installDescription = src.installDescription.slice(0, 280);
+      if (typeof src.manifestUrl === 'string') base.manifestUrl = src.manifestUrl.trim();
+      if (typeof src.manifestId === 'string') base.manifestId = src.manifestId.trim();
+      if (src.styles && typeof src.styles === 'object' && !Array.isArray(src.styles)) {
+        Object.keys(src.styles).forEach(function (prop) {
+          if (/^--[a-zA-Z0-9_-]{1,50}$/.test(prop) && typeof src.styles[prop] === 'string') {
+            base.styles[prop] = src.styles[prop].trim();
+          }
+        });
+      }
+    }
+
+    mergeInstall(domainInstall);
+    mergeInstall(assistantGlobalInstall);
+
+    if (dataset.installComponent === 'false') base.enabled = false;
+    if (dataset.installPresentation === 'auto' || dataset.installPresentation === 'manual') {
+      base.presentation = dataset.installPresentation;
+    }
+    if (dataset.installLocale) base.locale = String(dataset.installLocale).trim();
+    if (dataset.installDescription) base.installDescription = String(dataset.installDescription).slice(0, 280);
+    if ('installManualHowTo' in dataset && dataset.installManualHowTo !== 'false') base.manualHowTo = true;
+    if ('installUseLocalStorage' in dataset && dataset.installUseLocalStorage !== 'false') base.useLocalStorage = true;
+    if ('installDisableScreenshots' in dataset && dataset.installDisableScreenshots !== 'false') base.disableScreenshots = true;
+    if ('installDisableClose' in dataset && dataset.installDisableClose !== 'false') base.disableClose = true;
+    if (dataset.manifestId) base.manifestId = String(dataset.manifestId).trim();
+
+    return base;
+  }
+
+  var installExperienceConfig = resolveInitialInstallExperience();
+  config.installExperience = installExperienceConfig;
+
+  var installComponentElement = null;
+  var installComponentLoadPromise = null;
+  var installComponentBackend = '';
+  var installDialogPreviousFocus = null;
+  var installComponentFallbackActive = false;
+
+  function isInstallComponentDefined() {
+    try {
+      return Boolean(window.customElements && typeof window.customElements.get === 'function' && window.customElements.get('pwa-install'));
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function isInstallComponentEnabled() {
+    return Boolean(
+      installExperienceConfig.enabled !== false &&
+      domainConfig.pwa.enabled !== false &&
+      domainConfig.features.installation !== false &&
+      assistantCapabilityEnabled('installationGuidance')
+    );
+  }
+
+  function effectiveInstallLocale() {
+    if (installExperienceConfig.locale && installExperienceConfig.locale !== 'auto') {
+      return installExperienceConfig.locale;
+    }
+    if (wordingExplicitLanguage) return wording.language;
+    if (domainConfig && domainConfig.language && String(domainConfig.language).toLowerCase() !== 'auto') {
+      return domainConfig.language;
+    }
+    try {
+      if (window.YOU_GE_ASSISTANT_CONFIG && window.YOU_GE_ASSISTANT_CONFIG.locale &&
+          String(window.YOU_GE_ASSISTANT_CONFIG.locale).toLowerCase() !== 'auto') {
+        return window.YOU_GE_ASSISTANT_CONFIG.locale;
+      }
+      if (window.YouGeAssistant && typeof window.YouGeAssistant.getConfig === 'function') {
+        var cfg = window.YouGeAssistant.getConfig();
+        if (cfg && cfg.locale && String(cfg.locale).toLowerCase() !== 'auto') {
+          return typeof window.YouGeAssistant.getLocale === 'function'
+            ? window.YouGeAssistant.getLocale()
+            : cfg.locale;
+        }
+      }
+    } catch (error) { /* ignore */ }
+    return 'auto';
+  }
+
+  function resolvedManifestTargetUrl() {
+    if (installExperienceConfig.manifestUrl) return resolveUrl(installExperienceConfig.manifestUrl);
+    if (!dataset.manifest) {
+      var existingManifest = document.querySelector('link[rel~="manifest"][href]');
+      if (existingManifest && existingManifest.href) return existingManifest.href;
+    }
+    return config.manifestUrl;
+  }
+
+  function syncInstallElementProps(el) {
+    if (!el) return;
+    var manual = installExperienceConfig.presentation !== 'auto';
+    var targetManifestUrl = resolvedManifestTargetUrl();
+    var targetManifestId = installExperienceConfig.manifestId || (domainConfig && domainConfig.pwa && domainConfig.pwa.id) || '';
+    var targetLocale = effectiveInstallLocale();
+
+    el.manifestUrl = targetManifestUrl;
+    if (targetManifestId) el.manifestId = targetManifestId;
+    el.icon = appIcon();
+    el.name = appName();
+    el.description = (domainConfig && domainConfig.identity && domainConfig.identity.description) || '';
+    el.installDescription = installExperienceConfig.installDescription || '';
+    el.disableDescription = Boolean(installExperienceConfig.disableInstallDescription);
+    el.disableScreenshots = Boolean(installExperienceConfig.disableScreenshots);
+    el.disableScreenshotsApple = Boolean(installExperienceConfig.disableScreenshotsApple);
+    el.disableScreenshotsChrome = Boolean(installExperienceConfig.disableScreenshotsChrome);
+    el.manualApple = manual;
+    el.manualChrome = manual;
+    el.manualHowTo = Boolean(installExperienceConfig.manualHowTo);
+    el.disableChrome = Boolean(installExperienceConfig.disableChrome);
+    el.disableClose = Boolean(installExperienceConfig.disableClose);
+    el.disableFallback = Boolean(installExperienceConfig.disableAndroidFallback);
+    el.useLocalStorage = Boolean(installExperienceConfig.useLocalStorage);
+    el.locale = targetLocale;
+    if (typeof el.setAttribute === 'function') el.setAttribute('locale', targetLocale);
+    el.styles = Object.assign({}, installExperienceConfig.styles || {});
+    if (installPromptEvent) el.externalPromptEvent = installPromptEvent;
+  }
+
+  function bindInstallElementEvents(el) {
+    if (!el || el.__youGeBound) return;
+    el.__youGeBound = true;
+
+    el.addEventListener('pwa-install-available-event', function (event) {
+      if (event && event.detail && typeof event.detail.message === 'string') {
+        log('install available:', event.detail.message);
+      }
+      dispatch('installable', { source: 'pwa-install' });
+      refreshState();
+    });
+
+    el.addEventListener('pwa-install-backend-event', function (event) {
+      var detail = (event && event.detail) || {};
+      if (detail.backend) installComponentBackend = String(detail.backend);
+      refreshState();
+    });
+
+    el.addEventListener('pwa-user-choice-result-event', function (event) {
+      var detail = (event && event.detail) || {};
+      var outcome = detail.message || el.userChoiceResult || 'dismissed';
+      installPromptEvent = null;
+      if (outcome === 'accepted') installed = true;
+      track('install_choice', { outcome: outcome, source: 'pwa-install' });
+      dispatch('install-dialog', { open: false, outcome: outcome, backend: installComponentBackend || 'pwa-install' });
+      refreshState();
+      if (outcome === 'dismissed' && installDialogPreviousFocus && typeof installDialogPreviousFocus.focus === 'function') {
+        try {
+          if (!document.activeElement || document.activeElement === document.body) {
+            installDialogPreviousFocus.focus({ preventScroll: true });
+          }
+        } catch (error) { /* ignore */ }
+        installDialogPreviousFocus = null;
+      }
+    });
+
+    el.addEventListener('pwa-install-success-event', function (event) {
+      var detail = (event && event.detail) || {};
+      if (detail.backend) installComponentBackend = String(detail.backend);
+      installPromptEvent = null;
+      installed = true;
+      installComponentFallbackActive = false;
+      dispatch('install-dialog', { open: false, outcome: 'accepted', backend: installComponentBackend || 'pwa-install' });
+      dispatch('installed', { source: 'pwa-install', backend: installComponentBackend || 'pwa-install' });
+      track('app_installed', { backend: installComponentBackend || 'pwa-install' });
+      refreshState();
+    });
+
+    el.addEventListener('pwa-install-fail-event', function (event) {
+      var detail = (event && event.detail) || {};
+      if (detail.backend) installComponentBackend = String(detail.backend);
+      var shouldFallback = installComponentFallbackActive && detail.fallbackAvailable === false;
+      installComponentFallbackActive = false;
+      if (detail.errorName === 'NotSupportedError' || shouldFallback) {
+        try { if (typeof el.hideDialog === 'function') el.hideDialog(); } catch (err) { /* ignore */ }
+        dispatch('install-dialog', { open: false, outcome: 'instructions', backend: detail.backend || 'manual' });
+        refreshState();
+        if (shouldFallback && isInstallComponentEnabled()) {
+          showHelp(isIOS() ? 'ios' : 'generic');
+          track('install_instructions', { platform: isIOS() ? 'ios' : 'other', fallbackFrom: 'pwa-install' });
+        }
+        return;
+      }
+      refreshState();
+    });
+
+    el.addEventListener('pwa-install-how-to-event', function (event) {
+      track('install_how_to', (event && event.detail) || null);
+    });
+
+    el.addEventListener('pwa-install-gallery-event', function (event) {
+      track('install_gallery', (event && event.detail) || null);
+    });
+  }
+
+  function ensureInstallElement() {
+    if (!isInstallComponentEnabled() || !isInstallComponentDefined()) return null;
+    if (!document.body) return null;
+    if (installComponentElement && installComponentElement.isConnected) {
+      syncInstallElementProps(installComponentElement);
+      return installComponentElement;
+    }
+    var existing = document.querySelector('pwa-install');
+    var el = existing || document.createElement('pwa-install');
+    if (!existing) el.setAttribute('data-youge-pwa-install', '');
+    syncInstallElementProps(el);
+    bindInstallElementEvents(el);
+    if (!el.isConnected) document.body.appendChild(el);
+    installComponentElement = el;
+    refreshState();
+    return el;
+  }
+
+  function loadInstallComponent() {
+    if (!isInstallComponentEnabled()) return Promise.resolve(null);
+    if (typeof window.customElements === 'undefined') return Promise.resolve(null);
+    if (isInstallComponentDefined()) return Promise.resolve(window.customElements.get('pwa-install'));
+    if (installComponentLoadPromise) return installComponentLoadPromise;
+
+    installComponentLoadPromise = new Promise(function (resolve) {
+      var settled = false;
+      function finish(ctor) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (!ctor) installComponentLoadPromise = null;
+        resolve(ctor || null);
+      }
+
+      var timer = setTimeout(function () {
+        finish(isInstallComponentDefined() ? window.customElements.get('pwa-install') : null);
+      }, 4500);
+
+      try {
+        if (typeof window.customElements.whenDefined === 'function') {
+          window.customElements.whenDefined('pwa-install').then(function () {
+            finish(window.customElements.get('pwa-install'));
+          }).catch(function () {});
+        }
+      } catch (error) { /* ignore */ }
+
+      var existingScript = document.querySelector('script[data-youge-pwa-install-script], script[src*="pwa-install.js"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', function () {
+          finish(isInstallComponentDefined() ? window.customElements.get('pwa-install') : null);
+        }, { once: true });
+        existingScript.addEventListener('error', function () { finish(null); }, { once: true });
+        return;
+      }
+
+      var loader = document.createElement('script');
+      loader.async = true;
+      loader.src = config.installComponentUrl;
+      loader.setAttribute('data-youge-pwa-install-script', '');
+      if (config.nonce) loader.setAttribute('nonce', config.nonce);
+      loader.addEventListener('load', function () {
+        finish(isInstallComponentDefined() ? window.customElements.get('pwa-install') : null);
+      }, { once: true });
+      loader.addEventListener('error', function () {
+        finish(null);
+      }, { once: true });
+      (document.head || document.documentElement).appendChild(loader);
+    });
+
+    return installComponentLoadPromise;
+  }
+
+  function configureInstallExperience(nextConfig) {
+    if (nextConfig && typeof nextConfig === 'object' && !Array.isArray(nextConfig)) {
+      INSTALL_EXPERIENCE_BOOLEAN_KEYS.forEach(function (key) {
+        if (typeof nextConfig[key] === 'boolean') installExperienceConfig[key] = nextConfig[key];
+      });
+      if (nextConfig.presentation === 'manual' || nextConfig.presentation === 'auto') {
+        installExperienceConfig.presentation = nextConfig.presentation;
+      }
+      if (typeof nextConfig.locale === 'string' && nextConfig.locale.trim()) {
+        var prevWordingLang = wording.language;
+        installExperienceConfig.locale = nextConfig.locale.trim();
+        var baseLang = normalizeShortLocale(installExperienceConfig.locale);
+        if (installExperienceConfig.locale.toLowerCase() === 'auto') {
+          if (!wordingExplicitLanguage) wording.language = detectLanguage();
+        } else if (translations[baseLang]) {
+          wording.language = baseLang;
+        }
+        if (wording.language !== prevWordingLang) {
+          scanButtons();
+          refreshCapturedButtons();
+          renderToolbox();
+        }
+      }
+      if (typeof nextConfig.installDescription === 'string') {
+        installExperienceConfig.installDescription = nextConfig.installDescription.slice(0, 280);
+      }
+      if (typeof nextConfig.manifestUrl === 'string') {
+        installExperienceConfig.manifestUrl = nextConfig.manifestUrl.trim();
+      }
+      if (typeof nextConfig.manifestId === 'string') {
+        installExperienceConfig.manifestId = nextConfig.manifestId.trim();
+      }
+      if (nextConfig.styles && typeof nextConfig.styles === 'object' && !Array.isArray(nextConfig.styles)) {
+        var nextStyles = {};
+        Object.keys(nextConfig.styles).forEach(function (prop) {
+          if (/^--[a-zA-Z0-9_-]{1,50}$/.test(prop) && typeof nextConfig.styles[prop] === 'string') {
+            nextStyles[prop] = nextConfig.styles[prop].trim();
+          }
+        });
+        installExperienceConfig.styles = nextStyles;
+      }
+    }
+    if (installComponentElement) {
+      if (!isInstallComponentEnabled() && typeof installComponentElement.hideDialog === 'function') {
+        try { installComponentElement.hideDialog(); } catch (err) { /* ignore */ }
+      } else {
+        syncInstallElementProps(installComponentElement);
+      }
+    } else if (isInstallComponentEnabled() && installExperienceConfig.presentation === 'auto') {
+      loadInstallComponent().then(function (ctor) {
+        if (ctor) ensureInstallElement();
+      });
+    }
+    refreshState();
+    return Object.assign({}, installExperienceConfig, { styles: Object.assign({}, installExperienceConfig.styles) });
+  }
+
+  function hideInstallDialog() {
+    var closed = false;
+    if (installComponentElement && !installComponentElement.isDialogHidden) {
+      try {
+        if (typeof installComponentElement.hideDialog === 'function') {
+          installComponentElement.hideDialog();
+          closed = true;
+        }
+      } catch (error) { /* ignore */ }
+    }
+    var helpOverlay = document.querySelector('[data-pwa-help]');
+    if (helpOverlay && helpOverlay.parentNode) {
+      helpOverlay.parentNode.removeChild(helpOverlay);
+      closed = true;
+    }
+    if (closed) {
+      dispatch('install-dialog', { open: false, backend: installComponentBackend || 'pwa-install' });
+      refreshState();
+      if (installDialogPreviousFocus && typeof installDialogPreviousFocus.focus === 'function') {
+        try { installDialogPreviousFocus.focus({ preventScroll: true }); } catch (error) { /* ignore */ }
+        installDialogPreviousFocus = null;
+      }
+    }
+    return closed;
+  }
+
+  function showInstallDialog(options) {
+    options = options || {};
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false || !assistantCapabilityEnabled('installationGuidance')) {
+      return Promise.resolve({ shown: false, outcome: 'disabled', backend: 'none' });
+    }
+    if (installed || isStandalone()) {
+      return Promise.resolve({ shown: false, outcome: 'already-installed', backend: 'none' });
+    }
+    if (options.installExperience && typeof options.installExperience === 'object') {
+      configureInstallExperience(options.installExperience);
+    }
+    if (!isInstallComponentEnabled() || options.classic === true) {
+      return promptInstall(Object.assign({}, options, { classic: true })).then(function (res) {
+        return {
+          shown: Boolean(res && res.outcome && res.outcome !== 'disabled'),
+          outcome: (res && res.outcome) || 'instructions',
+          backend: 'classic',
+        };
+      });
+    }
+    return loadInstallComponent().then(function (ctor) {
+      var el = ctor ? ensureInstallElement() : null;
+      if (el && typeof el.showDialog === 'function') {
+        installDialogPreviousFocus = document.activeElement;
+        installComponentFallbackActive = true;
+        syncInstallElementProps(el);
+        el.showDialog(options.forced !== false);
+        track('install_dialog_open', { backend: 'pwa-install', locale: effectiveInstallLocale() });
+        dispatch('install-dialog', { open: true, backend: 'pwa-install' });
+        refreshState();
+        return { shown: true, outcome: 'shown', backend: 'pwa-install' };
+      }
+      if (options.classicFallback === false) {
+        return { shown: false, outcome: 'unavailable', backend: 'none' };
+      }
+      return promptInstall(Object.assign({}, options, { classic: true })).then(function (res) {
+        return {
+          shown: Boolean(res && res.outcome && res.outcome !== 'disabled'),
+          outcome: (res && res.outcome) || 'instructions',
+          backend: 'classic',
+        };
+      });
+    });
+  }
+
+  function triggerInstall(options) {
+    options = options || {};
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false || !assistantCapabilityEnabled('installationGuidance')) {
+      return Promise.resolve({ outcome: 'disabled', backend: 'none' });
+    }
+    if (installed || isStandalone()) {
+      return Promise.resolve({ outcome: 'already-installed', backend: 'none' });
+    }
+    if (isInstallComponentEnabled() && isInstallComponentDefined()) {
+      var el = ensureInstallElement();
+      if (el && typeof el.install === 'function') {
+        installComponentFallbackActive = false;
+        return Promise.resolve(el.install()).then(function () {
+          return { outcome: el.userChoiceResult || (installed ? 'accepted' : 'triggered'), backend: installComponentBackend || 'pwa-install' };
+        }).catch(function () {
+          return { outcome: 'error', backend: installComponentBackend || 'pwa-install' };
+        });
+      }
+    }
+    return promptInstall(Object.assign({}, options, { immediate: true })).then(function (res) {
+      return Object.assign({ backend: 'classic' }, res || {});
+    });
+  }
+
+  function getInstalledRelatedApps() {
+    if (!assistantCapabilityEnabled('installationDetection')) return Promise.resolve([]);
+    try {
+      if (installComponentElement && typeof installComponentElement.getInstalledRelatedApps === 'function') {
+        return Promise.resolve(installComponentElement.getInstalledRelatedApps()).catch(function () { return []; });
+      }
+      if (navigator && typeof navigator.getInstalledRelatedApps === 'function') {
+        return Promise.resolve(navigator.getInstalledRelatedApps()).catch(function () { return []; });
+      }
+    } catch (error) { /* ignore */ }
+    return Promise.resolve([]);
+  }
 
   window.addEventListener('beforeinstallprompt', function (event) {
     event.preventDefault();
     if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return;
     installPromptEvent = event;
+    if (installComponentElement) installComponentElement.externalPromptEvent = event;
     log('beforeinstallprompt captured');
     refreshState();
     dispatch('installable', {});
@@ -960,6 +1461,7 @@
   window.addEventListener('appinstalled', function () {
     installPromptEvent = null;
     installed = true;
+    installComponentFallbackActive = false;
     refreshState();
     track('app_installed');
     dispatch('installed', {});
@@ -970,18 +1472,19 @@
     if (document.querySelector('[data-pwa-help]')) return;
 
     var isIosHelp = kind === 'ios';
-    var title = isIosHelp ? 'Install ' + appName() + ' on iPhone or iPad' : 'Install ' + appName();
+    var activeHelpLocale = effectiveInstallLocale();
+    var helpLang = activeHelpLocale && activeHelpLocale !== 'auto'
+      ? normalizeShortLocale(activeHelpLocale)
+      : wording.language;
+    var translateHelp = function (key, params) {
+      var table = translations[helpLang] || translations[wording.language] || translations.en;
+      var value = table[key] != null ? table[key] : translations.en[key];
+      return formatWording(value, params);
+    };
+    var title = translateHelp(isIosHelp ? 'helpIosTitle' : 'helpGenericTitle', { app: appName() });
     var steps = isIosHelp
-      ? [
-          'Tap the Share button in the Safari toolbar.',
-          'Scroll down and choose “Add to Home Screen”.',
-          'Tap “Add” to finish.',
-        ]
-      : [
-          'Open your browser menu (⋮ or ⋯).',
-          'Choose “Install app” or “Add to Home screen”.',
-          'Confirm to finish.',
-        ];
+      ? [translateHelp('helpIosStep1'), translateHelp('helpIosStep2'), translateHelp('helpIosStep3')]
+      : [translateHelp('helpGenericStep1'), translateHelp('helpGenericStep2'), translateHelp('helpGenericStep3')];
 
     var host = document.createElement('div');
     host.setAttribute('data-pwa-help', '');
@@ -1030,6 +1533,7 @@
     sheet.className = 'sheet';
     sheet.setAttribute('role', 'dialog');
     sheet.setAttribute('aria-modal', 'true');
+    if (wording.rtl()) sheet.setAttribute('dir', 'rtl');
     // aria-label remains as a fallback for engines that do not resolve IDREFs
     // across a shadow root; aria-labelledby takes precedence where supported.
     sheet.setAttribute('aria-label', title);
@@ -1053,7 +1557,7 @@
     var close = document.createElement('button');
     close.className = 'close';
     close.type = 'button';
-    close.setAttribute('aria-label', 'Close installation instructions');
+    close.setAttribute('aria-label', translateHelp('helpCloseLabel'));
     close.textContent = '✕';
     head.appendChild(close);
     sheet.appendChild(head);
@@ -1070,7 +1574,7 @@
     if (isIosHelp) {
       var note = document.createElement('p');
       note.className = 'note';
-      note.textContent = 'On iOS the app must be added from Safari. Other browsers may not offer this option.';
+      note.textContent = translateHelp('helpIosNote');
       sheet.appendChild(note);
     }
 
@@ -1079,7 +1583,7 @@
     var ok = document.createElement('button');
     ok.className = 'ok';
     ok.type = 'button';
-    ok.textContent = 'Got it';
+    ok.textContent = translateHelp('gotIt');
     actions.appendChild(ok);
     sheet.appendChild(actions);
 
@@ -1124,6 +1628,15 @@
       showQrDialog();
       track('install_qr');
       return Promise.resolve({ outcome: 'qr' });
+    }
+
+    if (!options.classic && !options.immediate && isInstallComponentEnabled() && typeof window.customElements !== 'undefined') {
+      return showInstallDialog(options).then(function (dialogResult) {
+        if (dialogResult && dialogResult.shown && dialogResult.backend === 'pwa-install') {
+          return { outcome: 'dialog', shown: true, backend: 'pwa-install' };
+        }
+        return promptInstall(Object.assign({}, options, { classic: true }));
+      });
     }
 
     if (installPromptEvent) {
@@ -1211,15 +1724,15 @@
   function subscribePush(options) {
     options = options || {};
     if (!pushSupported()) {
-      return Promise.reject(new Error('Push notifications are not supported in this browser.'));
+      return Promise.reject(new Error(wording.get('pushNotSupported')));
     }
     if (!window.isSecureContext) {
-      return Promise.reject(new Error('Push notifications require HTTPS.'));
+      return Promise.reject(new Error(wording.get('pushHttpsRequired')));
     }
 
     var applicationServerKey = options.vapidPublicKey || options.applicationServerKey;
     if (!applicationServerKey) {
-      return Promise.reject(new Error('A VAPID public key is required.'));
+      return Promise.reject(new Error(wording.get('pushVapidRequired')));
     }
 
     var endpoint = options.endpoint || config.pushEndpoint;
@@ -1261,7 +1774,7 @@
                   body: JSON.stringify(json),
                 }).then(function (response) {
                   if (!response.ok) {
-                    throw new Error('Push subscription was rejected by the server (' + response.status + ').');
+                    throw new Error(wording.get('pushServerRejected', { status: response.status }));
                   }
                   return { ok: true, subscription: json };
                 });
@@ -1508,7 +2021,7 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Wording (10 languages; the set existing installations already relied on)
+   * Wording (12 core languages)
    * ------------------------------------------------------------------ */
 
   var translations = {
@@ -1536,6 +2049,41 @@
       notificationsBlocked: 'Notifications are blocked in your browser settings.',
       notificationsEnabled: 'Notifications are already enabled.',
       notificationsUnavailable: 'Notifications are not available in this browser.',
+      updateAvailable: 'Update available',
+      pushNotSupported: 'Push notifications are not supported in this browser.',
+      pushHttpsRequired: 'Push notifications require HTTPS.',
+      pushVapidRequired: 'A VAPID public key is required.',
+      pushServerRejected: 'Push subscription was rejected by the server ({status}).',
+      helpIosTitle: 'Install {app} on iPhone or iPad',
+      helpGenericTitle: 'Install {app}',
+      helpIosStep1: 'Tap the Share button in the Safari toolbar.',
+      helpIosStep2: 'Scroll down and choose “Add to Home Screen”.',
+      helpIosStep3: 'Tap “Add” to finish.',
+      helpGenericStep1: 'Open your browser menu (⋮ or ⋯).',
+      helpGenericStep2: 'Choose “Install app” or “Add to Home screen”.',
+      helpGenericStep3: 'Confirm to finish.',
+      helpIosNote: 'On iOS the app must be added from Safari. Other browsers may not offer this option.',
+      helpCloseLabel: 'Close installation instructions',
+      diagDisabledDomain: 'Network diagnostics are disabled for this domain.',
+      diagDisabledProject: 'Network diagnostics are disabled for this project.',
+      diagModuleNotLoaded: 'The DNS diagnostics module is not loaded.',
+      diagTitle: 'Network diagnostics',
+      diagTestingTarget: 'Testing connection to: {hostname}',
+      diagResolver: 'DNS resolver: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Diagnostics run only when you choose to start or retry.',
+      diagRunBtn: 'Run diagnostics',
+      diagRecoverySummary: 'DNS recovery instructions',
+      diagAndroidText: 'Android: Settings → Network & internet → Private DNS → select provider hostname → enter one.one.one.one → Save. Return to {hostname} and retry.',
+      diagAndroidOfficial: 'Official Android instructions',
+      diagIosText: 'iPhone or iPad: install Cloudflare 1.1.1.1, choose DNS-only mode (WARP is not required), then return to this domain and retry.',
+      diagIosOfficial: 'Official iOS instructions',
+      diagPlayApp: 'Cloudflare 1.1.1.1 for Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 for iPhone',
+      diagCheckingBtn: 'Checking…',
+      diagCheckingStatus: 'Checking Cloudflare DNS and the current application host…',
+      diagErrorStatus: 'Diagnostics could not complete.',
+      diagErrorDetail: 'Retry when your connection is available.',
+      diagRetryBtn: 'Retry diagnostics',
     },
     fr: {
       install: 'Installer',
@@ -1557,6 +2105,45 @@
       gotIt: 'Compris',
       welcomeTitle: 'Bienvenue',
       welcomeText: 'Ajoutez cette application à votre écran d’accueil pour y accéder plus vite.',
+      pushNeedsSetup: 'Ajoutez data-vapid-public-key à la balise script pour activer les notifications.',
+      notificationsBlocked: 'Les notifications sont bloquées dans les paramètres de votre navigateur.',
+      notificationsEnabled: 'Les notifications sont déjà activées.',
+      notificationsUnavailable: 'Les notifications ne sont pas disponibles dans ce navigateur.',
+      updateAvailable: 'Mise à jour disponible',
+      pushNotSupported: 'Les notifications push ne sont pas prises en charge par ce navigateur.',
+      pushHttpsRequired: 'Les notifications push nécessitent HTTPS.',
+      pushVapidRequired: 'Une clé publique VAPID est requise.',
+      pushServerRejected: 'L’abonnement push a été refusé par le serveur ({status}).',
+      helpIosTitle: 'Installer {app} sur iPhone ou iPad',
+      helpGenericTitle: 'Installer {app}',
+      helpIosStep1: 'Touchez le bouton Partager dans la barre d’outils Safari.',
+      helpIosStep2: 'Faites défiler et choisissez « Sur l’écran d’accueil ».',
+      helpIosStep3: 'Touchez « Ajouter » pour terminer.',
+      helpGenericStep1: 'Ouvrez le menu du navigateur (⋮ ou ⋯).',
+      helpGenericStep2: 'Choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».',
+      helpGenericStep3: 'Confirmez pour terminer.',
+      helpIosNote: 'Sur iOS, l’application doit être ajoutée depuis Safari. Les autres navigateurs peuvent ne pas proposer cette option.',
+      helpCloseLabel: 'Fermer les instructions d’installation',
+      diagDisabledDomain: 'Le diagnostic réseau est désactivé pour ce domaine.',
+      diagDisabledProject: 'Le diagnostic réseau est désactivé pour ce projet.',
+      diagModuleNotLoaded: 'Le module de diagnostic DNS n’est pas chargé.',
+      diagTitle: 'Diagnostic réseau',
+      diagTestingTarget: 'Test de connexion vers : {hostname}',
+      diagResolver: 'Résolveur DNS : Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Le diagnostic ne s’exécute que lorsque vous démarrez ou relancez.',
+      diagRunBtn: 'Lancer le diagnostic',
+      diagRecoverySummary: 'Instructions de récupération DNS',
+      diagAndroidText: 'Android : Paramètres → Réseau et Internet → DNS privé → nom d’hôte du fournisseur → saisissez one.one.one.one → Enregistrer. Revenez sur {hostname} et réessayez.',
+      diagAndroidOfficial: 'Instructions officielles Android',
+      diagIosText: 'iPhone ou iPad : installez Cloudflare 1.1.1.1, choisissez le mode DNS uniquement (WARP n’est pas nécessaire), puis revenez sur ce domaine et réessayez.',
+      diagIosOfficial: 'Instructions officielles iOS',
+      diagPlayApp: 'Cloudflare 1.1.1.1 pour Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 pour iPhone',
+      diagCheckingBtn: 'Vérification…',
+      diagCheckingStatus: 'Vérification de Cloudflare DNS et de l’hôte applicatif…',
+      diagErrorStatus: 'Le diagnostic n’a pas pu se terminer.',
+      diagErrorDetail: 'Réessayez lorsque votre connexion est rétablie.',
+      diagRetryBtn: 'Relancer le diagnostic',
     },
     it: {
       install: 'Installa',
@@ -1578,6 +2165,45 @@
       gotIt: 'Ho capito',
       welcomeTitle: 'Benvenuto',
       welcomeText: 'Aggiungi questa app alla schermata Home per un accesso più rapido.',
+      pushNeedsSetup: 'Aggiungi data-vapid-public-key allo script per abilitare le notifiche.',
+      notificationsBlocked: 'Le notifiche sono bloccate nelle impostazioni del browser.',
+      notificationsEnabled: 'Le notifiche sono già attive.',
+      notificationsUnavailable: 'Le notifiche non sono disponibili in questo browser.',
+      updateAvailable: 'Aggiornamento disponibile',
+      pushNotSupported: 'Le notifiche push non sono supportate in questo browser.',
+      pushHttpsRequired: 'Le notifiche push richiedono HTTPS.',
+      pushVapidRequired: 'È richiesta una chiave pubblica VAPID.',
+      pushServerRejected: 'L’iscrizione push è stata rifiutata dal server ({status}).',
+      helpIosTitle: 'Installa {app} su iPhone o iPad',
+      helpGenericTitle: 'Installa {app}',
+      helpIosStep1: 'Tocca il pulsante Condividi nella barra di Safari.',
+      helpIosStep2: 'Scorri verso il basso e scegli «Aggiungi alla schermata Home».',
+      helpIosStep3: 'Tocca «Aggiungi» per completare.',
+      helpGenericStep1: 'Apri il menu del browser (⋮ o ⋯).',
+      helpGenericStep2: 'Scegli «Installa app» o «Aggiungi a schermata Home».',
+      helpGenericStep3: 'Conferma per completare.',
+      helpIosNote: 'Su iOS l’app deve essere aggiunta da Safari. Altri browser potrebbero non offrire questa opzione.',
+      helpCloseLabel: 'Chiudi le istruzioni di installazione',
+      diagDisabledDomain: 'La diagnostica di rete è disattivata per questo dominio.',
+      diagDisabledProject: 'La diagnostica di rete è disattivata per questo progetto.',
+      diagModuleNotLoaded: 'Il modulo di diagnostica DNS non è caricato.',
+      diagTitle: 'Diagnostica di rete',
+      diagTestingTarget: 'Test di connessione verso: {hostname}',
+      diagResolver: 'Resolver DNS: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'La diagnostica viene eseguita solo quando scegli di avviarla o riprovare.',
+      diagRunBtn: 'Avvia diagnostica',
+      diagRecoverySummary: 'Istruzioni di ripristino DNS',
+      diagAndroidText: 'Android: Impostazioni → Rete e internet → DNS privato → nome host provider → inserisci one.one.one.one → Salva. Torna su {hostname} e riprova.',
+      diagAndroidOfficial: 'Istruzioni ufficiali Android',
+      diagIosText: 'iPhone o iPad: installa Cloudflare 1.1.1.1, scegli la modalità solo DNS (WARP non è necessario), poi torna su questo dominio e riprova.',
+      diagIosOfficial: 'Istruzioni ufficiali iOS',
+      diagPlayApp: 'Cloudflare 1.1.1.1 per Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 per iPhone',
+      diagCheckingBtn: 'Verifica in corso…',
+      diagCheckingStatus: 'Controllo di Cloudflare DNS e dell’host applicativo…',
+      diagErrorStatus: 'Impossibile completare la diagnostica.',
+      diagErrorDetail: 'Riprova quando la connessione è disponibile.',
+      diagRetryBtn: 'Riprova diagnostica',
     },
     de: {
       install: 'Installieren',
@@ -1599,6 +2225,45 @@
       gotIt: 'Verstanden',
       welcomeTitle: 'Willkommen',
       welcomeText: 'Fügen Sie diese App zum Home-Bildschirm hinzu, um schneller darauf zuzugreifen.',
+      pushNeedsSetup: 'Fügen Sie dem Script data-vapid-public-key hinzu, um Benachrichtigungen zu aktivieren.',
+      notificationsBlocked: 'Benachrichtigungen sind in Ihren Browsereinstellungen blockiert.',
+      notificationsEnabled: 'Benachrichtigungen sind bereits aktiviert.',
+      notificationsUnavailable: 'Benachrichtigungen sind in diesem Browser nicht verfügbar.',
+      updateAvailable: 'Update verfügbar',
+      pushNotSupported: 'Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.',
+      pushHttpsRequired: 'Push-Benachrichtigungen erfordern HTTPS.',
+      pushVapidRequired: 'Ein öffentlicher VAPID-Schlüssel ist erforderlich.',
+      pushServerRejected: 'Das Push-Abonnement wurde vom Server abgelehnt ({status}).',
+      helpIosTitle: '{app} auf iPhone oder iPad installieren',
+      helpGenericTitle: '{app} installieren',
+      helpIosStep1: 'Tippen Sie in der Safari-Leiste auf „Teilen“.',
+      helpIosStep2: 'Scrollen Sie nach unten und wählen Sie „Zum Home-Bildschirm“.',
+      helpIosStep3: 'Tippen Sie zum Abschluss auf „Hinzufügen“.',
+      helpGenericStep1: 'Öffnen Sie das Browsermenü (⋮ oder ⋯).',
+      helpGenericStep2: 'Wählen Sie „App installieren“ oder „Zum Startbildschirm hinzufügen“.',
+      helpGenericStep3: 'Bestätigen Sie zum Abschluss.',
+      helpIosNote: 'Unter iOS muss die App über Safari hinzugefügt werden. Andere Browser bieten diese Option möglicherweise nicht.',
+      helpCloseLabel: 'Installationsanleitung schließen',
+      diagDisabledDomain: 'Die Netzwerkdiagnose ist für diese Domain deaktiviert.',
+      diagDisabledProject: 'Die Netzwerkdiagnose ist für dieses Projekt deaktiviert.',
+      diagModuleNotLoaded: 'Das DNS-Diagnosemodul ist nicht geladen.',
+      diagTitle: 'Netzwerkdiagnose',
+      diagTestingTarget: 'Verbindungstest zu: {hostname}',
+      diagResolver: 'DNS-Resolver: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Die Diagnose wird nur gestartet, wenn Sie dies ausdrücklich anstoßen.',
+      diagRunBtn: 'Diagnose starten',
+      diagRecoverySummary: 'Anleitung zur DNS-Wiederherstellung',
+      diagAndroidText: 'Android: Einstellungen → Netzwerk & Internet → Privates DNS → Hostname des Anbieters → one.one.one.one eingeben → Speichern. Zu {hostname} zurückkehren und erneut versuchen.',
+      diagAndroidOfficial: 'Offizielle Android-Anleitung',
+      diagIosText: 'iPhone oder iPad: Cloudflare 1.1.1.1 installieren, Nur-DNS-Modus wählen (WARP nicht erforderlich), dann zu dieser Domain zurückkehren und erneut testen.',
+      diagIosOfficial: 'Offizielle iOS-Anleitung',
+      diagPlayApp: 'Cloudflare 1.1.1.1 für Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 für iPhone',
+      diagCheckingBtn: 'Prüfung läuft…',
+      diagCheckingStatus: 'Cloudflare DNS und aktueller Anwendungs-Host werden geprüft…',
+      diagErrorStatus: 'Die Diagnose konnte nicht abgeschlossen werden.',
+      diagErrorDetail: 'Erneut versuchen, sobald wieder eine Verbindung besteht.',
+      diagRetryBtn: 'Diagnose wiederholen',
     },
     sv: {
       install: 'Installera',
@@ -1620,6 +2285,45 @@
       gotIt: 'Uppfattat',
       welcomeTitle: 'Välkommen',
       welcomeText: 'Lägg till appen på hemskärmen för snabbare åtkomst.',
+      pushNeedsSetup: 'Lägg till data-vapid-public-key på skriptet för att aktivera aviseringar.',
+      notificationsBlocked: 'Aviseringar är blockerade i webbläsarens inställningar.',
+      notificationsEnabled: 'Aviseringar är redan aktiverade.',
+      notificationsUnavailable: 'Aviseringar är inte tillgängliga i den här webbläsaren.',
+      updateAvailable: 'Uppdatering tillgänglig',
+      pushNotSupported: 'Push-aviseringar stöds inte i den här webbläsaren.',
+      pushHttpsRequired: 'Push-aviseringar kräver HTTPS.',
+      pushVapidRequired: 'En publik VAPID-nyckel krävs.',
+      pushServerRejected: 'Push-prenumerationen avvisades av servern ({status}).',
+      helpIosTitle: 'Installera {app} på iPhone eller iPad',
+      helpGenericTitle: 'Installera {app}',
+      helpIosStep1: 'Tryck på Dela-knappen i Safaris verktygsfält.',
+      helpIosStep2: 'Skrolla ned och välj ”Lägg till på hemskärmen”.',
+      helpIosStep3: 'Tryck på ”Lägg till” för att slutföra.',
+      helpGenericStep1: 'Öppna webbläsarens meny (⋮ eller ⋯).',
+      helpGenericStep2: 'Välj ”Installera appen” eller ”Lägg till på startskärmen”.',
+      helpGenericStep3: 'Bekräfta för att slutföra.',
+      helpIosNote: 'På iOS måste appen läggas till från Safari. Andra webbläsare saknar ibland det valet.',
+      helpCloseLabel: 'Stäng installationsanvisningar',
+      diagDisabledDomain: 'Nätverksdiagnostik är inaktiverad för den här domänen.',
+      diagDisabledProject: 'Nätverksdiagnostik är inaktiverad för det här projektet.',
+      diagModuleNotLoaded: 'DNS-diagnostikmodulen har inte lästs in.',
+      diagTitle: 'Nätverksdiagnostik',
+      diagTestingTarget: 'Testar anslutning till: {hostname}',
+      diagResolver: 'DNS-resolver: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Diagnostiken körs bara när du väljer att starta eller försöka igen.',
+      diagRunBtn: 'Kör diagnostik',
+      diagRecoverySummary: 'Anvisningar för DNS-återställning',
+      diagAndroidText: 'Android: Inställningar → Nätverk och internet → Privat DNS → leverantörens värdnamn → ange one.one.one.one → Spara. Återvänd till {hostname} och försök igen.',
+      diagAndroidOfficial: 'Officiella Android-anvisningar',
+      diagIosText: 'iPhone eller iPad: installera Cloudflare 1.1.1.1, välj läget Endast DNS (WARP behövs inte), återvänd sedan till den här domänen och försök igen.',
+      diagIosOfficial: 'Officiella iOS-anvisningar',
+      diagPlayApp: 'Cloudflare 1.1.1.1 för Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 för iPhone',
+      diagCheckingBtn: 'Kontrollerar…',
+      diagCheckingStatus: 'Kontrollerar Cloudflare DNS och aktuell appvärd…',
+      diagErrorStatus: 'Diagnostiken kunde inte slutföras.',
+      diagErrorDetail: 'Försök igen när anslutningen är tillgänglig.',
+      diagRetryBtn: 'Försök igen',
     },
     nl: {
       install: 'Installeren',
@@ -1641,6 +2345,45 @@
       gotIt: 'Begrepen',
       welcomeTitle: 'Welkom',
       welcomeText: 'Voeg deze app toe aan je beginscherm voor snellere toegang.',
+      pushNeedsSetup: 'Voeg data-vapid-public-key toe aan het script om meldingen in te schakelen.',
+      notificationsBlocked: 'Meldingen zijn geblokkeerd in je browserinstellingen.',
+      notificationsEnabled: 'Meldingen zijn al ingeschakeld.',
+      notificationsUnavailable: 'Meldingen zijn niet beschikbaar in deze browser.',
+      updateAvailable: 'Update beschikbaar',
+      pushNotSupported: 'Pushmeldingen worden niet ondersteund in deze browser.',
+      pushHttpsRequired: 'Pushmeldingen vereisen HTTPS.',
+      pushVapidRequired: 'Een openbare VAPID-sleutel is vereist.',
+      pushServerRejected: 'Het push-abonnement is geweigerd door de server ({status}).',
+      helpIosTitle: '{app} installeren op iPhone of iPad',
+      helpGenericTitle: '{app} installeren',
+      helpIosStep1: 'Tik op de Deel-knop in de werkbalk van Safari.',
+      helpIosStep2: 'Scrol omlaag en kies ‘Zet op beginscherm’.',
+      helpIosStep3: 'Tik op ‘Voeg toe’ om te voltooien.',
+      helpGenericStep1: 'Open het browsermenu (⋮ of ⋯).',
+      helpGenericStep2: 'Kies ‘App installeren’ of ‘Toevoegen aan startscherm’.',
+      helpGenericStep3: 'Bevestig om te voltooien.',
+      helpIosNote: 'Op iOS moet de app vanuit Safari worden toegevoegd. Andere browsers bieden deze optie mogelijk niet.',
+      helpCloseLabel: 'Installatie-instructies sluiten',
+      diagDisabledDomain: 'Netwerkdiagnostiek is uitgeschakeld voor dit domein.',
+      diagDisabledProject: 'Netwerkdiagnostiek is uitgeschakeld voor dit project.',
+      diagModuleNotLoaded: 'De module voor DNS-diagnostiek is niet geladen.',
+      diagTitle: 'Netwerkdiagnostiek',
+      diagTestingTarget: 'Verbinding testen met: {hostname}',
+      diagResolver: 'DNS-resolver: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Diagnostiek wordt alleen uitgevoerd wanneer u kiest om te starten of opnieuw te proberen.',
+      diagRunBtn: 'Diagnostiek starten',
+      diagRecoverySummary: 'Instructies voor DNS-herstel',
+      diagAndroidText: 'Android: Instellingen → Netwerk en internet → Privé-DNS → hostnaam van provider → voer one.one.one.one in → Opslaan. Keer terug naar {hostname} en probeer opnieuw.',
+      diagAndroidOfficial: 'Officiële Android-instructies',
+      diagIosText: 'iPhone of iPad: installeer Cloudflare 1.1.1.1, kies modus Alleen DNS (WARP is niet nodig), keer terug naar dit domein en probeer opnieuw.',
+      diagIosOfficial: 'Officiële iOS-instructies',
+      diagPlayApp: 'Cloudflare 1.1.1.1 voor Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 voor iPhone',
+      diagCheckingBtn: 'Controleren…',
+      diagCheckingStatus: 'Cloudflare DNS en huidige applicatiehost controleren…',
+      diagErrorStatus: 'Diagnostiek kon niet worden voltooid.',
+      diagErrorDetail: 'Probeer opnieuw zodra uw verbinding beschikbaar is.',
+      diagRetryBtn: 'Diagnostiek opnieuw proberen',
     },
     no: {
       install: 'Installer',
@@ -1662,6 +2405,45 @@
       gotIt: 'Greit',
       welcomeTitle: 'Velkommen',
       welcomeText: 'Legg appen til på hjemskjermen for raskere tilgang.',
+      pushNeedsSetup: 'Legg til data-vapid-public-key i skriptet for å aktivere varsler.',
+      notificationsBlocked: 'Varsler er blokkert i nettleserinnstillingene.',
+      notificationsEnabled: 'Varsler er allerede aktivert.',
+      notificationsUnavailable: 'Varsler er ikke tilgjengelige i denne nettleseren.',
+      updateAvailable: 'Oppdatering tilgjengelig',
+      pushNotSupported: 'Push-varsler støttes ikke i denne nettleseren.',
+      pushHttpsRequired: 'Push-varsler krever HTTPS.',
+      pushVapidRequired: 'En offentlig VAPID-nøkkel kreves.',
+      pushServerRejected: 'Push-abonnementet ble avvist av serveren ({status}).',
+      helpIosTitle: 'Installer {app} på iPhone eller iPad',
+      helpGenericTitle: 'Installer {app}',
+      helpIosStep1: 'Trykk på Del-knappen i verktøylinjen i Safari.',
+      helpIosStep2: 'Rull ned og velg «Legg til på Hjem-skjerm».',
+      helpIosStep3: 'Trykk på «Legg til» for å fullføre.',
+      helpGenericStep1: 'Åpne nettlesermenyen (⋮ eller ⋯).',
+      helpGenericStep2: 'Velg «Installer app» eller «Legg til på startskjermen».',
+      helpGenericStep3: 'Bekreft for å fullføre.',
+      helpIosNote: 'På iOS må appen legges til fra Safari. Andre nettlesere har kanskje ikke dette valget.',
+      helpCloseLabel: 'Lukk installasjonsveiledningen',
+      diagDisabledDomain: 'Nettverksdiagnostikk er deaktivert for dette domenet.',
+      diagDisabledProject: 'Nettverksdiagnostikk er deaktivert for dette prosjektet.',
+      diagModuleNotLoaded: 'DNS-diagnostikkmodulen er ikke lastet inn.',
+      diagTitle: 'Nettverksdiagnostikk',
+      diagTestingTarget: 'Tester tilkobling til: {hostname}',
+      diagResolver: 'DNS-resolver: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Diagnostikken kjører bare når du velger å starte eller prøve på nytt.',
+      diagRunBtn: 'Kjør diagnostikk',
+      diagRecoverySummary: 'Instruksjoner for DNS-gjenoppretting',
+      diagAndroidText: 'Android: Innstillinger → Nettverk og internett → Privat DNS → vertsnavn for leverandør → skriv inn one.one.one.one → Lagre. Gå tilbake til {hostname} og prøv igjen.',
+      diagAndroidOfficial: 'Offisielle Android-instruksjoner',
+      diagIosText: 'iPhone eller iPad: installer Cloudflare 1.1.1.1, velg kun DNS-modus (WARP trengs ikke), gå tilbake til dette domenet og prøv igjen.',
+      diagIosOfficial: 'Offisielle iOS-instruksjoner',
+      diagPlayApp: 'Cloudflare 1.1.1.1 for Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 for iPhone',
+      diagCheckingBtn: 'Sjekker…',
+      diagCheckingStatus: 'Kontrollerer Cloudflare DNS og gjeldende appvert…',
+      diagErrorStatus: 'Diagnostikken kunne ikke fullføres.',
+      diagErrorDetail: 'Prøv igjen når tilkoblingen er tilgjengelig.',
+      diagRetryBtn: 'Kjør diagnostikk på nytt',
     },
     da: {
       install: 'Installer',
@@ -1683,6 +2465,45 @@
       gotIt: 'Forstået',
       welcomeTitle: 'Velkommen',
       welcomeText: 'Føj appen til hjemmeskærmen for hurtigere adgang.',
+      pushNeedsSetup: 'Tilføj data-vapid-public-key til script-tagget for at aktivere notifikationer.',
+      notificationsBlocked: 'Notifikationer er blokeret i dine browserindstillinger.',
+      notificationsEnabled: 'Notifikationer er allerede aktiveret.',
+      notificationsUnavailable: 'Notifikationer er ikke tilgængelige i denne browser.',
+      updateAvailable: 'Opdatering tilgængelig',
+      pushNotSupported: 'Push-notifikationer understøttes ikke i denne browser.',
+      pushHttpsRequired: 'Push-notifikationer kræver HTTPS.',
+      pushVapidRequired: 'En offentlig VAPID-nøgle er påkrævet.',
+      pushServerRejected: 'Push-abonnement blev afvist af serveren ({status}).',
+      helpIosTitle: 'Installer {app} på iPhone eller iPad',
+      helpGenericTitle: 'Installer {app}',
+      helpIosStep1: 'Tryk på knappen Del i Safari-værktøjslinjen.',
+      helpIosStep2: 'Rul ned og vælg »Føj til hjemmeskærm«.',
+      helpIosStep3: 'Tryk på »Tilføj« for at afslutte.',
+      helpGenericStep1: 'Åbn browsermenuen (⋮ eller ⋯).',
+      helpGenericStep2: 'Vælg »Installer app« eller »Føj til startskærm«.',
+      helpGenericStep3: 'Bekræft for at afslutte.',
+      helpIosNote: 'På iOS skal appen tilføjes fra Safari. Andre browsere tilbyder muligvis ikke denne funktion.',
+      helpCloseLabel: 'Luk installationsvejledningen',
+      diagDisabledDomain: 'Netværksdiagnostik er deaktiveret for dette domæne.',
+      diagDisabledProject: 'Netværksdiagnostik er deaktiveret for dette projekt.',
+      diagModuleNotLoaded: 'DNS-diagnostikmodulet er ikke indlæst.',
+      diagTitle: 'Netværksdiagnostik',
+      diagTestingTarget: 'Tester forbindelse til: {hostname}',
+      diagResolver: 'DNS-resolver: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Diagnostik kører kun, når du vælger at starte eller prøve igen.',
+      diagRunBtn: 'Kør diagnostik',
+      diagRecoverySummary: 'Vejledning til DNS-gendannelse',
+      diagAndroidText: 'Android: Indstillinger → Netværk og internet → Privat DNS → værtsnavn på udbyder → indtast one.one.one.one → Gem. Vend tilbage til {hostname} og prøv igen.',
+      diagAndroidOfficial: 'Officiel Android-vejledning',
+      diagIosText: 'iPhone eller iPad: installer Cloudflare 1.1.1.1, vælg kun DNS-tilstand (WARP er ikke påkrævet), vend derefter tilbage til dette domæne og prøv igen.',
+      diagIosOfficial: 'Officiel iOS-vejledning',
+      diagPlayApp: 'Cloudflare 1.1.1.1 til Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 til iPhone',
+      diagCheckingBtn: 'Tjekker…',
+      diagCheckingStatus: 'Tjekker Cloudflare DNS og den aktuelle applikationsvært…',
+      diagErrorStatus: 'Diagnostikken kunne ikke fuldføres.',
+      diagErrorDetail: 'Prøv igen, når din forbindelse er tilgængelig.',
+      diagRetryBtn: 'Prøv diagnostik igen',
     },
     et: {
       install: 'Paigalda',
@@ -1704,6 +2525,45 @@
       gotIt: 'Selge',
       welcomeTitle: 'Tere tulemast',
       welcomeText: 'Lisa rakendus avakuvale, et sellele kiiremini ligi pääseda.',
+      pushNeedsSetup: 'Lisa skriptile data-vapid-public-key, et teavitused lubada.',
+      notificationsBlocked: 'Teavitused on brauseri seadetes blokeeritud.',
+      notificationsEnabled: 'Teavitused on juba lubatud.',
+      notificationsUnavailable: 'Teavitused pole selles brauseris saadaval.',
+      updateAvailable: 'Uuendus saadaval',
+      pushNotSupported: 'Tõuketeavitused pole selles brauseris toetatud.',
+      pushHttpsRequired: 'Tõuketeavitused nõuavad HTTPS-i.',
+      pushVapidRequired: 'Vajalik on avalik VAPID-võti.',
+      pushServerRejected: 'Server lükkas tõuketellimuse tagasi ({status}).',
+      helpIosTitle: 'Paigalda {app} iPhone’is või iPadis',
+      helpGenericTitle: 'Paigalda {app}',
+      helpIosStep1: 'Puuduta Safari tööriistaribal nuppu „Jaga“.',
+      helpIosStep2: 'Keri alla ja vali „Lisa avakuvale“.',
+      helpIosStep3: 'Lõpetamiseks puuduta „Lisa“.',
+      helpGenericStep1: 'Ava brauseri menüü (⋮ või ⋯).',
+      helpGenericStep2: 'Vali „Paigalda rakendus“ või „Lisa avakuvale“.',
+      helpGenericStep3: 'Kinnita lõpetamiseks.',
+      helpIosNote: 'iOS-is tuleb rakendus lisada Safarist. Teised brauserid ei pruugi seda valikut pakkuda.',
+      helpCloseLabel: 'Sulge paigaldusjuhised',
+      diagDisabledDomain: 'Võrgudiagnostika on selle domeeni jaoks keelatud.',
+      diagDisabledProject: 'Võrgudiagnostika on selle projekti jaoks keelatud.',
+      diagModuleNotLoaded: 'DNS-diagnostika moodul pole laaditud.',
+      diagTitle: 'Võrgudiagnostika',
+      diagTestingTarget: 'Ühenduse testimine: {hostname}',
+      diagResolver: 'DNS-lahendaja: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Diagnostika käivitub ainult siis, kui valid alustamise või kordamise.',
+      diagRunBtn: 'Käivita diagnostika',
+      diagRecoverySummary: 'DNS-i taastamise juhised',
+      diagAndroidText: 'Android: Seaded → Võrk ja internet → Privaatne DNS → teenusepakkuja hostinimi → sisesta one.one.one.one → Salvesta. Naase aadressile {hostname} ja proovi uuesti.',
+      diagAndroidOfficial: 'Ametlikud Androidi juhised',
+      diagIosText: 'iPhone või iPad: paigalda Cloudflare 1.1.1.1, vali ainult DNS-i režiim (WARP pole vajalik), seejärel naase sellele domeenile ja proovi uuesti.',
+      diagIosOfficial: 'Ametlikud iOS-i juhised',
+      diagPlayApp: 'Cloudflare 1.1.1.1 Androidile',
+      diagIosApp: 'Cloudflare 1.1.1.1 iPhone’ile',
+      diagCheckingBtn: 'Kontrollin…',
+      diagCheckingStatus: 'Kontrollin Cloudflare DNS-i ja rakenduse hosti…',
+      diagErrorStatus: 'Diagnostika ei saanud lõpule jõuda.',
+      diagErrorDetail: 'Proovi uuesti, kui ühendus on saadaval.',
+      diagRetryBtn: 'Korda diagnostikat',
     },
     es: {
       install: 'Instalar',
@@ -1725,25 +2585,266 @@
       gotIt: 'Entendido',
       welcomeTitle: 'Bienvenido',
       welcomeText: 'Añade esta aplicación a tu pantalla de inicio para acceder más rápido.',
+      pushNeedsSetup: 'Añade data-vapid-public-key al script para habilitar las notificaciones.',
+      notificationsBlocked: 'Las notificaciones están bloqueadas en la configuración del navegador.',
+      notificationsEnabled: 'Las notificaciones ya están activadas.',
+      notificationsUnavailable: 'Las notificaciones no están disponibles en este navegador.',
+      updateAvailable: 'Actualización disponible',
+      pushNotSupported: 'Las notificaciones push no son compatibles con este navegador.',
+      pushHttpsRequired: 'Las notificaciones push requieren HTTPS.',
+      pushVapidRequired: 'Se requiere una clave pública VAPID.',
+      pushServerRejected: 'El servidor rechazó la suscripción push ({status}).',
+      helpIosTitle: 'Instalar {app} en iPhone o iPad',
+      helpGenericTitle: 'Instalar {app}',
+      helpIosStep1: 'Toca el botón Compartir en la barra de herramientas de Safari.',
+      helpIosStep2: 'Desplázate hacia abajo y elige «Añadir a pantalla de inicio».',
+      helpIosStep3: 'Toca «Añadir» para finalizar.',
+      helpGenericStep1: 'Abre el menú del navegador (⋮ o ⋯).',
+      helpGenericStep2: 'Elige «Instalar aplicación» o «Añadir a pantalla de inicio».',
+      helpGenericStep3: 'Confirma para finalizar.',
+      helpIosNote: 'En iOS la aplicación debe añadirse desde Safari. Otros navegadores pueden no ofrecer esta opción.',
+      helpCloseLabel: 'Cerrar las instrucciones de instalación',
+      diagDisabledDomain: 'El diagnóstico de red está desactivado para este dominio.',
+      diagDisabledProject: 'El diagnóstico de red está desactivado para este proyecto.',
+      diagModuleNotLoaded: 'El módulo de diagnóstico DNS no está cargado.',
+      diagTitle: 'Diagnóstico de red',
+      diagTestingTarget: 'Probando conexión con: {hostname}',
+      diagResolver: 'Resolutor DNS: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'El diagnóstico solo se ejecuta cuando eliges iniciarlo o reintentarlo.',
+      diagRunBtn: 'Ejecutar diagnóstico',
+      diagRecoverySummary: 'Instrucciones de recuperación DNS',
+      diagAndroidText: 'Android: Ajustes → Red e Internet → DNS privado → nombre de host del proveedor → escribe one.one.one.one → Guardar. Vuelve a {hostname} y reintenta.',
+      diagAndroidOfficial: 'Instrucciones oficiales de Android',
+      diagIosText: 'iPhone o iPad: instala Cloudflare 1.1.1.1, elige el modo solo DNS (WARP no es necesario), vuelve a este dominio y reintenta.',
+      diagIosOfficial: 'Instrucciones oficiales de iOS',
+      diagPlayApp: 'Cloudflare 1.1.1.1 para Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 para iPhone',
+      diagCheckingBtn: 'Comprobando…',
+      diagCheckingStatus: 'Comprobando Cloudflare DNS y el servidor actual de la aplicación…',
+      diagErrorStatus: 'No se pudo completar el diagnóstico.',
+      diagErrorDetail: 'Reintenta cuando recuperes la conexión.',
+      diagRetryBtn: 'Reintentar diagnóstico',
+    },
+    ka: {
+      install: 'დაყენება',
+      launchTheApp: 'აპის გახსნა',
+      installTheApp: 'აპის დაყენება',
+      scanCode: 'დაასკანერეთ ქვემოთ მოცემული QR კოდი, რათა დააყენოთ აპი თქვენს iPhone-ზე ან Android სმარტფონზე.',
+      installHere: 'აქ დაყენება',
+      qrUnavailable: 'QR კოდის გენერირება ვერ მოხერხდა.',
+      notNow: 'არა ახლა',
+      allowNotifications: 'შეტყობინებების ჩართვა',
+      subscribed: 'შეტყობინებები ჩართულია',
+      blocked: 'შეტყობინებები დაბლოკილია',
+      wannaSuggestApp: 'სწრაფი წვდომისთვის დააყენეთ ეს აპი თქვენს მოწყობილობაზე.',
+      wannaShowNotifications: 'მიიღეთ განახლებები შეტყობინებებით.',
+      tapToReload: 'შეეხეთ განახლებისთვის',
+      youreOffline: 'თქვენ ოფლაინ ხართ',
+      getBackOnline: 'შეამოწმეთ ინტერნეტ-კავშირი და სცადეთ ხელახლა.',
+      close: 'დახურვა',
+      gotIt: 'გასაგებია',
+      welcomeTitle: 'კეთილი იყოს თქვენი მობრძანება',
+      welcomeText: 'სწრაფი წვდომისთვის დაამატეთ ეს აპი მთავარ ეკრანზე.',
+      pushNeedsSetup: 'შეტყობინებების ჩასართავად სკრიპტს დაამატეთ data-vapid-public-key.',
+      notificationsBlocked: 'შეტყობინებები ბრაუზერის პარამეტრებში დაბლოკილია.',
+      notificationsEnabled: 'შეტყობინებები უკვე ჩართულია.',
+      notificationsUnavailable: 'ამ ბრაუზერში შეტყობინებები მიუწვდომელია.',
+      updateAvailable: 'ხელმისაწვდომია განახლება',
+      pushNotSupported: 'Push-შეტყობინებები ამ ბრაუზერში მხარდაჭერილი არ არის.',
+      pushHttpsRequired: 'Push-შეტყობინებებისთვის საჭიროა HTTPS.',
+      pushVapidRequired: 'საჭიროა VAPID საჯარო გასაღები.',
+      pushServerRejected: 'სერვერმა უარყო push-გამოწერა ({status}).',
+      helpIosTitle: 'დააყენეთ {app} iPhone-ზე ან iPad-ზე',
+      helpGenericTitle: 'დააყენეთ {app}',
+      helpIosStep1: 'შეეხეთ გაზიარების ღილაკს Safari-ს პანელში.',
+      helpIosStep2: 'ჩამოსქროლეთ ქვემოთ და აირჩიეთ „მთავარ ეკრანზე დამატება“.',
+      helpIosStep3: 'დასასრულებლად შეეხეთ „დამატება“-ს.',
+      helpGenericStep1: 'გახსენით ბრაუზერის მენიუ (⋮ ან ⋯).',
+      helpGenericStep2: 'აირჩიეთ „აპის დაყენება“ ან „მთავარ ეკრანზე დამატება“.',
+      helpGenericStep3: 'დაადასტურეთ დაყენება.',
+      helpIosNote: 'iOS-ზე აპი Safari-დან უნდა დაემატოს. სხვა ბრაუზერებს ეს პარამეტრი შეიძლება არ ჰქონდეს.',
+      helpCloseLabel: 'დაყენების ინსტრუქციის დახურვა',
+      diagDisabledDomain: 'ქსელის დიაგნოსტიკა ამ დომენისთვის გამორთულია.',
+      diagDisabledProject: 'ქსელის დიაგნოსტიკა ამ პროექტისთვის გამორთულია.',
+      diagModuleNotLoaded: 'DNS დიაგნოსტიკის მოდული არ არის ჩატვირთული.',
+      diagTitle: 'ქსელის დიაგნოსტიკა',
+      diagTestingTarget: 'კავშირის შემოწმება: {hostname}',
+      diagResolver: 'DNS რეზოლვერი: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'დიაგნოსტიკა ეშვება მხოლოდ მაშინ, როცა თავად დაიწყებთ ან გაიმეორებთ.',
+      diagRunBtn: 'დიაგნოსტიკის გაშვება',
+      diagRecoverySummary: 'DNS აღდგენის ინსტრუქცია',
+      diagAndroidText: 'Android: პარამეტრები → ქსელი და ინტერნეტი → კერძო DNS → პროვაიდერის ჰოსტის სახელი → შეიყვანეთ one.one.one.one → შენახვა. დაბრუნდით {hostname}-ზე და სცადეთ ხელახლა.',
+      diagAndroidOfficial: 'ოფიციალური Android ინსტრუქცია',
+      diagIosText: 'iPhone ან iPad: დააყენეთ Cloudflare 1.1.1.1, აირჩიეთ მხოლოდ DNS რეჟიმი (WARP არ არის საჭირო), შემდეგ დაბრუნდით ამ დომენზე და სცადეთ ხელახლა.',
+      diagIosOfficial: 'ოფიციალური iOS ინსტრუქცია',
+      diagPlayApp: 'Cloudflare 1.1.1.1 Android-ისთვის',
+      diagIosApp: 'Cloudflare 1.1.1.1 iPhone-ისთვის',
+      diagCheckingBtn: 'მიმდინარეობს შემოწმება…',
+      diagCheckingStatus: 'მოწმდება Cloudflare DNS და აპლიკაციის მიმდინარე ჰოსტი…',
+      diagErrorStatus: 'დიაგნოსტიკის დასრულება ვერ მოხერხდა.',
+      diagErrorDetail: 'სცადეთ ხელახლა, როცა კავშირი აღდგება.',
+      diagRetryBtn: 'დიაგნოსტიკის გამეორება',
+    },
+    ru: {
+      install: 'Установить',
+      launchTheApp: 'Открыть приложение',
+      installTheApp: 'Установить приложение',
+      scanCode: 'Отсканируйте QR-код ниже, чтобы установить приложение на iPhone или Android-смартфон.',
+      installHere: 'Установить здесь',
+      qrUnavailable: 'Не удалось сгенерировать QR-код.',
+      notNow: 'Не сейчас',
+      allowNotifications: 'Включить уведомления',
+      subscribed: 'Уведомления включены',
+      blocked: 'Уведомления заблокированы',
+      wannaSuggestApp: 'Установите это приложение для быстрого доступа.',
+      wannaShowNotifications: 'Будьте в курсе событий с уведомлениями.',
+      tapToReload: 'Нажмите для обновления',
+      youreOffline: 'Вы не в сети',
+      getBackOnline: 'Проверьте подключение и повторите попытку.',
+      close: 'Закрыть',
+      gotIt: 'Понятно',
+      welcomeTitle: 'Добро пожаловать',
+      welcomeText: 'Добавьте это приложение на главный экран для быстрого доступа.',
+      pushNeedsSetup: 'Добавьте data-vapid-public-key к тегу script для включения уведомлений.',
+      notificationsBlocked: 'Уведомления заблокированы в настройках браузера.',
+      notificationsEnabled: 'Уведомления уже включены.',
+      notificationsUnavailable: 'Уведомления недоступны в этом браузере.',
+      updateAvailable: 'Доступно обновление',
+      pushNotSupported: 'Push-уведомления не поддерживаются в этом браузере.',
+      pushHttpsRequired: 'Для push-уведомлений требуется HTTPS.',
+      pushVapidRequired: 'Требуется публичный ключ VAPID.',
+      pushServerRejected: 'Сервер отклонил подписку на push ({status}).',
+      helpIosTitle: 'Установить {app} на iPhone или iPad',
+      helpGenericTitle: 'Установить {app}',
+      helpIosStep1: 'Нажмите кнопку «Поделиться» на панели Safari.',
+      helpIosStep2: 'Прокрутите вниз и выберите «На экран “Домой”».',
+      helpIosStep3: 'Нажмите «Добавить» для завершения.',
+      helpGenericStep1: 'Откройте меню браузера (⋮ или ⋯).',
+      helpGenericStep2: 'Выберите «Установить приложение» или «Добавить на главный экран».',
+      helpGenericStep3: 'Подтвердите установку.',
+      helpIosNote: 'На iOS приложение нужно добавлять из Safari. Другие браузеры могут не поддерживать эту функцию.',
+      helpCloseLabel: 'Закрыть инструкцию по установке',
+      diagDisabledDomain: 'Сетевая диагностика отключена для этого домена.',
+      diagDisabledProject: 'Сетевая диагностика отключена для этого проекта.',
+      diagModuleNotLoaded: 'Модуль диагностики DNS не загружен.',
+      diagTitle: 'Сетевая диагностика',
+      diagTestingTarget: 'Проверка подключения к: {hostname}',
+      diagResolver: 'DNS-резолвер: Cloudflare DNS (1.1.1.1)',
+      diagReadyNote: 'Диагностика запускается только по вашей команде.',
+      diagRunBtn: 'Запустить диагностику',
+      diagRecoverySummary: 'Инструкция по восстановлению DNS',
+      diagAndroidText: 'Android: Настройки → Сеть и интернет → Персональный DNS-сервер → имя хоста провайдера → введите one.one.one.one → Сохранить. Вернитесь на {hostname} и повторите.',
+      diagAndroidOfficial: 'Официальная инструкция для Android',
+      diagIosText: 'iPhone или iPad: установите Cloudflare 1.1.1.1, выберите режим только DNS (WARP не требуется), затем вернитесь на этот домен и повторите.',
+      diagIosOfficial: 'Официальная инструкция для iOS',
+      diagPlayApp: 'Cloudflare 1.1.1.1 для Android',
+      diagIosApp: 'Cloudflare 1.1.1.1 для iPhone',
+      diagCheckingBtn: 'Проверка…',
+      diagCheckingStatus: 'Проверка Cloudflare DNS и текущего сервера приложения…',
+      diagErrorStatus: 'Не удалось завершить диагностику.',
+      diagErrorDetail: 'Повторите попытку, когда появится подключение.',
+      diagRetryBtn: 'Повторить диагностику',
     },
   };
 
+  function normalizeShortLocale(raw) {
+    var value = String(raw || '').trim().toLowerCase().replace(/_/g, '-').split('-')[0];
+    if (value === 'nb' || value === 'nn') value = 'no';
+    return value;
+  }
+
+  function formatWording(template, params) {
+    if (template == null) return '';
+    var text = String(template);
+    if (!params) return text;
+    return text.replace(/\{([a-zA-Z0-9_]+)\}/g, function (_, name) {
+      return params[name] != null ? String(params[name]) : '';
+    });
+  }
+
   function detectLanguage() {
-    var language = (navigator.language || 'en').toLowerCase().split('-')[0];
-    if (language === 'nb' || language === 'nn') language = 'no';
+    if (installExperienceConfig && installExperienceConfig.locale && installExperienceConfig.locale !== 'auto') {
+      var explicitLang = normalizeShortLocale(installExperienceConfig.locale);
+      if (translations[explicitLang]) return explicitLang;
+    }
+    if (domainConfig && domainConfig.language && String(domainConfig.language).toLowerCase() !== 'auto') {
+      var domainLang = normalizeShortLocale(domainConfig.language);
+      if (translations[domainLang]) return domainLang;
+    }
+    try {
+      if (window.YOU_GE_ASSISTANT_CONFIG && window.YOU_GE_ASSISTANT_CONFIG.locale &&
+          String(window.YOU_GE_ASSISTANT_CONFIG.locale).toLowerCase() !== 'auto') {
+        var cfgLang = normalizeShortLocale(window.YOU_GE_ASSISTANT_CONFIG.locale);
+        if (translations[cfgLang]) return cfgLang;
+      }
+      if (window.YouGeAssistant && typeof window.YouGeAssistant.getLocale === 'function') {
+        var assistantLang = normalizeShortLocale(window.YouGeAssistant.getLocale());
+        if (translations[assistantLang]) return assistantLang;
+      }
+    } catch (error) { /* ignore */ }
+    var rawNav = (Array.isArray(navigator.languages) && navigator.languages.length && navigator.languages[0]) || navigator.language || 'en';
+    var language = normalizeShortLocale(rawNav);
     return translations[language] ? language : 'en';
   }
 
+  var wordingExplicitLanguage = false;
+  var syncingLocaleWithAssistant = false;
+  var initialDetectedLanguage = detectLanguage();
+  var lastDispatchedLanguageKey = initialDetectedLanguage + ':0';
+
   var wording = {
-    language: detectLanguage(),
-    get: function (key) {
+    language: initialDetectedLanguage,
+    get: function (key, params) {
       var table = translations[wording.language] || translations.en;
-      return table[key] != null ? table[key] : translations.en[key] != null ? translations.en[key] : key;
+      var value = table[key] != null ? table[key] : translations.en[key] != null ? translations.en[key] : key;
+      return formatWording(value, params);
     },
-    setLanguage: function (language) {
-      var value = String(language || '').toLowerCase().split('-')[0];
-      if (value === 'nb' || value === 'nn') value = 'no';
-      if (translations[value]) wording.language = value;
+    setLanguage: function (language, setOptions) {
+      var raw = String(language || '').trim();
+      var lower = raw.toLowerCase();
+      var fromAssistant = Boolean(setOptions && setOptions.fromAssistant);
+      if (!raw || lower === 'auto') {
+        wordingExplicitLanguage = false;
+        if (!fromAssistant && !syncingLocaleWithAssistant && window.YouGeAssistant && typeof window.YouGeAssistant.setLocale === 'function') {
+          syncingLocaleWithAssistant = true;
+          try { window.YouGeAssistant.setLocale('auto', { fromPwa: true }); } finally { syncingLocaleWithAssistant = false; }
+        }
+        wording.language = detectLanguage();
+        if (installComponentElement) {
+          syncInstallElementProps(installComponentElement);
+        }
+        var autoStateKey = wording.language + ':0';
+        if (autoStateKey !== lastDispatchedLanguageKey) {
+          lastDispatchedLanguageKey = autoStateKey;
+          scanButtons();
+          refreshCapturedButtons();
+          renderToolbox();
+          refreshState();
+          dispatch('language', { language: wording.language, locale: 'auto' });
+        }
+        return wording.language;
+      }
+      var value = normalizeShortLocale(raw);
+      if (translations[value]) {
+        wording.language = value;
+        wordingExplicitLanguage = true;
+        if (installComponentElement) {
+          syncInstallElementProps(installComponentElement);
+        }
+        if (!fromAssistant && !syncingLocaleWithAssistant && window.YouGeAssistant && typeof window.YouGeAssistant.setLocale === 'function') {
+          syncingLocaleWithAssistant = true;
+          try { window.YouGeAssistant.setLocale(raw, { fromPwa: true }); } finally { syncingLocaleWithAssistant = false; }
+        }
+        var explicitStateKey = wording.language + ':1';
+        if (explicitStateKey !== lastDispatchedLanguageKey) {
+          lastDispatchedLanguageKey = explicitStateKey;
+          scanButtons();
+          refreshCapturedButtons();
+          renderToolbox();
+          refreshState();
+          dispatch('language', { language: wording.language, locale: raw });
+        }
+      }
       return wording.language;
     },
     rtl: function () {
@@ -2013,7 +3114,8 @@
       setButtonDisabled(node, standalone);
       node.setAttribute('aria-disabled', standalone ? 'true' : 'false');
 
-      var status = installedNow ? 'installed' : 'default';
+      var label = installedNow ? data.installedLabel : data.installLabel;
+      var status = (installedNow ? 'installed' : 'default') + ':' + wording.language + ':' + label;
       if (status === lastStatus && node.querySelector('.pwa-btn-inner')) return;
       lastStatus = status;
 
@@ -2022,7 +3124,6 @@
         : window.screen.width > 991
           ? ICONS.installDesktop
           : ICONS.installMobile;
-      var label = installedNow ? data.installedLabel : data.installLabel;
       var inner = '<span class="pwa-btn-inner">';
       if (data.icons) inner += '<span class="pwa-btn-icon">' + icon + '</span>';
       inner += '<span class="pwa-btn-label">' + escapeHtml(label) + '</span></span>';
@@ -2049,6 +3150,7 @@
       activate();
     });
 
+    node.__pwaRender = render;
     render();
     node.__pwaTimer = setInterval(render, 400);
   }
@@ -2157,8 +3259,9 @@
             icon = ICONS.bell;
           }
 
-          if (status === lastStatus && node.querySelector('.pwa-btn-inner')) return;
-          lastStatus = status;
+          var statusKey = status + ':' + wording.language + ':' + label;
+          if (statusKey === lastStatus && node.querySelector('.pwa-btn-inner')) return;
+          lastStatus = statusKey;
 
           var inner = '<span class="pwa-btn-inner">';
           if (data.icons) inner += '<span class="pwa-btn-icon">' + icon + '</span>';
@@ -2181,6 +3284,7 @@
       handleSubscribeClick();
     });
 
+    node.__pwaRender = render;
     render();
     node.__pwaTimer = setInterval(render, 400);
   }
@@ -2191,6 +3295,12 @@
     document.querySelectorAll('.youge-subscribe-button:not(.captured)').forEach(initSubscribeButton);
     document.querySelectorAll('.progressier-subscribe-button:not(.captured)').forEach(initSubscribeButton);
     scanQrButtons();
+  }
+
+  function refreshCapturedButtons() {
+    document.querySelectorAll('.youge-install-button.captured, .progressier-install-button.captured, .youge-subscribe-button.captured, .progressier-subscribe-button.captured').forEach(function (node) {
+      if (typeof node.__pwaRender === 'function') node.__pwaRender();
+    });
   }
 
   /* ------------------------------------------------------------------ *
@@ -2234,7 +3344,7 @@
     var icon = make('div', 'youge-install-banner-icon progressier-install-banner-icon');
     var image = document.createElement('img');
     image.src = options.icon || appIcon();
-    image.alt = 'app icon';
+    image.alt = '';
     icon.appendChild(image);
 
     var details = make('div', 'youge-install-banner-details progressier-install-banner-details');
@@ -2323,7 +3433,7 @@
     var icon = make('div', 'youge-push-banner-icon progressier-push-banner-icon');
     var image = document.createElement('img');
     image.src = options.icon || appIcon();
-    image.alt = 'app icon';
+    image.alt = '';
     icon.appendChild(image);
 
     var text = make('div', 'youge-push-banner-text progressier-push-banner-text');
@@ -2475,8 +3585,9 @@
     }
 
     var overlay = make('div', 'youge-prompt-overlay progressier-prompt-overlay');
+    if (wording.rtl()) overlay.setAttribute('dir', 'rtl');
     overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-label', assistantCapabilityEnabled('userUpdate') ? wording.get('tapToReload') : 'Update available');
+    overlay.setAttribute('aria-label', assistantCapabilityEnabled('userUpdate') ? wording.get('tapToReload') : wording.get('updateAvailable'));
     overlay.addEventListener('click', function () {
       if (assistantCapabilityEnabled('userUpdate')) window.location.reload();
     });
@@ -2484,8 +3595,8 @@
     var button = make('button', 'youge-prompt-reload-button progressier-prompt-reload-button');
     button.type = 'button';
     button.setAttribute('type', 'button');
-    button.setAttribute('aria-label', assistantCapabilityEnabled('userUpdate') ? (options.text || wording.get('tapToReload')) : 'Update available');
-    button.textContent = assistantCapabilityEnabled('userUpdate') ? (options.text || wording.get('tapToReload')) : 'Update available';
+    button.setAttribute('aria-label', assistantCapabilityEnabled('userUpdate') ? (options.text || wording.get('tapToReload')) : wording.get('updateAvailable'));
+    button.textContent = assistantCapabilityEnabled('userUpdate') ? (options.text || wording.get('tapToReload')) : wording.get('updateAvailable');
     if (options.color) button.style.background = options.color;
     overlay.appendChild(button);
 
@@ -2662,16 +3773,24 @@
 
   function runNetworkDiagnostics(options) {
     options = options || {};
+    var lang = options.locale ? normalizeShortLocale(options.locale) : wording.language;
+    var translateDiag = function (key, params) {
+      var table = translations[lang] || translations[wording.language] || translations.en;
+      var value = table[key] != null ? table[key] : translations.en[key];
+      return formatWording(value, params);
+    };
     if (config.features && config.features.diagnostics === false) {
       return Promise.resolve({
         hostname: domainConfig.domain.hostname, classification: 'disabled', status: 'disabled',
-        message: 'Network diagnostics are disabled for this domain.',
+        locale: translations[lang] ? lang : wording.language,
+        message: translateDiag('diagDisabledDomain'),
       });
     }
     if (!assistantCapabilityEnabled('diagnostics')) {
       return Promise.resolve({
         hostname: domainConfig.domain.hostname, classification: 'disabled', status: 'disabled',
-        message: 'Network diagnostics are disabled for this project.',
+        locale: translations[lang] ? lang : wording.language,
+        message: translateDiag('diagDisabledProject'),
       });
     }
     if (!window.YouGeDns || typeof window.YouGeDns.check !== 'function') {
@@ -2679,7 +3798,8 @@
       // the status says so instead of implying a probe was attempted.
       return Promise.resolve({
         hostname: domainConfig.domain.hostname, classification: 'unknown', status: 'unavailable',
-        message: 'The DNS diagnostics module is not loaded.',
+        locale: translations[lang] ? lang : wording.language,
+        message: translateDiag('diagModuleNotLoaded'),
       });
     }
     var diagnosticsConfig = domainConfig.diagnostics || {};
@@ -2688,6 +3808,7 @@
       origin: domainConfig.domain.origin,
       basePath: domainConfig.domain.basePath,
       online: navigator.onLine,
+      locale: options.locale || wording.language,
       appProbePath: diagnosticsConfig.appProbePath,
       backendProbePath: diagnosticsConfig.backendProbePath,
     }, options);
@@ -2700,30 +3821,32 @@
     if (!assistantCapabilityEnabled('diagnostics')) return null;
 
     var flow = make('div', 'pwa-flow pwa-network-diagnostics');
+    if (wording.rtl()) flow.setAttribute('dir', 'rtl');
     flow.setAttribute('data-pwa-diagnostics-dialog', '');
     flow.setAttribute('role', 'dialog');
     flow.setAttribute('aria-modal', 'true');
-    flow.setAttribute('aria-label', 'Network diagnostics');
+    flow.setAttribute('aria-label', wording.get('diagTitle'));
     var previousFocus = document.activeElement;
     var closed = false;
     var inner = make('div', 'pwa-flow-inner');
     var header = make('div', 'pwa-flow-header');
-    var title = make('div', 'pwa-flow-title', 'Network diagnostics');
+    var title = make('div', 'pwa-flow-title');
+    title.textContent = wording.get('diagTitle');
     var close = closeButton();
-    close.setAttribute('aria-label', 'Close');
+    close.setAttribute('aria-label', wording.get('close'));
     header.appendChild(title);
     header.appendChild(close);
     inner.appendChild(header);
 
     var body = make('div', 'pwa-flow-body');
     var target = document.createElement('p');
-    target.textContent = 'Testing connection to: ' + domainConfig.domain.hostname;
+    target.textContent = wording.get('diagTestingTarget', { hostname: domainConfig.domain.hostname });
     var resolver = document.createElement('p');
-    resolver.textContent = 'DNS resolver: Cloudflare DNS (1.1.1.1)';
+    resolver.textContent = wording.get('diagResolver');
     var status = document.createElement('p');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
-    status.textContent = 'Diagnostics run only when you choose to start or retry.';
+    status.textContent = wording.get('diagReadyNote');
     var detail = document.createElement('p');
     detail.className = 'pwa-diagnostics-detail';
     body.appendChild(target);
@@ -2733,7 +3856,8 @@
     inner.appendChild(body);
 
     var actions = make('div', 'pwa-flow-actions');
-    var retry = make('button', 'pwa-flow-btn', 'Run diagnostics');
+    var retry = make('button', 'pwa-flow-btn');
+    retry.textContent = wording.get('diagRunBtn');
     retry.type = 'button';
     retry.setAttribute('type', 'button');
     actions.appendChild(retry);
@@ -2742,34 +3866,34 @@
     var recovery = document.createElement('details');
     recovery.className = 'pwa-diagnostics-recovery';
     var summary = document.createElement('summary');
-    summary.textContent = 'DNS recovery instructions';
+    summary.textContent = wording.get('diagRecoverySummary');
     recovery.appendChild(summary);
     var guide = document.createElement('div');
     guide.className = 'pwa-flow-body';
     var android = document.createElement('p');
-    android.textContent = 'Android: Settings → Network & internet → Private DNS → select provider hostname → enter one.one.one.one → Save. Return to ' + domainConfig.domain.hostname + ' and retry.';
+    android.textContent = wording.get('diagAndroidText', { hostname: domainConfig.domain.hostname });
     var androidLink = document.createElement('a');
     androidLink.href = 'https://developers.cloudflare.com/1.1.1.1/setup/android/';
     androidLink.target = '_blank';
     androidLink.rel = 'noopener noreferrer';
-    androidLink.textContent = 'Official Android instructions';
+    androidLink.textContent = wording.get('diagAndroidOfficial');
     var ios = document.createElement('p');
-    ios.textContent = 'iPhone or iPad: install Cloudflare 1.1.1.1, choose DNS-only mode (WARP is not required), then return to this domain and retry.';
+    ios.textContent = wording.get('diagIosText');
     var iosLink = document.createElement('a');
     iosLink.href = 'https://developers.cloudflare.com/1.1.1.1/setup/ios/';
     iosLink.target = '_blank';
     iosLink.rel = 'noopener noreferrer';
-    iosLink.textContent = 'Official iOS instructions';
+    iosLink.textContent = wording.get('diagIosOfficial');
     var playLink = document.createElement('a');
     playLink.href = 'https://play.google.com/store/apps/details?id=com.cloudflare.onedotonedotonedotone';
     playLink.target = '_blank';
     playLink.rel = 'noopener noreferrer';
-    playLink.textContent = 'Cloudflare 1.1.1.1 for Android';
+    playLink.textContent = wording.get('diagPlayApp');
     var appStoreLink = document.createElement('a');
     appStoreLink.href = 'https://apps.apple.com/app/1-1-1-1-faster-internet/id1423538627';
     appStoreLink.target = '_blank';
     appStoreLink.rel = 'noopener noreferrer';
-    appStoreLink.textContent = 'Cloudflare 1.1.1.1 for iPhone';
+    appStoreLink.textContent = wording.get('diagIosApp');
     var androidGuide = [android, androidLink, document.createElement('br'), playLink];
     var iosGuide = [ios, iosLink, document.createElement('br'), appStoreLink];
     var recoveryOrder = isIOS() ? [iosGuide, androidGuide] : /Android/i.test(ua) ? [androidGuide, iosGuide] : [androidGuide, iosGuide];
@@ -2784,22 +3908,29 @@
     if (close.focus) close.focus();
 
     var running = false;
+    function formatClassification(classification) {
+      var sdk = window.YouGeAssistantSDK;
+      if (sdk && typeof sdk.localizeDnsClassification === 'function') {
+        return sdk.localizeDnsClassification(classification || 'unknown', wording.language);
+      }
+      return String(classification || 'unknown').replace(/_/g, ' ');
+    }
     function run() {
       if (running) return;
       running = true;
       retry.disabled = true;
-      retry.textContent = 'Checking…';
-      status.textContent = 'Checking Cloudflare DNS and the current application host…';
+      retry.textContent = wording.get('diagCheckingBtn');
+      status.textContent = wording.get('diagCheckingStatus');
       detail.textContent = '';
       runNetworkDiagnostics().then(function (result) {
-        status.textContent = result.message || result.classification;
-        detail.textContent = (result.classification || 'unknown').replace(/_/g, ' ') +
+        status.textContent = result.message || formatClassification(result.classification);
+        detail.textContent = formatClassification(result.classification) +
           (result.dns && result.dns.length ? ' — ' + result.dns.map(function (entry) { return entry.type + ': ' + entry.statusText; }).join(', ') : '');
         if (result.caveat) detail.textContent += ' ' + result.caveat;
         dispatch('diagnostics', result);
       }).catch(function (error) {
-        status.textContent = 'Diagnostics could not complete.';
-        detail.textContent = error && error.message ? error.message : 'Retry when your connection is available.';
+        status.textContent = wording.get('diagErrorStatus');
+        detail.textContent = error && error.message ? error.message : wording.get('diagErrorDetail');
         // Same contract as a resolved check: centralized state must hear about
         // failed modal runs too, with one consistent failure shape.
         dispatch('diagnostics', {
@@ -2807,12 +3938,12 @@
           classification: 'error',
           status: 'error',
           failed: true,
-          message: error && error.message ? error.message : 'Diagnostics could not complete.',
+          message: error && error.message ? error.message : wording.get('diagErrorStatus'),
         });
       }).then(function () {
         running = false;
         retry.disabled = false;
-        retry.textContent = 'Retry diagnostics';
+        retry.textContent = wording.get('diagRetryBtn');
       });
     }
     function destroy() {
@@ -3569,12 +4700,21 @@
   var PWA = {
     __pwaKit: true,
     __youGePwaKit: true,
-    version: '1.2.5',
+    version: '1.2.6',
     config: config,
 
     // install
     promptInstall: promptInstall,
     install: promptInstall,
+    showInstallDialog: showInstallDialog,
+    hideInstallDialog: hideInstallDialog,
+    triggerInstall: triggerInstall,
+    getInstallElement: function () { return installComponentElement; },
+    getInstallConfig: function () {
+      return Object.assign({}, installExperienceConfig, { styles: Object.assign({}, installExperienceConfig.styles) });
+    },
+    configureInstallExperience: configureInstallExperience,
+    getInstalledRelatedApps: getInstalledRelatedApps,
     canInstall: function () {
       return assistantCapabilityEnabled('installationDetection') && Boolean(installPromptEvent);
     },
@@ -3641,6 +4781,8 @@
 
     // components
     wording: wording,
+    setLanguage: wording.setLanguage,
+    getLanguage: function () { return wording.language; },
     applyTheme: applyTheme,
     scanButtons: scanButtons,
     showInstallBanner: showInstallBanner,
@@ -3892,6 +5034,64 @@
   } catch (error) {
     /* ignore */
   }
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    if (installComponentElement && installComponentElement.isInstallAvailable && !installComponentElement.isDialogHidden && !installComponentElement.disableClose) {
+      hideInstallDialog();
+    }
+  });
+
+  document.addEventListener('youge:locale-change', function (event) {
+    if (syncingLocaleWithAssistant) return;
+    var detail = (event && event.detail) || {};
+    var nextLocale = detail.configuredLocale === 'auto' ? 'auto' : detail.locale;
+    if (!nextLocale) return;
+    syncingLocaleWithAssistant = true;
+    try {
+      wording.setLanguage(nextLocale, { fromAssistant: true });
+    } finally {
+      syncingLocaleWithAssistant = false;
+    }
+  });
+
+  window.addEventListener('languagechange', function () {
+    if (wordingExplicitLanguage) return;
+    var detected = detectLanguage();
+    if (detected !== wording.language) {
+      wording.language = detected;
+      lastDispatchedLanguageKey = wording.language + ':0';
+      if (installComponentElement) syncInstallElementProps(installComponentElement);
+      scanButtons();
+      refreshCapturedButtons();
+      renderToolbox();
+      refreshState();
+      dispatch('language', { language: wording.language, locale: 'auto' });
+    }
+  });
+
+  function scheduleInstallComponentPreload() {
+    if (typeof window.customElements === 'undefined' || !isInstallComponentEnabled() || isStandalone()) return;
+    var mount = function () {
+      loadInstallComponent().then(function (ctor) {
+        if (ctor && isInstallComponentEnabled() && !isStandalone()) {
+          ensureInstallElement();
+        }
+      });
+    };
+    if (installExperienceConfig.presentation === 'auto') {
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
+      else mount();
+      return;
+    }
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(mount, { timeout: 3000 });
+    } else {
+      setTimeout(mount, 400);
+    }
+  }
+
+  scheduleInstallComponentPreload();
 
   if (document.readyState === 'complete') register();
   else window.addEventListener('load', register, { once: true });

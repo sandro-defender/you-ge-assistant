@@ -236,3 +236,29 @@ standalone/iPadOS/TWA detection, iOS and generic instruction sheets, sheet
 dismissal (close/Escape), banner dismissal cookies, and service worker
 registration with `/progressier.js` and its computed scope. Static contract
 tests additionally pin the precache list, manifest identity and cache namespace.
+
+## 5. Self-contained `<pwa-install>` integration (kit `1.2.6`)
+
+Kit `1.2.6` integrates `@khmyznikov/pwa-install@0.7.0` (MIT, vendored as a self-contained
+runtime script `pwa-install.js` with zero CDN calls across 35 supported locales,
+including native Georgian `ka`, Russian `ru`, and Estonian `et`):
+
+- **`manual` default (opt-in `auto`):** `installExperience.presentation` defaults to
+  `'manual'`, meaning no unprompted install dialog opens on initial load unless
+  explicitly configured (`presentation: 'auto'` or `data-install-presentation="auto"`).
+- **Rich native & manual dialog:** `PWA.showInstallDialog(options)`,
+  `PWA.hideInstallDialog()`, `PWA.triggerInstall()`, `PWA.getInstalledRelatedApps()`,
+  and `PWA.configureInstallExperience(options)` drive `<pwa-install>` cleanly while
+  respecting `data-desktop-qr`, `data-behavior`, `data-allow-ios`, and
+  `data-allow-samsung`, and automatically falling back to `showHelp('ios' | 'generic')`
+  when custom elements are unavailable or on unsupported browsers (`fallbackAvailable === false`).
+- **Full 12-locale toolkit & 35-locale install dialog parity:** `pwa.js` (`wording` +
+  `showHelp('ios' | 'generic')`), `dns-diagnostics.js`, `offline.js`, `assistant-widget.js`,
+  `@youge/assistant-sdk/i18n`, and both example surfaces share 12 synchronized locales
+  (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`), while
+  `pwa-install.js` independently supports 35 locales including `ka`, `ru`, and `et`.
+- **SDK parity (`@youge/assistant-sdk`):** `installExperience` defaults, localized
+  copy (`resolveInstallationCopy`, `translate`, `resolveLocale`), `showInstallDialog` /
+  `hideInstallDialog` / `triggerInstall` / `getInstalledRelatedApps`, and
+  `EVENT_NAMES.pwaInstallDialog` are mirrored in the SDK core and browser bundle
+  (`assistant-state.js`).

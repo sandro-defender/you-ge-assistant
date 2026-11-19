@@ -8,6 +8,13 @@
  */
 
 import { EVENT_NAMES } from '../core/constants.js';
+import {
+  LOCALE_METADATA,
+  SUPPORTED_LOCALES,
+  formatAlertCount,
+  resolveLocale,
+  translate,
+} from '../core/i18n.js';
 import { capabilityForAction } from '../core/capabilities.js';
 import { attachAssistant } from '../assistant/index.js';
 import {
@@ -20,6 +27,8 @@ import {
 
 export const FALLBACK_ASSISTANT_STATE = Object.freeze({
   enabled: true,
+  locale: 'en',
+  dir: 'ltr',
   project: Object.freeze({
     id: 'assistant',
     name: 'You.Ge Assistant',
@@ -41,6 +50,13 @@ export const FALLBACK_ASSISTANT_STATE = Object.freeze({
     ios: false,
     safari: false,
     platform: 'generic',
+    componentEnabled: true,
+    componentLoaded: false,
+    dialogOpen: false,
+    presentation: 'manual',
+    locale: 'auto',
+    backend: 'none',
+    relatedAppsInstalled: false,
   }),
   network: Object.freeze({
     online: true,
@@ -195,10 +211,29 @@ function svgElementProps(attributes) {
   return props;
 }
 
-/** Accessible tier name, e.g. `'Information'` for an `info` notice. */
-export function notificationLevelLabel(level) {
-  return NOTIFICATION_LEVEL_LABELS[normalizeNotificationLevel(level)];
+const LEVEL_TRANSLATION_KEYS = Object.freeze({
+  critical: 'levelCritical',
+  error: 'levelError',
+  warning: 'levelWarning',
+  info: 'levelInfo',
+  success: 'levelSuccess',
+});
+
+/** Accessible tier name, localized when `locale` is provided. */
+export function notificationLevelLabel(level, locale) {
+  const normalized = normalizeNotificationLevel(level);
+  if (!locale) return NOTIFICATION_LEVEL_LABELS[normalized];
+  const lang = resolveLocale({ explicit: locale });
+  return translate(lang, LEVEL_TRANSLATION_KEYS[normalized] || 'levelInfo');
 }
+
+export {
+  LOCALE_METADATA,
+  SUPPORTED_LOCALES,
+  formatAlertCount,
+  resolveLocale,
+  translate,
+};
 
 /**
  * Build a renderer-agnostic element tree for one notification level glyph.
@@ -292,7 +327,14 @@ export function createReactAdapter(options) {
     resolveTheme: function (appearance, themeOptions) {
       return resolveAppearanceTheme(appearance, Object.assign({ root: opts.env && opts.env.root }, themeOptions));
     },
-    notificationLevelLabel: notificationLevelLabel,
+    notificationLevelLabel: function (level, locale) {
+      return notificationLevelLabel(level, locale);
+    },
+    translate: translate,
+    formatAlertCount: formatAlertCount,
+    resolveLocale: resolveLocale,
+    SUPPORTED_LOCALES: SUPPORTED_LOCALES,
+    LOCALE_METADATA: LOCALE_METADATA,
     notificationLevelElement: function (level, createElement) {
       return notificationLevelElement(level, createElement || opts.createElement);
     },

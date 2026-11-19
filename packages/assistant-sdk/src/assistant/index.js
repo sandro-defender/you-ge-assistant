@@ -13,13 +13,20 @@ import {
   TONE,
 } from '../core/constants.js';
 import {
+  isRtlLocale,
+  resolveLocale,
+  translate,
+} from '../core/i18n.js';
+import {
   capabilitiesRecord,
   gateNotification,
   isActionAllowed,
   isCapabilityEnabled,
 } from '../core/capabilities.js';
 import {
+  INSTALL_EXPERIENCE_DEFAULTS,
   clone,
+  normalizeInstallExperience,
   safeSameOriginIcon,
   safeText,
 } from '../core/sanitize.js';
@@ -38,9 +45,13 @@ import {
 } from '../diagnostics/index.js';
 import {
   deriveInstallationState,
+  hidePwaInstallDialog,
+  readInstalledRelatedApps,
   readPwaSnapshot,
   requestPwaInstall,
   requestPwaUpdate,
+  showPwaInstallDialog,
+  triggerPwaInstall,
 } from '../installation/index.js';
 import { normalizeTheme } from '../theme/index.js';
 
@@ -193,6 +204,7 @@ export function createAssistant(initialOptions, envOverrides) {
   let unsubscribePwa = null;
   let lastConditionKeys = new Set();
   let lastPwaHasUpdate;
+  let syncingPwaLocale = false;
 
   const nav = getNavigator();
   const conditions = {
@@ -329,6 +341,20 @@ export function createAssistant(initialOptions, envOverrides) {
     };
   }
 
+  function resolveActiveLocale(domainResolved) {
+    const dom = domainResolved || domainContext();
+    const explicitLocale = config.locale && config.locale !== 'auto'
+      ? config.locale
+      : (config.installExperience && config.installExperience.locale && config.installExperience.locale !== 'auto'
+          ? config.installExperience.locale
+          : 'auto');
+    return resolveLocale({
+      explicit: explicitLocale,
+      domainConfig: dom,
+      navigator: getNavigator(),
+    });
+  }
+
   function persistPublishedLkgIfDerivedProject() {
     if (configMeta.source === 'published' && !config.projectId && !(config.project && config.project.id) && rawOptionsState.publishedConfig) {
       const storage = getStorage();
@@ -383,7 +409,8 @@ export function createAssistant(initialOptions, envOverrides) {
     return endpoints.primary === 'failed' || endpoints.primary === 'unavailable' || endpoints.primary === 'degraded';
   }
 
-  function buildNotifications(project, installation, network) {
+  function buildNotifications(project, installation, network, lang) {
+    const locale = lang || resolveActiveLocale();
     const out = [];
     const activeKeys = new Set();
 
@@ -402,82 +429,82 @@ export function createAssistant(initialOptions, envOverrides) {
     if (!network.online) {
       add({
         id: 'network:offline', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
-        critical: true, dismissible: false, title: 'No connection',
-        message: 'The app cannot reach the network. Open diagnostics or recovery guidance.',
+        critical: true, dismissible: false, title: translate(locale, 'offlineTitle'),
+        message: translate(locale, 'offlineMessage'),
         actionId: 'diagnostics',
       }, 'network:offline');
     }
     if (dnsFailure(network.dns)) {
       add({
         id: 'dns:failure', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
-        critical: true, dismissible: false, title: 'DNS resolution problem',
-        message: network.dns.message || 'The current hostname could not be resolved. Diagnostics are available.',
+        critical: true, dismissible: false, title: translate(locale, 'dnsTitle'),
+        message: network.dns.message || translate(locale, 'dnsMessage'),
         actionId: 'diagnostics',
       }, 'dns:failure');
     }
     if (network.online && connectivityFailure(network.dns)) {
       add({
         id: 'network:unreachable', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
-        critical: true, dismissible: false, title: 'Connection problem',
-        message: network.dns.message || 'The application host or its backend did not respond.',
+        critical: true, dismissible: false, title: translate(locale, 'unreachableTitle'),
+        message: network.dns.message || translate(locale, 'unreachableMessage'),
         actionId: 'diagnostics',
       }, 'network:unreachable');
     }
     if (endpointFailure(network.endpoints)) {
       add({
         id: 'api:primary-failed', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
-        critical: true, dismissible: false, title: 'Primary API unavailable',
-        message: network.endpoints.reason || 'The primary application endpoint is not responding.',
+        critical: true, dismissible: false, title: translate(locale, 'primaryApiTitle'),
+        message: network.endpoints.reason || translate(locale, 'primaryApiMessage'),
         actionId: 'diagnostics',
       }, 'api:primary-failed');
     }
     if (network.session.state === 'issue') {
       add({
         id: 'session:issue', priority: PRIORITY.auth, tone: TONE[PRIORITY.auth],
-        critical: false, dismissible: true, title: 'Session needs attention',
-        message: network.session.message || 'Your project reported an authentication or session problem.',
+        critical: false, dismissible: true, title: translate(locale, 'sessionTitle'),
+        message: network.session.message || translate(locale, 'sessionMessage'),
         actionId: 'help',
       }, 'session:issue');
     }
     if (network.endpoints.backup === 'active' || network.endpoints.active === 'backup') {
       add({
         id: 'api:backup-active', priority: PRIORITY.backup, tone: TONE[PRIORITY.backup],
-        critical: false, dismissible: true, title: 'Backup connection active',
-        message: network.endpoints.reason || 'This project is using its configured backup endpoint.',
+        critical: false, dismissible: true, title: translate(locale, 'backupTitle'),
+        message: network.endpoints.reason || translate(locale, 'backupMessage'),
         actionId: 'backup-status',
       }, 'api:backup-active');
     }
     if (installation.status === 'available' && installation.support !== 'none') {
       add({
         id: 'install:available', priority: PRIORITY.install, tone: TONE[PRIORITY.install],
-        critical: false, dismissible: true, title: 'Installation available',
+        critical: false, dismissible: true, title: translate(locale, 'installAvailableTitle'),
         message: installation.nativeAvailable
-          ? 'This browser offered a native install prompt.'
+          ? translate(locale, 'nativeAvailableMessage')
           : (installation.support === 'manual-ios'
-            ? 'Add this app to your home screen from Safari.'
-            : 'Use your browser menu to install this app.'),
+            ? translate(locale, 'iosAvailableMessage')
+            : translate(locale, 'genericAvailableMessage')),
         actionId: 'install',
       }, 'install:available');
     }
     if (network.recovery) {
       add({
         id: 'api:primary-restored', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
-        critical: false, dismissible: true, title: 'Primary connection restored',
-        message: 'The primary endpoint is healthy again.', actionId: 'diagnostics',
+        critical: false, dismissible: true, title: translate(locale, 'restoredTitle'),
+        message: translate(locale, 'restoredMessage'), actionId: 'diagnostics',
       }, 'api:primary-restored');
     }
     if (config.modules.updates && capabilityEnabled('updateNotifications') && network.updateAvailable) {
       add({
         id: 'app:update', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
-        critical: false, dismissible: true, title: 'App update available',
-        message: 'A new version is ready to apply.', actionId: capabilityEnabled('userUpdate') ? 'update' : undefined,
+        critical: false, dismissible: true, title: translate(locale, 'updateTitle'),
+        message: translate(locale, 'updateMessage'), actionId: capabilityEnabled('userUpdate') ? 'update' : undefined,
       }, 'app:update');
     }
     config.features.forEach(function (feature) {
       add({
         id: 'feature:' + feature.id, priority: PRIORITY.info, tone: TONE[PRIORITY.info],
         critical: false, dismissible: true, title: feature.label,
-        message: feature.message || 'A new You.Ge Assistant capability is available.',
+        message: feature.message || translate(locale, 'featureDefaultMessage'),
         actionId: 'feature:' + feature.id,
       }, 'feature:' + feature.id);
     });
@@ -497,7 +524,8 @@ export function createAssistant(initialOptions, envOverrides) {
     return out;
   }
 
-  function buildActions(project, installation, network, notifications) {
+  function buildActions(project, installation, network, notifications, lang) {
+    const locale = lang || resolveActiveLocale();
     const actions = [];
     function add(action) {
       if (actions.some(function (entry) { return entry.id === action.id; })) return;
@@ -505,35 +533,35 @@ export function createAssistant(initialOptions, envOverrides) {
     }
     if (capabilityEnabled('diagnostics')) {
       add({
-        id: 'diagnostics', label: 'Run network diagnostics', icon: 'diagnostics',
+        id: 'diagnostics', label: translate(locale, 'actionDiagnosticsLabel'), icon: 'diagnostics',
         priority: notifications.some(function (n) { return n.critical; }) ? 1 : 5,
-        kind: 'diagnostics', event: EVENT_NAMES.action, message: 'Check connectivity, DNS and app origin.',
+        kind: 'diagnostics', event: EVENT_NAMES.action, message: translate(locale, 'actionDiagnosticsMessage'),
       });
     }
     if (capabilityEnabled('recovery') && (!network.online || dnsFailure(network.dns) ||
         connectivityFailure(network.dns) || endpointFailure(network.endpoints))) {
       add({
-        id: 'recovery', label: 'Recovery guidance', icon: 'recovery', priority: 1,
-        kind: 'recovery', event: EVENT_NAMES.action, message: 'Steps to restore this connection.',
+        id: 'recovery', label: translate(locale, 'actionRecoveryLabel'), icon: 'recovery', priority: 1,
+        kind: 'recovery', event: EVENT_NAMES.action, message: translate(locale, 'actionRecoveryMessage'),
       });
     }
     if (config.modules.installation && installation.status === 'available') {
       add({
-        id: 'install', label: installation.nativeAvailable ? 'Install this app' : 'Installation instructions',
+        id: 'install', label: installation.nativeAvailable ? translate(locale, 'installActionLabel') : translate(locale, 'instructionsActionLabel'),
         icon: 'install', priority: 4, kind: 'install', event: EVENT_NAMES.action,
-        message: installation.support === 'manual-ios' ? 'Safari: Share → Add to Home Screen.' : 'Open the browser install prompt or instructions.',
+        message: installation.support === 'manual-ios' ? translate(locale, 'iosShortcutHint') : translate(locale, 'genericHint'),
       });
     }
     if (capabilityEnabled('failover') && (network.endpoints.backup === 'active' || network.endpoints.active === 'backup')) {
       add({
-        id: 'backup-status', label: 'Backup connection', icon: 'backup', priority: 3,
-        kind: 'backup', event: EVENT_NAMES.action, message: 'The project is using its backup endpoint.',
+        id: 'backup-status', label: translate(locale, 'actionBackupLabel'), icon: 'backup', priority: 3,
+        kind: 'backup', event: EVENT_NAMES.action, message: translate(locale, 'actionBackupMessage'),
       });
     }
     if (config.modules.updates && capabilityEnabled('userUpdate') && network.updateAvailable) {
       add({
-        id: 'update', label: 'Apply app update', icon: 'update', priority: 5,
-        kind: 'update', event: EVENT_NAMES.action, message: 'Activate the waiting service worker update.',
+        id: 'update', label: translate(locale, 'actionUpdateLabel'), icon: 'update', priority: 5,
+        kind: 'update', event: EVENT_NAMES.action, message: translate(locale, 'actionUpdateMessage'),
       });
     }
     // Project-supplied actions are data, but they can address a gated
@@ -548,6 +576,7 @@ export function createAssistant(initialOptions, envOverrides) {
 
   function computeState() {
     const project = projectInfo();
+    const lang = resolveActiveLocale();
     const pwa = getPwa();
     const pwaSnapshot = readPwaSnapshot(pwa);
     let pwaHasUpdate = pwaSnapshot.hasUpdate;
@@ -564,6 +593,7 @@ export function createAssistant(initialOptions, envOverrides) {
       pwa: pwa,
       enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
       detection: capabilityEnabled('installationDetection'),
+      installExperience: effectiveInstallConfig(),
     });
     const dns = {
       status: conditions.dns.status,
@@ -589,11 +619,13 @@ export function createAssistant(initialOptions, envOverrides) {
       updateAvailable: capabilityEnabled('updateDetection') && (conditions.updateAvailable || pwaHasUpdate === true),
       recovery: conditions.recovery,
     };
-    const notifications = buildNotifications(project, installation, network);
-    const availableActions = buildActions(project, installation, network, notifications);
+    const notifications = buildNotifications(project, installation, network, lang);
+    const availableActions = buildActions(project, installation, network, notifications, lang);
     const top = notifications[0] || null;
     return {
       enabled: config.enabled,
+      locale: lang,
+      dir: isRtlLocale(lang) ? 'rtl' : 'ltr',
       project: project,
       installation: installation,
       network: network,
@@ -603,7 +635,7 @@ export function createAssistant(initialOptions, envOverrides) {
       badge: {
         count: notifications.length,
         tone: top ? top.tone : 'none',
-        label: top ? top.title : 'No alerts',
+        label: top ? top.title : translate(lang, 'noAlerts'),
         priority: top ? top.priority : null,
       },
       appearance: {
@@ -635,6 +667,7 @@ export function createAssistant(initialOptions, envOverrides) {
 
   function emit() {
     if (destroyed) return;
+    const prevLocale = snapshot ? snapshot.locale : null;
     const next = computeState();
     // Snapshot identity stability. A repeated emit of an unchanged state must
     // not churn listeners, React `useSyncExternalStore` consumers (which would
@@ -643,16 +676,54 @@ export function createAssistant(initialOptions, envOverrides) {
     if (snapshot && statesEqual(snapshot, next)) return;
     snapshot = next;
     const doc = getDoc();
-    if (shouldBindEvents && exposeGlobal) {
+    if (shouldBindEvents) {
       try {
-        if (doc && typeof doc.dispatchEvent === 'function' && root.CustomEvent) {
-          doc.dispatchEvent(new root.CustomEvent(EVENT_NAMES.state, { detail: snapshot }));
+        const localeChanged = Boolean(prevLocale && prevLocale !== snapshot.locale);
+        const CustomEventCtor = root.CustomEvent || (typeof CustomEvent !== 'undefined' ? CustomEvent : null);
+        if (localeChanged && CustomEventCtor && (exposeGlobal || envIn.window || rawInit.window || envIn.document || rawInit.document)) {
+          const localeDetail = { locale: snapshot.locale, dir: snapshot.dir, configuredLocale: config.locale };
+          if (doc && typeof doc.dispatchEvent === 'function') {
+            doc.dispatchEvent(new CustomEventCtor(EVENT_NAMES.localeChange, { bubbles: false, detail: localeDetail }));
+          }
+          if (root && root !== doc && typeof root.dispatchEvent === 'function') {
+            root.dispatchEvent(new CustomEventCtor(EVENT_NAMES.localeChange, { bubbles: false, detail: localeDetail }));
+          }
+        }
+        if (exposeGlobal && doc && typeof doc.dispatchEvent === 'function' && CustomEventCtor) {
+          doc.dispatchEvent(new CustomEventCtor(EVENT_NAMES.state, { detail: snapshot }));
         }
       } catch (error) { /* ignore */ }
     }
     listeners.forEach(function (listener) {
       try { listener(snapshot); } catch (error) { /* keep other listeners alive */ }
     });
+  }
+
+  function effectiveInstallConfig() {
+    const domainInstall = domainContext().installExperience;
+    const merged = normalizeInstallExperience(domainInstall, INSTALL_EXPERIENCE_DEFAULTS);
+    const rawInstall = rawOptionsState && rawOptionsState.installExperience && typeof rawOptionsState.installExperience === 'object'
+      ? rawOptionsState.installExperience
+      : {};
+    const cfgInstall = config.installExperience || INSTALL_EXPERIENCE_DEFAULTS;
+    Object.keys(INSTALL_EXPERIENCE_DEFAULTS).forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(rawInstall, key) ||
+          JSON.stringify(cfgInstall[key]) !== JSON.stringify(INSTALL_EXPERIENCE_DEFAULTS[key])) {
+        merged[key] = clone(cfgInstall[key]);
+      }
+    });
+    if (merged.locale === 'auto' && config.locale && config.locale !== 'auto') {
+      merged.locale = config.locale;
+    }
+    return normalizeInstallExperience(merged, INSTALL_EXPERIENCE_DEFAULTS);
+  }
+
+  function syncPwaInstallConfig() {
+    const pwa = getPwa();
+    if (!pwa || typeof pwa.configureInstallExperience !== 'function') return;
+    try {
+      pwa.configureInstallExperience(effectiveInstallConfig());
+    } catch (error) { /* ignore */ }
   }
 
   function syncPwaSubscription() {
@@ -682,6 +753,7 @@ export function createAssistant(initialOptions, envOverrides) {
     // Only the capability: `destroy()` already aborts its own run through
     // `clear()`, and that aborted run must stay a cancellation.
     isEnabled: function () { return capabilityEnabled('diagnostics'); },
+    getLocale: function () { return resolveActiveLocale(); },
     get services() { return services; },
     getPwa: getPwa,
     getDns: getDns,
@@ -774,7 +846,7 @@ export function createAssistant(initialOptions, envOverrides) {
     if (!capabilityEnabled('diagnostics')) {
       diagnosticsController.clear();
       if (conditions.dns.status === 'running') {
-        conditions.dns = normalizeDnsResult(disabledDiagnosticsResult(), DateCtor);
+        conditions.dns = normalizeDnsResult(disabledDiagnosticsResult(undefined, resolveActiveLocale()), DateCtor);
       }
     }
     persistPublishedLkgIfDerivedProject();
@@ -787,7 +859,34 @@ export function createAssistant(initialOptions, envOverrides) {
     }
     loadNotices(projectInfo().id);
     syncPwaSubscription();
+    syncPwaInstallConfig();
     emit();
+    return snapshot;
+  }
+
+  function setLocale(nextLocale, localeOptions) {
+    if (destroyed) return snapshot;
+    const cleaned = typeof nextLocale === 'string' && nextLocale.trim() ? nextLocale.trim() : 'auto';
+    const fromPwa = Boolean(localeOptions && localeOptions.fromPwa);
+    if (fromPwa) {
+      syncingPwaLocale = true;
+      try {
+        configure({ locale: cleaned });
+      } finally {
+        syncingPwaLocale = false;
+      }
+      return snapshot;
+    }
+    configure({ locale: cleaned });
+    const pwa = getPwa();
+    if (pwa && typeof pwa.setLanguage === 'function' && !syncingPwaLocale) {
+      try {
+        syncingPwaLocale = true;
+        pwa.setLanguage(cleaned, { fromAssistant: true });
+      } catch (error) { /* ignore */ } finally {
+        syncingPwaLocale = false;
+      }
+    }
     return snapshot;
   }
 
@@ -797,6 +896,7 @@ export function createAssistant(initialOptions, envOverrides) {
       project: clone(config.project),
       projectId: config.projectId,
       domain: config.domain,
+      locale: config.locale,
       position: config.position,
       offsets: { x: config.offsets.x, y: config.offsets.y },
       modules: clone(config.modules),
@@ -804,6 +904,7 @@ export function createAssistant(initialOptions, envOverrides) {
       branding: clone(config.branding),
       actions: clone(config.actions),
       features: clone(config.features),
+      installExperience: effectiveInstallConfig(),
       // Backward compatible string (0.x contract) plus the validated record.
       theme: config.themeMode || (config.theme && config.theme.mode) || 'auto',
       themeConfig: clone(config.theme || normalizeTheme('auto')),
@@ -879,11 +980,12 @@ export function createAssistant(initialOptions, envOverrides) {
   }
 
   function runDiagnostics(runOptions) {
+    const lang = resolveActiveLocale();
     if (destroyed) {
-      return Promise.resolve({ classification: 'unknown', message: 'Assistant instance is destroyed.', status: 'unavailable' });
+      return Promise.resolve({ classification: 'unknown', message: translate(lang, 'diagDestroyed'), status: 'unavailable' });
     }
     if (!capabilityEnabled('diagnostics')) {
-      const disabled = disabledDiagnosticsResult();
+      const disabled = disabledDiagnosticsResult(undefined, lang);
       setDnsResult(disabled);
       return Promise.resolve(disabled);
     }
@@ -899,6 +1001,40 @@ export function createAssistant(initialOptions, envOverrides) {
       pwa: getPwa(),
       enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
     }, promptOptions);
+  }
+
+  function showInstallDialog(dialogOptions) {
+    if (destroyed) return Promise.resolve({ shown: false, outcome: 'unsupported', backend: 'none' });
+    const installCfg = effectiveInstallConfig();
+    const enabled = Boolean(config.modules.installation && capabilityEnabled('installationGuidance') && installCfg.enabled !== false);
+    return showPwaInstallDialog({
+      pwa: getPwa(),
+      enabled: enabled,
+    }, Object.assign({ installExperience: installCfg }, dialogOptions || {}));
+  }
+
+  function hideInstallDialog() {
+    if (destroyed) return false;
+    const hidden = hidePwaInstallDialog({ pwa: getPwa() });
+    emit();
+    return hidden;
+  }
+
+  function triggerInstall(promptOptions) {
+    if (destroyed) return Promise.resolve({ outcome: 'unsupported', backend: 'none' });
+    return triggerPwaInstall({
+      pwa: getPwa(),
+      enabled: config.modules.installation && capabilityEnabled('installationGuidance'),
+    }, promptOptions);
+  }
+
+  function getInstalledRelatedApps() {
+    if (destroyed) return Promise.resolve([]);
+    return readInstalledRelatedApps({
+      pwa: getPwa(),
+      navigator: getNavigator(),
+      detection: capabilityEnabled('installationDetection'),
+    });
   }
 
   function applyUpdate() {
@@ -980,16 +1116,24 @@ export function createAssistant(initialOptions, envOverrides) {
     installed: function (event) { if (event && event.__youGeBridged) return; syncPwaSubscription(); emit(); },
     update: function (event) { if (event && event.__youGeBridged) return; conditions.updateAvailable = true; emit(); },
     diagnostics: function (event) { if (event && event.__youGeBridged) return; setDnsResult((event && event.detail) || {}); },
+    installDialog: function (event) { if (event && event.__youGeBridged) return; syncPwaSubscription(); emit(); },
     yougePwaReady: function () { syncPwaSubscription(); emit(); },
     yougeInstallable: function () { syncPwaSubscription(); emit(); },
     yougeInstalled: function () { syncPwaSubscription(); emit(); },
     yougeUpdate: function () { conditions.updateAvailable = true; emit(); },
     yougeDiagnostics: function (event) { setDnsResult((event && event.detail) || {}); },
+    yougeInstallDialog: function () { syncPwaSubscription(); emit(); },
     action: function () { /* widgets dispatch actions; host apps listen. No state change. */ },
     storage: function (event) {
       if (!event || !event.key || event.key.indexOf(STORAGE_PREFIXES.notices) !== 0) return;
       loadNotices(snapshot ? snapshot.project.id : projectInfo().id);
       emit();
+    },
+    languagechange: function () {
+      if (config.locale === 'auto') {
+        syncPwaInstallConfig();
+        emit();
+      }
     },
   };
 
@@ -1001,6 +1145,7 @@ export function createAssistant(initialOptions, envOverrides) {
       root.addEventListener('online', handlers.online);
       root.addEventListener('offline', handlers.offline);
       root.addEventListener('storage', handlers.storage);
+      root.addEventListener('languagechange', handlers.languagechange);
     }
     if (doc && typeof doc.addEventListener === 'function') {
       doc.addEventListener('visibilitychange', handlers.visibility);
@@ -1012,14 +1157,17 @@ export function createAssistant(initialOptions, envOverrides) {
       doc.addEventListener(EVENT_NAMES.yougePwaInstalled, handlers.yougeInstalled);
       doc.addEventListener(EVENT_NAMES.yougePwaUpdate, handlers.yougeUpdate);
       doc.addEventListener(EVENT_NAMES.yougePwaDiagnostics, handlers.yougeDiagnostics);
+      doc.addEventListener(EVENT_NAMES.yougePwaInstallDialog, handlers.yougeInstallDialog);
       doc.addEventListener(EVENT_NAMES.pwaReady, handlers.pwaReady);
       doc.addEventListener(EVENT_NAMES.pwaInstallable, handlers.installable);
       doc.addEventListener(EVENT_NAMES.pwaInstalled, handlers.installed);
       doc.addEventListener(EVENT_NAMES.pwaUpdate, handlers.update);
       doc.addEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
+      doc.addEventListener(EVENT_NAMES.pwaInstallDialog, handlers.installDialog);
       doc.addEventListener(EVENT_NAMES.action, handlers.action);
     }
     syncPwaSubscription();
+    syncPwaInstallConfig();
   }
 
   function destroy() {
@@ -1031,6 +1179,7 @@ export function createAssistant(initialOptions, envOverrides) {
         root.removeEventListener('online', handlers.online);
         root.removeEventListener('offline', handlers.offline);
         root.removeEventListener('storage', handlers.storage);
+        root.removeEventListener('languagechange', handlers.languagechange);
       }
       if (doc && typeof doc.removeEventListener === 'function') {
         doc.removeEventListener('visibilitychange', handlers.visibility);
@@ -1042,11 +1191,13 @@ export function createAssistant(initialOptions, envOverrides) {
         doc.removeEventListener(EVENT_NAMES.yougePwaInstalled, handlers.yougeInstalled);
         doc.removeEventListener(EVENT_NAMES.yougePwaUpdate, handlers.yougeUpdate);
         doc.removeEventListener(EVENT_NAMES.yougePwaDiagnostics, handlers.yougeDiagnostics);
+        doc.removeEventListener(EVENT_NAMES.yougePwaInstallDialog, handlers.yougeInstallDialog);
         doc.removeEventListener(EVENT_NAMES.pwaReady, handlers.pwaReady);
         doc.removeEventListener(EVENT_NAMES.pwaInstallable, handlers.installable);
         doc.removeEventListener(EVENT_NAMES.pwaInstalled, handlers.installed);
         doc.removeEventListener(EVENT_NAMES.pwaUpdate, handlers.update);
         doc.removeEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
+        doc.removeEventListener(EVENT_NAMES.pwaInstallDialog, handlers.installDialog);
         doc.removeEventListener(EVENT_NAMES.action, handlers.action);
       }
     }
@@ -1068,6 +1219,8 @@ export function createAssistant(initialOptions, envOverrides) {
     configure: configure,
     getConfig: getConfig,
     getState: function () { return snapshot; },
+    getLocale: function () { return snapshot ? snapshot.locale : resolveActiveLocale(); },
+    setLocale: setLocale,
     subscribe: subscribe,
     setConnectivity: setConnectivity,
     setEndpointStatus: setEndpointStatus,
@@ -1080,7 +1233,12 @@ export function createAssistant(initialOptions, envOverrides) {
     // Read-only capability introspection, used by renderers and by the classic
     // runtime files that delegate to the toolkit (pwa.js, offline.js, DoH).
     isCapabilityEnabled: function (capability) { return capabilityEnabled(capability); },
+    getInstallConfig: effectiveInstallConfig,
     requestInstall: requestInstall,
+    showInstallDialog: showInstallDialog,
+    hideInstallDialog: hideInstallDialog,
+    triggerInstall: triggerInstall,
+    getInstalledRelatedApps: getInstalledRelatedApps,
     applyUpdate: applyUpdate,
     dismiss: dismiss,
     acknowledge: acknowledge,

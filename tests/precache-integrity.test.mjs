@@ -18,7 +18,7 @@ const PRECACHED = [
   'assistant-state.js', 'assistant-widget.css', 'assistant-widget.js',
   'dns-diagnostics.js', 'domain-config.js', 'domain-registry.js',
   'icons/icon-192.png', 'icons/icon-512.png',
-  'offline.css', 'offline.html', 'offline.js', 'pwa.css', 'qrcode.js',
+  'offline.css', 'offline.html', 'offline.js', 'pwa-install.js', 'pwa.css', 'qrcode.js',
 ];
 const KIT_VERSION_FILES = ['you-ge-sw.js', 'pwa.js', 'package.json'];
 const WORKER_FILES = ['you-ge-sw.js', 'progressier.js'];
@@ -391,7 +391,7 @@ test('the CLI exits non-zero with the report on failure and zero with a one-line
   const clean = run();
   assert.equal(clean.status, 0, clean.stderr);
   assert.equal(clean.stdout.trim().split('\n').length, 1, 'success is a single concise line');
-  assert.match(clean.stdout, /13 precached assets unchanged/);
+  assert.match(clean.stdout, /14 precached assets unchanged/);
 
   repo.append('assistant-widget.js', '\n// changed\n');
   repo.commit('change');

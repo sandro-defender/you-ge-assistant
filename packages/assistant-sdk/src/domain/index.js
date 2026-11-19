@@ -5,9 +5,19 @@
  * Unknown or unlisted domains always receive neutral, same-origin defaults.
  */
 
-import { clone, merge, safeRelativeUrl, safeText } from '../core/sanitize.js';
+import {
+  INSTALL_EXPERIENCE_DEFAULTS,
+  clone,
+  inspectInstallExperienceIssues,
+  merge,
+  normalizeInstallExperience,
+  normalizeInstallLocale,
+  safeRelativeUrl,
+  safeText,
+} from '../core/sanitize.js';
 
 export const DOMAIN_DEFAULTS = {
+  language: 'auto',
   identity: {
     name: 'You.Ge Assistant',
     shortName: 'You.Ge',
@@ -45,6 +55,7 @@ export const DOMAIN_DEFAULTS = {
     diagnostics: true,
     dnsRecovery: true,
   },
+  installExperience: clone(INSTALL_EXPERIENCE_DEFAULTS),
   instructions: {},
   metadata: {},
   project: null,
@@ -244,6 +255,7 @@ function isValidColor(value) {
 export function validateDomainConfig(raw) {
   const safeInput = isRecord(raw) ? raw : {};
   const config = merge(clone(DOMAIN_DEFAULTS), {
+    language: safeInput.language,
     identity: safeInput.identity,
     branding: safeInput.branding,
     pwa: safeInput.pwa,
@@ -252,12 +264,18 @@ export function validateDomainConfig(raw) {
     metadata: safeInput.metadata,
     shortcuts: safeInput.shortcuts,
     diagnostics: safeInput.diagnostics,
+    installExperience: safeInput.installExperience,
     project: safeInput.project,
   });
 
-  ['identity', 'branding', 'pwa', 'features', 'instructions', 'metadata', 'diagnostics'].forEach(function (key) {
+  ['identity', 'branding', 'pwa', 'features', 'installExperience', 'instructions', 'metadata', 'diagnostics'].forEach(function (key) {
     if (!isRecord(config[key])) config[key] = clone(DOMAIN_DEFAULTS[key] || {});
   });
+
+  const rawLanguage = safeInput.language !== undefined
+    ? safeInput.language
+    : (isRecord(safeInput.identity) && safeInput.identity.language !== undefined ? safeInput.identity.language : 'auto');
+  config.language = normalizeInstallLocale(rawLanguage, DOMAIN_DEFAULTS.language);
 
   if (safeInput.project && typeof safeInput.project === 'object' && !Array.isArray(safeInput.project)) {
     const projectId = safeText(safeInput.project.id, 80).trim();
@@ -335,6 +353,7 @@ export function validateDomainConfig(raw) {
   }) : [];
 
   config.diagnostics = sanitizeDiagnosticsConfig(config.diagnostics, config.pwa.basePath || '/');
+  config.installExperience = normalizeInstallExperience(safeInput.installExperience, DOMAIN_DEFAULTS.installExperience);
 
   config.features = merge(clone(DOMAIN_DEFAULTS.features), config.features || {});
   Object.keys(DOMAIN_DEFAULTS.features).forEach(function (key) {
@@ -366,6 +385,15 @@ export function validateDomainConfigDetailed(raw) {
       const normalizedProjectId = typeof projectId === 'string' ? safeText(projectId, 80).trim() : '';
       if (typeof projectId !== 'string' || !normalizedProjectId || projectId.length > 80 || normalizedProjectId !== projectId.trim()) {
         add('invalid_project_id', 'project.id', 'Project configuration requires a non-empty, safe string id of at most 80 characters.');
+      }
+    }
+
+    if (source.language !== undefined) {
+      const cleanedLang = typeof source.language === 'string' ? source.language.trim().replace(/_/g, '-') : '';
+      const validLang = typeof source.language === 'string' &&
+        (cleanedLang.toLowerCase() === 'auto' || /^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleanedLang));
+      if (!validLang) {
+        add('invalid_language', 'language', 'Language must be "auto" or a valid BCP-47 language tag.');
       }
     }
 
@@ -443,6 +471,12 @@ export function validateDomainConfigDetailed(raw) {
           add('invalid_diagnostics_probe', 'diagnostics.' + key,
             'Diagnostics probe paths must be safe same-origin relative or root-relative paths.');
         }
+      });
+    }
+
+    if (source.installExperience !== undefined) {
+      inspectInstallExperienceIssues(source.installExperience, 'installExperience').forEach(function (issue) {
+        add(issue.code, issue.path, issue.message);
       });
     }
   } catch (error) {
@@ -777,6 +811,7 @@ export function buildManifest(config) {
     },
   };
   if (resolved.features.sharing === false) delete output.share_target;
+  if (resolved.language && resolved.language !== 'auto') output.lang = resolved.language;
   return output;
 }
 

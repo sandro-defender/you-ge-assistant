@@ -36,6 +36,10 @@
       "types": "./src/theme/index.d.ts",
       "default": "./src/theme/index.js"
     },
+    "./i18n": {
+      "types": "./src/core/i18n.d.ts",
+      "default": "./src/core/i18n.js"
+    },
     "./react": {
       "types": "./src/adapters/react.d.ts",
       "default": "./src/adapters/react.js"

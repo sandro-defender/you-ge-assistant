@@ -75,7 +75,7 @@ test('the worker precaches exactly the documented required and optional assets',
     network.requests.map((request) => request.path).sort(),
     PRECACHED.map((path) => `/${path}`).sort()
   );
-  assert.equal(REQUIRED_PRECACHE.length + OPTIONAL_PRECACHE.length, 13);
+  assert.equal(REQUIRED_PRECACHE.length + OPTIONAL_PRECACHE.length, 14);
 });
 
 for (const asset of REQUIRED_PRECACHE) {
@@ -336,7 +336,7 @@ test(`an existing ${PREVIOUS_KIT} installation upgrades to a complete new-versio
 
   assert.equal(next.staticCache, `you-ge-assistant:app.test:%2F:static:v${workerVersion}`);
   assert.notEqual(next.staticCache, active.staticCache);
-  assert.deepEqual(await caches.snapshot(next.staticCache), shell('current'), 'all 13 assets, all from the new deployment');
+  assert.deepEqual(await caches.snapshot(next.staticCache), shell('current'), 'all 14 assets, all from the new deployment');
   assert.equal(
     (await caches.snapshot(next.staticCache))[url('assistant-state.js')],
     '/assistant-state.js@current',
