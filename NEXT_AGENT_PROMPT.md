@@ -1,3 +1,9 @@
+# Next Agent Prompt — merged hub PR
+
+[PR #54](https://github.com/sandro-defender/you-ge-assistant/pull/54) is now **merged** into `main` (`82a1ba3`). No implementation task is queued. Do not create a new branch or reopen work without an explicit request; do not deploy, publish, stage an npm release, tag or release. If asked to follow up, read the top of `AGENT_HANDOFF.md` and verify the actual Pages workflow outcome before making changes.
+
+---
+
 # Next Agent Prompt — review the unified hub PR
 
 Read `AGENTS.md`, the top section of `AGENT_HANDOFF.md`,
