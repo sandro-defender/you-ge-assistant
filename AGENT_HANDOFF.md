@@ -1,7 +1,7 @@
 # Agent Handoff — SDK-only consumer experience demo
 
 **Date:** 2026-11-19
-**Branch:** `arena/39cfa85d-you-ge-assistant`, based on merged SDK release-candidate PR #52 commit `95afaca`. PR #52 is **merged** (not open). The SDK is prepared as 0.4.0 / kit 1.2.7; npm still reports 0.3.0 latest, and 0.4.0 is not published.
+**Branch:** `arena/39cfa85d-you-ge-assistant`, based on merged SDK release-candidate PR #52 commit `95afaca`. PR #52 is **merged** (not open); implementation is in [PR #53](https://github.com/sandro-defender/you-ge-assistant/pull/53), open against `main`. The SDK is prepared as 0.4.0 / kit 1.2.7; npm still reports 0.3.0 latest, and 0.4.0 is not published.
 
 ## Current task state
 
@@ -16,7 +16,7 @@
 
 ## Next steps
 
-Run full checks and existing React example build/typecheck; verify Pages assembly includes `_site/sdk-demo/`; inspect live preview visually if browser tooling exists; address any issues; update this handoff and `NEXT_AGENT_PROMPT.md`; commit and push only the active Arena branch and open one unmerged PR targeting `main`. Do not create or switch branches (Arena branch is fixed).
+All requested code, verification and PR steps are complete. PR #53 is pushed and intentionally open/unmerged for review. The local Vite preview is running on port 5173. Do not create or switch branches (Arena branch is fixed).
 
 ---
 
