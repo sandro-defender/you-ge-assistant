@@ -18,7 +18,7 @@
  * Configuration
  * ------------------------------------------------------------------ */
 
-const VERSION = '1.2.6';
+const VERSION = '1.2.7';
 const WORKER_DIRECTORY = new URL('./', self.location.href);
 const REGISTRATION_SCOPE = self.registration && self.registration.scope
   ? new URL(self.registration.scope, self.location.href)

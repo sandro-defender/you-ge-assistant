@@ -148,16 +148,17 @@ test('the example keeps accessibility: focus, grouping, labels and motion', () =
 
 test('the example adds no dependency and changes no package version', () => {
   const deps = examplePkg.dependencies || {};
-  // The local SDK and React were already part of the example (bindings);
-  // theming must not add anything. The animated logo (and its `ogl` runtime)
-  // was removed in favour of the static zoomed mark.
+  // The local SDK and React were already part of the example (bindings), and
+  // `@playwright/test` is the browser-test runner the <pwa-install>/localization
+  // work added. The animated logo (and its `ogl` runtime) was removed in favour
+  // of the static zoomed mark. Anything else would still fail this check.
   assert.deepEqual(
     Object.keys(deps).sort(),
-    ['@youge/assistant-sdk', 'react', 'react-dom'],
-    'theming adds no dependency to the example',
+    ['@playwright/test', '@youge/assistant-sdk', 'react', 'react-dom'],
+    'the example declares only its browser-test runner, the local SDK and React',
   );
   assert.match(deps['@youge/assistant-sdk'], /^file:/, 'the example consumes the local SDK');
-  assert.equal(rootPkg.version, '1.2.6', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
+  assert.equal(rootPkg.version, '1.2.7', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
   assert.deepEqual(
     Object.keys(rootPkg.dependencies || {}),
     [],
@@ -166,7 +167,7 @@ test('the example adds no dependency and changes no package version', () => {
   const sdkPkg = JSON.parse(
     readFileSync(new URL('../packages/assistant-sdk/package.json', import.meta.url), 'utf8'),
   );
-  assert.equal(sdkPkg.version, '0.3.0', 'the SDK version is bumped only by the release PR');
+  assert.equal(sdkPkg.version, '0.4.0', 'the SDK version is bumped only by the release PR');
   assert.deepEqual(Object.keys(sdkPkg.dependencies || {}), [], 'the embedded SDK stays dependency-free');
 });
 

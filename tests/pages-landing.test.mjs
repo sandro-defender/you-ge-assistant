@@ -38,7 +38,7 @@ test("landing guide is useful without JavaScript and matches typechecked example
   ])
     assert.ok(html.includes(`id="${id}"`));
   assert.match(html, /npm install @youge\/assistant-sdk/);
-  assert.match(html, /SDK 0\.3\.0/);
+  assert.match(html, /SDK 0\.4\.0/);
   assert.doesNotMatch(html, /Progressier|Register a project|not yet published/);
 });
 

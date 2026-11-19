@@ -1,7 +1,7 @@
 # GitHub Pages example
 
 The GitHub Pages `/example/` route is the You.Ge Assistant product landing page
-and SDK 0.3.0 integration guide. It includes original CSS illustrations, an
+and SDK 0.4.0 integration guide. It includes original CSS illustrations, an
 accessible architecture diagram, typechecked code samples and a real SDK state
 panel connected to the optional DOM widget. No worker is registered by the page.
 
@@ -63,4 +63,4 @@ only wires the live SDK panel, appearance selector and clipboard feedback.
 
 The example deliberately retains its local `file:` SDK dependency: CI builds
 it before root assembly, using buildless SDK exports. Public snippets were
-verified against the npm 0.3.0 tarball; no SDK implementation is copied here.
+verified against the npm 0.3.0 tarball and the prepared repository 0.4.0 source; no SDK implementation is copied here.
