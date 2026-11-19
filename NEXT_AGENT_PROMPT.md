@@ -1,3 +1,12 @@
+# Next Agent Prompt — review the unified hub PR
+
+Read `AGENTS.md`, the top section of `AGENT_HANDOFF.md`,
+`docs/architecture/UNIFIED_HUB_AUDIT.md` and
+`docs/guides/DESIGN_FOUNDATION.md` §16. Work only on fixed active branch
+`arena/09fea09a-you-ge-assistant`; [PR #54](https://github.com/sandro-defender/you-ge-assistant/pull/54) must stay open and unmerged. Inspect PR CI on the final SHA before making any change. The implementation is complete: root hub, preserved `/demo/`, and local-only `/config-playground/` with real public SDK APIs, illustrative preview and generated examples. Local verification is green (root `npm run check` 643/643, SDK 150/150, all builds and Pages assembly). No browser binary was available; do not claim browser verification. Do not merge, deploy, publish, stage an npm release, tag, release or change SDK `0.4.0` / kit `1.2.7`.
+
+---
+
 # Next Agent Prompt — final PR #53 UI verification
 
 Continue on fixed branch `arena/39cfa85d-you-ge-assistant`; PR #53 must remain open/unmerged. `ui-ux-pro-max-skill` was cloned from its official repo to `/tmp/ui-ux-pro-max-skill`, read and actively applied. Review fixes improve muted text contrast, use system fonts, enlarge mobile controls, and preserve focus/details across rerenders. Browser automation is blocked because Playwright has no browser binary and the temporary Chromium needs missing `libnspr4.so`/NSS system libraries; do not claim browser verification. Finish diff review, commit/push only to this branch, verify the release-prep workflow with **Verify only** and confirm PR CI on final SHA. No Stage, publish, deploy, merge, tag or release.

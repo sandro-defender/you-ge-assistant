@@ -34,6 +34,10 @@ jobs:
         run: npm ci && npm run typecheck && npm run build
         working-directory: examples/sdk-demo
 
+      - name: Build local Configuration Playground
+        run: npm ci && npm run build
+        working-directory: examples/config-playground
+
       - name: Assemble GitHub Pages site
         run: |
           node scripts/assemble-pages.mjs

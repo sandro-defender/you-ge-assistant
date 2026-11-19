@@ -145,6 +145,10 @@ jobs:
         run: npm ci && npm run typecheck && npm run build
         working-directory: examples/sdk-demo
 
+      - name: Consumer build verification (Configuration Playground)
+        run: npm ci && npm run build
+        working-directory: examples/config-playground
+
       - name: Static checks, contracts and unit tests
         run: npm run check
 

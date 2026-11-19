@@ -524,3 +524,47 @@ tiers, panel-gap token, `.youge-chrome-offer` + `.youge-adjust` blocks),
 (`sdk-browser` new, widget/example-ui/sdk-core/sdk-config-security extended),
 `scripts/check.mjs` (15 new contracts + 0.1.1 gate). No skill data or
 generated catalog was committed.
+
+## 16. Unified hub and Configuration Playground (2026-11-19)
+
+The `ui-ux-pro-max-skill` **was applied** to this interface work. Following the
+repository-documented path, the official skill was cloned outside the repository
+to `/tmp/ui-ux-pro-max-skill` (never committed) and its
+`.claude/skills/ui-ux-pro-max/SKILL.md`, `references/quick-reference.md` priority
+table and `references/pro-rules.md` canonical pre-delivery checklist were read.
+The search tool was run with these verified queries (no `--persist`, so the
+existing design-system files were not overwritten):
+
+```bash
+python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py \
+  "developer tool documentation landing page clean trustworthy" --design-system \
+  --variance 4 --motion 2 --density 7 -p "You.Ge Assistant Hub"
+python3 .../search.py "documentation hub navigation clear next step" --domain landing -n 3
+python3 .../search.py "visible form labels helper text live preview" --domain ux -n 4
+python3 .../search.py "focus visible keyboard controls" --domain ux -n 3
+```
+
+Verified results and application:
+
+- **FAQ/Documentation Landing** pattern (hero → popular categories → FAQ →
+  support CTA): the root hub opens with one plain-language hero, four real
+  destinations, a compact feature directory and four short FAQ disclosures. No
+  documentation wall or nested dashboard was added.
+- **Form Labels / Input Labels / Submit Feedback** (High): every playground
+  control has a visible `<label>`, a short explanation and a `role="status"`
+  feedback line; copy and reset actions report their result.
+- **Focus States / Focus Not Obscured (AA)**: `:focus-visible` outlines on all
+  controls, `scroll-padding-top` for the sticky shared header, and focus-safe
+  in-place DOM updates instead of rerendering the form.
+- **Touch & responsive**: 44px minimum control height, system fonts, no zoom
+  restrictions, `375px`-style single-column breakpoint, safe-area viewport and
+  `prefers-reduced-motion` overrides.
+
+The design-system search suggested a dark OLED palette and Google-hosted IBM
+Plex/JetBrains fonts. Per `SKILL.md`, results are recommendations; that match
+was rejected after fit verification because the page-specific
+`docs/design-system/you-ge-assistant/pages/product-website.md` mandates the
+light-first navy/violet identity, system fonts and no third-party font request.
+The shared `product.css`/`product.js` chrome and the existing SVG symbol were
+reused instead of introducing a new component library or emoji icons. No skill
+data or generated catalog was added to the repository.

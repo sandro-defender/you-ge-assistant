@@ -264,15 +264,15 @@
 
   <body><header class="product-header" data-product-header>
   <div class="product-width product-row">
-    <a class="product-brand" href="example/"><img src="assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
+    <a class="product-brand" href="../example/"><img src="assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
     <nav class="product-nav" id="product-navigation" aria-label="Main navigation">
-      <a href="example/" id="nav-product">Product</a>
-      <a href="example/#features" id="nav-features">Features</a>
-      <a href="example/#integration" id="nav-docs">Documentation</a>
+      <a href="../example/" id="nav-product">Product</a>
+      <a href="../example/#features" id="nav-features">Features</a>
+      <a href="../example/#integration" id="nav-docs">Documentation</a>
       <a href="./" aria-current="page" id="nav-examples">Examples</a>
       <a href="https://github.com/sandro-defender/you-ge-assistant">GitHub ↗</a>
     </nav>
-    <a class="product-start" href="example/#quickstart" id="nav-start"><span id="nav-start-label">Get started</span> <span aria-hidden="true">↗</span></a>
+    <a class="product-start" href="../example/#quickstart" id="nav-start"><span id="nav-start-label">Get started</span> <span aria-hidden="true">↗</span></a>
     <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden id="nav-menu-btn">Menu</button>
   </div>
 </header>
@@ -283,7 +283,7 @@
         <p class="intro-kicker"><span id="intro-kicker-label">THE YOU.GE ASSISTANT PLAYGROUND</span> · <span id="current-domain"></span></p>
         <h1 id="intro-title"><span id="intro-title-line1">A more capable web app.</span><br /><span id="intro-title-line2">A clearer experience.</span></h1>
         <p id="intro-lead">Try the real PWA toolkit: installation guidance, sharing, network diagnostics, and actionable app status. Your application keeps control of its service worker.</p>
-        <div class="root-actions"><a class="intro-cta" href="example/#quickstart" id="intro-cta">Get started →</a><a href="https://github.com/sandro-defender/you-ge-assistant" id="intro-explore">Explore GitHub ↗</a></div>
+        <div class="root-actions"><a class="intro-cta" href="../example/#quickstart" id="intro-cta">Get started →</a><a href="https://github.com/sandro-defender/you-ge-assistant" id="intro-explore">Explore GitHub ↗</a></div>
         <p class="intro-note" id="intro-note">SDK 0.4.0 · Framework-independent · Open source</p>
       </section>
       <img class="root-product-visual" id="intro-visual" src="integration-preview.svg" width="540" height="410" alt="Your application connects to the official You.Ge Assistant SDK for installation, diagnostics and app status. Your framework and worker remain under your control." /></div>
@@ -292,8 +292,8 @@
         <article><span>02 / CONNECT</span><h2 id="cap2-title">Make app state useful.</h2><p id="cap2-body">Connectivity, host-reported endpoint and session signals, and prioritized notices in one subscribable SDK state.</p></article>
         <article><span>03 / COMPOSE</span><h2 id="cap3-title">Keep your architecture.</h2><p id="cap3-body">Configure only the modules you need. Keep your existing service worker, caching strategy, and host update lifecycle.</p></article>
       </section>
-      <div class="root-install"><div><h2 id="install-card-title">Start with one package.</h2><p id="install-card-body">ESM, TypeScript declarations, zero core runtime dependencies.</p></div><div><code>npm install @youge/assistant-sdk</code><a href="example/#integration" id="install-card-link">Read the practical integration guide →</a></div></div>
-      <h2><span id="demo-heading-live">Live state</span></h2>
+      <div class="root-install"><div><h2 id="install-card-title">Start with one package.</h2><p id="install-card-body">ESM, TypeScript declarations, zero core runtime dependencies.</p></div><div><code>npm install @youge/assistant-sdk</code><a href="../example/#integration" id="install-card-link">Read the practical integration guide →</a></div></div>
+      <h2 id="demo-live"><span id="demo-heading-live">Live state</span></h2>
       <div class="grid">
         <div class="card"><div class="label" id="lbl-standalone">Standalone</div><div class="value" id="s-standalone">—</div></div>
         <div class="card"><div class="label" id="lbl-caninstall">Install prompt</div><div class="value" id="s-caninstall">—</div></div>
@@ -301,7 +301,7 @@
         <div class="card"><div class="label" id="lbl-sw">Service worker</div><div class="value" id="s-sw">—</div></div>
       </div>
 
-      <h2><span id="demo-heading-install">Install</span></h2>
+      <h2 id="demo-install"><span id="demo-heading-install">Install</span></h2>
       <div class="actions">
         <!-- `.youge-install-button` is the canonical selector: You.Ge Assistant renders and localizes the button (`.progressier-install-button` remains supported for legacy compatibility). -->
         <button type="button" class="youge-install-button" data-icons="true" data-install="Install app" data-installed="Open app"></button>
@@ -316,13 +316,13 @@
         <code>beforeinstallprompt</code> flow runs when the browser offers it.
       </p>
 
-      <h2><span id="demo-heading-diagnostics">Network diagnostics</span></h2>
+      <h2 id="demo-diagnostics"><span id="demo-heading-diagnostics">Network diagnostics</span></h2>
       <div class="actions">
         <button type="button" id="btn-diagnostics">Run diagnostics for this domain</button>
       </div>
       <p class="note" id="note-diagnostics">Cloudflare DoH checks the current hostname only. JavaScript cannot inspect the device’s normal DNS resolver, and a host failure is not proof of DNS interference.</p>
 
-      <h2><span id="demo-heading-notifications">Notifications</span></h2>
+      <h2 id="demo-notifications"><span id="demo-heading-notifications">Notifications</span></h2>
       <div class="actions">
         <button type="button" id="btn-permission">Request permission</button>
         <button type="button" id="btn-push-banner">Show push banner</button>
@@ -334,7 +334,7 @@
         The public playground has no sender configured, so it will not send notifications.
       </p>
 
-      <h2><span id="demo-heading-ui">UI components</span></h2>
+      <h2 id="demo-ui"><span id="demo-heading-ui">UI components</span></h2>
       <div class="actions">
         <button type="button" id="btn-install-banner">Install banner</button>
         <button type="button" id="btn-welcome">Welcome modal</button>
@@ -344,7 +344,7 @@
         <button type="button" id="btn-toast">Toast</button>
       </div>
 
-      <h2><span id="demo-heading-theme">Assistant theme</span></h2>
+      <h2 id="demo-theme"><span id="demo-heading-theme">Assistant theme</span></h2>
       <div class="actions" role="group" aria-labelledby="theme-modes-label">
         <span class="label" id="theme-modes-label">Mode</span>
         <button type="button" id="btn-assistant-auto" aria-pressed="true">Auto</button>
@@ -361,7 +361,7 @@
         field and reported as warnings — the Assistant never breaks.
       </p>
 
-      <h2><span id="demo-heading-more">More API tests</span></h2>
+      <h2 id="demo-language"><span id="demo-heading-more">More API tests</span></h2>
       <div class="actions">
         <button type="button" id="btn-history">Read push history</button>
         <button type="button" id="btn-history-read">Mark history read</button>
@@ -396,7 +396,7 @@
         this public playground does not send notifications.
       </p>
 
-      <h2><span id="demo-heading-events">Events</span></h2>
+      <h2 id="demo-events"><span id="demo-heading-events">Events</span></h2>
       <div class="log" id="log">Waiting for events…</div>
 
       <footer id="demo-footer">
@@ -406,7 +406,7 @@
         <a href="https://github.com/sandro-defender/you-ge-assistant" id="link-repo">Repository</a>
         <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/AGENTS.md" id="link-agents">Contributor guide</a>
         <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/README.md" id="link-readme">Documentation</a>
-        <a href="example/" id="link-guide">Product & integration guide →</a>
+        <a href="../example/" id="link-guide">Product & integration guide →</a>
       </nav>
 </main>
 
@@ -2074,8 +2074,8 @@
       });
     </script>
   <footer class="product-footer"><div class="product-width">
-  <a class="product-brand" href="example/"><img src="assistant-symbol.svg" width="30" height="30" alt="" />You.Ge <b>Assistant</b></a>
+  <a class="product-brand" href="../example/"><img src="assistant-symbol.svg" width="30" height="30" alt="" />You.Ge <b>Assistant</b></a>
   <span class="footer-caption" id="product-footer-caption">Open source. Thoughtfully connected.</span>
-  <nav aria-label="Footer"><a href="example/#integration" id="footer-docs">Documentation</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE" id="footer-license">MIT license</a><a href="https://github.com/sandro-defender/you-ge-assistant/issues" id="footer-issues">Issues</a><a href="https://www.npmjs.com/package/@youge/assistant-sdk">npm ↗</a></nav>
+  <nav aria-label="Footer"><a href="../example/#integration" id="footer-docs">Documentation</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE" id="footer-license">MIT license</a><a href="https://github.com/sandro-defender/you-ge-assistant/issues" id="footer-issues">Issues</a><a href="https://www.npmjs.com/package/@youge/assistant-sdk">npm ↗</a></nav>
 </div></footer></body>
 </html>

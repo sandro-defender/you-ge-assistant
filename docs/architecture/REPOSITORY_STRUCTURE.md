@@ -47,8 +47,8 @@ This is a structural refactor only. Source files live in organized `src/` and `p
 
 - `scripts/source-paths.mjs` — Canonical `PUBLIC_TO_SOURCE` mapping from public root filenames to `src/` and `public/` paths, used by `scripts/build.mjs`, `scripts/check.mjs`, `scripts/precache-integrity.mjs`, and tests.
 - `scripts/build.mjs` (`npm run build`) — Assembles `dist/` (gitignored) with all 18 runtime/public files and `icons/` at their exact root URLs (`/pwa.js`, `/you-ge-sw.js`, `/progressier.js`, `/assistant-state.js`, `/manifest.webmanifest`, `/offline.html`, `/icons/*`, etc.).
-- `scripts/assemble-pages.mjs` — Shared GitHub Pages assembly logic used by both `.github/workflows/pages.yml` and automated Pages assembly tests. It builds `dist/` and assembles `_site/` (root feature-test playground from `examples/demo/`) and `_site/example/` (independent React/Vite sample from `examples/example/dist/`), rewriting `browserconfig.xml` tile paths and `example/offline.html` fallback branding for each scope.
-  - **Build order matters:** `examples/example/dist/` is gitignored, so any workflow that runs the test suite (`npm run check` / `npm test`, which include `tests/repository-structure.test.mjs` → `assemblePages`) must build the example first with `cd examples/example && npm ci && npm run typecheck && npm run build`. A leftover local `dist/` hides a missing build step; a clean CI checkout fails. The ordering is enforced by `tests/repository-structure.test.mjs`.
+- `scripts/assemble-pages.mjs` — Shared GitHub Pages assembly logic used by both `.github/workflows/pages.yml` and automated Pages assembly tests. It builds `dist/` and assembles `_site/` (unified hub from `examples/landing/`), `_site/demo/` (preserved feature-test playground from `examples/demo/`), `_site/example/` (independent React/Vite sample from `examples/example/dist/`), `_site/sdk-demo/` and `_site/config-playground/`, rewriting `browserconfig.xml` tile paths and `example/offline.html` fallback branding where relevant.
+  - **Build order matters:** `examples/example/dist/`, `examples/sdk-demo/dist/` and `examples/config-playground/dist/` are gitignored, so any workflow that runs the test suite (`npm run check` / `npm test`, which include `tests/repository-structure.test.mjs` → `assemblePages`) must build all three Vite projects first. A leftover local `dist/` hides a missing build step; a clean CI checkout fails. The ordering is enforced by `tests/repository-structure.test.mjs`, `tests/sdk-demo.test.mjs` and `tests/config-playground.test.mjs`.
 - `examples/example/vite.config.js` — Uses `PUBLIC_TO_SOURCE` mappings in `sharedRuntimeDevFiles()` so local Vite development serves `/pwa.js`, `/you-ge-sw.js`, `/assistant-state.js`, etc. directly from `src/` and `public/` without requiring `dist/` to be committed.
 
 ### SDK synchronization (`assistant-state.js`)
@@ -61,7 +61,7 @@ Moving source files into `src/` and `public/` does not change any public URL:
 
 - `/you-ge-sw.js` and `/progressier.js` are published at the root of `dist/`, `_site/`, and `_site/example/`.
 - `progressier.js` delegates to `you-ge-sw.js` via `importScripts(new URL('you-ge-sw.js', self.location.href).href)`.
-- `manifest.webmanifest`, `offline.html`, `offline.css`, `offline.js`, and `/icons/*` resolve at their original root (and `/example/`) paths.
+- `manifest.webmanifest`, `offline.html`, `offline.css`, `offline.js`, and `/icons/*` resolve at their original root, `/demo/` and `/example/` paths.
 - `functions/manifest.webmanifest.js` imports `../src/domain/domain-registry.js`, `../src/domain/domain-config.js`, and `../src/domain/manifest-handler.js`.
 
 ## Historical note — PR #38 (completed)

@@ -67,12 +67,19 @@ export function assemblePages({
     rmSync(safeOutputDir, { recursive: true, force: true });
   }
   const exampleOutDir = join(safeOutputDir, 'example');
+  const demoOutDir = join(safeOutputDir, 'demo');
   mkdirSync(exampleOutDir, { recursive: true });
+  mkdirSync(demoOutDir, { recursive: true });
 
-  // 1. Root feature-test playground
+  // 1. Unified landing page at the root; the original full-feature playground
+  //    keeps its own /demo/ scope with the same runtime files and manifest.
   cpSync(distDir, safeOutputDir, { recursive: true });
-  cpSync(join(rootDir, 'examples/demo/index.html'), join(safeOutputDir, 'index.html'));
+  cpSync(join(rootDir, 'examples/landing/index.html'), join(safeOutputDir, 'index.html'));
+  cpSync(join(rootDir, 'examples/landing/landing.css'), join(safeOutputDir, 'landing.css'));
   cpSync(join(rootDir, 'examples/demo/manifest.webmanifest'), join(safeOutputDir, 'manifest.webmanifest'));
+  cpSync(distDir, demoOutDir, { recursive: true });
+  cpSync(join(rootDir, 'examples/demo/index.html'), join(demoOutDir, 'index.html'));
+  cpSync(join(rootDir, 'examples/demo/manifest.webmanifest'), join(demoOutDir, 'manifest.webmanifest'));
 
   // 2. Independent /example/ PWA
   const exampleDistDir = join(rootDir, 'examples/example/dist');
@@ -86,8 +93,10 @@ export function assemblePages({
   }
 
   // Shared product chrome is copied to both scopes; the Vite public dir supplies /example/.
-  for (const file of ['product.css', 'product.js', 'assistant-symbol.svg', 'integration-preview.svg']) {
+  const sharedChrome = ['product.css', 'product.js', 'assistant-symbol.svg', 'integration-preview.svg'];
+  for (const file of sharedChrome) {
     cpSync(join(rootDir, 'examples/example/public', file), join(safeOutputDir, file));
+    cpSync(join(rootDir, 'examples/example/public', file), join(demoOutDir, file));
   }
 
   // 3. Independent SDK-only consumer experience at /sdk-demo/.
@@ -96,6 +105,13 @@ export function assemblePages({
     throw new Error('Missing examples/sdk-demo/dist — run `npm ci && npm run build` in examples/sdk-demo first.');
   }
   cpSync(sdkDemoDistDir, join(safeOutputDir, 'sdk-demo'), { recursive: true });
+
+  // 3b. Local-only Configuration Playground at /config-playground/.
+  const playgroundDistDir = join(rootDir, 'examples/config-playground/dist');
+  if (!existsSync(playgroundDistDir)) {
+    throw new Error('Missing examples/config-playground/dist — run `npm ci && npm run build` in examples/config-playground first.');
+  }
+  cpSync(playgroundDistDir, join(safeOutputDir, 'config-playground'), { recursive: true });
 
   // 4. Scope-specific browserconfig.xml tile paths
   const normalizedBase = basePath.replace(/\/+$/, '');
@@ -123,7 +139,13 @@ export function assemblePages({
   // 5. Disable Jekyll processing
   writeFileSync(join(safeOutputDir, '.nojekyll'), '');
 
-  return { outputDir: safeOutputDir, exampleOutDir, basePath: normalizedBase };
+  return {
+    outputDir: safeOutputDir,
+    exampleOutDir,
+    demoOutDir,
+    playgroundOutDir: join(safeOutputDir, 'config-playground'),
+    basePath: normalizedBase,
+  };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
