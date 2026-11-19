@@ -215,7 +215,7 @@ if (pkg.main && existsSync(join(pkgDir, pkg.main)) && pkg.types && existsSync(jo
 
 section('Package contents');
 
-for (const required of ['README.md', 'LICENSE']) {
+for (const required of ['README.md', 'MIGRATION.md', 'LICENSE']) {
   if (existsSync(join(pkgDir, required))) pass(`${required} is present`);
   else fail(`${required} is missing`);
 }
@@ -234,8 +234,12 @@ const whitelisted = (target) => {
   if (rel === 'package.json') return true; // npm always packs package.json
   return filesWhitelist.some((entry) => rel === entry || rel.startsWith(`${entry.replace(/\/$/, '')}/`));
 };
-if (filesWhitelist.length > 0 && exportTargets.every(whitelisted) && ['README.md', 'LICENSE'].every(whitelisted)) {
-  pass('files whitelist covers every exports target plus README and LICENSE');
+if (
+  filesWhitelist.length > 0 &&
+  exportTargets.every(whitelisted) &&
+  ['README.md', 'MIGRATION.md', 'LICENSE'].every(whitelisted)
+) {
+  pass('files whitelist covers every exports target plus README, MIGRATION guide and LICENSE');
 } else {
   fail(`files whitelist ${JSON.stringify(filesWhitelist)} does not cover all published targets`);
 }
@@ -261,7 +265,7 @@ if (packFiles) {
   if (missing.length === 0) pass('every exports target is included in the packed tarball');
   else fail(`exports targets missing from the tarball: ${missing.join(', ')}`);
 
-  for (const required of ['README.md', 'LICENSE', 'package.json']) {
+  for (const required of ['README.md', 'MIGRATION.md', 'LICENSE', 'package.json']) {
     if (packFiles.includes(required)) pass(`tarball contains ${required}`);
     else fail(`tarball is missing ${required}`);
   }
