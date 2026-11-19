@@ -1,3 +1,47 @@
+# Agent Handoff — SDK `0.4.0` release preparation (kit `1.2.7`)
+
+**Date:** 2026-11-19
+**Branch:** `arena/ac2af8ea-you-ge-assistant`, based on `017bcef09457d1388b5e0f219e63c218310f6695` (`main`).
+**PR:** [PR #52](https://github.com/sandro-defender/you-ge-assistant/pull/52) (open against `main`, release preparation only — unmerged).
+**Commit:** verified release-candidate tree `6a18579` (this handoff commit adds documentation only).
+**Working tree:** Complete release-preparation change set: synchronized SDK/kit version bumps, public-surface audit, new tests, documentation and release records. Generated `dist/`, `examples/example/node_modules` and `examples/example/dist` stay gitignored.
+**Versions:** SDK package `@youge/assistant-sdk` `0.3.0 → 0.4.0` (prepared, **not published**); kit `1.2.6 → 1.2.7`, **explicitly authorized by the owner during this task** because the regenerated precached `assistant-state.js` mirrors `SDK_VERSION`. The registry still reports `0.3.0` as `latest` (`npm view` verified 2026-11-19; `@0.4.0` is 404). No npm stage/publish, tag, GitHub release, merge or deployment was performed.
+
+## Completed
+
+- **Version synchronization.** `packages/assistant-sdk/package.json` `0.4.0`, `SDK_VERSION` `0.4.0`, `KIT_COMPAT_VERSION` `1.2.7`, `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, root `package.json` `1.2.7`; `npm run sync:sdk` regenerated `src/assistant/assistant-state.js`. `SCHEMA_VERSION` stays `1` — the only config change is the additive, defaulted `installExperience` input, and a `0.3.0` `publishedConfig` still validates.
+- **Release gates and pinned expectations.** `scripts/check.mjs` now asserts SDK `0.4.0` and adds contracts for the `./i18n` subpath, the 12 core locales, the i18n helpers and declarations, and the installation API/type surface. `tests/identity-migration.test.mjs` (version, cache names `v1.2.7`, gate summary `1.2.6 → 1.2.7`, `AGENTS.md` pin), `tests/install-experience.test.mjs`, `tests/example-theme.test.mjs`, `tests/pages-landing.test.mjs` and `packages/assistant-sdk/tests/sdk-core.test.mjs` were updated. No rule was weakened.
+- **Public SDK API audit (npm-consumer view).** `packages/assistant-sdk/tests/sdk-public-api.test.mjs` imports `@youge/assistant-sdk`, `/i18n` and `/installation` through the package specifier, asserting: the exact export map with no wildcards, `ERR_PACKAGE_PATH_NOT_EXPORTED` for `src/...` deep imports, root↔subpath export parity, all 12 locales (metadata, full key parity, non-empty copy, plural forms, RTL detection, DNS localization, Chrome handoff labels), the seven documented installation APIs plus their TypeScript types, and the `native`/`manual-ios`/`manual-generic`/`installed`/`none` state matrix with honest dialog/prompt fallbacks.
+- **Consumer proof (outside the repo).** `npm pack` → fresh project install of the real tarball: runtime check passed (0.4.0/1.2.7, 12 locales, all APIs, deep imports blocked), `tsc --noEmit` passed under `moduleResolution` `NodeNext` **and** `Bundler` with `skipLibCheck: false`, and `npm ls --omit=dev` shows the SDK with **no** runtime dependencies (React optional and unmet).
+- **Package contents.** `files` now also ships `MIGRATION.md`; `validate-package.mjs` requires `README.md`, `MIGRATION.md` and `LICENSE` in the tarball and in the whitelist. `npm pack --dry-run`: **27 files**, 120.1 kB tarball / 458.2 kB unpacked, including `src/core/i18n.{js,d.ts}` and every export target.
+- **Documentation.** SDK README gains `## Localization — 12 core locales (0.4.0)` and `## PWA installation integration (0.4.0)` with install/import, locale resolution, localized instructions, state reading, dialog open/hide, native triggering, manual-only browsers, the 12-vs-35 locale distinction, and explicit "the browser decides" installation caveats; plus updated status, subpath table and versioning sections. Also updated: `CHANGELOG.md` (new `0.4.0`/`1.2.7` entry and the missing retrospective `1.2.6` entry), `RELEASE.md` (§1 state, packed size, new §7 pass), `MIGRATION.md`, root `README.md`, `docs/guides/INSTALLATION_EXPERIENCE.md` (§6 SDK driving), `docs/guides/INTEGRATION.md`, `docs/operations/PRECACHE_INTEGRITY.md` (§1, new §13), `AGENTS.md`, and the demo/example version labels.
+- **Pre-existing test failure corrected.** `tests/example-theme.test.mjs` expected exactly three example dependencies although `@playwright/test` was added by PR #51; verified failing on base `017bcef` in a clean worktree, then the expected list was corrected to the four declared dependencies (the guard still fails on any new dependency).
+- **`examples/example` typecheck coverage.** New `src/installation-i18n.typecheck.ts` compiles the documented 0.4.0 localization + installation API and every exported type through the package specifier.
+
+## Verification (all re-run on this branch)
+
+- `npm run check`: **passed** — `scripts/check.mjs` 300 contracts green, `validate-package.mjs` green, `node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs` **622/622**.
+- `npm run test:sdk`: **150/150** (was 142/142; `sdk-public-api.test.mjs` adds 8).
+- `node packages/assistant-sdk/scripts/validate-package.mjs`: **passed** (`0.4.0` / `1.2.7`, 27 tarball files, zero runtime deps, optional React peer, export map + declarations, release-gate assertions, no npm token reference).
+- `node scripts/precache-integrity.mjs`: **passed** — `1 of 14 precached assets changed (assistant-state.js) since 017bcef; kit version 1.2.6 → 1.2.7 synchronized`.
+- `node scripts/sync-sdk-browser.mjs --check`: **in sync**.
+- `npm pack --dry-run`: 27 files; every export target, `README.md`, `MIGRATION.md`, `LICENSE` present; no tests/scripts/metadata leaked.
+- `examples/example`: `npm ci --ignore-scripts`, `npm run typecheck` and `npm run build`: **passed** (Vite emits its usual classic-script warnings).
+- Root `npm run build` (Pages assembly): **passed** (19 runtime/public files + `icons/`).
+- Registry: `npm view @youge/assistant-sdk version` → `0.3.0` (`latest`); `npm view @youge/assistant-sdk@0.4.0` → 404. Nothing was published.
+- `git diff --check`: clean.
+
+## Limits, risks and exact next action
+
+- No physical Chromium/Safari/manual-install session and no Playwright e2e run (browser download is unavailable in this sandbox; `npm ci` used `--ignore-scripts`). The 35-locale `<pwa-install>` chrome and RTL/cross-browser behaviour remain browser-verification items for the owner.
+- The GitHub Actions `sdk-release-prep` workflow cannot be dispatched from a sandbox or on a branch: its `verify` selection is main-only-adjacent, its stage/publish jobs are main-only and environment-protected. Its **verify selection was reproduced locally step by step** (example ci/typecheck/build → `npm run check` → SDK tests → browser-sync check → validate → pack dry-run). No OIDC check, stage or publish was attempted.
+- `SDK_RELEASE_ENABLED` remains unset, no secrets were added, no workflow file changed, and the protected `sdk-npm-publish` environment is untouched.
+- **Exact next action (owner):** review and merge this PR (kit `1.2.7` also deploys via Pages on merge to `main`), then dispatch `.github/workflows/sdk-release-prep.yml` with **Verify only**, then **Stage release on npm**, and approve the staged `0.4.0` on npmjs.com. Publishing, tagging and GitHub releases remain the owner's gated decisions.
+
+---
+
+## Historical handoff (superseded)
+
 # Agent Handoff — `<pwa-install>` integration and full multilingual localization
 
 **Date:** 2026-11-18

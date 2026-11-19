@@ -1,5 +1,77 @@
 # Changelog
 
+## 0.4.0 (SDK) / 1.2.7 (kit) — 2026-11-19 · localization and PWA installation integration
+
+`@youge/assistant-sdk` `0.3.0 → 0.4.0` and kit `1.2.6 → 1.2.7`, **the kit bump
+authorized by the owner in this release-preparation task** because the
+regenerated precached `assistant-state.js` mirrors `SDK_VERSION`. The
+synchronized declarations moved together and `npm run sync:sdk` regenerated the
+bundle. New cache generation: `…:static:v1.2.7` and `…:pages:v1.2.7`; `1.2.6`
+caches retire on activation. **Nothing is published, tagged, merged or
+deployed by this entry**; the registry still serves `0.3.0` until the owner
+approves the gated release (see `packages/assistant-sdk/RELEASE.md`). See
+[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §13.
+
+- **`@youge/assistant-sdk/i18n` becomes part of the published surface.** The
+  twelve core locales (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`,
+  `da`, `et`, `es`) ship a single dictionary plus `resolveLocale`,
+  `normalizeLocaleTag`, `normalizeInstallLocaleTag`, `translate`,
+  `formatAlertCount`, `isRtlLocale`, `RTL_LOCALES`,
+  `localizeDnsClassification`, `localizeDnsMessage`, `chromeHandoffLabels`,
+  `SUPPORTED_LOCALES`, `LOCALE_METADATA`, `SDK_TRANSLATIONS`,
+  `DNS_CLASSIFICATION_LABELS` and `DEFAULT_LOCALE`, with paired `.d.ts` files
+  (`SupportedLocale` names every locale). Locale resolution keeps the
+  documented precedence — explicit → host/domain default → browser → `en` —
+  and never persists a locale.
+- **PWA installation integration is reachable through
+  `@youge/assistant-sdk/installation` and the root entry.**
+  `deriveInstallationState` classifies `native` / `manual-ios` /
+  `manual-generic` / `installed` / `none`; `resolveInstallationCopy` returns the
+  localized copy set; `requestPwaInstall`, `showPwaInstallDialog`,
+  `hidePwaInstallDialog`, `triggerPwaInstall` and `readInstalledRelatedApps`
+  delegate to the host runtime (`window.YouGePWA`, `window.PWA` alias) and
+  resolve honest `unsupported`/`disabled`/`error` outcomes instead of throwing.
+  Declarations add `AssistantInstallationState`, `InstallationCopySet`,
+  `InstallDialogResult`, `RelatedAppInfo`, `InstallationSupport` and
+  `InstallationStatus`.
+- **`installExperience` configuration input.** Validated, optional and
+  defaulted (`enabled: true`, `presentation: 'manual'`, `locale: 'auto'`);
+  `auto` presentation stays opt-in, unsafe styles/manifest values are dropped,
+  and a `0.3.0` `publishedConfig` still validates unchanged (`SCHEMA_VERSION`
+  remains `1`).
+- **Compatibility is preserved.** Zero runtime dependencies, React only as an
+  optional peer, ESM-only with an explicit export map (no wildcard deep
+  imports, `src/...` still blocked), the `0.3.0` static/instance surface and the
+  `pwa:*` legacy event aliases unchanged. No service worker is registered, no
+  CDN is used, and host worker ownership plus domain isolation are untouched.
+- **Documentation and tests.** The SDK README documents installing `0.4.0`,
+  resolving a locale, localized installation instructions, installation state,
+  dialog open/hide, native triggering, manual-only browsers, and the difference
+  between the SDK's 12 core locales and the installation component's 35
+  locales. New `packages/assistant-sdk/tests/sdk-public-api.test.mjs` checks the
+  published export map, blocked deep imports, all 12 locales, the installation
+  API/type surface and the manual-install fallbacks.
+
+## 1.2.6 (kit) — 2026-11-18 · `<pwa-install>` integration and multilingual localization
+
+Kit `1.2.5 → 1.2.6`, **authorized by the owner because precached assets
+changed**. `@youge/assistant-sdk` stayed `0.3.0` in that change; nothing was
+published, tagged or deployed by it. Recorded retroactively in this release PR
+because the changelog had no `1.2.6` entry. See
+[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §12.
+
+- `src/runtime/pwa-install.js` vendors the self-contained MIT
+  `@khmyznikov/pwa-install@0.7.0` web component (35 built-in locales) as an
+  optional precached runtime asset — no CDN, no extra dependency.
+- `pwa.js` integrates the component under `installExperience` (`manual`
+  gesture-triggered default, opt-in `auto`), adds `showInstallDialog` /
+  `hideInstallDialog` / `triggerInstall` / `getInstalledRelatedApps` /
+  `configureInstallExperience`, and keeps the classic iOS/generic `showHelp`
+  fallback.
+- `@youge/assistant-sdk/i18n`, `assistant-state.js`, `assistant-widget.js`,
+  `dns-diagnostics.js`, `offline.html/js` and both example surfaces share the
+  twelve core locales.
+
 ## 1.2.5 (kit) — 2026-11-16 · runtime boundary and classic-control hardening
 
 Kit `1.2.4 → 1.2.5` (`you-ge-sw.js` `VERSION`, `PWA.version`, root

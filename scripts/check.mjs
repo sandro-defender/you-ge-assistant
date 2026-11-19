@@ -896,6 +896,8 @@ const sdkRequired = [
   'packages/assistant-sdk/src/assistant/index.js',
   'packages/assistant-sdk/src/theme/index.js',
   'packages/assistant-sdk/src/theme/index.d.ts',
+  'packages/assistant-sdk/src/core/i18n.js',
+  'packages/assistant-sdk/src/core/i18n.d.ts',
   'packages/assistant-sdk/src/adapters/pwa-kit.js',
   'packages/assistant-sdk/src/adapters/react.js',
   'packages/assistant-sdk/src/adapters/react.d.ts',
@@ -906,7 +908,7 @@ for (const rel of sdkRequired) {
 
 const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
 contract(sdkPkg.name === '@youge/assistant-sdk', 'SDK package name is @youge/assistant-sdk');
-contract(sdkPkg.version === '0.3.0' && sdkPkg.private !== true, 'SDK package is prepared at 0.3.0 (publishing remains separately gated)');
+contract(sdkPkg.version === '0.4.0' && sdkPkg.private !== true, 'SDK package is prepared at 0.4.0 (publishing remains separately gated)');
 contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
 contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
 contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
@@ -936,6 +938,47 @@ contract(
 contract(
   /youge-chrome-offer/.test(assistantWidget) && /data-chrome-open/.test(assistantWidget) && /data-chrome-fallback/.test(assistantWidget),
   'the widget renders the Open in Chrome offer with a manual fallback'
+);
+// 0.4.0 localization (`@youge/assistant-sdk/i18n`) and PWA installation integration.
+const sdkI18nSource = readFileSync(at('packages/assistant-sdk/src/core/i18n.js'), 'utf8');
+const sdkI18nTypes = readFileSync(at('packages/assistant-sdk/src/core/i18n.d.ts'), 'utf8');
+const sdkInstallSource = readFileSync(at('packages/assistant-sdk/src/installation/index.js'), 'utf8');
+const sdkInstallTypes = readFileSync(at('packages/assistant-sdk/src/installation/index.d.ts'), 'utf8');
+contract(
+  Boolean(sdkPkg.exports && sdkPkg.exports['./i18n'] && sdkPkg.exports['./i18n'].types),
+  'the i18n subpath export ships with paired TypeScript types'
+);
+contract(
+  /SUPPORTED_LOCALES = Object\.freeze\(\[[\s\S]*'en',[\s\S]*'ka',[\s\S]*'ru',[\s\S]*'fr',[\s\S]*'it',[\s\S]*'de',[\s\S]*'sv',[\s\S]*'nl',[\s\S]*'no',[\s\S]*'da',[\s\S]*'et',[\s\S]*'es'[\s\S]*\]\)/.test(sdkI18nSource),
+  'the SDK ships the 12 documented core locales in their published order'
+);
+contract(
+  /export function normalizeLocaleTag[\s\S]*export function resolveLocale[\s\S]*export function isRtlLocale[\s\S]*export function translate[\s\S]*export function formatAlertCount[\s\S]*export function localizeDnsClassification[\s\S]*export function localizeDnsMessage[\s\S]*export function chromeHandoffLabels/.test(sdkI18nSource),
+  'the i18n module exports locale normalization, resolution, translation, pluralization, DNS and handoff localization'
+);
+contract(
+  /export type SupportedLocale =[\s\S]*'en'[\s\S]*'ka'[\s\S]*'ru'[\s\S]*'fr'[\s\S]*'it'[\s\S]*'de'[\s\S]*'sv'[\s\S]*'nl'[\s\S]*'no'[\s\S]*'da'[\s\S]*'et'[\s\S]*'es'/.test(sdkI18nTypes)
+    && /export declare function chromeHandoffLabels/.test(sdkI18nTypes),
+  'the i18n declarations name every core locale and every public helper'
+);
+contract(
+  /export function deriveInstallationState[\s\S]*export function requestPwaInstall[\s\S]*export function showPwaInstallDialog[\s\S]*export function hidePwaInstallDialog[\s\S]*export function triggerPwaInstall[\s\S]*export function readInstalledRelatedApps/.test(sdkInstallSource),
+  'the installation entry point exposes the documented 0.4.0 state, prompt, dialog and related-app APIs'
+);
+contract(
+  /export declare function deriveInstallationState/.test(sdkInstallTypes)
+    && /export interface AssistantInstallationState/.test(sdkInstallTypes)
+    && /export interface InstallationCopySet/.test(sdkInstallTypes)
+    && /export interface InstallDialogResult/.test(sdkInstallTypes)
+    && /export declare function showPwaInstallDialog/.test(sdkInstallTypes)
+    && /export declare function hidePwaInstallDialog/.test(sdkInstallTypes)
+    && /export declare function triggerPwaInstall/.test(sdkInstallTypes)
+    && /export declare function readInstalledRelatedApps/.test(sdkInstallTypes),
+  'every installation API and result type is declared for TypeScript consumers'
+);
+contract(
+  !/serviceWorker\s*\.\s*register/.test(sdkInstallSource) && !/\bfetch\s*\(/.test(sdkInstallSource),
+  '0.4.0 installation integration reuses the host PWA runtime without registering a worker or fetching'
 );
 // Adaptive theming (2026-11-07): shared tokens, isolation and the four modes.
 contract(
