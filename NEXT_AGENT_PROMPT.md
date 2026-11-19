@@ -1,6 +1,6 @@
 # Next Agent Prompt — finish PR #53 release verify
 
-Continue only on `arena/39cfa85d-you-ge-assistant`; PR #53 stays open and unmerged. The sole code fix should be the exact kit 1.2.7 success-summary assertion in `tests/identity-migration.test.mjs`; preserve all demo files and the integrity gate. Run full checks, commit/push to PR #53, dispatch the actual `sdk-release-prep.yml` workflow on this branch with action **Verify only** if permitted, then record its URL/outcome. Never choose Stage, publish, deploy, merge, tag or release. Update the current section of `AGENT_HANDOFF.md` with actual final HEAD and workflow result.
+Continue only on `arena/39cfa85d-you-ge-assistant`; PR #53 stays open and unmerged. The focused fixes are the exact kit 1.2.7 summary assertion plus CI/release workflow builds of the SDK demo required before assembly tests; preserve all demo files and the integrity gate. Run full checks, commit/push to PR #53, dispatch the actual `sdk-release-prep.yml` workflow on this branch with action **Verify only** if permitted, then record its URL/outcome. Never choose Stage, publish, deploy, merge, tag or release. Update the current section of `AGENT_HANDOFF.md` with actual final HEAD and workflow result.
 
 ---
 

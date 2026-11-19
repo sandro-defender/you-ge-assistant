@@ -22,11 +22,16 @@ test('demo source has no assistant runtime script, copied runtime or CDN module 
   assert.doesNotMatch(source, /serviceWorker\.register|beforeinstallprompt/);
 });
 
-test('Pages assembly includes the isolated /sdk-demo build', () => {
+test('Pages and verification workflows build the isolated /sdk-demo before assembly/tests', () => {
   const assembler = readFileSync(resolve(root, 'scripts/assemble-pages.mjs'), 'utf8');
   assert.match(assembler, /examples\/sdk-demo\/dist/);
   assert.match(assembler, /join\(safeOutputDir, 'sdk-demo'\)/);
   assert.ok(existsSync(resolve(root, 'examples/sdk-demo/package-lock.json')));
+  for (const workflow of ['check.yml', 'sdk-release-prep.yml', 'pages.yml']) {
+    const yaml = readFileSync(resolve(root, '.github/workflows', workflow), 'utf8');
+    assert.match(yaml, /working-directory: examples\/sdk-demo/);
+    assert.match(yaml, /npm ci && npm run typecheck && npm run build/);
+  }
 });
 
 test('all twelve public SDK locale helpers work and no SDK RTL locale is invented', () => {
