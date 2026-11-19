@@ -8,6 +8,7 @@ const repositoryRoot = path.resolve(exampleRoot, '../..');
 const sharedFiles = new Map([
   ['pwa.js', 'src/runtime/pwa.js'],
   ['pwa.css', 'src/runtime/pwa.css'],
+  ['pwa-install.js', 'src/runtime/pwa-install.js'],
   ['you-ge-sw.js', 'src/runtime/you-ge-sw.js'],
   ['progressier.js', 'src/runtime/progressier.js'],
   ['qrcode.js', 'src/shared/qrcode.js'],

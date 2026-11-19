@@ -266,74 +266,75 @@
   <div class="product-width product-row">
     <a class="product-brand" href="example/"><img src="assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
     <nav class="product-nav" id="product-navigation" aria-label="Main navigation">
-      <a href="example/">Product</a>
-      <a href="example/#features">Features</a>
-      <a href="example/#integration">Documentation</a>
-      <a href="./" aria-current="page">Examples</a>
+      <a href="example/" id="nav-product">Product</a>
+      <a href="example/#features" id="nav-features">Features</a>
+      <a href="example/#integration" id="nav-docs">Documentation</a>
+      <a href="./" aria-current="page" id="nav-examples">Examples</a>
       <a href="https://github.com/sandro-defender/you-ge-assistant">GitHub ↗</a>
     </nav>
-    <a class="product-start" href="example/#quickstart">Get started <span aria-hidden="true">↗</span></a>
-    <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden>Menu</button>
+    <a class="product-start" href="example/#quickstart" id="nav-start"><span id="nav-start-label">Get started</span> <span aria-hidden="true">↗</span></a>
+    <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden id="nav-menu-btn">Menu</button>
   </div>
 </header>
     <main>
 
 
       <div class="root-hero"><section class="product-intro" aria-labelledby="intro-title">
-        <p class="intro-kicker">THE YOU.GE ASSISTANT PLAYGROUND · <span id="current-domain"></span></p>
-        <h1 id="intro-title">A more capable web app.<br />A clearer experience.</h1>
-        <p>Try the real PWA toolkit: installation guidance, sharing, network diagnostics, and actionable app status. Your application keeps control of its service worker.</p>
-        <div class="root-actions"><a class="intro-cta" href="example/#quickstart">Get started →</a><a href="https://github.com/sandro-defender/you-ge-assistant">Explore GitHub ↗</a></div>
-        <p class="intro-note">SDK 0.3.0 · Framework-independent · Open source</p>
+        <p class="intro-kicker"><span id="intro-kicker-label">THE YOU.GE ASSISTANT PLAYGROUND</span> · <span id="current-domain"></span></p>
+        <h1 id="intro-title"><span id="intro-title-line1">A more capable web app.</span><br /><span id="intro-title-line2">A clearer experience.</span></h1>
+        <p id="intro-lead">Try the real PWA toolkit: installation guidance, sharing, network diagnostics, and actionable app status. Your application keeps control of its service worker.</p>
+        <div class="root-actions"><a class="intro-cta" href="example/#quickstart" id="intro-cta">Get started →</a><a href="https://github.com/sandro-defender/you-ge-assistant" id="intro-explore">Explore GitHub ↗</a></div>
+        <p class="intro-note" id="intro-note">SDK 0.3.0 · Framework-independent · Open source</p>
       </section>
-      <img class="root-product-visual" src="integration-preview.svg" width="540" height="410" alt="Your application connects to the official You.Ge Assistant SDK for installation, diagnostics and app status. Your framework and worker remain under your control." /></div>
-      <section class="root-benefits" aria-label="Product capabilities">
-        <article><span>01 / GUIDE</span><h2>Help users feel at home.</h2><p>Installation prompts and manual guidance through the optional PWA toolkit. One clearer path from browser to home screen.</p></article>
-        <article><span>02 / CONNECT</span><h2>Make app state useful.</h2><p>Connectivity, host-reported endpoint and session signals, and prioritized notices in one subscribable SDK state.</p></article>
-        <article><span>03 / COMPOSE</span><h2>Keep your architecture.</h2><p>Configure only the modules you need. Keep your existing service worker, caching strategy, and host update lifecycle.</p></article>
+      <img class="root-product-visual" id="intro-visual" src="integration-preview.svg" width="540" height="410" alt="Your application connects to the official You.Ge Assistant SDK for installation, diagnostics and app status. Your framework and worker remain under your control." /></div>
+      <section class="root-benefits" aria-label="Product capabilities" id="section-capabilities">
+        <article><span>01 / GUIDE</span><h2 id="cap1-title">Help users feel at home.</h2><p id="cap1-body">Installation prompts and manual guidance through the optional PWA toolkit. One clearer path from browser to home screen.</p></article>
+        <article><span>02 / CONNECT</span><h2 id="cap2-title">Make app state useful.</h2><p id="cap2-body">Connectivity, host-reported endpoint and session signals, and prioritized notices in one subscribable SDK state.</p></article>
+        <article><span>03 / COMPOSE</span><h2 id="cap3-title">Keep your architecture.</h2><p id="cap3-body">Configure only the modules you need. Keep your existing service worker, caching strategy, and host update lifecycle.</p></article>
       </section>
-      <div class="root-install"><div><h2>Start with one package.</h2><p>ESM, TypeScript declarations, zero core runtime dependencies.</p></div><div><code>npm install @youge/assistant-sdk</code><a href="example/#integration">Read the practical integration guide →</a></div></div>
-      <h2>Live state</h2>
+      <div class="root-install"><div><h2 id="install-card-title">Start with one package.</h2><p id="install-card-body">ESM, TypeScript declarations, zero core runtime dependencies.</p></div><div><code>npm install @youge/assistant-sdk</code><a href="example/#integration" id="install-card-link">Read the practical integration guide →</a></div></div>
+      <h2><span id="demo-heading-live">Live state</span></h2>
       <div class="grid">
-        <div class="card"><div class="label">Standalone</div><div class="value" id="s-standalone">—</div></div>
-        <div class="card"><div class="label">Install prompt</div><div class="value" id="s-caninstall">—</div></div>
-        <div class="card"><div class="label">Notifications</div><div class="value" id="s-push">—</div></div>
-        <div class="card"><div class="label">Service worker</div><div class="value" id="s-sw">—</div></div>
+        <div class="card"><div class="label" id="lbl-standalone">Standalone</div><div class="value" id="s-standalone">—</div></div>
+        <div class="card"><div class="label" id="lbl-caninstall">Install prompt</div><div class="value" id="s-caninstall">—</div></div>
+        <div class="card"><div class="label" id="lbl-push">Notifications</div><div class="value" id="s-push">—</div></div>
+        <div class="card"><div class="label" id="lbl-sw">Service worker</div><div class="value" id="s-sw">—</div></div>
       </div>
 
-      <h2>Install</h2>
+      <h2><span id="demo-heading-install">Install</span></h2>
       <div class="actions">
         <!-- `.youge-install-button` is the canonical selector: You.Ge Assistant renders and localizes the button (`.progressier-install-button` remains supported for legacy compatibility). -->
         <button type="button" class="youge-install-button" data-icons="true" data-install="Install app" data-installed="Open app"></button>
-        <button type="button" data-youge-qr>Show QR code</button>
+        <button type="button" id="btn-install-dialog">Open install dialog (&lt;pwa-install&gt;)</button>
+        <button type="button" data-youge-qr id="btn-qr">Show QR code</button>
         <button type="button" id="btn-help">iOS / manual instructions</button>
       </div>
-      <p class="note">
+      <p class="note" id="note-install">
         <strong>Desktop:</strong> this demo sets <code>data-desktop-qr</code>, so the install
         button opens the QR dialog instead of the browser prompt. Open the QR on your phone
         to install there. <strong>Android/Chrome:</strong> the real
         <code>beforeinstallprompt</code> flow runs when the browser offers it.
       </p>
 
-      <h2>Network diagnostics</h2>
+      <h2><span id="demo-heading-diagnostics">Network diagnostics</span></h2>
       <div class="actions">
         <button type="button" id="btn-diagnostics">Run diagnostics for this domain</button>
       </div>
-      <p class="note">Cloudflare DoH checks the current hostname only. JavaScript cannot inspect the device’s normal DNS resolver, and a host failure is not proof of DNS interference.</p>
+      <p class="note" id="note-diagnostics">Cloudflare DoH checks the current hostname only. JavaScript cannot inspect the device’s normal DNS resolver, and a host failure is not proof of DNS interference.</p>
 
-      <h2>Notifications</h2>
+      <h2><span id="demo-heading-notifications">Notifications</span></h2>
       <div class="actions">
         <button type="button" id="btn-permission">Request permission</button>
         <button type="button" id="btn-push-banner">Show push banner</button>
         <button type="button" id="btn-badge">Badge +1</button>
         <button type="button" id="btn-badge-clear">Clear badge</button>
       </div>
-      <p class="note">
+      <p class="note" id="note-notifications">
         Push needs VAPID keys and a server — see <code>examples/push-server/</code>.
         The public playground has no sender configured, so it will not send notifications.
       </p>
 
-      <h2>UI components</h2>
+      <h2><span id="demo-heading-ui">UI components</span></h2>
       <div class="actions">
         <button type="button" id="btn-install-banner">Install banner</button>
         <button type="button" id="btn-welcome">Welcome modal</button>
@@ -343,7 +344,7 @@
         <button type="button" id="btn-toast">Toast</button>
       </div>
 
-      <h2>Assistant theme</h2>
+      <h2><span id="demo-heading-theme">Assistant theme</span></h2>
       <div class="actions" role="group" aria-labelledby="theme-modes-label">
         <span class="label" id="theme-modes-label">Mode</span>
         <button type="button" id="btn-assistant-auto" aria-pressed="true">Auto</button>
@@ -353,14 +354,14 @@
         <button type="button" id="btn-assistant-host">Follow this page</button>
         <button type="button" id="btn-assistant-invalid">Send an invalid palette</button>
       </div>
-      <p class="note">
+      <p class="note" id="note-theme">
         The same <code>theme</code> configuration for the floating Assistant:
         <code>auto</code> follows this page and the OS, <code>light</code> / <code>dark</code> pin a
         scheme, and <code>custom</code> accepts validated tokens. Invalid values are dropped field by
         field and reported as warnings — the Assistant never breaks.
       </p>
 
-      <h2>More API tests</h2>
+      <h2><span id="demo-heading-more">More API tests</span></h2>
       <div class="actions">
         <button type="button" id="btn-history">Read push history</button>
         <button type="button" id="btn-history-read">Mark history read</button>
@@ -372,31 +373,40 @@
         <button type="button" id="btn-theme">Toggle helper theme</button>
         <button type="button" id="btn-update">Apply waiting update</button>
         <button type="button" id="btn-splash">Regenerate iOS splash</button>
-        <label class="language-control" for="language-select">UI wording
+        <label class="language-control" for="language-select"><span id="lbl-language">UI wording</span>
           <select id="language-select">
+            <option value="auto" id="opt-language-auto">Auto (browser)</option>
             <option value="en">English</option>
-            <option value="fr">French</option>
-            <option value="de">German</option>
-            <option value="es">Spanish</option>
+            <option value="ka">ქართული (Georgian)</option>
+            <option value="ru">Русский (Russian)</option>
+            <option value="fr">Français (French)</option>
+            <option value="it">Italiano (Italian)</option>
+            <option value="de">Deutsch (German)</option>
+            <option value="sv">Svenska (Swedish)</option>
+            <option value="nl">Nederlands (Dutch)</option>
+            <option value="no">Norsk (Norwegian)</option>
+            <option value="da">Dansk (Danish)</option>
+            <option value="et">Eesti (Estonian)</option>
+            <option value="es">Español (Spanish)</option>
           </select>
         </label>
       </div>
-      <p class="note">
+      <p class="note" id="note-more">
         Share and push depend on browser support. Push sending needs VAPID keys and a backend;
         this public playground does not send notifications.
       </p>
 
-      <h2>Events</h2>
+      <h2><span id="demo-heading-events">Events</span></h2>
       <div class="log" id="log">Waiting for events…</div>
 
-      <footer>
+      <footer id="demo-footer">
         MIT licensed. Icons are sample artwork — replace them in your own project.
       </footer>
     <nav class="links">
-        <a href="https://github.com/sandro-defender/you-ge-assistant">Repository</a>
-        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/AGENTS.md">Contributor guide</a>
-        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/README.md">Documentation</a>
-        <a href="example/">Product & integration guide →</a>
+        <a href="https://github.com/sandro-defender/you-ge-assistant" id="link-repo">Repository</a>
+        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/AGENTS.md" id="link-agents">Contributor guide</a>
+        <a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/README.md" id="link-readme">Documentation</a>
+        <a href="example/" id="link-guide">Product & integration guide →</a>
       </nav>
 </main>
 
@@ -406,6 +416,1280 @@
       document.addEventListener('DOMContentLoaded', function () {
         var log = document.getElementById('log');
         var lines = 0;
+
+        var DEMO_I18N = {
+          en: {
+            autoOption: 'Auto (browser)',
+            headingLive: 'Live state',
+            lblStandalone: 'Standalone',
+            lblCanInstall: 'Install prompt',
+            lblPush: 'Notifications',
+            lblSw: 'Service worker',
+            yes: 'Yes',
+            no: 'No',
+            available: 'Available',
+            notOffered: 'Not offered',
+            unsupported: 'Unsupported',
+            swActive: 'Active',
+            swUpdate: 'Update ready',
+            swUncontrolled: 'Not controlled',
+            headingInstall: 'Install',
+            installBtn: 'Install app',
+            installedBtn: 'Open app',
+            btnInstallDialog: 'Open install dialog (<pwa-install>)',
+            btnQr: 'Show QR code',
+            btnHelp: 'iOS / manual instructions',
+            headingDiagnostics: 'Network diagnostics',
+            btnDiagnostics: 'Run diagnostics for this domain',
+            noteDiagnostics: 'Cloudflare DoH checks the current hostname only. JavaScript cannot inspect the device’s normal DNS resolver, and a host failure is not proof of DNS interference.',
+            headingNotifications: 'Notifications',
+            btnPermission: 'Request permission',
+            btnPushBanner: 'Show push banner',
+            btnBadge: 'Badge +1',
+            btnBadgeClear: 'Clear badge',
+            headingUi: 'UI components',
+            btnInstallBanner: 'Install banner',
+            btnWelcome: 'Welcome modal',
+            btnFlow: 'Generic modal',
+            btnOffline: 'Offline alert',
+            btnReload: 'Reload prompt',
+            btnToast: 'Toast',
+            headingTheme: 'Assistant theme',
+            modeLabel: 'Mode',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Light',
+            btnThemeDark: 'Dark',
+            btnThemeCustom: 'Custom',
+            btnThemeHost: 'Follow this page',
+            btnThemeInvalid: 'Send an invalid palette',
+            headingMore: 'More API tests',
+            btnHistory: 'Read push history',
+            btnHistoryRead: 'Mark history read',
+            btnShare: 'Read shared payload',
+            btnCache: 'Clear page cache',
+            btnSubscribe: 'Try push subscribe',
+            btnUnsubscribe: 'Unsubscribe push',
+            btnTrack: 'Emit test event',
+            btnHelperTheme: 'Toggle helper theme',
+            btnUpdate: 'Apply waiting update',
+            btnSplash: 'Regenerate iOS splash',
+            lblLanguage: 'UI wording',
+            headingEvents: 'Events',
+            waitingLog: 'Waiting for events…',
+            footer: 'MIT licensed. Icons are sample artwork — replace them in your own project.',
+            linkRepo: 'Repository',
+            linkAgents: 'Contributor guide',
+            linkReadme: 'Documentation',
+            linkGuide: 'Product & integration guide →',
+            pushBannerText: 'Get notified when something happens.',
+            installBannerText: 'Install this demo for offline use.',
+            welcomeTitle: 'Welcome',
+            welcomeText: 'This modal, the banners and the install flows all come from pwa.js and pwa.css.',
+            welcomeItems: ['No dependencies', 'Works from a subpath', 'Declarative install and legacy compatibility markup'],
+            flowTitle: 'Generic flow',
+            flowText: 'PWA.showFlow() renders the same modal used by the install help screens.',
+            flowButton: 'Got it',
+            toastSaved: 'Saved',
+          },
+          ka: {
+            autoOption: 'ავტო (ბრაუზერი)',
+            headingLive: 'მიმდინარე მდგომარეობა',
+            lblStandalone: 'დამოუკიდებელი რეჟიმი',
+            lblCanInstall: 'დაყენების შეთავაზება',
+            lblPush: 'შეტყობინებები',
+            lblSw: 'სერვის-უორკერი',
+            yes: 'დიახ',
+            no: 'არა',
+            available: 'ხელმისაწვდომია',
+            notOffered: 'შეთავაზებული არ არის',
+            unsupported: 'მხარდაუჭერელია',
+            swActive: 'აქტიური',
+            swUpdate: 'განახლება მზადაა',
+            swUncontrolled: 'კონტროლის გარეშე',
+            headingInstall: 'დაყენება',
+            installBtn: 'აპის დაყენება',
+            installedBtn: 'აპის გახსნა',
+            btnInstallDialog: 'დაყენების დიალოგის გახსნა (<pwa-install>)',
+            btnQr: 'QR კოდის ჩვენება',
+            btnHelp: 'iOS / ხელით დაყენების ინსტრუქცია',
+            headingDiagnostics: 'ქსელის დიაგნოსტიკა',
+            btnDiagnostics: 'ამ დომენის დიაგნოსტიკის გაშვება',
+            noteDiagnostics: 'Cloudflare DoH ამოწმებს მხოლოდ მიმდინარე ჰოსტის სახელს. JavaScript-ს არ შეუძლია მოწყობილობის ჩვეულებრივი DNS რეზოლვერის ნახვა, ხოლო ჰოსტის შეცდომა არ ამტკიცებს DNS ჩარევას.',
+            headingNotifications: 'შეტყობინებები',
+            btnPermission: 'ნებართვის მოთხოვნა',
+            btnPushBanner: 'Push ბანერის ჩვენება',
+            btnBadge: 'ბეჯი +1',
+            btnBadgeClear: 'ბეჯის გასუფთავება',
+            headingUi: 'UI კომპონენტები',
+            btnInstallBanner: 'დაყენების ბანერი',
+            btnWelcome: 'მისალმების მოდალი',
+            btnFlow: 'ზოგადი მოდალი',
+            btnOffline: 'ოფლაინ შეტყობინება',
+            btnReload: 'გადატვირთვის შეთავაზება',
+            btnToast: 'მოკლე შეტყობინება',
+            headingTheme: 'ასისტენტის თემა',
+            modeLabel: 'რეჟიმი',
+            btnThemeAuto: 'ავტო',
+            btnThemeLight: 'ნათელი',
+            btnThemeDark: 'მუქი',
+            btnThemeCustom: 'მორგებული',
+            btnThemeHost: 'გვერდის თემის მიყოლა',
+            btnThemeInvalid: 'არასწორი პალიტრის გაგზავნა',
+            headingMore: 'დამატებითი API ტესტები',
+            btnHistory: 'Push ისტორიის წაკითხვა',
+            btnHistoryRead: 'ისტორიის წაკითხულად მონიშვნა',
+            btnShare: 'გაზიარებული მონაცემის წაკითხვა',
+            btnCache: 'გვერდის ქეშის გასუფთავება',
+            btnSubscribe: 'Push გამოწერის ცდა',
+            btnUnsubscribe: 'Push გამოწერის გაუქმება',
+            btnTrack: 'საცდელი მოვლენის გაგზავნა',
+            btnHelperTheme: 'დამხმარე თემის გადართვა',
+            btnUpdate: 'მომლოდინე განახლების გამოყენება',
+            btnSplash: 'iOS სპლეშის ხელახლა გენერაცია',
+            lblLanguage: 'ინტერფეისის ენა',
+            headingEvents: 'მოვლენები',
+            waitingLog: 'მოვლენების მოლოდინში…',
+            footer: 'MIT ლიცენზია. ხატულები სანიმუშო გრაფიკაა — ჩაანაცვლეთ საკუთარ პროექტში.',
+            linkRepo: 'რეპოზიტორი',
+            linkAgents: 'კონტრიბუტორის გზამკვლევი',
+            linkReadme: 'დოკუმენტაცია',
+            linkGuide: 'პროდუქტისა და ინტეგრაციის გზამკვლევი →',
+            pushBannerText: 'მიიღეთ შეტყობინებები სიახლეებისას.',
+            installBannerText: 'დააყენეთ ეს დემო ოფლაინ გამოყენებისთვის.',
+            welcomeTitle: 'მოგესალმებით',
+            welcomeText: 'ეს მოდალი, ბანერები და დაყენების ნაკადები მთლიანად pwa.js-დან და pwa.css-დან მოდის.',
+            welcomeItems: ['დამოკიდებულებების გარეშე', 'მუშაობს ქვე-მისამართიდანაც', 'დეკლარაციული დაყენება და თავსებადი მარკირება'],
+            flowTitle: 'ზოგადი ნაკადი',
+            flowText: 'PWA.showFlow() აჩვენებს იმავე მოდალს, რომელიც გამოიყენება დაყენების დახმარების ეკრანებზე.',
+            flowButton: 'გასაგებია',
+            toastSaved: 'შენახულია',
+          },
+          ru: {
+            autoOption: 'Авто (браузер)',
+            headingLive: 'Текущее состояние',
+            lblStandalone: 'Отдельное окно',
+            lblCanInstall: 'Запрос установки',
+            lblPush: 'Уведомления',
+            lblSw: 'Service worker',
+            yes: 'Да',
+            no: 'Нет',
+            available: 'Доступно',
+            notOffered: 'Не предложено',
+            unsupported: 'Не поддерживается',
+            swActive: 'Активен',
+            swUpdate: 'Доступно обновление',
+            swUncontrolled: 'Без контроля',
+            headingInstall: 'Установка',
+            installBtn: 'Установить приложение',
+            installedBtn: 'Открыть приложение',
+            btnInstallDialog: 'Открыть диалог установки (<pwa-install>)',
+            btnQr: 'Показать QR-код',
+            btnHelp: 'Инструкция для iOS / вручную',
+            headingDiagnostics: 'Диагностика сети',
+            btnDiagnostics: 'Запустить диагностику этого домена',
+            noteDiagnostics: 'Cloudflare DoH проверяет только текущий домен. JavaScript не видит системный DNS-резолвер устройства, а ошибка хоста не доказывает вмешательство в DNS.',
+            headingNotifications: 'Уведомления',
+            btnPermission: 'Запросить разрешение',
+            btnPushBanner: 'Показать баннер push',
+            btnBadge: 'Значок +1',
+            btnBadgeClear: 'Сбросить значок',
+            headingUi: 'Компоненты интерфейса',
+            btnInstallBanner: 'Баннер установки',
+            btnWelcome: 'Приветственное окно',
+            btnFlow: 'Обычное окно',
+            btnOffline: 'Оповещение об офлайне',
+            btnReload: 'Запрос обновления',
+            btnToast: 'Уведомление-тост',
+            headingTheme: 'Тема Ассистента',
+            modeLabel: 'Режим',
+            btnThemeAuto: 'Авто',
+            btnThemeLight: 'Светлая',
+            btnThemeDark: 'Тёмная',
+            btnThemeCustom: 'Своя',
+            btnThemeHost: 'Повторять стиль страницы',
+            btnThemeInvalid: 'Отправить некорректную палитру',
+            headingMore: 'Дополнительные тесты API',
+            btnHistory: 'Прочитать историю push',
+            btnHistoryRead: 'Отметить историю прочитанной',
+            btnShare: 'Прочитать общие данные',
+            btnCache: 'Очистить кеш страницы',
+            btnSubscribe: 'Попробовать push-подписку',
+            btnUnsubscribe: 'Отписаться от push',
+            btnTrack: 'Отправить тестовое событие',
+            btnHelperTheme: 'Переключить тему компонентов',
+            btnUpdate: 'Применить ожидающее обновление',
+            btnSplash: 'Пересоздать iOS-заставки',
+            lblLanguage: 'Язык интерфейса',
+            headingEvents: 'События',
+            waitingLog: 'Ожидание событий…',
+            footer: 'Лицензия MIT. Значки демонстрационные — замените их в своём проекте.',
+            linkRepo: 'Репозиторий',
+            linkAgents: 'Руководство контрибьютора',
+            linkReadme: 'Документация',
+            linkGuide: 'Руководство по продукту и интеграции →',
+            pushBannerText: 'Получайте уведомления о важных событиях.',
+            installBannerText: 'Установите демо для работы без сети.',
+            welcomeTitle: 'Добро пожаловать',
+            welcomeText: 'Это окно, баннеры и сценарии установки работают на pwa.js и pwa.css.',
+            welcomeItems: ['Без зависимостей', 'Работает из подпути', 'Декларативная установка и обратная совместимость'],
+            flowTitle: 'Общий сценарий',
+            flowText: 'PWA.showFlow() открывает то же окно, что используется для инструкций по установке.',
+            flowButton: 'Понятно',
+            toastSaved: 'Сохранено',
+          },
+          fr: {
+            autoOption: 'Auto (navigateur)',
+            headingLive: 'État en direct',
+            lblStandalone: 'Autonome',
+            lblCanInstall: 'Invite d’installation',
+            lblPush: 'Notifications',
+            lblSw: 'Service worker',
+            yes: 'Oui',
+            no: 'Non',
+            available: 'Disponible',
+            notOffered: 'Non proposée',
+            unsupported: 'Non pris en charge',
+            swActive: 'Actif',
+            swUpdate: 'Mise à jour prête',
+            swUncontrolled: 'Non contrôlé',
+            headingInstall: 'Installation',
+            installBtn: 'Installer l’app',
+            installedBtn: 'Ouvrir l’app',
+            btnInstallDialog: 'Ouvrir la boîte d’installation (<pwa-install>)',
+            btnQr: 'Afficher le code QR',
+            btnHelp: 'Instructions iOS / manuelles',
+            headingDiagnostics: 'Diagnostic réseau',
+            btnDiagnostics: 'Lancer le diagnostic pour ce domaine',
+            noteDiagnostics: 'Cloudflare DoH vérifie uniquement le nom d’hôte actuel. JavaScript ne peut pas inspecter le résolveur DNS du système, et une erreur d’hôte ne prouve pas une interférence DNS.',
+            headingNotifications: 'Notifications',
+            btnPermission: 'Demander l’autorisation',
+            btnPushBanner: 'Afficher la bannière push',
+            btnBadge: 'Badge +1',
+            btnBadgeClear: 'Effacer le badge',
+            headingUi: 'Composants d’interface',
+            btnInstallBanner: 'Bannière d’installation',
+            btnWelcome: 'Fenêtre d’accueil',
+            btnFlow: 'Fenêtre générique',
+            btnOffline: 'Alerte hors ligne',
+            btnReload: 'Invite de rechargement',
+            btnToast: 'Toast',
+            headingTheme: 'Thème de l’Assistant',
+            modeLabel: 'Mode',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Clair',
+            btnThemeDark: 'Sombre',
+            btnThemeCustom: 'Personnalisé',
+            btnThemeHost: 'Suivre cette page',
+            btnThemeInvalid: 'Envoyer une palette invalide',
+            headingMore: 'Autres tests d’API',
+            btnHistory: 'Lire l’historique push',
+            btnHistoryRead: 'Marquer l’historique comme lu',
+            btnShare: 'Lire le contenu partagé',
+            btnCache: 'Vider le cache de la page',
+            btnSubscribe: 'Tester l’abonnement push',
+            btnUnsubscribe: 'Se désabonner du push',
+            btnTrack: 'Émettre un événement test',
+            btnHelperTheme: 'Basculer le thème auxiliaire',
+            btnUpdate: 'Appliquer la mise à jour',
+            btnSplash: 'Régénérer les écrans iOS',
+            lblLanguage: 'Langue de l’interface',
+            headingEvents: 'Événements',
+            waitingLog: 'En attente d’événements…',
+            footer: 'Licence MIT. Les icônes sont des exemples — remplacez-les dans votre projet.',
+            linkRepo: 'Dépôt',
+            linkAgents: 'Guide des contributeurs',
+            linkReadme: 'Documentation',
+            linkGuide: 'Guide produit et d’intégration →',
+            pushBannerText: 'Recevez des alertes lors des nouveautés.',
+            installBannerText: 'Installez cette démo pour un accès hors ligne.',
+            welcomeTitle: 'Bienvenue',
+            welcomeText: 'Cette fenêtre, les bannières et les flux d’installation proviennent de pwa.js et pwa.css.',
+            welcomeItems: ['Sans dépendances', 'Fonctionne en sous-chemin', 'Installation déclarative et compatibilité héritée'],
+            flowTitle: 'Flux générique',
+            flowText: 'PWA.showFlow() affiche la même fenêtre que les écrans d’aide à l’installation.',
+            flowButton: 'Compris',
+            toastSaved: 'Enregistré',
+          },
+          it: {
+            autoOption: 'Auto (browser)',
+            headingLive: 'Stato in tempo reale',
+            lblStandalone: 'Autonoma',
+            lblCanInstall: 'Richiesta di installazione',
+            lblPush: 'Notifiche',
+            lblSw: 'Service worker',
+            yes: 'Sì',
+            no: 'No',
+            available: 'Disponibile',
+            notOffered: 'Non proposta',
+            unsupported: 'Non supportato',
+            swActive: 'Attivo',
+            swUpdate: 'Aggiornamento pronto',
+            swUncontrolled: 'Non controllato',
+            headingInstall: 'Installazione',
+            installBtn: 'Installa app',
+            installedBtn: 'Apri app',
+            btnInstallDialog: 'Apri finestra di installazione (<pwa-install>)',
+            btnQr: 'Mostra codice QR',
+            btnHelp: 'Istruzioni iOS / manuali',
+            headingDiagnostics: 'Diagnostica di rete',
+            btnDiagnostics: 'Avvia diagnostica per questo dominio',
+            noteDiagnostics: 'Cloudflare DoH verifica solo il nome host corrente. JavaScript non può ispezionare il resolver DNS del dispositivo e un errore non prova interferenze DNS.',
+            headingNotifications: 'Notifiche',
+            btnPermission: 'Richiedi autorizzazione',
+            btnPushBanner: 'Mostra banner push',
+            btnBadge: 'Badge +1',
+            btnBadgeClear: 'Azzera badge',
+            headingUi: 'Componenti UI',
+            btnInstallBanner: 'Banner di installazione',
+            btnWelcome: 'Finestra di benvenuto',
+            btnFlow: 'Finestra generica',
+            btnOffline: 'Avviso offline',
+            btnReload: 'Avviso di ricaricamento',
+            btnToast: 'Toast',
+            headingTheme: 'Tema dell’Assistente',
+            modeLabel: 'Modalità',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Chiaro',
+            btnThemeDark: 'Scuro',
+            btnThemeCustom: 'Personalizzato',
+            btnThemeHost: 'Segui questa pagina',
+            btnThemeInvalid: 'Invia tavolozza non valida',
+            headingMore: 'Altri test API',
+            btnHistory: 'Leggi cronologia push',
+            btnHistoryRead: 'Segna cronologia come letta',
+            btnShare: 'Leggi contenuto condiviso',
+            btnCache: 'Svuota cache pagina',
+            btnSubscribe: 'Prova iscrizione push',
+            btnUnsubscribe: 'Annulla iscrizione push',
+            btnTrack: 'Emetti evento di test',
+            btnHelperTheme: 'Cambia tema ausiliario',
+            btnUpdate: 'Applica aggiornamento in attesa',
+            btnSplash: 'Rigenera schermate iOS',
+            lblLanguage: 'Lingua interfaccia',
+            headingEvents: 'Eventi',
+            waitingLog: 'In attesa di eventi…',
+            footer: 'Licenza MIT. Le icone sono dimostrative — sostituiscile nel tuo progetto.',
+            linkRepo: 'Repository',
+            linkAgents: 'Guida ai contributi',
+            linkReadme: 'Documentazione',
+            linkGuide: 'Guida prodotto e integrazione →',
+            pushBannerText: 'Ricevi notifiche quando succede qualcosa.',
+            installBannerText: 'Installa questa demo per usarla offline.',
+            welcomeTitle: 'Benvenuto',
+            welcomeText: 'Questa finestra, i banner e i flussi di installazione provengono da pwa.js e pwa.css.',
+            welcomeItems: ['Senza dipendenze', 'Funziona in sottocartella', 'Installazione dichiarativa e compatibilità'],
+            flowTitle: 'Flusso generico',
+            flowText: 'PWA.showFlow() mostra la stessa finestra usata per la guida all’installazione.',
+            flowButton: 'Capito',
+            toastSaved: 'Salvato',
+          },
+          de: {
+            autoOption: 'Auto (Browser)',
+            headingLive: 'Live-Status',
+            lblStandalone: 'Eigenständig',
+            lblCanInstall: 'Installationshinweis',
+            lblPush: 'Benachrichtigungen',
+            lblSw: 'Service Worker',
+            yes: 'Ja',
+            no: 'Nein',
+            available: 'Verfügbar',
+            notOffered: 'Nicht angeboten',
+            unsupported: 'Nicht unterstützt',
+            swActive: 'Aktiv',
+            swUpdate: 'Update bereit',
+            swUncontrolled: 'Nicht gesteuert',
+            headingInstall: 'Installation',
+            installBtn: 'App installieren',
+            installedBtn: 'App öffnen',
+            btnInstallDialog: 'Installationsdialog öffnen (<pwa-install>)',
+            btnQr: 'QR-Code anzeigen',
+            btnHelp: 'iOS- / manuelle Anleitung',
+            headingDiagnostics: 'Netzwerkdiagnose',
+            btnDiagnostics: 'Diagnose für diese Domain ausführen',
+            noteDiagnostics: 'Cloudflare DoH prüft nur den aktuellen Hostnamen. JavaScript kann den System-DNS-Resolver nicht einsehen, und ein Hostfehler beweist keine DNS-Störung.',
+            headingNotifications: 'Benachrichtigungen',
+            btnPermission: 'Berechtigung anfordern',
+            btnPushBanner: 'Push-Banner anzeigen',
+            btnBadge: 'Badge +1',
+            btnBadgeClear: 'Badge löschen',
+            headingUi: 'UI-Komponenten',
+            btnInstallBanner: 'Installationsbanner',
+            btnWelcome: 'Willkommensdialog',
+            btnFlow: 'Allgemeiner Dialog',
+            btnOffline: 'Offline-Hinweis',
+            btnReload: 'Neuladen-Hinweis',
+            btnToast: 'Toast',
+            headingTheme: 'Assistent-Design',
+            modeLabel: 'Modus',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Hell',
+            btnThemeDark: 'Dunkel',
+            btnThemeCustom: 'Benutzerdefiniert',
+            btnThemeHost: 'Dieser Seite folgen',
+            btnThemeInvalid: 'Ungültige Palette senden',
+            headingMore: 'Weitere API-Tests',
+            btnHistory: 'Push-Verlauf lesen',
+            btnHistoryRead: 'Verlauf als gelesen markieren',
+            btnShare: 'Geteilte Daten lesen',
+            btnCache: 'Seitencache leeren',
+            btnSubscribe: 'Push-Abo testen',
+            btnUnsubscribe: 'Push abbestellen',
+            btnTrack: 'Testereignis senden',
+            btnHelperTheme: 'Hilfsdesign umschalten',
+            btnUpdate: 'Wartendes Update anwenden',
+            btnSplash: 'iOS-Splashscreens neu erzeugen',
+            lblLanguage: 'Oberflächensprache',
+            headingEvents: 'Ereignisse',
+            waitingLog: 'Warte auf Ereignisse…',
+            footer: 'MIT-lizenziert. Symbole sind Beispielgrafiken — ersetzen Sie sie in Ihrem Projekt.',
+            linkRepo: 'Repository',
+            linkAgents: 'Mitwirkenden-Leitfaden',
+            linkReadme: 'Dokumentation',
+            linkGuide: 'Produkt- & Integrationsleitfaden →',
+            pushBannerText: 'Erhalte Benachrichtigungen bei Neuigkeiten.',
+            installBannerText: 'Installiere diese Demo für die Offline-Nutzung.',
+            welcomeTitle: 'Willkommen',
+            welcomeText: 'Dieses Modal, die Banner und die Installationsabläufe stammen aus pwa.js und pwa.css.',
+            welcomeItems: ['Keine Abhängigkeiten', 'Funktioniert im Unterpfad', 'Deklarative Installation und Abwärtskompatibilität'],
+            flowTitle: 'Allgemeiner Ablauf',
+            flowText: 'PWA.showFlow() zeigt denselben Dialog wie die Installationshilfen.',
+            flowButton: 'Verstanden',
+            toastSaved: 'Gespeichert',
+          },
+          sv: {
+            autoOption: 'Auto (webbläsare)',
+            headingLive: 'Realtidsstatus',
+            lblStandalone: 'Fristående',
+            lblCanInstall: 'Installationsprompt',
+            lblPush: 'Aviseringar',
+            lblSw: 'Service worker',
+            yes: 'Ja',
+            no: 'Nej',
+            available: 'Tillgänglig',
+            notOffered: 'Erbjuds inte',
+            unsupported: 'Stöds inte',
+            swActive: 'Aktiv',
+            swUpdate: 'Uppdatering klar',
+            swUncontrolled: 'Ej kontrollerad',
+            headingInstall: 'Installera',
+            installBtn: 'Installera app',
+            installedBtn: 'Öppna app',
+            btnInstallDialog: 'Öppna installationsdialog (<pwa-install>)',
+            btnQr: 'Visa QR-kod',
+            btnHelp: 'iOS / manuell vägledning',
+            headingDiagnostics: 'Nätverksdiagnostik',
+            btnDiagnostics: 'Kör diagnostik för denna domän',
+            noteDiagnostics: 'Cloudflare DoH kontrollerar endast det aktuella värdnamnet. JavaScript kan inte inspektera enhetens vanliga DNS-resolver.',
+            headingNotifications: 'Aviseringar',
+            btnPermission: 'Begär behörighet',
+            btnPushBanner: 'Visa push-banner',
+            btnBadge: 'Bricka +1',
+            btnBadgeClear: 'Rensa bricka',
+            headingUi: 'UI-komponenter',
+            btnInstallBanner: 'Installationsbanner',
+            btnWelcome: 'Välkomstdialog',
+            btnFlow: 'Allmän dialog',
+            btnOffline: 'Offline-varning',
+            btnReload: 'Uppdateringsprompt',
+            btnToast: 'Notis',
+            headingTheme: 'Assistentens tema',
+            modeLabel: 'Läge',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Ljust',
+            btnThemeDark: 'Mörkt',
+            btnThemeCustom: 'Anpassat',
+            btnThemeHost: 'Följ denna sida',
+            btnThemeInvalid: 'Skicka ogiltig palett',
+            headingMore: 'Fler API-tester',
+            btnHistory: 'Läs push-historik',
+            btnHistoryRead: 'Markera historik läst',
+            btnShare: 'Läs delad nyttolast',
+            btnCache: 'Rensa sidcache',
+            btnSubscribe: 'Testa push-prenumeration',
+            btnUnsubscribe: 'Avsluta push-prenumeration',
+            btnTrack: 'Skicka testhändelse',
+            btnHelperTheme: 'Växla hjälptema',
+            btnUpdate: 'Tillämpa väntande uppdatering',
+            btnSplash: 'Återskapa iOS-startbilder',
+            lblLanguage: 'Gränssnittsspråk',
+            headingEvents: 'Händelser',
+            waitingLog: 'Väntar på händelser…',
+            footer: 'MIT-licensierad. Ikonerna är exempelbilder — byt ut dem i ditt projekt.',
+            linkRepo: 'Arkiv',
+            linkAgents: 'Bidragsguide',
+            linkReadme: 'Dokumentation',
+            linkGuide: 'Produkt- och integrationsguide →',
+            pushBannerText: 'Få aviseringar när något händer.',
+            installBannerText: 'Installera denna demo för offlineanvändning.',
+            welcomeTitle: 'Välkommen',
+            welcomeText: 'Denna dialog, banderoller och installationsflöden kommer från pwa.js och pwa.css.',
+            welcomeItems: ['Inga beroenden', 'Fungerar i undersökväg', 'Deklarativ installation'],
+            flowTitle: 'Allmänt flöde',
+            flowText: 'PWA.showFlow() visar samma dialog som installationshjälpen.',
+            flowButton: 'Uppfattat',
+            toastSaved: 'Sparat',
+          },
+          nl: {
+            autoOption: 'Auto (browser)',
+            headingLive: 'Live status',
+            lblStandalone: 'Zelfstandig',
+            lblCanInstall: 'Installatieprompt',
+            lblPush: 'Meldingen',
+            lblSw: 'Service worker',
+            yes: 'Ja',
+            no: 'Nee',
+            available: 'Beschikbaar',
+            notOffered: 'Niet aangeboden',
+            unsupported: 'Niet ondersteund',
+            swActive: 'Actief',
+            swUpdate: 'Update gereed',
+            swUncontrolled: 'Niet beheerd',
+            headingInstall: 'Installeren',
+            installBtn: 'App installeren',
+            installedBtn: 'App openen',
+            btnInstallDialog: 'Installatiedialoog openen (<pwa-install>)',
+            btnQr: 'QR-code tonen',
+            btnHelp: 'iOS / handmatige instructies',
+            headingDiagnostics: 'Netwerkdiagnostiek',
+            btnDiagnostics: 'Diagnostiek voor dit domein uitvoeren',
+            noteDiagnostics: 'Cloudflare DoH controleert alleen de huidige hostnaam. JavaScript kan de normale DNS-resolver van het apparaat niet inspecteren.',
+            headingNotifications: 'Meldingen',
+            btnPermission: 'Toestemming vragen',
+            btnPushBanner: 'Pushbanner tonen',
+            btnBadge: 'Badge +1',
+            btnBadgeClear: 'Badge wissen',
+            headingUi: 'UI-componenten',
+            btnInstallBanner: 'Installatiebanner',
+            btnWelcome: 'Welkomstdialoog',
+            btnFlow: 'Algemene dialoog',
+            btnOffline: 'Offlinemelding',
+            btnReload: 'Herlaadprompt',
+            btnToast: 'Melding',
+            headingTheme: 'Thema van de Assistent',
+            modeLabel: 'Modus',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Licht',
+            btnThemeDark: 'Donker',
+            btnThemeCustom: 'Aangepast',
+            btnThemeHost: 'Volg deze pagina',
+            btnThemeInvalid: 'Ongeldig palet sturen',
+            headingMore: 'Meer API-tests',
+            btnHistory: 'Pushgeschiedenis lezen',
+            btnHistoryRead: 'Geschiedenis als gelezen markeren',
+            btnShare: 'Gedeelde gegevens lezen',
+            btnCache: 'Paginacache wissen',
+            btnSubscribe: 'Pushabonnement testen',
+            btnUnsubscribe: 'Pushabonnement opzeggen',
+            btnTrack: 'Testgebeurtenis verzenden',
+            btnHelperTheme: 'Hulpthema wisselen',
+            btnUpdate: 'Wachtende update toepassen',
+            btnSplash: 'iOS-opstartschermen vernieuwen',
+            lblLanguage: 'Interfacetaal',
+            headingEvents: 'Gebeurtenissen',
+            waitingLog: 'Wachten op gebeurtenissen…',
+            footer: 'MIT-licentie. Pictogrammen zijn voorbeeldafbeeldingen — vervang ze in je eigen project.',
+            linkRepo: 'Repository',
+            linkAgents: 'Bijdragegids',
+            linkReadme: 'Documentatie',
+            linkGuide: 'Product- & integratiegids →',
+            pushBannerText: 'Ontvang meldingen bij nieuwe activiteit.',
+            installBannerText: 'Installeer deze demo voor offline gebruik.',
+            welcomeTitle: 'Welkom',
+            welcomeText: 'Dit venster, de banners en installatiestromen komen uit pwa.js en pwa.css.',
+            welcomeItems: ['Geen afhankelijkheden', 'Werkt vanaf een subpad', 'Declaratieve installatie'],
+            flowTitle: 'Algemene stroom',
+            flowText: 'PWA.showFlow() toont hetzelfde dialoogvenster als de installatiehulp.',
+            flowButton: 'Begrepen',
+            toastSaved: 'Opgeslagen',
+          },
+          no: {
+            autoOption: 'Auto (nettleser)',
+            headingLive: 'Direktestatus',
+            lblStandalone: 'Frittstående',
+            lblCanInstall: 'Installasjonsprompt',
+            lblPush: 'Varsler',
+            lblSw: 'Service worker',
+            yes: 'Ja',
+            no: 'Nei',
+            available: 'Tilgjengelig',
+            notOffered: 'Ikke tilbudt',
+            unsupported: 'Ikke støttet',
+            swActive: 'Aktiv',
+            swUpdate: 'Oppdatering klar',
+            swUncontrolled: 'Ikke kontrollert',
+            headingInstall: 'Installer',
+            installBtn: 'Installer app',
+            installedBtn: 'Åpne app',
+            btnInstallDialog: 'Åpne installasjonsdialog (<pwa-install>)',
+            btnQr: 'Vis QR-kode',
+            btnHelp: 'iOS / manuell veiledning',
+            headingDiagnostics: 'Nettverksdiagnostikk',
+            btnDiagnostics: 'Kjør diagnostikk for dette domenet',
+            noteDiagnostics: 'Cloudflare DoH sjekker bare gjeldende vertsnavn. JavaScript kan ikke undersøke enhetens vanlige DNS-resolver.',
+            headingNotifications: 'Varsler',
+            btnPermission: 'Be om tillatelse',
+            btnPushBanner: 'Vis push-banner',
+            btnBadge: 'Merke +1',
+            btnBadgeClear: 'Nullstill merke',
+            headingUi: 'UI-komponenter',
+            btnInstallBanner: 'Installasjonsbanner',
+            btnWelcome: 'Velkomstdialog',
+            btnFlow: 'Generell dialog',
+            btnOffline: 'Frakoblet varsel',
+            btnReload: 'Last inn på nytt-prompt',
+            btnToast: 'Varsel',
+            headingTheme: 'Assistent-tema',
+            modeLabel: 'Modus',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Lyst',
+            btnThemeDark: 'Mørkt',
+            btnThemeCustom: 'Tilpasset',
+            btnThemeHost: 'Følg denne siden',
+            btnThemeInvalid: 'Send ugyldig palett',
+            headingMore: 'Flere API-tester',
+            btnHistory: 'Les push-historikk',
+            btnHistoryRead: 'Merk historikk som lest',
+            btnShare: 'Les delt innhold',
+            btnCache: 'Tøm sidebuffer',
+            btnSubscribe: 'Prøv push-abonnement',
+            btnUnsubscribe: 'Avslutt push-abonnement',
+            btnTrack: 'Send testhendelse',
+            btnHelperTheme: 'Bytt hjelpetema',
+            btnUpdate: 'Bruk ventende oppdatering',
+            btnSplash: 'Generer iOS-oppstartsbilder på nytt',
+            lblLanguage: 'Grensesnittspråk',
+            headingEvents: 'Hendelser',
+            waitingLog: 'Venter på hendelser…',
+            footer: 'MIT-lisensiert. Ikoner er eksempelgrafikk — bytt dem ut i ditt eget prosjekt.',
+            linkRepo: 'Repository',
+            linkAgents: 'Bidragsveiledning',
+            linkReadme: 'Dokumentasjon',
+            linkGuide: 'Produkt- og integrasjonsguide →',
+            pushBannerText: 'Bli varslet når noe skjer.',
+            installBannerText: 'Installer denne demoen for frakoblet bruk.',
+            welcomeTitle: 'Velkommen',
+            welcomeText: 'Dette vinduet, bannerne og installasjonsflytene kommer fra pwa.js og pwa.css.',
+            welcomeItems: ['Ingen avhengigheter', 'Fungerer fra understi', 'Deklarativ installasjon'],
+            flowTitle: 'Generell flyt',
+            flowText: 'PWA.showFlow() viser den samme dialogen som installasjonshjelpen.',
+            flowButton: 'Forstått',
+            toastSaved: 'Lagret',
+          },
+          da: {
+            autoOption: 'Auto (browser)',
+            headingLive: 'Live-status',
+            lblStandalone: 'Selvstændig',
+            lblCanInstall: 'Installationsprompt',
+            lblPush: 'Notifikationer',
+            lblSw: 'Service worker',
+            yes: 'Ja',
+            no: 'Nej',
+            available: 'Tilgængelig',
+            notOffered: 'Ikke tilbudt',
+            unsupported: 'Ikke understøttet',
+            swActive: 'Aktiv',
+            swUpdate: 'Opdatering klar',
+            swUncontrolled: 'Ikke kontrolleret',
+            headingInstall: 'Installer',
+            installBtn: 'Installer app',
+            installedBtn: 'Åbn app',
+            btnInstallDialog: 'Åbn installationsdialog (<pwa-install>)',
+            btnQr: 'Vis QR-kode',
+            btnHelp: 'iOS / manuel vejledning',
+            headingDiagnostics: 'Netværksdiagnostik',
+            btnDiagnostics: 'Kør diagnostik for dette domæne',
+            noteDiagnostics: 'Cloudflare DoH kontrollerer kun det aktuelle værtsnavn. JavaScript kan ikke undersøge enhedens normale DNS-resolver.',
+            headingNotifications: 'Notifikationer',
+            btnPermission: 'Anmod om tilladelse',
+            btnPushBanner: 'Vis push-banner',
+            btnBadge: 'Badge +1',
+            btnBadgeClear: 'Ryd badge',
+            headingUi: 'UI-komponenter',
+            btnInstallBanner: 'Installationsbanner',
+            btnWelcome: 'Velkomstdialog',
+            btnFlow: 'Generel dialog',
+            btnOffline: 'Offline-advarsel',
+            btnReload: 'Genindlæsningsprompt',
+            btnToast: 'Toast',
+            headingTheme: 'Assistent-tema',
+            modeLabel: 'Tilstand',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Lyst',
+            btnThemeDark: 'Mørkt',
+            btnThemeCustom: 'Brugerdefineret',
+            btnThemeHost: 'Følg denne side',
+            btnThemeInvalid: 'Send ugyldig palet',
+            headingMore: 'Flere API-tests',
+            btnHistory: 'Læs push-historik',
+            btnHistoryRead: 'Marker historik som læst',
+            btnShare: 'Læs delt indhold',
+            btnCache: 'Ryd sidecache',
+            btnSubscribe: 'Prøv push-abonnement',
+            btnUnsubscribe: 'Afmeld push-abonnement',
+            btnTrack: 'Send testhændelse',
+            btnHelperTheme: 'Skift hjælpetema',
+            btnUpdate: 'Anvend ventende opdatering',
+            btnSplash: 'Genskab iOS-opstartsskærme',
+            lblLanguage: 'Grænsefladesprog',
+            headingEvents: 'Hændelser',
+            waitingLog: 'Venter på hændelser…',
+            footer: 'MIT-licenseret. Ikoner er eksempelgrafik — udskift dem i dit eget projekt.',
+            linkRepo: 'Arkiv',
+            linkAgents: 'Bidragsvejledning',
+            linkReadme: 'Dokumentation',
+            linkGuide: 'Produkt- og integrationsguide →',
+            pushBannerText: 'Få besked, når der sker noget.',
+            installBannerText: 'Installer denne demo til offline brug.',
+            welcomeTitle: 'Velkommen',
+            welcomeText: 'Dette vindue, bannere og installationsflows kommer fra pwa.js og pwa.css.',
+            welcomeItems: ['Ingen afhængigheder', 'Virker fra understi', 'Deklarativ installation'],
+            flowTitle: 'Generelt flow',
+            flowText: 'PWA.showFlow() viser den samme dialog som installationshjælpen.',
+            flowButton: 'Forstået',
+            toastSaved: 'Gemt',
+          },
+          et: {
+            autoOption: 'Automaatne (brauser)',
+            headingLive: 'Reaalajas olek',
+            lblStandalone: 'Eraldiseisev',
+            lblCanInstall: 'Paigaldamise viip',
+            lblPush: 'Teavitused',
+            lblSw: 'Teenusetöötaja',
+            yes: 'Jah',
+            no: 'Ei',
+            available: 'Saadaval',
+            notOffered: 'Ei pakuta',
+            unsupported: 'Toetamata',
+            swActive: 'Aktiivne',
+            swUpdate: 'Uuendus valmis',
+            swUncontrolled: 'Kontrollimata',
+            headingInstall: 'Paigalda',
+            installBtn: 'Paigalda rakendus',
+            installedBtn: 'Ava rakendus',
+            btnInstallDialog: 'Ava paigaldusdialoog (<pwa-install>)',
+            btnQr: 'Näita QR-koodi',
+            btnHelp: 'iOS / käsitsi paigaldamise juhised',
+            headingDiagnostics: 'Võrgudiagnostika',
+            btnDiagnostics: 'Käivita selle domeeni diagnostika',
+            noteDiagnostics: 'Cloudflare DoH kontrollib ainult praegust hostinime. JavaScript ei näe seadme tavalist DNS-lahendajat.',
+            headingNotifications: 'Teavitused',
+            btnPermission: 'Küsi luba',
+            btnPushBanner: 'Näita push-bännerit',
+            btnBadge: 'Märk +1',
+            btnBadgeClear: 'Tühjenda märk',
+            headingUi: 'Kasutajaliidese komponendid',
+            btnInstallBanner: 'Paigaldusbänner',
+            btnWelcome: 'Tervitusaken',
+            btnFlow: 'Üldine aken',
+            btnOffline: 'Võrguühenduseta teade',
+            btnReload: 'Uuestilaadimise viip',
+            btnToast: 'Lühiteade',
+            headingTheme: 'Assistendi kujundus',
+            modeLabel: 'Režiim',
+            btnThemeAuto: 'Automaatne',
+            btnThemeLight: 'Hele',
+            btnThemeDark: 'Tume',
+            btnThemeCustom: 'Kohandatud',
+            btnThemeHost: 'Järgi seda lehte',
+            btnThemeInvalid: 'Saada vigane palett',
+            headingMore: 'Rohkem API teste',
+            btnHistory: 'Loe push-ajalugu',
+            btnHistoryRead: 'Märgi ajalugu loetuks',
+            btnShare: 'Loe jagatud sisu',
+            btnCache: 'Tühjenda lehe vahemälu',
+            btnSubscribe: 'Proovi push-tellimust',
+            btnUnsubscribe: 'Tühista push-tellimus',
+            btnTrack: 'Saada testsündmus',
+            btnHelperTheme: 'Vaheta abiteemat',
+            btnUpdate: 'Rakenda ootel uuendus',
+            btnSplash: 'Loo iOS-käivituskuvad uuesti',
+            lblLanguage: 'Liidese keel',
+            headingEvents: 'Sündmused',
+            waitingLog: 'Sündmuste ootel…',
+            footer: 'MIT litsents. Ikoonid on näidised — asendage need oma projektis.',
+            linkRepo: 'Repositoorium',
+            linkAgents: 'Kaasautori juhend',
+            linkReadme: 'Dokumentatsioon',
+            linkGuide: 'Toote- ja integratsioonijuhend →',
+            pushBannerText: 'Saa teavitusi uute sündmuste kohta.',
+            installBannerText: 'Paigalda see demo võrguühenduseta kasutamiseks.',
+            welcomeTitle: 'Tere tulemast',
+            welcomeText: 'See aken, bännerid ja paigaldusvood pärinevad failidest pwa.js ja pwa.css.',
+            welcomeItems: ['Sõltuvusteta', 'Töötab alamteel', 'Deklaratiivne paigaldus'],
+            flowTitle: 'Üldine voog',
+            flowText: 'PWA.showFlow() kuvab sama akna, mida kasutatakse paigaldusabiekraanidel.',
+            flowButton: 'Selge',
+            toastSaved: 'Salvestatud',
+          },
+          es: {
+            autoOption: 'Auto (navegador)',
+            headingLive: 'Estado en vivo',
+            lblStandalone: 'Independiente',
+            lblCanInstall: 'Aviso de instalación',
+            lblPush: 'Notificaciones',
+            lblSw: 'Service worker',
+            yes: 'Sí',
+            no: 'No',
+            available: 'Disponible',
+            notOffered: 'No ofrecido',
+            unsupported: 'No compatible',
+            swActive: 'Activo',
+            swUpdate: 'Actualización lista',
+            swUncontrolled: 'Sin control',
+            headingInstall: 'Instalar',
+            installBtn: 'Instalar aplicación',
+            installedBtn: 'Abrir aplicación',
+            btnInstallDialog: 'Abrir diálogo de instalación (<pwa-install>)',
+            btnQr: 'Mostrar código QR',
+            btnHelp: 'Instrucciones iOS / manuales',
+            headingDiagnostics: 'Diagnóstico de red',
+            btnDiagnostics: 'Ejecutar diagnóstico para este dominio',
+            noteDiagnostics: 'Cloudflare DoH solo comprueba el nombre de host actual. JavaScript no puede inspeccionar el resolutor DNS habitual del dispositivo.',
+            headingNotifications: 'Notificaciones',
+            btnPermission: 'Solicitar permiso',
+            btnPushBanner: 'Mostrar banner push',
+            btnBadge: 'Insignia +1',
+            btnBadgeClear: 'Limpiar insignia',
+            headingUi: 'Componentes de interfaz',
+            btnInstallBanner: 'Banner de instalación',
+            btnWelcome: 'Ventana de bienvenida',
+            btnFlow: 'Ventana genérica',
+            btnOffline: 'Alerta sin conexión',
+            btnReload: 'Aviso de recarga',
+            btnToast: 'Aviso breve',
+            headingTheme: 'Tema del Asistente',
+            modeLabel: 'Modo',
+            btnThemeAuto: 'Auto',
+            btnThemeLight: 'Claro',
+            btnThemeDark: 'Oscuro',
+            btnThemeCustom: 'Personalizado',
+            btnThemeHost: 'Seguir esta página',
+            btnThemeInvalid: 'Enviar paleta no válida',
+            headingMore: 'Más pruebas de API',
+            btnHistory: 'Leer historial push',
+            btnHistoryRead: 'Marcar historial como leído',
+            btnShare: 'Leer carga compartida',
+            btnCache: 'Limpiar caché de página',
+            btnSubscribe: 'Probar suscripción push',
+            btnUnsubscribe: 'Cancelar suscripción push',
+            btnTrack: 'Emitir evento de prueba',
+            btnHelperTheme: 'Alternar tema auxiliar',
+            btnUpdate: 'Aplicar actualización en espera',
+            btnSplash: 'Regenerar pantallas iOS',
+            lblLanguage: 'Idioma de la interfaz',
+            headingEvents: 'Eventos',
+            waitingLog: 'Esperando eventos…',
+            footer: 'Licencia MIT. Los iconos son de muestra — reemplázalos en tu proyecto.',
+            linkRepo: 'Repositorio',
+            linkAgents: 'Guía de contribución',
+            linkReadme: 'Documentación',
+            linkGuide: 'Guía del producto e integración →',
+            pushBannerText: 'Recibe notificaciones cuando ocurra algo.',
+            installBannerText: 'Instala esta demo para usarla sin conexión.',
+            welcomeTitle: 'Bienvenido',
+            welcomeText: 'Este modal, los banners y los flujos de instalación provienen de pwa.js y pwa.css.',
+            welcomeItems: ['Sin dependencias', 'Funciona en subruta', 'Instalación declarativa y compatibilidad'],
+            flowTitle: 'Flujo genérico',
+            flowText: 'PWA.showFlow() muestra el mismo diálogo utilizado en la ayuda de instalación.',
+            flowButton: 'Entendido',
+            toastSaved: 'Guardado',
+          },
+        };
+
+        var currentDemoLocale = 'en';
+        function demoT(key) {
+          var dict = DEMO_I18N[currentDemoLocale] || DEMO_I18N.en;
+          return Object.prototype.hasOwnProperty.call(dict, key) ? dict[key] : DEMO_I18N.en[key];
+        }
+
+        var DEMO_CHROME = {
+          en: {
+            title: 'You.Ge Assistant — PWA playground',
+            navProduct: 'Product', navFeatures: 'Features', navDocs: 'Documentation', navExamples: 'Examples',
+            navStart: 'Get started', navMenu: 'Menu',
+            introKicker: 'THE YOU.GE ASSISTANT PLAYGROUND',
+            introLine1: 'A more capable web app.', introLine2: 'A clearer experience.',
+            introLead: 'Try the real PWA toolkit: installation guidance, sharing, network diagnostics, and actionable app status. Your application keeps control of its service worker.',
+            introCta: 'Get started →', introExplore: 'Explore GitHub ↗',
+            introNote: 'SDK 0.3.0 · Framework-independent · Open source',
+            introVisualAlt: 'Your application connects to the official You.Ge Assistant SDK for installation, diagnostics and app status. Your framework and worker remain under your control.',
+            cap1Title: 'Help users feel at home.', cap1Body: 'Installation prompts and manual guidance through the optional PWA toolkit. One clearer path from browser to home screen.',
+            cap2Title: 'Make app state useful.', cap2Body: 'Connectivity, host-reported endpoint and session signals, and prioritized notices in one subscribable SDK state.',
+            cap3Title: 'Keep your architecture.', cap3Body: 'Configure only the modules you need. Keep your existing service worker, caching strategy, and host update lifecycle.',
+            installCardTitle: 'Start with one package.', installCardBody: 'ESM, TypeScript declarations, zero core runtime dependencies.',
+            installCardLink: 'Read the practical integration guide →',
+            noteInstall: [['strong', 'Desktop:'], ['text', ' this demo sets '], ['code', 'data-desktop-qr'], ['text', ', so the install button opens the QR dialog instead of the browser prompt. Open the QR on your phone to install there. '], ['strong', 'Android/Chrome:'], ['text', ' the real '], ['code', 'beforeinstallprompt'], ['text', ' flow runs when the browser offers it.']],
+            noteNotifications: [['text', 'Push needs VAPID keys and a server — see '], ['code', 'examples/push-server/'], ['text', '. The public playground has no sender configured, so it will not send notifications.']],
+            noteTheme: [['text', 'The same '], ['code', 'theme'], ['text', ' configuration for the floating Assistant: '], ['code', 'auto'], ['text', ' follows this page and the OS, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' pin a scheme, and '], ['code', 'custom'], ['text', ' accepts validated tokens. Invalid values are dropped field by field and reported as warnings — the Assistant never breaks.']],
+            noteMore: 'Share and push depend on browser support. Push sending needs VAPID keys and a backend; this public playground does not send notifications.',
+            footerCaption: 'Open source. Thoughtfully connected.', footerDocs: 'Documentation', footerLicense: 'MIT license', footerIssues: 'Issues',
+          },
+          ka: {
+            title: 'You.Ge Assistant — PWA სატესტო გვერდი',
+            navProduct: 'პროდუქტი', navFeatures: 'შესაძლებლობები', navDocs: 'დოკუმენტაცია', navExamples: 'მაგალითები',
+            navStart: 'დაწყება', navMenu: 'მენიუ',
+            introKicker: 'YOU.GE ASSISTANT-ის სატესტო სივრცე',
+            introLine1: 'უფრო შესაძლებელი ვებ-აპი.', introLine2: 'უფრო მკაფიო გამოცდილება.',
+            introLead: 'გამოსცადეთ რეალური PWA კომპლექტი: დაყენების გზამკვლევი, გაზიარება, ქსელის დიაგნოსტიკა და მოქმედი აპის სტატუსი. სერვის-უორკერის კონტროლი თქვენს აპლიკაციაში რჩება.',
+            introCta: 'დაწყება →', introExplore: 'GitHub-ზე ნახვა ↗',
+            introNote: 'SDK 0.3.0 · ფრეიმვორკისგან დამოუკიდებელი · ღია კოდი',
+            introVisualAlt: 'თქვენი აპლიკაცია უკავშირდება ოფიციალურ You.Ge Assistant SDK-ს დაყენების, დიაგნოსტიკისა და აპის სტატუსისთვის.',
+            cap1Title: 'მარტივი გზა მომხმარებლისთვის.', cap1Body: 'დაყენების შეთავაზება და ხელით დაყენების ინსტრუქცია არასავალდებულო PWA კომპლექტით.',
+            cap2Title: 'აპის სტატუსის გამოყენება.', cap2Body: 'კავშირის მდგომარეობა, სერვერის და სესიის სიგნალები და პრიორიტეტული შეტყობინებები ერთიან SDK მდგომარეობაში.',
+            cap3Title: 'თქვენი არქიტექტურის შენარჩუნება.', cap3Body: 'ჩართეთ მხოლოდ საჭირო მოდულები და შეინარჩუნეთ არსებული სერვის-უორკერი და ქეშირება.',
+            installCardTitle: 'დაიწყეთ ერთი პაკეტით.', installCardBody: 'ESM, TypeScript აღწერები, ძირითადი დამოკიდებულებების გარეშე.',
+            installCardLink: 'იხილეთ პრაქტიკული ინტეგრაციის გზამკვლევი →',
+            noteInstall: [['strong', 'დესკტოპი:'], ['text', ' ეს დემო აყენებს '], ['code', 'data-desktop-qr'], ['text', '-ს, ამიტომ დაყენების ღილაკი ხსნის QR დიალოგს. ტელეფონზე დასაყენებლად გახსენით QR. '], ['strong', 'Android/Chrome:'], ['text', ' ბრაუზერის შეთავაზებისას ეშვება '], ['code', 'beforeinstallprompt'], ['text', '.']],
+            noteNotifications: [['text', 'Push მოითხოვს VAPID გასაღებებს და სერვერს — იხილეთ '], ['code', 'examples/push-server/'], ['text', '. ამ საჯარო დემოს გამგზავნი სერვერი არ აქვს.']],
+            noteTheme: [['text', 'მცურავი ასისტენტის '], ['code', 'theme'], ['text', ' კონფიგურაცია: '], ['code', 'auto'], ['text', ' მიჰყვება გვერდსა და სისტემას, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' აფიქსირებს სქემას, ხოლო '], ['code', 'custom'], ['text', ' იღებს შემოწმებულ ტოკენებს.']],
+            noteMore: 'გაზიარება და push დამოკიდებულია ბრაუზერის მხარდაჭერაზე. გაგზავნას სჭირდება VAPID გასაღებები და სერვერი.',
+            footerCaption: 'ღია კოდი. მოწესრიგებული კავშირი.', footerDocs: 'დოკუმენტაცია', footerLicense: 'MIT ლიცენზია', footerIssues: 'ხარვეზები',
+          },
+          ru: {
+            title: 'You.Ge Assistant — песочница PWA',
+            navProduct: 'Продукт', navFeatures: 'Возможности', navDocs: 'Документация', navExamples: 'Примеры',
+            navStart: 'Начать', navMenu: 'Меню',
+            introKicker: 'ПЕСОЧНИЦА YOU.GE ASSISTANT',
+            introLine1: 'Более мощное веб-приложение.', introLine2: 'Более понятный опыт.',
+            introLead: 'Испытайте реальный PWA-набор: подсказки установки, обмен данными, диагностику сети и статус приложения. Ваш service worker остаётся под вашим контролем.',
+            introCta: 'Начать →', introExplore: 'Открыть GitHub ↗',
+            introNote: 'SDK 0.3.0 · Независимо от фреймворка · Открытый код',
+            introVisualAlt: 'Ваше приложение подключается к официальному You.Ge Assistant SDK для установки, диагностики и состояния.',
+            cap1Title: 'Удобный старт для пользователей.', cap1Body: 'Запросы установки и ручные инструкции через подключаемый PWA-инструментарий.',
+            cap2Title: 'Полезное состояние приложения.', cap2Body: 'Сеть, сигналы сервера и сессии, а также приоритетные уведомления в одном состоянии SDK.',
+            cap3Title: 'Сохранение архитектуры.', cap3Body: 'Подключайте только нужные модули, не меняя собственный service worker и кеширование.',
+            installCardTitle: 'Начните с одного пакета.', installCardBody: 'ESM, декларации TypeScript, без внешних зависимостей ядра.',
+            installCardLink: 'Открыть руководство по интеграции →',
+            noteInstall: [['strong', 'Десктоп:'], ['text', ' здесь задан '], ['code', 'data-desktop-qr'], ['text', ', поэтому кнопка открывает QR-диалог. Отсканируйте код на телефоне для установки. '], ['strong', 'Android/Chrome:'], ['text', ' запускается стандартный '], ['code', 'beforeinstallprompt'], ['text', '.']],
+            noteNotifications: [['text', 'Для push нужны ключи VAPID и сервер — см. '], ['code', 'examples/push-server/'], ['text', '. Публичная песочница не отправляет уведомления.']],
+            noteTheme: [['text', 'Конфигурация '], ['code', 'theme'], ['text', ': '], ['code', 'auto'], ['text', ' повторяет страницу и ОС, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' задают схему, а '], ['code', 'custom'], ['text', ' принимает проверенные токены.']],
+            noteMore: 'Обмен данными и push зависят от поддержки браузера. Отправка требует VAPID-ключи и сервер.',
+            footerCaption: 'Открытый код. Продуманное подключение.', footerDocs: 'Документация', footerLicense: 'Лицензия MIT', footerIssues: 'Вопросы',
+          },
+          fr: {
+            title: 'You.Ge Assistant — terrain de jeu PWA',
+            navProduct: 'Produit', navFeatures: 'Fonctionnalités', navDocs: 'Documentation', navExamples: 'Exemples',
+            navStart: 'Commencer', navMenu: 'Menu',
+            introKicker: 'TERRAIN DE JEU YOU.GE ASSISTANT',
+            introLine1: 'Une application web plus capable.', introLine2: 'Une expérience plus claire.',
+            introLead: 'Testez la boîte à outils PWA réelle : installation, partage, diagnostic réseau et état d’application. Votre application garde le contrôle de son service worker.',
+            introCta: 'Commencer →', introExplore: 'Explorer sur GitHub ↗',
+            introNote: 'SDK 0.3.0 · Sans framework imposé · Open source',
+            introVisualAlt: 'Votre application se connecte au SDK officiel You.Ge Assistant pour l’installation et le diagnostic.',
+            cap1Title: 'Aider les utilisateurs.', cap1Body: 'Invites d’installation et guides manuels via la boîte à outils PWA optionnelle.',
+            cap2Title: 'Rendre l’état utile.', cap2Body: 'Connectivité, signaux serveur/session et alertes priorisées dans un état SDK unifié.',
+            cap3Title: 'Garder votre architecture.', cap3Body: 'N’activez que les modules nécessaires tout en conservant votre service worker.',
+            installCardTitle: 'Commencer avec un seul paquet.', installCardBody: 'ESM, types TypeScript, aucune dépendance cœur.',
+            installCardLink: 'Lire le guide d’intégration pratique →',
+            noteInstall: [['strong', 'Bureau :'], ['text', ' cette démo active '], ['code', 'data-desktop-qr'], ['text', ', le bouton ouvre donc la boîte QR. '], ['strong', 'Android/Chrome :'], ['text', ' le flux '], ['code', 'beforeinstallprompt'], ['text', ' s’exécute s’il est proposé.']],
+            noteNotifications: [['text', 'Le push nécessite des clés VAPID et un serveur — voir '], ['code', 'examples/push-server/'], ['text', '. Cette démo publique n’envoie aucune notification.']],
+            noteTheme: [['text', 'La configuration '], ['code', 'theme'], ['text', ' : '], ['code', 'auto'], ['text', ' suit la page et le système, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' figent le schéma, et '], ['code', 'custom'], ['text', ' valide vos jetons.']],
+            noteMore: 'Le partage et le push dépendent du navigateur. L’envoi requiert des clés VAPID et un serveur.',
+            footerCaption: 'Open source. Connecté avec soin.', footerDocs: 'Documentation', footerLicense: 'Licence MIT', footerIssues: 'Problèmes',
+          },
+          it: {
+            title: 'You.Ge Assistant — playground PWA',
+            navProduct: 'Prodotto', navFeatures: 'Funzionalità', navDocs: 'Documentazione', navExamples: 'Esempi',
+            navStart: 'Inizia', navMenu: 'Menu',
+            introKicker: 'PLAYGROUND YOU.GE ASSISTANT',
+            introLine1: 'Una web app più capace.', introLine2: 'Un’esperienza più chiara.',
+            introLead: 'Prova il toolkit PWA reale: guida all’installazione, condivisione, diagnostica di rete e stato dell’app. Il controllo del service worker resta tuo.',
+            introCta: 'Inizia →', introExplore: 'Esplora GitHub ↗',
+            introNote: 'SDK 0.3.0 · Indipendente dal framework · Open source',
+            introVisualAlt: 'La tua app si collega all’SDK ufficiale You.Ge Assistant per installazione e diagnostica.',
+            cap1Title: 'Fai sentire gli utenti a casa.', cap1Body: 'Richieste di installazione e guide manuali tramite il toolkit PWA opzionale.',
+            cap2Title: 'Rendi utile lo stato dell’app.', cap2Body: 'Connettività, segnali endpoint e sessione, e avvisi prioritari in un unico stato SDK.',
+            cap3Title: 'Mantieni la tua architettura.', cap3Body: 'Configura solo i moduli necessari mantenendo il tuo service worker e la tua cache.',
+            installCardTitle: 'Inizia con un solo pacchetto.', installCardBody: 'ESM, tipi TypeScript, zero dipendenze core.',
+            installCardLink: 'Leggi la guida pratica all’integrazione →',
+            noteInstall: [['strong', 'Desktop:'], ['text', ' questa demo imposta '], ['code', 'data-desktop-qr'], ['text', ', quindi apre la finestra QR. '], ['strong', 'Android/Chrome:'], ['text', ' usa '], ['code', 'beforeinstallprompt'], ['text', ' quando disponibile.']],
+            noteNotifications: [['text', 'Il push richiede chiavi VAPID e un server — vedi '], ['code', 'examples/push-server/'], ['text', '. Questo playground pubblico non invia notifiche.']],
+            noteTheme: [['text', 'La configurazione '], ['code', 'theme'], ['text', ': '], ['code', 'auto'], ['text', ' segue pagina e sistema, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' fissano lo schema, e '], ['code', 'custom'], ['text', ' valida i token.']],
+            noteMore: 'Condivisione e push dipendono dal browser. L’invio richiede chiavi VAPID e un backend.',
+            footerCaption: 'Open source. Connessione curata.', footerDocs: 'Documentazione', footerLicense: 'Licenza MIT', footerIssues: 'Segnalazioni',
+          },
+          de: {
+            title: 'You.Ge Assistant — PWA-Playground',
+            navProduct: 'Produkt', navFeatures: 'Funktionen', navDocs: 'Dokumentation', navExamples: 'Beispiele',
+            navStart: 'Loslegen', navMenu: 'Menü',
+            introKicker: 'YOU.GE ASSISTANT PLAYGROUND',
+            introLine1: 'Eine leistungsfähigere Web-App.', introLine2: 'Ein klareres Erlebnis.',
+            introLead: 'Teste das echte PWA-Toolkit: Installationshilfe, Teilen, Netzwerkdiagnose und App-Status. Deine Anwendung behält die Kontrolle über ihren Service Worker.',
+            introCta: 'Loslegen →', introExplore: 'Auf GitHub ansehen ↗',
+            introNote: 'SDK 0.3.0 · Framework-unabhängig · Open Source',
+            introVisualAlt: 'Ihre App verbindet sich mit dem offiziellen You.Ge Assistant SDK für Installation und Diagnose.',
+            cap1Title: 'Nutzer sicher anleiten.', cap1Body: 'Installationshinweise und manuelle Anleitungen über das optionale PWA-Toolkit.',
+            cap2Title: 'App-Status nutzbar machen.', cap2Body: 'Konnektivität, Endpunkt- und Sitzungssignale sowie priorisierte Meldungen in einem SDK-Status.',
+            cap3Title: 'Architektur beibehalten.', cap3Body: 'Nur benötigte Module konfigurieren und vorhandenen Service Worker weiter nutzen.',
+            installCardTitle: 'Mit einem Paket starten.', installCardBody: 'ESM, TypeScript-Typen, keine Kernabhängigkeiten.',
+            installCardLink: 'Praktischen Integrationsleitfaden lesen →',
+            noteInstall: [['strong', 'Desktop:'], ['text', ' diese Demo nutzt '], ['code', 'data-desktop-qr'], ['text', ' und öffnet den QR-Dialog. '], ['strong', 'Android/Chrome:'], ['text', ' es läuft '], ['code', 'beforeinstallprompt'], ['text', ' wenn angeboten.']],
+            noteNotifications: [['text', 'Push erfordert VAPID-Schlüssel und einen Server — siehe '], ['code', 'examples/push-server/'], ['text', '. Dieser öffentliche Playground sendet keine Benachrichtigungen.']],
+            noteTheme: [['text', 'Die '], ['code', 'theme'], ['text', '-Konfiguration: '], ['code', 'auto'], ['text', ' folgt Seite und OS, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' fixieren das Schema, '], ['code', 'custom'], ['text', ' validiert Tokens.']],
+            noteMore: 'Teilen und Push hängen vom Browser ab. Der Versand erfordert VAPID-Schlüssel und ein Backend.',
+            footerCaption: 'Open Source. Durchdacht verbunden.', footerDocs: 'Dokumentation', footerLicense: 'MIT-Lizenz', footerIssues: 'Probleme',
+          },
+          sv: {
+            title: 'You.Ge Assistant — PWA-testmiljö',
+            navProduct: 'Produkt', navFeatures: 'Funktioner', navDocs: 'Dokumentation', navExamples: 'Exempel',
+            navStart: 'Kom igång', navMenu: 'Meny',
+            introKicker: 'YOU.GE ASSISTANT TESTMILJÖ',
+            introLine1: 'En mer kapabel webbapp.', introLine2: 'En tydligare upplevelse.',
+            introLead: 'Testa det verkliga PWA-verktyget: installationsvägledning, delning, nätverksdiagnostik och appstatus. Din applikation behåller kontrollen över sin service worker.',
+            introCta: 'Kom igång →', introExplore: 'Utforska GitHub ↗',
+            introNote: 'SDK 0.3.0 · Ramverksoberoende · Öppen källkod',
+            introVisualAlt: 'Din app ansluter till det officiella You.Ge Assistant SDK för installation och diagnostik.',
+            cap1Title: 'Få användare att känna sig hemma.', cap1Body: 'Installationsprompter och manuella guider genom det valfria PWA-verktyget.',
+            cap2Title: 'Gör appstatus användbar.', cap2Body: 'Anslutning, server- och sessionssignaler samt prioriterade aviseringar i ett delbart SDK-läge.',
+            cap3Title: 'Behåll din arkitektur.', cap3Body: 'Konfigurera endast de moduler du behöver utan att ändra din service worker.',
+            installCardTitle: 'Börja med ett paket.', installCardBody: 'ESM, TypeScript-deklarationer, inga kärnberoenden.',
+            installCardLink: 'Läs den praktiska integrationsguiden →',
+            noteInstall: [['strong', 'Dator:'], ['text', ' demon använder '], ['code', 'data-desktop-qr'], ['text', ' så knappen öppnar QR-dialogen. '], ['strong', 'Android/Chrome:'], ['text', ' kör '], ['code', 'beforeinstallprompt'], ['text', ' när webbläsaren erbjuder den.']],
+            noteNotifications: [['text', 'Push kräver VAPID-nycklar och en server — se '], ['code', 'examples/push-server/'], ['text', '. Denna publika demo skickar inga aviseringar.']],
+            noteTheme: [['text', 'Samma '], ['code', 'theme'], ['text', '-konfiguration: '], ['code', 'auto'], ['text', ' följer sidan och OS, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' låser läge, och '], ['code', 'custom'], ['text', ' validerar tokens.']],
+            noteMore: 'Delning och push beror på webbläsaren. Utskick kräver VAPID-nycklar och server.',
+            footerCaption: 'Öppen källkod. Omtänksamt ansluten.', footerDocs: 'Dokumentation', footerLicense: 'MIT-licens', footerIssues: 'Ärenden',
+          },
+          nl: {
+            title: 'You.Ge Assistant — PWA-speeltuin',
+            navProduct: 'Product', navFeatures: 'Functies', navDocs: 'Documentatie', navExamples: 'Voorbeelden',
+            navStart: 'Aan de slag', navMenu: 'Menu',
+            introKicker: 'DE YOU.GE ASSISTANT SPEELTUIN',
+            introLine1: 'Een krachtigere webapp.', introLine2: 'Een duidelijkere ervaring.',
+            introLead: 'Probeer de echte PWA-toolkit: installatiehulp, delen, netwerkdiagnostiek en actuele appstatus. Je applicatie behoudt controle over de service worker.',
+            introCta: 'Aan de slag →', introExplore: 'Bekijk op GitHub ↗',
+            introNote: 'SDK 0.3.0 · Framework-onafhankelijk · Open source',
+            introVisualAlt: 'Je applicatie verbindt met de officiële You.Ge Assistant SDK voor installatie en diagnostiek.',
+            cap1Title: 'Laat gebruikers thuis voelen.', cap1Body: 'Installatieprompts en handmatige instructies via de optionele PWA-toolkit.',
+            cap2Title: 'Maak appstatus bruikbaar.', cap2Body: 'Connectiviteit, endpoint- en sessiesignalen en geprioriteerde meldingen in één SDK-status.',
+            cap3Title: 'Behoud je architectuur.', cap3Body: 'Configureer alleen de benodigde modules en behoud je eigen service worker.',
+            installCardTitle: 'Begin met één pakket.', installCardBody: 'ESM, TypeScript-declaraties, nul kernafhankelijkheden.',
+            installCardLink: 'Lees de praktische integratiegids →',
+            noteInstall: [['strong', 'Desktop:'], ['text', ' deze demo gebruikt '], ['code', 'data-desktop-qr'], ['text', ', dus de knop opent het QR-venster. '], ['strong', 'Android/Chrome:'], ['text', ' gebruikt '], ['code', 'beforeinstallprompt'], ['text', ' zodra aangeboden.']],
+            noteNotifications: [['text', 'Push vereist VAPID-sleutels en een server — zie '], ['code', 'examples/push-server/'], ['text', '. Deze demo verstuurt geen meldingen.']],
+            noteTheme: [['text', 'De '], ['code', 'theme'], ['text', '-configuratie: '], ['code', 'auto'], ['text', ' volgt pagina en OS, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' zetten een schema vast, en '], ['code', 'custom'], ['text', ' valideert tokens.']],
+            noteMore: 'Delen en push hangen af van browserondersteuning. Verzenden vereist VAPID-sleutels en een backend.',
+            footerCaption: 'Open source. Zorgvuldig verbonden.', footerDocs: 'Documentatie', footerLicense: 'MIT-licentie', footerIssues: 'Problemen',
+          },
+          no: {
+            title: 'You.Ge Assistant — PWA-lekeplass',
+            navProduct: 'Produkt', navFeatures: 'Funksjoner', navDocs: 'Dokumentasjon', navExamples: 'Eksempler',
+            navStart: 'Kom i gang', navMenu: 'Meny',
+            introKicker: 'YOU.GE ASSISTANT LEKEPLASS',
+            introLine1: 'En mer kapabel nettapp.', introLine2: 'En tydeligere opplevelse.',
+            introLead: 'Prøv det ekte PWA-verktøysettet: installasjonsveiledning, deling, nettverksdiagnostikk og handlingsbar appstatus. Appen din beholder kontroll over sin service worker.',
+            introCta: 'Kom i gang →', introExplore: 'Utforsk GitHub ↗',
+            introNote: 'SDK 0.3.0 · Rammeverkuavhengig · Åpen kildekode',
+            introVisualAlt: 'Appen din kobler seg til det offisielle You.Ge Assistant SDK for installasjon og diagnostikk.',
+            cap1Title: 'Få brukere til å føle seg hjemme.', cap1Body: 'Installasjonsprompter og manuell veiledning gjennom det valgfrie PWA-verktøyet.',
+            cap2Title: 'Gjør appstatus nyttig.', cap2Body: 'Tilkobling, ende- og øktsignaler samt prioriterte varsler i én SDK-tilstand.',
+            cap3Title: 'Behold arkitekturen din.', cap3Body: 'Konfigurer kun modulene du trenger og behold din egen service worker.',
+            installCardTitle: 'Start med én pakke.', installCardBody: 'ESM, TypeScript-typer, ingen kjerneavhengigheter.',
+            installCardLink: 'Les den praktiske integrasjonsguiden →',
+            noteInstall: [['strong', 'Skrivebord:'], ['text', ' denne demoen setter '], ['code', 'data-desktop-qr'], ['text', ' slik at knappen åpner QR-dialogen. '], ['strong', 'Android/Chrome:'], ['text', ' bruker '], ['code', 'beforeinstallprompt'], ['text', ' når nettleseren tilbyr det.']],
+            noteNotifications: [['text', 'Push krever VAPID-nøkler og server — se '], ['code', 'examples/push-server/'], ['text', '. Denne offentlige demoen sender ikke varsler.']],
+            noteTheme: [['text', 'Samme '], ['code', 'theme'], ['text', '-oppsett: '], ['code', 'auto'], ['text', ' følger siden og OS, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' låser skjema, og '], ['code', 'custom'], ['text', ' validerer tokens.']],
+            noteMore: 'Deling og push avhenger av nettleserstøtte. Utsending krever VAPID-nøkler og backend.',
+            footerCaption: 'Åpen kildekode. Gjennomtenkt tilkoblet.', footerDocs: 'Dokumentasjon', footerLicense: 'MIT-lisens', footerIssues: 'Feilmeldinger',
+          },
+          da: {
+            title: 'You.Ge Assistant — PWA-legeplads',
+            navProduct: 'Produkt', navFeatures: 'Funktioner', navDocs: 'Dokumentation', navExamples: 'Eksempler',
+            navStart: 'Kom i gang', navMenu: 'Menu',
+            introKicker: 'YOU.GE ASSISTANT LEGEPLADS',
+            introLine1: 'En stærkere webapp.', introLine2: 'En klarere oplevelse.',
+            introLead: 'Prøv det rigtige PWA-værktøj: installationsvejledning, deling, netværksdiagnostik og handlingsorienteret app-status. Din app bevarer kontrollen over sin service worker.',
+            introCta: 'Kom i gang →', introExplore: 'Udforsk GitHub ↗',
+            introNote: 'SDK 0.3.0 · Uafhængig af framework · Open source',
+            introVisualAlt: 'Din app forbinder til det officielle You.Ge Assistant SDK til installation og diagnostik.',
+            cap1Title: 'Få brugere til at føle sig hjemme.', cap1Body: 'Installationsprompts og manuel vejledning via det valgfrie PWA-værktøj.',
+            cap2Title: 'Gør app-status brugbar.', cap2Body: 'Forbindelse, server- og sessionssignaler samt prioriterede meddelelser i én SDK-tilstand.',
+            cap3Title: 'Behold din arkitektur.', cap3Body: 'Konfigurer kun de nødvendige moduler og bevar din eksisterende service worker.',
+            installCardTitle: 'Start med én pakke.', installCardBody: 'ESM, TypeScript-typer, ingen kerneafhængigheder.',
+            installCardLink: 'Læs den praktiske integrationsguide →',
+            noteInstall: [['strong', 'Desktop:'], ['text', ' denne demo bruger '], ['code', 'data-desktop-qr'], ['text', ', så knappen åbner QR-dialogen. '], ['strong', 'Android/Chrome:'], ['text', ' kører '], ['code', 'beforeinstallprompt'], ['text', ' når browseren tilbyder det.']],
+            noteNotifications: [['text', 'Push kræver VAPID-nøgler og en server — se '], ['code', 'examples/push-server/'], ['text', '. Denne offentlige demo sender ingen notifikationer.']],
+            noteTheme: [['text', 'Samme '], ['code', 'theme'], ['text', '-konfiguration: '], ['code', 'auto'], ['text', ' følger side og OS, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' fastlåser tema, og '], ['code', 'custom'], ['text', ' validerer tokens.']],
+            noteMore: 'Deling og push afhænger af browserunderstøttelse. Afsendelse kræver VAPID-nøgler og en server.',
+            footerCaption: 'Open source. Omtænksomt forbundet.', footerDocs: 'Dokumentation', footerLicense: 'MIT-licens', footerIssues: 'Problemer',
+          },
+          et: {
+            title: 'You.Ge Assistant — PWA mänguväljak',
+            navProduct: 'Toode', navFeatures: 'Võimalused', navDocs: 'Dokumentatsioon', navExamples: 'Näited',
+            navStart: 'Alusta', navMenu: 'Menüü',
+            introKicker: 'YOU.GE ASSISTENDI MÄNGUVÄLJAK',
+            introLine1: 'Võimekam veebirakendus.', introLine2: 'Selgem kogemus.',
+            introLead: 'Proovi päris PWA-komplekti: paigaldusjuhised, jagamine, võrgudiagnostika ja kasutatav rakenduse olek. Sinu rakendus säilitab kontrolli oma teenusetöötaja üle.',
+            introCta: 'Alusta →', introExplore: 'Vaata GitHubis ↗',
+            introNote: 'SDK 0.3.0 · Raamistikust sõltumatu · Avatud lähtekood',
+            introVisualAlt: 'Sinu rakendus ühendub ametliku You.Ge Assistant SDK-ga paigalduseks ja diagnostikaks.',
+            cap1Title: 'Aita kasutajatel end koduselt tunda.', cap1Body: 'Paigaldusviibad ja käsitsi juhised valikulise PWA-komplekti kaudu.',
+            cap2Title: 'Muuda olek kasulikuks.', cap2Body: 'Ühenduvus, serveri- ja seansisignaalid ning prioriseeritud teated ühtses SDK olekus.',
+            cap3Title: 'Säilita oma arhitektuur.', cap3Body: 'Seadista ainult vajalikud moodulid ning säilita oma teenusetöötaja ja vahemälu.',
+            installCardTitle: 'Alusta ühest paketist.', installCardBody: 'ESM, TypeScripti tüübid, tuumsõltuvusteta.',
+            installCardLink: 'Loe praktilist integratsioonijuhendit →',
+            noteInstall: [['strong', 'Töölaud:'], ['text', ' see demo seab '], ['code', 'data-desktop-qr'], ['text', ', seega avab nupp QR-dialoogi. '], ['strong', 'Android/Chrome:'], ['text', ' kasutab '], ['code', 'beforeinstallprompt'], ['text', ' voogu.']],
+            noteNotifications: [['text', 'Push vajab VAPID-võtmeid ja serverit — vaata '], ['code', 'examples/push-server/'], ['text', '. See avalik demo teavitusi ei saada.']],
+            noteTheme: [['text', 'Sama '], ['code', 'theme'], ['text', ' seadistus: '], ['code', 'auto'], ['text', ' järgib lehte ja OS-i, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' lukustavad skeemi, '], ['code', 'custom'], ['text', ' valideerib tokenid.']],
+            noteMore: 'Jagamine ja push sõltuvad brauseri toest. Saatmine vajab VAPID-võtmeid ja serverit.',
+            footerCaption: 'Avatud lähtekood. Läbimõeldult ühendatud.', footerDocs: 'Dokumentatsioon', footerLicense: 'MIT litsents', footerIssues: 'Veateated',
+          },
+          es: {
+            title: 'You.Ge Assistant — zona de pruebas PWA',
+            navProduct: 'Producto', navFeatures: 'Funciones', navDocs: 'Documentación', navExamples: 'Ejemplos',
+            navStart: 'Comenzar', navMenu: 'Menú',
+            introKicker: 'ZONA DE PRUEBAS DE YOU.GE ASSISTANT',
+            introLine1: 'Una aplicación web más capaz.', introLine2: 'Una experiencia más clara.',
+            introLead: 'Prueba el kit PWA real: guía de instalación, uso compartido, diagnóstico de red y estado accionable. Tu aplicación mantiene el control de su service worker.',
+            introCta: 'Comenzar →', introExplore: 'Explorar en GitHub ↗',
+            introNote: 'SDK 0.3.0 · Independiente de framework · Código abierto',
+            introVisualAlt: 'Tu aplicación se conecta al SDK oficial de You.Ge Assistant para instalación y diagnóstico.',
+            cap1Title: 'Haz que los usuarios se sientan en casa.', cap1Body: 'Avisos de instalación y guía manual mediante el kit PWA opcional.',
+            cap2Title: 'Haz útil el estado de la app.', cap2Body: 'Conectividad, señales de servidor y sesión, y avisos priorizados en un estado SDK unificado.',
+            cap3Title: 'Conserva tu arquitectura.', cap3Body: 'Configura solo los módulos necesarios y conserva tu service worker actual.',
+            installCardTitle: 'Empieza con un paquete.', installCardBody: 'ESM, declaraciones TypeScript, cero dependencias centrales.',
+            installCardLink: 'Leer la guía práctica de integración →',
+            noteInstall: [['strong', 'Escritorio:'], ['text', ' esta demo usa '], ['code', 'data-desktop-qr'], ['text', ', por lo que abre el diálogo QR. '], ['strong', 'Android/Chrome:'], ['text', ' ejecuta '], ['code', 'beforeinstallprompt'], ['text', ' cuando el navegador lo ofrece.']],
+            noteNotifications: [['text', 'Push requiere claves VAPID y servidor — ver '], ['code', 'examples/push-server/'], ['text', '. Esta demo pública no envía notificaciones.']],
+            noteTheme: [['text', 'La misma configuración '], ['code', 'theme'], ['text', ': '], ['code', 'auto'], ['text', ' sigue la página y el sistema, '], ['code', 'light'], ['text', ' / '], ['code', 'dark'], ['text', ' fijan esquema y '], ['code', 'custom'], ['text', ' valida tokens.']],
+            noteMore: 'Compartir y push dependen del navegador. El envío requiere claves VAPID y servidor.',
+            footerCaption: 'Código abierto. Conectado con cuidado.', footerDocs: 'Documentación', footerLicense: 'Licencia MIT', footerIssues: 'Incidencias',
+          },
+        };
+
+        function setText(id, value) {
+          var node = document.getElementById(id);
+          if (node && typeof value === 'string') node.textContent = value;
+        }
+
+        function setRichNote(id, parts) {
+          var node = document.getElementById(id);
+          if (!node || !Array.isArray(parts)) return;
+          while (node.firstChild) node.removeChild(node.firstChild);
+          for (var i = 0; i < parts.length; i += 1) {
+            var kind = parts[i][0];
+            var text = parts[i][1];
+            if (kind === 'text') {
+              node.appendChild(document.createTextNode(text));
+            } else {
+              var el = document.createElement(kind === 'strong' ? 'strong' : 'code');
+              el.textContent = text;
+              node.appendChild(el);
+            }
+          }
+        }
+
+        function demoChrome(key) {
+          var dict = DEMO_CHROME[currentDemoLocale] || DEMO_CHROME.en;
+          return Object.prototype.hasOwnProperty.call(dict, key) ? dict[key] : DEMO_CHROME.en[key];
+        }
+
+        function applyDemoLocale(locale) {
+          var resolved = (typeof PWA.getLanguage === 'function' && locale === 'auto')
+            ? PWA.getLanguage()
+            : (locale && DEMO_I18N[locale] ? locale : (typeof PWA.getLanguage === 'function' ? PWA.getLanguage() : 'en'));
+          if (!DEMO_I18N[resolved]) resolved = 'en';
+          currentDemoLocale = resolved;
+          document.documentElement.setAttribute('lang', resolved);
+          var isRtl = ['ar', 'he', 'fa', 'ur'].indexOf(resolved) !== -1 ||
+            Boolean(PWA.wording && typeof PWA.wording.rtl === 'function' && PWA.wording.rtl());
+          document.documentElement.setAttribute('dir', isRtl ? 'rtl' : 'ltr');
+          document.title = demoChrome('title');
+
+          setText('nav-product', demoChrome('navProduct'));
+          setText('nav-features', demoChrome('navFeatures'));
+          setText('nav-docs', demoChrome('navDocs'));
+          setText('nav-examples', demoChrome('navExamples'));
+          setText('nav-start-label', demoChrome('navStart'));
+          setText('nav-menu-btn', demoChrome('navMenu'));
+          setText('intro-kicker-label', demoChrome('introKicker'));
+          setText('intro-title-line1', demoChrome('introLine1'));
+          setText('intro-title-line2', demoChrome('introLine2'));
+          setText('intro-lead', demoChrome('introLead'));
+          setText('intro-cta', demoChrome('introCta'));
+          setText('intro-explore', demoChrome('introExplore'));
+          setText('intro-note', demoChrome('introNote'));
+          var introVisual = document.getElementById('intro-visual');
+          if (introVisual) introVisual.setAttribute('alt', demoChrome('introVisualAlt'));
+          setText('cap1-title', demoChrome('cap1Title'));
+          setText('cap1-body', demoChrome('cap1Body'));
+          setText('cap2-title', demoChrome('cap2Title'));
+          setText('cap2-body', demoChrome('cap2Body'));
+          setText('cap3-title', demoChrome('cap3Title'));
+          setText('cap3-body', demoChrome('cap3Body'));
+          setText('install-card-title', demoChrome('installCardTitle'));
+          setText('install-card-body', demoChrome('installCardBody'));
+          setText('install-card-link', demoChrome('installCardLink'));
+          setRichNote('note-install', demoChrome('noteInstall'));
+          setRichNote('note-notifications', demoChrome('noteNotifications'));
+          setRichNote('note-theme', demoChrome('noteTheme'));
+          setText('note-more', demoChrome('noteMore'));
+          setText('product-footer-caption', demoChrome('footerCaption'));
+          setText('footer-docs', demoChrome('footerDocs'));
+          setText('footer-license', demoChrome('footerLicense'));
+          setText('footer-issues', demoChrome('footerIssues'));
+
+          setText('opt-language-auto', demoT('autoOption'));
+          setText('demo-heading-live', demoT('headingLive'));
+          setText('lbl-standalone', demoT('lblStandalone'));
+          setText('lbl-caninstall', demoT('lblCanInstall'));
+          setText('lbl-push', demoT('lblPush'));
+          setText('lbl-sw', demoT('lblSw'));
+          setText('demo-heading-install', demoT('headingInstall'));
+          setText('btn-install-dialog', demoT('btnInstallDialog'));
+          setText('btn-qr', demoT('btnQr'));
+          setText('btn-help', demoT('btnHelp'));
+          setText('demo-heading-diagnostics', demoT('headingDiagnostics'));
+          setText('btn-diagnostics', demoT('btnDiagnostics'));
+          setText('note-diagnostics', demoT('noteDiagnostics'));
+          setText('demo-heading-notifications', demoT('headingNotifications'));
+          setText('btn-permission', demoT('btnPermission'));
+          setText('btn-push-banner', demoT('btnPushBanner'));
+          setText('btn-badge', demoT('btnBadge'));
+          setText('btn-badge-clear', demoT('btnBadgeClear'));
+          setText('demo-heading-ui', demoT('headingUi'));
+          setText('btn-install-banner', demoT('btnInstallBanner'));
+          setText('btn-welcome', demoT('btnWelcome'));
+          setText('btn-flow', demoT('btnFlow'));
+          setText('btn-offline', demoT('btnOffline'));
+          setText('btn-reload', demoT('btnReload'));
+          setText('btn-toast', demoT('btnToast'));
+          setText('demo-heading-theme', demoT('headingTheme'));
+          setText('theme-modes-label', demoT('modeLabel'));
+          setText('btn-assistant-auto', demoT('btnThemeAuto'));
+          setText('btn-assistant-light', demoT('btnThemeLight'));
+          setText('btn-assistant-dark', demoT('btnThemeDark'));
+          setText('btn-assistant-custom', demoT('btnThemeCustom'));
+          setText('btn-assistant-host', demoT('btnThemeHost'));
+          setText('btn-assistant-invalid', demoT('btnThemeInvalid'));
+          setText('demo-heading-more', demoT('headingMore'));
+          setText('btn-history', demoT('btnHistory'));
+          setText('btn-history-read', demoT('btnHistoryRead'));
+          setText('btn-share', demoT('btnShare'));
+          setText('btn-cache', demoT('btnCache'));
+          setText('btn-subscribe', demoT('btnSubscribe'));
+          setText('btn-unsubscribe', demoT('btnUnsubscribe'));
+          setText('btn-track', demoT('btnTrack'));
+          setText('btn-theme', demoT('btnHelperTheme'));
+          setText('btn-update', demoT('btnUpdate'));
+          setText('btn-splash', demoT('btnSplash'));
+          setText('lbl-language', demoT('lblLanguage'));
+          setText('demo-heading-events', demoT('headingEvents'));
+          if (lines === 0) setText('log', demoT('waitingLog'));
+          setText('demo-footer', demoT('footer'));
+          setText('link-repo', demoT('linkRepo'));
+          setText('link-agents', demoT('linkAgents'));
+          setText('link-readme', demoT('linkReadme'));
+          setText('link-guide', demoT('linkGuide'));
+
+          var isStandaloneMode = typeof PWA.getState === 'function' && Boolean(PWA.getState().standalone);
+          document.querySelectorAll('.youge-install-button, .progressier-install-button').forEach(function (button) {
+            button.setAttribute('data-install', demoT('installBtn'));
+            button.setAttribute('data-installed', demoT('installedBtn'));
+            var lbl = button.querySelector('.pwa-btn-label');
+            if (lbl) lbl.textContent = isStandaloneMode ? demoT('installedBtn') : demoT('installBtn');
+          });
+        }
 
         function write(message) {
           if (lines === 0) log.textContent = '';
@@ -426,18 +1710,46 @@
 
         function refresh() {
           var state = PWA.getState();
-          set('s-standalone', state.standalone ? 'Yes' : 'No', state.standalone);
-          set('s-caninstall', state.canInstall ? 'Available' : 'Not offered', state.canInstall);
-          set('s-push', state.pushPermission || 'unsupported', state.pushPermission === 'granted');
+          set('s-standalone', state.standalone ? demoT('yes') : demoT('no'), state.standalone);
+          set('s-caninstall', state.canInstall ? demoT('available') : demoT('notOffered'), state.canInstall);
+          set('s-push', state.pushPermission || demoT('unsupported'), state.pushPermission === 'granted');
 
           if (!serviceWorkerSupported) {
-            set('s-sw', 'Unsupported', false);
+            set('s-sw', demoT('unsupported'), false);
             return;
           }
 
           var controlled = Boolean(navigator.serviceWorker.controller);
-          set('s-sw', controlled ? 'Active' : state.hasUpdate ? 'Update ready' : 'Not controlled', controlled);
+          set('s-sw', controlled ? demoT('swActive') : state.hasUpdate ? demoT('swUpdate') : demoT('swUncontrolled'), controlled);
         }
+
+        var select = document.getElementById('language-select');
+        var initialLang = (PWA.wording && PWA.wording.language) ? PWA.wording.language : 'auto';
+        var configuredInitial = 'auto';
+        try {
+          if (window.YouGeAssistant && typeof window.YouGeAssistant.getConfig === 'function') {
+            var assistantCfg = window.YouGeAssistant.getConfig();
+            if (assistantCfg && assistantCfg.locale && assistantCfg.locale !== 'auto') {
+              configuredInitial = assistantCfg.locale;
+            }
+          }
+          if (configuredInitial === 'auto' && window.YOU_GE_ASSISTANT_CONFIG &&
+              window.YOU_GE_ASSISTANT_CONFIG.locale && window.YOU_GE_ASSISTANT_CONFIG.locale !== 'auto') {
+            configuredInitial = window.YOU_GE_ASSISTANT_CONFIG.locale;
+          }
+          if (configuredInitial === 'auto' && window.YouGeDomain && typeof window.YouGeDomain.get === 'function') {
+            var domainCfg = window.YouGeDomain.get();
+            if (domainCfg && domainCfg.language && String(domainCfg.language).toLowerCase() !== 'auto') {
+              configuredInitial = String(domainCfg.language).toLowerCase().split(/[-_]/)[0];
+            }
+          }
+        } catch (err) { /* ignore */ }
+        if (select) {
+          var targetSelectVal = configuredInitial === 'auto' ? 'auto' : configuredInitial;
+          var optExists = Array.prototype.some.call(select.options, function (o) { return o.value === targetSelectVal; });
+          select.value = optExists ? targetSelectVal : 'auto';
+        }
+        applyDemoLocale(initialLang);
 
         PWA.onChange(refresh);
         document.getElementById('current-domain').textContent = window.location.hostname;
@@ -455,10 +1767,16 @@
           write('service workers are not supported in this browser');
         }
 
-        ['pwa:installable', 'pwa:installed', 'pwa:update', 'pwa:share', 'pwa:event', 'pwa:diagnostics'].forEach(function (name) {
+        ['pwa:installable', 'pwa:installed', 'pwa:install-dialog', 'pwa:update', 'pwa:share', 'pwa:event', 'pwa:diagnostics'].forEach(function (name) {
           document.addEventListener(name, function (event) {
             var detail = event.detail ? JSON.stringify(event.detail).slice(0, 160) : '';
             write(name + (detail ? '  ' + detail : ''));
+          });
+        });
+
+        document.getElementById('btn-install-dialog').addEventListener('click', function () {
+          PWA.showInstallDialog({ forced: true }).then(function (result) {
+            write('install dialog: ' + JSON.stringify(result));
           });
         });
 
@@ -479,7 +1797,7 @@
 
         document.getElementById('btn-push-banner').addEventListener('click', function () {
           PWA.showPushBanner({
-            text: 'Get notified when something happens.',
+            text: demoT('pushBannerText'),
             preview: true,
           });
         });
@@ -497,22 +1815,22 @@
         });
 
         document.getElementById('btn-install-banner').addEventListener('click', function () {
-          PWA.showInstallBanner({ text: 'Install this demo for offline use.', preview: true });
+          PWA.showInstallBanner({ text: demoT('installBannerText'), preview: true });
         });
 
         document.getElementById('btn-welcome').addEventListener('click', function () {
           PWA.showWelcome({
-            title: 'Welcome',
-            text: 'This modal, the banners and the install flows all come from pwa.js and pwa.css.',
-            items: ['No dependencies', 'Works from a subpath', 'Declarative install and legacy compatibility markup'],
+            title: demoT('welcomeTitle'),
+            text: demoT('welcomeText'),
+            items: demoT('welcomeItems'),
           });
         });
 
         document.getElementById('btn-flow').addEventListener('click', function () {
           PWA.showFlow({
-            title: 'Generic flow',
-            text: 'PWA.showFlow() renders the same modal used by the install help screens.',
-            button: 'Got it',
+            title: demoT('flowTitle'),
+            text: demoT('flowText'),
+            button: demoT('flowButton'),
           });
         });
 
@@ -525,7 +1843,7 @@
         });
 
         document.getElementById('btn-toast').addEventListener('click', function () {
-          PWA.notify('Saved');
+          PWA.notify(demoT('toastSaved'));
         });
 
         document.getElementById('btn-history').addEventListener('click', function () {
@@ -702,15 +2020,62 @@
           });
         });
 
+        var syncingDemoLocale = false;
+        function syncPlaygroundLocale(requestedLocale, skipLog) {
+          if (syncingDemoLocale) return;
+          syncingDemoLocale = true;
+          try {
+            applyDemoLocale(requestedLocale);
+            var language = (typeof PWA.setLanguage === 'function')
+              ? PWA.setLanguage(requestedLocale)
+              : PWA.wording.setLanguage(requestedLocale);
+            applyDemoLocale(requestedLocale === 'auto' ? language : requestedLocale);
+            if (typeof PWA.configureInstallExperience === 'function') {
+              PWA.configureInstallExperience({ locale: requestedLocale === 'auto' ? 'auto' : language });
+            }
+            if (window.YouGeAssistant && typeof window.YouGeAssistant.attach === 'function') {
+              var assistant = window.YouGeAssistant.attach();
+              if (typeof assistant.setLocale === 'function') {
+                assistant.setLocale(requestedLocale);
+              }
+            }
+            refresh();
+            if (!skipLog) {
+              write('wording & install locale: ' + language + ' (install label: ' + PWA.wording.get('install') + ')');
+            }
+          } finally {
+            syncingDemoLocale = false;
+          }
+        }
+
         document.getElementById('language-select').addEventListener('change', function (event) {
-          var language = PWA.wording.setLanguage(event.target.value);
-          write('wording language: ' + language + ' (install label: ' + PWA.wording.get('install') + ')');
+          syncPlaygroundLocale(event.target.value, false);
+        });
+
+        window.addEventListener('youge:locale-change', function (event) {
+          if (syncingDemoLocale) return;
+          var detail = (event && event.detail) || {};
+          var next = detail.configuredLocale === 'auto' ? 'auto' : (detail.requestedLocale || detail.locale);
+          if (!next) return;
+          if (select) {
+            var optExists = Array.prototype.some.call(select.options, function (o) { return o.value === next; });
+            select.value = optExists ? next : (detail.locale || 'auto');
+          }
+          applyDemoLocale(next === 'auto' ? (detail.locale || 'auto') : next);
+          refresh();
+        });
+
+        window.addEventListener('languagechange', function () {
+          if (select && select.value === 'auto') {
+            applyDemoLocale('auto');
+            refresh();
+          }
         });
       });
     </script>
   <footer class="product-footer"><div class="product-width">
   <a class="product-brand" href="example/"><img src="assistant-symbol.svg" width="30" height="30" alt="" />You.Ge <b>Assistant</b></a>
-  <span class="footer-caption">Open source. Thoughtfully connected.</span>
-  <nav aria-label="Footer"><a href="example/#integration">Documentation</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE">MIT license</a><a href="https://github.com/sandro-defender/you-ge-assistant/issues">Issues</a><a href="https://www.npmjs.com/package/@youge/assistant-sdk">npm ↗</a></nav>
+  <span class="footer-caption" id="product-footer-caption">Open source. Thoughtfully connected.</span>
+  <nav aria-label="Footer"><a href="example/#integration" id="footer-docs">Documentation</a><a href="https://github.com/sandro-defender/you-ge-assistant/blob/main/LICENSE" id="footer-license">MIT license</a><a href="https://github.com/sandro-defender/you-ge-assistant/issues" id="footer-issues">Issues</a><a href="https://www.npmjs.com/package/@youge/assistant-sdk">npm ↗</a></nav>
 </div></footer></body>
 </html>

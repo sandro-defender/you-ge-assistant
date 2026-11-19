@@ -97,12 +97,37 @@ export interface DomainDiagnosticsConfig {
   backendProbePath?: string;
 }
 
+export type InstallPresentationMode = 'manual' | 'auto';
+
+export interface InstallExperienceConfig {
+  enabled: boolean;
+  presentation: InstallPresentationMode;
+  locale: string;
+  installDescription: string;
+  disableInstallDescription: boolean;
+  disableScreenshots: boolean;
+  disableScreenshotsApple: boolean;
+  disableScreenshotsChrome: boolean;
+  manualHowTo: boolean;
+  disableChrome: boolean;
+  disableClose: boolean;
+  disableAndroidFallback: boolean;
+  useLocalStorage: boolean;
+  manifestUrl: string;
+  manifestId: string;
+  styles: Record<string, string>;
+}
+
+export type InstallExperienceInput = Partial<InstallExperienceConfig>;
+
 export interface DomainRegistryEntry {
+  language?: string;
   project?: ProjectConfig | null;
   identity?: Partial<DomainIdentity>;
   branding?: Partial<DomainBranding>;
   pwa?: Partial<DomainPwaSettings>;
   features?: Partial<DomainFeatures>;
+  installExperience?: InstallExperienceInput;
   instructions?: Record<string, unknown>;
   metadata?: Record<string, string>;
   shortcuts?: DomainShortcut[];
@@ -123,11 +148,13 @@ export interface LocationInput {
 }
 
 export interface ResolvedDomainConfig {
+  language: string;
   identity: DomainIdentity;
   project: ProjectConfig | null;
   branding: DomainBranding;
   pwa: DomainPwaSettings;
   features: DomainFeatures;
+  installExperience: InstallExperienceConfig;
   instructions: Record<string, unknown>;
   metadata: Record<string, string>;
   shortcuts: DomainShortcut[];
@@ -146,6 +173,7 @@ export interface GeneratedWebManifest {
   theme_color: string;
   background_color: string;
   dir: string;
+  lang?: string;
   icons: DomainManifestIcon[];
   categories: string[];
   prefer_related_applications: boolean;

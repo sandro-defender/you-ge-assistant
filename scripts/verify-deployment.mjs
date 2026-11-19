@@ -265,6 +265,7 @@ async function main() {
   section('Client assets');
   await checkAsset('/pwa.js', 'javascript', 'client script');
   await checkAsset('/pwa.css', 'text/css', 'component stylesheet');
+  await checkAsset('/pwa-install.js', 'javascript', 'install dialog web component');
   await checkAsset('/offline.html', 'text/html', 'offline page');
   await checkAsset('/offline.css', 'text/css', 'offline stylesheet');
   await checkAsset('/offline.js', 'javascript', 'offline script');

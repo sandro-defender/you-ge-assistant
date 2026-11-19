@@ -55,6 +55,118 @@
     update: 'Apply app update',
   };
 
+  var NOTICE_ACTION_KEYS = {
+    install: 'instructionsActionLabel',
+    diagnostics: 'actionDiagnosticsLabel',
+    recovery: 'actionRecoveryLabel',
+    help: 'actionHelpLabel',
+    'backup-status': 'actionBackupStatusLabel',
+    update: 'actionUpdateLabel',
+  };
+
+  var PRIMARY_STATUS_KEYS = {
+    unknown: 'widgetUnknown',
+    healthy: 'widgetHealthy',
+    failed: 'widgetFailed',
+    unavailable: 'widgetUnavailable',
+    degraded: 'widgetDegraded',
+  };
+
+  var BACKUP_STATUS_KEYS = {
+    unknown: 'widgetUnknown',
+    inactive: 'widgetInactive',
+    active: 'widgetActive',
+    failed: 'widgetFailed',
+  };
+
+  var EN_WIDGET_FALLBACKS = {
+    assistantName: 'You.Ge Assistant',
+    assistantSuffix: 'assistant',
+    noAlerts: 'No alerts',
+    noAlertsLower: 'no alerts',
+    noAlertsFabLabel: 'You.Ge Assistant, no alerts',
+    highestPriority: 'highest priority',
+    highestPrioritySentence: 'Highest priority',
+    installActionLabel: 'Install this app',
+    instructionsActionLabel: 'Installation instructions',
+    actionDiagnosticsLabel: 'Run network diagnostics',
+    actionRecoveryLabel: 'Recovery guidance',
+    actionOpenLabel: 'Open',
+    widgetStatusTitle: 'Connection status',
+    widgetStatusDesc: 'Live conditions reported by this project.',
+    widgetNetworkLabel: 'Network',
+    widgetOnline: 'Online',
+    widgetOffline: 'Offline',
+    widgetPrimaryApiLabel: 'Primary API',
+    widgetBackupLabel: 'Backup',
+    widgetDnsLabel: 'DNS',
+    widgetUnknown: 'unknown',
+    widgetInactive: 'inactive',
+    widgetNotChecked: 'not checked',
+    widgetAttentionTitle: 'What needs attention',
+    widgetAttentionDesc: 'Ordered by priority. Critical recovery stays visible until resolved or acknowledged.',
+    widgetAllClear: 'All clear — nothing needs your attention right now.',
+    widgetInstallationTitle: 'Installation',
+    widgetInstallIos: 'iPhone/iPad: open Share in Safari, then choose Add to Home Screen.',
+    widgetInstallNative: 'This browser offers a native install prompt. Use the install action below.',
+    widgetInstallGeneric: 'Desktop/mobile: open your browser menu and choose Install app, or Add to Home Screen.',
+    widgetDiagnosticsTitle: 'Diagnostics & recovery',
+    widgetDiagnosticsDesc: 'Checks run only when you choose; no background probing.',
+    widgetRecoverySummary: 'Recovery guidance',
+    widgetRecoveryStep1: 'Confirm device connectivity and retry diagnostics.',
+    widgetRecoveryStep2: 'If a backup endpoint is configured, let the project switch to it.',
+    widgetRecoveryStep3: 'If DNS results disagree, check DNS propagation before changing provider settings.',
+    widgetRecoveryStep4: 'Contact the project support channel if the primary API stays unavailable.',
+    widgetMoreActionsTitle: 'More actions',
+    widgetMoreActionsDesc: 'Other actions available for this project.',
+    widgetAdjustTitle: 'Adjust icon',
+    widgetAdjustDesc: 'Size and position are saved on this device. Reset returns to the automatic defaults.',
+    widgetAdjustSize: 'Icon size',
+    widgetAdjustX: 'Horizontal position',
+    widgetAdjustY: 'Vertical position',
+    widgetAdjustReset: 'Reset to automatic defaults',
+    widgetAcknowledge: 'Acknowledge',
+    widgetDismiss: 'Dismiss',
+    widgetClosePanel: 'Close assistant panel',
+    chromeOpenLabel: 'Open in Chrome',
+    chromeDismissLabel: 'Not now',
+    chromeCopyLabel: 'Copy address',
+    chromeCopiedLabel: 'Address copied.',
+    chromeCopyManual: 'Select the address above to copy it manually.',
+  };
+
+  function activeLocale(state) {
+    if (state && state.locale) return state.locale;
+    try {
+      if (api && typeof api.getLocale === 'function') return api.getLocale();
+    } catch (error) { /* ignore */ }
+    var sdk = root.YouGeAssistantSDK;
+    if (sdk && typeof sdk.resolveLocale === 'function') {
+      return sdk.resolveLocale({ navigator: root.navigator });
+    }
+    return 'en';
+  }
+
+  function t(state, key, fallback) {
+    var sdk = root.YouGeAssistantSDK;
+    var locale = activeLocale(state);
+    if (sdk && typeof sdk.translate === 'function') {
+      return sdk.translate(locale, key);
+    }
+    return Object.prototype.hasOwnProperty.call(EN_WIDGET_FALLBACKS, key)
+      ? EN_WIDGET_FALLBACKS[key]
+      : (fallback || key);
+  }
+
+  function formatAlerts(state, count) {
+    var sdk = root.YouGeAssistantSDK;
+    var locale = activeLocale(state);
+    if (sdk && typeof sdk.formatAlertCount === 'function') {
+      return sdk.formatAlertCount(locale, count);
+    }
+    return count + (count === 1 ? ' alert' : ' alerts');
+  }
+
   // Toolkit hooks delegated by pwa.js. Without the matching attribute a button
   // would only dispatch `youge:action` and appear dead on pages that rely on
   // the toolkit's own install/diagnostics handling, so every control for these
@@ -419,13 +531,13 @@
 
   function updateFab(state) {
     if (!fab || !badge || !state) return;
-    var badgeState = state.badge || { count: 0, tone: 'none', label: 'No alerts' };
+    var badgeState = state.badge || { count: 0, tone: 'none', label: t(state, 'noAlerts') };
     var count = badgeState.count || 0;
     var tone = badgeState.tone || 'none';
-    var label = state.project && state.project.name ? state.project.name : 'You.Ge Assistant';
-    var accessible = label + ' assistant';
-    if (count) accessible += ', ' + count + (count === 1 ? ' alert' : ' alerts') + ', highest priority: ' + badgeState.label;
-    else accessible += ', no alerts';
+    var label = state.project && state.project.name ? state.project.name : t(state, 'assistantName');
+    var accessible = label + ' ' + t(state, 'assistantSuffix');
+    if (count) accessible += ', ' + formatAlerts(state, count) + ', ' + t(state, 'highestPriority') + ': ' + badgeState.label;
+    else accessible += ', ' + t(state, 'noAlertsLower');
     fab.setAttribute('aria-label', accessible);
     fab.setAttribute('data-tone', tone);
     var badgeText = count > 9 ? '9+' : String(count);
@@ -436,8 +548,8 @@
       badge.hidden = count === 0;
     }
     var liveText = count
-      ? label + ': ' + count + (count === 1 ? ' alert' : ' alerts') + '. Highest priority: ' + badgeState.label + '.'
-      : label + ': no alerts.';
+      ? label + ': ' + formatAlerts(state, count) + '. ' + t(state, 'highestPrioritySentence') + ': ' + badgeState.label + '.'
+      : label + ': ' + t(state, 'noAlertsLower') + '.';
     if (live && liveText !== lastLiveLabel) {
       live.textContent = liveText;
       lastLiveLabel = liveText;
@@ -446,21 +558,31 @@
 
   // Only called while installation is available: an installed app or a
   // browser without install support has no Installation section at all.
-  function installationText(installation) {
-    if (installation.support === 'manual-ios') return 'iPhone/iPad: open Share in Safari, then choose Add to Home Screen.';
-    if (installation.support === 'native') return 'This browser offers a native install prompt. Use the install action below.';
-    return 'Desktop/mobile: open your browser menu and choose Install app, or Add to Home Screen.';
+  function installationText(state, installation) {
+    if (installation.support === 'manual-ios') return t(state, 'widgetInstallIos');
+    if (installation.support === 'native') return t(state, 'widgetInstallNative');
+    return t(state, 'widgetInstallGeneric');
   }
 
   function networkText(state) {
     var network = state.network || {};
     var endpoints = network.endpoints || {};
     var dns = network.dns || {};
+    var sdk = root.YouGeAssistantSDK;
+    var locale = activeLocale(state);
+    var primaryKey = PRIMARY_STATUS_KEYS[endpoints.primary];
+    var backupKey = BACKUP_STATUS_KEYS[endpoints.backup];
+    var dnsText = t(state, 'widgetNotChecked');
+    if (dns.classification) {
+      dnsText = sdk && typeof sdk.localizeDnsClassification === 'function'
+        ? sdk.localizeDnsClassification(locale, dns.classification, dns.status)
+        : String(dns.classification).replace(/_/g, ' ');
+    }
     return {
-      online: network.online === false ? 'Offline' : 'Online',
-      primary: endpoints.primary || 'unknown',
-      backup: endpoints.backup || 'inactive',
-      dns: dns.classification ? String(dns.classification).replace(/_/g, ' ') : 'not checked',
+      online: network.online === false ? t(state, 'widgetOffline') : t(state, 'widgetOnline'),
+      primary: primaryKey ? t(state, primaryKey) : (endpoints.primary || t(state, 'widgetUnknown')),
+      backup: backupKey ? t(state, backupKey) : (endpoints.backup || t(state, 'widgetInactive')),
+      dns: dnsText,
     };
   }
 
@@ -550,19 +672,24 @@
     var controls = el('div', 'youge-notice-controls');
     if (notice.actionId && actionEnabled(state, notice.actionId) && claim(notice.actionId)) {
       var linked = noticeAction(notice, actions || []);
+      var actionFallbackKey = NOTICE_ACTION_KEYS[notice.actionId];
+      var actionLabel = (linked && linked.label)
+        || (actionFallbackKey ? t(state, actionFallbackKey, NOTICE_ACTION_LABELS[notice.actionId]) : null)
+        || NOTICE_ACTION_LABELS[notice.actionId]
+        || t(state, 'actionOpenLabel');
       controls.appendChild(actionButton(
         notice.actionId,
-        (linked && linked.label) || NOTICE_ACTION_LABELS[notice.actionId] || 'Open',
+        actionLabel,
         (linked && linked.icon) || 'custom',
         'youge-btn youge-btn-small'
       ));
     }
     if (notice.critical) {
-      var ack = button('Acknowledge', 'recovery', 'youge-btn youge-btn-quiet youge-btn-small');
+      var ack = button(t(state, 'widgetAcknowledge'), 'recovery', 'youge-btn youge-btn-quiet youge-btn-small');
       ack.setAttribute('data-acknowledge', notice.id);
       controls.appendChild(ack);
     } else if (notice.dismissible !== false) {
-      var dismiss = button('Dismiss', 'close', 'youge-btn youge-btn-quiet youge-btn-small');
+      var dismiss = button(t(state, 'widgetDismiss'), 'close', 'youge-btn youge-btn-quiet youge-btn-small');
       dismiss.setAttribute('data-dismiss', notice.id);
       controls.appendChild(dismiss);
     }
@@ -692,29 +819,31 @@
     panelBody.appendChild(identity);
 
     // Connection status
-    var status = section('Connection status', 'Live conditions reported by this project.');
+    var status = section(t(state, 'widgetStatusTitle'), t(state, 'widgetStatusDesc'));
     var statusGrid = el('div', 'youge-status-grid');
     var net = networkText(state);
-    statusGrid.appendChild(statusRow('Network', net.online, state.network.online === false ? 'critical' : 'ok'));
-    statusGrid.appendChild(statusRow('Primary API', net.primary, /failed|unavailable|degraded/.test(net.primary) ? 'critical' : 'ok'));
+    statusGrid.appendChild(statusRow(t(state, 'widgetNetworkLabel'), net.online, state.network.online === false ? 'critical' : 'ok'));
+    statusGrid.appendChild(statusRow(t(state, 'widgetPrimaryApiLabel'), net.primary, /failed|unavailable|degraded/.test(String((state.network && state.network.endpoints && state.network.endpoints.primary) || '')) ? 'critical' : 'ok'));
     // Failover UI is not shown when the project disabled it.
     if (capabilities.failover) {
-      statusGrid.appendChild(statusRow('Backup', net.backup, net.backup === 'active' ? 'backup' : 'neutral'));
+      var rawBackup = (state.network && state.network.endpoints && state.network.endpoints.backup) || '';
+      statusGrid.appendChild(statusRow(t(state, 'widgetBackupLabel'), net.backup, rawBackup === 'active' ? 'backup' : 'neutral'));
     }
-    statusGrid.appendChild(statusRow('DNS', net.dns, /failure|missing|interference/.test(net.dns) ? 'critical' : 'neutral'));
+    var rawDns = String((state.network && state.network.dns && state.network.dns.classification) || '');
+    statusGrid.appendChild(statusRow(t(state, 'widgetDnsLabel'), net.dns, /failure|missing|interference/.test(rawDns) ? 'critical' : 'neutral'));
     status.appendChild(statusGrid);
     panelBody.appendChild(status);
 
     // Prioritized notifications. The empty state is said once.
-    var notices = section('What needs attention', notifications.length
-      ? 'Ordered by priority. Critical recovery stays visible until resolved or acknowledged.'
+    var notices = section(t(state, 'widgetAttentionTitle'), notifications.length
+      ? t(state, 'widgetAttentionDesc')
       : '');
     if (notifications.length) {
       var list = el('div', 'youge-notice-list');
       notifications.forEach(function (notice) { list.appendChild(renderNotice(notice, availableActions, state, claimForNotice)); });
       notices.appendChild(list);
     } else {
-      notices.appendChild(el('p', 'youge-empty', 'All clear — nothing needs your attention right now.'));
+      notices.appendChild(el('p', 'youge-empty', t(state, 'widgetAllClear')));
     }
     panelBody.appendChild(notices);
 
@@ -723,9 +852,9 @@
     // section when nothing can be installed (already installed, unsupported
     // browser, or the project disabled installation).
     if (installable) {
-      var install = section('Installation', installationText(state.installation));
+      var install = section(t(state, 'widgetInstallationTitle'), installationText(state, state.installation));
       install.appendChild(actionButton(
-        'install', state.installation.nativeAvailable ? 'Install this app' : 'Installation instructions', 'install'));
+        'install', state.installation.nativeAvailable ? t(state, 'installActionLabel') : t(state, 'instructionsActionLabel'), 'install'));
       panelBody.appendChild(install);
     }
 
@@ -734,17 +863,20 @@
     // all, so there is no hidden button left for a delegated handler or a
     // stray click to activate.
     if (capabilities.diagnostics || capabilities.recovery) {
-      var diagnostics = section('Diagnostics & recovery', 'Checks run only when you choose; no background probing.');
+      var diagnostics = section(t(state, 'widgetDiagnosticsTitle'), t(state, 'widgetDiagnosticsDesc'));
       if (capabilities.diagnostics) {
         var diagnosticsRow = el('div', 'youge-action-row');
-        diagnosticsRow.appendChild(actionButton('diagnostics', 'Run network diagnostics', 'diagnostics'));
+        diagnosticsRow.appendChild(actionButton('diagnostics', t(state, 'actionDiagnosticsLabel'), 'diagnostics'));
         diagnostics.appendChild(diagnosticsRow);
       }
       if (capabilities.recovery) {
         var recovery = el('details', 'youge-recovery');
-        recovery.appendChild(el('summary', '', 'Recovery guidance'));
+        recovery.appendChild(el('summary', '', t(state, 'widgetRecoverySummary')));
         var steps = el('ol', 'youge-steps');
-        RECOVERY_STEPS.forEach(function (step) { steps.appendChild(el('li', '', step)); });
+        var stepKeys = ['widgetRecoveryStep1', 'widgetRecoveryStep2', 'widgetRecoveryStep3', 'widgetRecoveryStep4'];
+        stepKeys.forEach(function (stepKey, idx) {
+          steps.appendChild(el('li', '', t(state, stepKey, RECOVERY_STEPS[idx])));
+        });
         recovery.appendChild(steps);
         if (recoveryOpen) recovery.open = true;
         diagnostics.appendChild(recovery);
@@ -760,7 +892,7 @@
       if (action && action.id != null && claim(action.id)) extra.push(action);
     });
     if (extra.length) {
-      var actions = section('More actions', 'Other actions available for this project.');
+      var actions = section(t(state, 'widgetMoreActionsTitle'), t(state, 'widgetMoreActionsDesc'));
       var actionList = el('div', 'youge-action-list');
       extra.forEach(function (action) {
         var node = actionButton(String(action.id), action.label, action.icon || 'custom');
@@ -774,7 +906,7 @@
 
     // Manual icon adjustment (size / horizontal / vertical), collapsed so the
     // main panel still reads at a glance.
-    var adjust = renderAdjustSection();
+    var adjust = renderAdjustSection(state);
     if (adjustOpen) adjust.open = true;
     panelBody.appendChild(adjust);
 
@@ -789,20 +921,20 @@
    * to the automatic responsive defaults on demand.                  *
    * ---------------------------------------------------------------- */
 
-  function renderAdjustSection() {
+  function renderAdjustSection(state) {
     var wrap = el('details', 'youge-adjust');
-    wrap.appendChild(el('summary', '', 'Adjust icon'));
+    wrap.appendChild(el('summary', '', t(state, 'widgetAdjustTitle')));
     wrap.appendChild(
       el(
         'p',
         'youge-section-desc',
-        'Size and position are saved on this device. Reset returns to the automatic defaults.'
+        t(state, 'widgetAdjustDesc')
       )
     );
-    wrap.appendChild(renderAdjustRow('size', 'Icon size', 44, 72, effectiveSize(), 'px'));
-    wrap.appendChild(renderAdjustRow('x', 'Horizontal position', 0, 160, effectiveOffset('x'), 'px'));
-    wrap.appendChild(renderAdjustRow('y', 'Vertical position', 0, 160, effectiveOffset('y'), 'px'));
-    var reset = button('Reset to automatic defaults', 'custom', 'youge-btn youge-btn-small youge-adjust-reset');
+    wrap.appendChild(renderAdjustRow('size', t(state, 'widgetAdjustSize'), 44, 72, effectiveSize(), 'px'));
+    wrap.appendChild(renderAdjustRow('x', t(state, 'widgetAdjustX'), 0, 160, effectiveOffset('x'), 'px'));
+    wrap.appendChild(renderAdjustRow('y', t(state, 'widgetAdjustY'), 0, 160, effectiveOffset('y'), 'px'));
+    var reset = button(t(state, 'widgetAdjustReset'), 'custom', 'youge-btn youge-btn-small youge-adjust-reset');
     reset.setAttribute('data-adjust-reset', '');
     wrap.appendChild(reset);
     return wrap;
@@ -874,33 +1006,56 @@
    * detection; normal Chrome/Safari/unknown browsers never see it.  *
    * ---------------------------------------------------------------- */
 
+  function updateChromeOfferStrings(state) {
+    if (!chromeOffer || !chromeOfferEl) return;
+    var sdk = root.YouGeAssistantSDK;
+    var labels = sdk && typeof sdk.chromeHandoffLabels === 'function'
+      ? sdk.chromeHandoffLabels(activeLocale(state))
+      : null;
+    if (labels && sdk && typeof sdk.chromeHandoffInstructions === 'function') {
+      chromeInstructions = sdk.chromeHandoffInstructions(root.location && root.location.href, labels);
+    } else {
+      chromeInstructions = chromeOffer.instructions(root.location && root.location.href);
+    }
+    var text = chromeOfferEl.querySelector('[data-chrome-text]');
+    var openButton = chromeOfferEl.querySelector('[data-chrome-open]');
+    var dismissButton = chromeOfferEl.querySelector('[data-chrome-dismiss]');
+    var copyButton = chromeOfferEl.querySelector('[data-chrome-copy]');
+    if (openButton) chromeOfferEl.setAttribute('aria-label', chromeInstructions.openLabel || t(state, 'chromeOpenLabel'));
+    if (text && chromeInstructions.intro) text.textContent = chromeInstructions.intro;
+    if (openButton) openButton.textContent = chromeInstructions.openLabel || t(state, 'chromeOpenLabel');
+    if (dismissButton) dismissButton.textContent = chromeInstructions.dismissLabel || t(state, 'chromeDismissLabel');
+    if (copyButton) copyButton.textContent = chromeInstructions.copyLabel || t(state, 'chromeCopyLabel');
+    if (chromeFallbackEl && !chromeFallbackEl.hidden && chromeStepsEl && chromeUrlEl) {
+      while (chromeStepsEl.firstChild) chromeStepsEl.removeChild(chromeStepsEl.firstChild);
+      (chromeInstructions.steps || []).forEach(function (step) {
+        chromeStepsEl.appendChild(el('li', '', step));
+      });
+    }
+  }
+
   function setupChromeOffer() {
     if (!chromeOfferEl) return;
     var sdk = root.YouGeAssistantSDK;
     if (!sdk || typeof sdk.createChromeHandoff !== 'function') return;
+    var state = null;
     try {
-      var state = api.getState();
+      state = api.getState();
       if (state && state.capabilities && state.capabilities.chromeHandoff === false) return;
     } catch (error) { return; }
     if (readStorage('youge-assistant:chrome-offer-dismissed') === '1') return;
+    var labels = sdk.chromeHandoffLabels ? sdk.chromeHandoffLabels(activeLocale(state)) : undefined;
     chromeOffer = sdk.createChromeHandoff({
       userAgent: root.navigator && root.navigator.userAgent,
       location: root.location || null,
       document: doc,
+      labels: labels,
     });
     if (!chromeOffer || typeof chromeOffer.shouldOffer !== 'function' || !chromeOffer.shouldOffer()) {
       chromeOffer = null;
       return;
     }
-    chromeInstructions = chromeOffer.instructions(root.location && root.location.href);
-    var text = chromeOfferEl.querySelector('[data-chrome-text]');
-    var openButton = chromeOfferEl.querySelector('[data-chrome-open]');
-    var dismissButton = chromeOfferEl.querySelector('[data-chrome-dismiss]');
-    var copyButton = chromeOfferEl.querySelector('[data-chrome-copy]');
-    if (text && chromeInstructions.intro) text.textContent = chromeInstructions.intro;
-    if (openButton) openButton.textContent = chromeInstructions.openLabel || 'Open in Chrome';
-    if (dismissButton) dismissButton.textContent = chromeInstructions.dismissLabel || 'Not now';
-    if (copyButton) copyButton.textContent = chromeInstructions.copyLabel || 'Copy address';
+    updateChromeOfferStrings(state);
     chromeOfferEl.hidden = false;
   }
 
@@ -931,12 +1086,13 @@
   }
 
   function copyChromeUrl() {
+    var state = api.getState();
     var url = (chromeInstructions && chromeInstructions.url) || (root.location && root.location.href) || '';
     var report = function (ok) {
       if (!chromeStatusEl) return;
       chromeStatusEl.textContent = ok
-        ? ((chromeInstructions && chromeInstructions.copiedLabel) || 'Address copied.')
-        : 'Select the address above to copy it manually.';
+        ? ((chromeInstructions && chromeInstructions.copiedLabel) || t(state, 'chromeCopiedLabel'))
+        : t(state, 'chromeCopyManual');
     };
     try {
       if (root.navigator && root.navigator.clipboard && typeof root.navigator.clipboard.writeText === 'function') {
@@ -1041,12 +1197,15 @@
   }
 
   function toolkitDialogOpen() {
-    // pwa.js opens install/diagnostics flows as `.pwa-flow` dialogs on top of
-    // the panel. Those flows own Escape: closing the panel at the same time
-    // would drop the user out of the flow and strand focus.
+    // pwa.js opens install/diagnostics flows as `.pwa-flow` / `[data-pwa-help]`
+    // / `<pwa-install>` dialogs on top of the panel. Those flows own Escape:
+    // closing the panel at the same time would drop the user out of the flow
+    // and strand focus.
     if (!doc || typeof doc.querySelector !== 'function') return false;
     try {
-      return Boolean(doc.querySelector('.pwa-flow'));
+      if (doc.querySelector('.pwa-flow, [data-pwa-help]')) return true;
+      var installEl = doc.querySelector('pwa-install');
+      return Boolean(installEl && installEl.isInstallAvailable && !installEl.isDialogHidden);
     } catch (error) {
       return false;
     }
@@ -1059,8 +1218,21 @@
   }
 
   function onState(state) {
+    if (mount && state) {
+      var lang = activeLocale(state);
+      mount.setAttribute('lang', lang);
+      mount.setAttribute('dir', state.dir || 'ltr');
+    }
+    if (closeButton) closeButton.setAttribute('aria-label', t(state, 'widgetClosePanel'));
+    var titleEl = doc.getElementById('youge-assistant-title');
+    if (titleEl && state && state.project && state.project.name) {
+      titleEl.textContent = state.project.name;
+    } else if (titleEl) {
+      titleEl.textContent = t(state, 'assistantName');
+    }
     applyAppearance(state);
     updateFab(state);
+    updateChromeOfferStrings(state);
     if (isOpen) renderPanel(state);
   }
 
@@ -1077,7 +1249,8 @@
     fab.setAttribute('data-role', 'toggle');
     fab.setAttribute('aria-expanded', 'false');
     fab.setAttribute('aria-controls', PANEL_ID);
-    fab.setAttribute('aria-label', 'You.Ge Assistant, no alerts');
+    var initState = typeof api.getState === 'function' ? api.getState() : null;
+    fab.setAttribute('aria-label', t(initState, 'noAlertsFabLabel'));
     fab.appendChild(icon('assistant'));
     badge = el('span', 'youge-badge');
     badge.setAttribute('aria-hidden', 'true');
@@ -1094,7 +1267,7 @@
     // confirms a confident restricted in-app detection through the SDK.
     chromeOfferEl = el('div', 'youge-chrome-offer');
     chromeOfferEl.setAttribute('role', 'region');
-    chromeOfferEl.setAttribute('aria-label', 'Open in Chrome');
+    chromeOfferEl.setAttribute('aria-label', t(initState, 'chromeOpenLabel'));
     chromeOfferEl.hidden = true;
     var offerText = el('p', 'youge-chrome-offer-text');
     offerText.setAttribute('data-chrome-text', '');
@@ -1137,11 +1310,11 @@
     panel.setAttribute('aria-modal', 'false');
     panel.setAttribute('aria-labelledby', 'youge-assistant-title');
     var header = el('header', 'youge-panel-header');
-    header.appendChild(el('h2', 'youge-panel-title', 'You.Ge Assistant')).id = 'youge-assistant-title';
+    header.appendChild(el('h2', 'youge-panel-title', t(initState, 'assistantName'))).id = 'youge-assistant-title';
     closeButton = el('button', 'youge-close');
     closeButton.type = 'button';
     closeButton.setAttribute('data-role', 'close');
-    closeButton.setAttribute('aria-label', 'Close assistant panel');
+    closeButton.setAttribute('aria-label', t(initState, 'widgetClosePanel'));
     closeButton.appendChild(icon('close'));
     header.appendChild(closeButton);
     panel.appendChild(header);

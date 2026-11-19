@@ -828,6 +828,15 @@ test('Escape stays with an open toolkit dialog and still closes the panel on its
   assert.equal(panel.hidden, false, 'Escape while a toolkit dialog is on top must not close the panel behind it');
 
   ctx.document.body.removeChild(flow);
+
+  const installHost = ctx.document.createElement('pwa-install');
+  installHost.isInstallAvailable = true;
+  installHost.isDialogHidden = false;
+  ctx.document.body.appendChild(installHost);
+  escape();
+  assert.equal(panel.hidden, false, 'Escape while <pwa-install> dialog is open must not close the panel behind it');
+
+  installHost.isDialogHidden = true;
   escape();
   assert.equal(root.querySelector('[data-role="toggle"]').getAttribute('aria-expanded'), 'false', 'Escape still closes the panel when nothing else is open');
   widget.destroy();

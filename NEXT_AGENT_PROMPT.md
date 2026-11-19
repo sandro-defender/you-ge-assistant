@@ -1,3 +1,13 @@
+# Next Agent Prompt — review `<pwa-install>` integration and multilingual localization
+
+Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/operations/PRECACHE_INTEGRITY.md` §12, `docs/guides/INSTALLATION_EXPERIENCE.md` §5, and `THIRD_PARTY_NOTICES.md`. Work only on `arena/b025b717-you-ge-assistant` (base `b256c49`). The implementation is complete: `@khmyznikov/pwa-install@0.7.0` is vendored as the self-contained optional runtime `src/runtime/pwa-install.js` with MIT attribution and 35 built-in locales (including native Georgian `ka`, Russian `ru`, Estonian `et`, `nb`/`nn->no`, and accessible close labels); `pwa.js`, `dns-diagnostics.js`, `offline.{html,js}`, `assistant-widget.js`, `@youge/assistant-sdk/i18n`, `assistant-state.js`, and both example surfaces are unified across all 12 core locales (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`) with bidirectional locale sync, runtime-only `setLocale`, `domainRegistry` defaults, and `Escape` dialog ownership. Kit `1.2.6` is owner-authorized because precached assets changed; SDK package remains `0.3.0`.
+
+Verification highlights: `node scripts/check.mjs`, `validate-package.mjs`, `npm run test:sdk` (142/142), `examples/example` typecheck & build, `sync-pages-examples.mjs --check`, `assemblePages({ skipBuild: true })`, and `node scripts/precache-integrity.mjs` (`1.2.5 → 1.2.6` across 14 precached assets) all pass. Full `node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs` finishes 613/614 (the sole failure is the pre-existing `@playwright/test` dependency assertion on base `main` at `tests/example-theme.test.mjs:149`). Physical Safari/Chromium browser testing of `<pwa-install>` and Playwright e2e tests remain recommended before release; do not merge, publish, deploy, or bump versions without authorization.
+
+---
+
+## Historical prompt (superseded)
+
 # Next Agent Prompt — review audited runtime follow-up
 
 Read `AGENTS.md`, the current `AGENT_HANDOFF.md`, `docs/operations/PRECACHE_INTEGRITY.md` §11 and the focused regression files. Work only on `arena/a259b4d2-you-ge-assistant` (base `73a4c61`). The implementation is complete: service-worker notification/action/fallback/hash targets are confined to the registered scope; global DNS run options preserve caller cancellation; classic PWA controls use native semantics, focus cleanup and visible focus rings; and legacy install-button flags are enforced. Kit `1.2.5` is owner-authorized because precached assets changed; SDK package remains `0.3.0`.

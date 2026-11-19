@@ -107,10 +107,14 @@ test('all five notification levels are demonstrated with icon, label and action'
     assert.ok(studioSource.includes(`level === '${level}'`), `${level} has demonstration copy`);
     assert.match(exampleCss, new RegExp(`\\.notice-demo\\[data-level="${level}"\\]`), `${level} has its own presentation`);
   }
-  assert.match(studioSource, />Acknowledge<\/button>/, 'critical is acknowledged');
-  assert.match(studioSource, />Dismiss<\/button>/, 'non-critical levels are dismissible');
+  assert.match(studioSource, />(?:Acknowledge|\{dict\.acknowledge\})<\/button>/, 'critical is acknowledged');
+  assert.match(studioSource, />(?:Dismiss|\{dict\.dismiss\})<\/button>/, 'non-critical levels are dismissible');
   assert.match(widgetSource, /data-level=\{notice\.level\}/, 'the live widget list uses the level attribute');
-  assert.match(widgetSource, /aria-label=\{`\$\{notificationLevelLabel\(notice\.level\)\} notice`\}/, 'the level is announced');
+  assert.match(
+    widgetSource,
+    /aria-label=\{tExample\([^)]*'noticeAria',\s*\{\s*level:\s*notificationLevelLabel\(notice\.level,\s*activeLocale\)\s*\}\)\}/,
+    'the level is announced',
+  );
 });
 
 test('severity never relies on colour alone', () => {
@@ -123,8 +127,8 @@ test('severity never relies on colour alone', () => {
 });
 
 test('the example keeps accessibility: focus, grouping, labels and motion', () => {
-  assert.match(studioSource, /role="radiogroup" aria-label="Theme mode"/, 'mode selection is a labelled radio group');
-  assert.match(studioSource, /role="radiogroup" aria-label="Preview scheme"/, 'scheme override is a labelled radio group');
+  assert.match(studioSource, /role="radiogroup" aria-label=\{dict\.tsThemeModeLegend\}/, 'mode selection is a labelled radio group');
+  assert.match(studioSource, /role="radiogroup" aria-label=\{dict\.tsPreviewSchemeLegend\}/, 'scheme override is a labelled radio group');
   assert.match(studioSource, /aria-labelledby="theme-studio-title"/, 'the section is labelled by its heading');
   assert.match(studioSource, /role="status"/, 'validator feedback is announced');
   assert.match(studioSource, /<legend>/, 'each control group has a legend');
@@ -153,7 +157,7 @@ test('the example adds no dependency and changes no package version', () => {
     'theming adds no dependency to the example',
   );
   assert.match(deps['@youge/assistant-sdk'], /^file:/, 'the example consumes the local SDK');
-  assert.equal(rootPkg.version, '1.2.5', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
+  assert.equal(rootPkg.version, '1.2.6', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
   assert.deepEqual(
     Object.keys(rootPkg.dependencies || {}),
     [],

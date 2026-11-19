@@ -28,6 +28,7 @@ import YouGeAssistantDefault, {
   requestPwaUpdate,
   resolveAssistantConfig,
   resolveDomain,
+  resolveInstallationCopy,
   validatePublishedConfig,
 } from '../src/index.js';
 import * as domainSubpath from '../src/domain/index.js';
@@ -95,7 +96,7 @@ function makeHostEnv(overrides = {}) {
 test('exposes explicit, documented public exports on root and subpath entry points', () => {
   assert.equal(YouGeAssistantDefault, YouGeAssistant);
   assert.equal(typeof SDK_VERSION, 'string');
-  assert.equal(KIT_COMPAT_VERSION, '1.2.5');
+  assert.equal(KIT_COMPAT_VERSION, '1.2.6');
   assert.equal(SCHEMA_VERSION, 1);
   assert.deepEqual(PRIORITY, { critical: 1, auth: 2, backup: 3, install: 4, info: 5 });
   assert.equal(typeof YouGeAssistant.create, 'function');
@@ -313,5 +314,83 @@ test('an unchanged state keeps snapshot identity and does not churn listeners', 
   assert.notEqual(assistant.getState(), before, 'a real change produces a new snapshot');
 
   unsubscribe();
+  assistant.destroy();
+});
+
+test('installExperience defaults, Georgian (ka) localization copy, sanitization and dialog delegation work cleanly', async () => {
+  const copyEn = resolveInstallationCopy('en');
+  const copyKa = resolveInstallationCopy('ka-GE');
+  assert.equal(copyEn.language, 'en');
+  assert.equal(copyKa.language, 'ka');
+  assert.match(copyKa.installAvailableTitle, /დაყენება/);
+  assert.match(copyKa.iosShortcutHint, /გაზიარება/);
+  assert.equal(EVENT_NAMES.pwaInstallDialog, 'pwa:install-dialog');
+
+  const { root } = makeHostEnv();
+  const dialogCalls = [];
+  root.YouGePWA = {
+    __youGePwaKit: true,
+    version: '1.2.6',
+    getState: () => ({
+      standalone: false,
+      installed: false,
+      canInstall: true,
+      hasUpdate: false,
+      installComponentEnabled: true,
+      installComponentLoaded: true,
+      installDialogOpen: false,
+      installPresentation: 'manual',
+      installLocale: 'ka',
+      installBackend: 'pwa-install',
+      relatedAppsInstalled: true,
+    }),
+    onChange: () => () => {},
+    showInstallDialog: async (opts) => {
+      dialogCalls.push(['show', opts]);
+      return { outcome: 'shown', backend: 'pwa-install' };
+    },
+    hideInstallDialog: () => {
+      dialogCalls.push(['hide']);
+      return true;
+    },
+    triggerInstall: async () => {
+      dialogCalls.push(['install']);
+      return { outcome: 'accepted', backend: 'pwa-install' };
+    },
+    getInstalledRelatedApps: async () => [{ id: 'app', platform: 'webapp' }],
+  };
+
+  const assistant = YouGeAssistant.create({
+    projectId: 'ka-install',
+    installExperience: {
+      presentation: 'auto',
+      locale: 'ka-GE',
+      manualFallback: true,
+      relatedApps: true,
+      styles: { '--tint-color': '#155eef', '--bad': 'url(javascript:alert(1))' },
+    },
+  }, { root });
+
+  const cfg = assistant.getConfig();
+  assert.equal(cfg.installExperience.enabled, true);
+  assert.equal(cfg.installExperience.presentation, 'auto');
+  assert.equal(cfg.installExperience.locale, 'ka-GE');
+  assert.equal(cfg.installExperience.styles['--tint-color'], '#155eef');
+  assert.equal(cfg.installExperience.styles['--bad'], undefined);
+
+  const state = assistant.getState();
+  assert.equal(state.installation.componentEnabled, true);
+  assert.equal(state.installation.componentLoaded, true);
+  assert.equal(state.installation.presentation, 'auto');
+  assert.equal(state.installation.locale, 'ka-GE');
+  assert.equal(state.installation.backend, 'pwa-install');
+  assert.equal(state.installation.relatedAppsInstalled, true);
+
+  assert.deepEqual(await assistant.showInstallDialog({ forced: true }), { outcome: 'shown', backend: 'pwa-install' });
+  assert.equal(assistant.hideInstallDialog(), true);
+  assert.deepEqual(await assistant.triggerInstall(), { outcome: 'accepted', backend: 'pwa-install' });
+  assert.deepEqual(await assistant.getInstalledRelatedApps(), [{ id: 'app', platform: 'webapp' }]);
+  assert.equal(dialogCalls.length, 3);
+
   assistant.destroy();
 });

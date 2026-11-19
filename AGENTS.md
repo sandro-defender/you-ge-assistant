@@ -103,7 +103,7 @@ JavaScript, CSS, a manifest, a service worker, static icons, central domain
 configuration, and an on-demand DNS diagnostics module. There is no build step
 or runtime package install required for classic `<script>` integration.
 
-Current runtime version: **1.2.5** (`YouGePWA.version` / `PWA.version`, `VERSION` in
+Current runtime version: **1.2.6** (`YouGePWA.version` / `PWA.version`, `VERSION` in
 `you-ge-sw.js`, root `package.json` and the SDK's `KIT_COMPAT_VERSION`; the SDK
 package itself is versioned separately, currently `0.3.0`). For architecture findings and risks, see
 [`docs/architecture/ARCHITECTURE_AUDIT.md`](docs/architecture/ARCHITECTURE_AUDIT.md) and
@@ -197,7 +197,8 @@ identifiers while existing installs upgrade safely:
 | `domain-config.js`, `domain-registry.js` | yes for domain-aware config | Central runtime hostname/origin detection and public overrides |
 | `dns-diagnostics.js` | optional | On-demand Cloudflare DoH diagnostics and classifications |
 | `manifest-handler.js`, `functions/manifest.webmanifest.js` | hosting-dependent | Host-aware manifest response/helper and Cloudflare Pages adapter |
-| `pwa.js` | yes | Client runtime (`window.YouGePWA` / `window.PWA`): config, SW registration, install/push UI, floating toolbox, QR, banners, meta, splash |
+| `pwa.js` | yes | Client runtime (`window.YouGePWA` / `window.PWA`): config, SW registration, install/push UI, `<pwa-install>` integration, floating toolbox, QR, banners, meta, splash |
+| `pwa-install.js` | optional (install dialog) | Vendored MIT `@khmyznikov/pwa-install` 0.7.0 self-contained runtime supporting 35 locales (including native Georgian `ka`, Russian `ru`, Estonian `et`, and browser fallback instructions) |
 | `pwa.css` | yes | Component styles (`--youge-pwa-*` tokens and `.youge-*` selectors, plus temporary migration aliases). Required by the worker's precache: keep it deployed even with `data-no-css` or a custom `data-css` |
 | `assistant-state.js` | for the Assistant | Centralized, event-driven state + configurable SDK API for the Intelligent Floating Assistant |
 | `assistant-widget.js`, `assistant-widget.css` | for the Assistant widget | Dependency-free DOM renderer, fixed placement, safe areas, badges, in-place panel, auto-scaling launcher with manual size/position adjustment, Android Chrome handoff offer |
@@ -435,6 +436,9 @@ unchanged at a domain root and under a subpath.
 | `data-icon` | `icons/icon-192.png` | Icon in banners/modals |
 | `data-splash-icon` | `icons/icon-512.png` | Source for generated iOS splash |
 | `data-qr-library` | `qrcode.js` | Local QR library URL |
+| `data-install-component-url` | `pwa-install.js` | Local self-contained `<pwa-install>` bundle URL |
+| `data-install-presentation` | `manual` | Install dialog mode: `manual` (gesture-triggered) or `auto` (idle auto-show opt-in) |
+| `data-install-locale` | `auto` | Locale passed to `<pwa-install>` (`auto`, `ka`, `en`, etc.) |
 | `data-qr-logo` | app icon | Logo drawn in the QR center |
 | `data-desktop-qr` | off | On desktop, install buttons open the QR dialog |
 | `data-app-name` | resolved domain identity | Explicit app name override |

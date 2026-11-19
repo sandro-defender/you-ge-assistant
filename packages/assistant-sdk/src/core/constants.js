@@ -3,7 +3,7 @@
  */
 
 export const SDK_VERSION = '0.3.0';
-export const KIT_COMPAT_VERSION = '1.2.5';
+export const KIT_COMPAT_VERSION = '1.2.6';
 export const SCHEMA_VERSION = 1;
 
 export const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
@@ -32,6 +32,7 @@ Object.freeze(ICONS);
 export const EVENT_NAMES = {
   state: 'youge:state',
   action: 'youge:action',
+  localeChange: 'youge:locale-change',
   endpointStatus: 'youge:endpoint-status',
   sessionStatus: 'youge:session-status',
   dnsResult: 'youge:dns-result',
@@ -40,11 +41,13 @@ export const EVENT_NAMES = {
   yougePwaInstalled: 'youge:pwa:installed',
   yougePwaUpdate: 'youge:pwa:update',
   yougePwaDiagnostics: 'youge:pwa:diagnostics',
+  yougePwaInstallDialog: 'youge:pwa:install-dialog',
   pwaReady: 'pwa:ready',
   pwaInstallable: 'pwa:installable',
   pwaInstalled: 'pwa:installed',
   pwaUpdate: 'pwa:update',
   pwaDiagnostics: 'pwa:diagnostics',
+  pwaInstallDialog: 'pwa:install-dialog',
 };
 Object.freeze(EVENT_NAMES);
 

@@ -17,12 +17,33 @@ import {
   TONE,
 } from './core/constants.js';
 import {
+  DEFAULT_LOCALE,
+  DNS_CLASSIFICATION_LABELS,
+  LOCALE_METADATA,
+  RTL_LOCALES,
+  SDK_TRANSLATIONS,
+  SUPPORTED_LOCALES,
+  chromeHandoffLabels,
+  formatAlertCount,
+  isRtlLocale,
+  localizeDnsClassification,
+  localizeDnsMessage,
+  normalizeInstallLocaleTag,
+  normalizeLocaleTag,
+  resolveLocale,
+  translate,
+} from './core/i18n.js';
+import {
   GATED_CAPABILITIES,
   capabilitiesRecord,
   capabilityForAction,
   isActionAllowed,
   isCapabilityEnabled,
 } from './core/capabilities.js';
+import {
+  INSTALL_EXPERIENCE_DEFAULTS,
+  normalizeInstallExperience,
+} from './core/sanitize.js';
 import {
   BUNDLED_DEFAULTS,
   lkgStorageKey,
@@ -59,9 +80,14 @@ import {
 } from './diagnostics/index.js';
 import {
   deriveInstallationState,
+  hidePwaInstallDialog,
+  readInstalledRelatedApps,
   readPwaSnapshot,
   requestPwaInstall,
   requestPwaUpdate,
+  resolveInstallationCopy,
+  showPwaInstallDialog,
+  triggerPwaInstall,
 } from './installation/index.js';
 import {
   NOTIFICATION_LEVEL_MAP,
@@ -106,10 +132,20 @@ import {
   CHROME_PACKAGE,
   buildChromeIntentUrl,
   chromeHandoffInstructions,
-  createChromeHandoff,
+  createChromeHandoff as createBaseChromeHandoff,
   detectInAppBrowser,
   isChromeHandoffCandidate,
 } from './browser/index.js';
+
+function createChromeHandoff(options) {
+  const opts = options && typeof options === 'object' ? options : {};
+  if (opts.locale) {
+    return createBaseChromeHandoff(Object.assign({}, opts, {
+      labels: Object.assign({}, chromeHandoffLabels(opts.locale), opts.labels || {}),
+    }));
+  }
+  return createBaseChromeHandoff(opts);
+}
 
 export const YouGeAssistant = Object.freeze({
   version: SDK_VERSION,
@@ -127,14 +163,25 @@ export const YouGeAssistant = Object.freeze({
   validateDomainConfigDetailed: validateDomainConfigDetailed,
   validateDomainRegistry: validateDomainRegistry,
   validatePublishedConfig: validatePublishedConfig,
+  normalizeInstallExperience: normalizeInstallExperience,
+  resolveInstallationCopy: resolveInstallationCopy,
   detectInAppBrowser: detectInAppBrowser,
   buildChromeIntentUrl: buildChromeIntentUrl,
   createChromeHandoff: createChromeHandoff,
+  chromeHandoffLabels: chromeHandoffLabels,
   // Adaptive theming: validate / resolve a theme without instantiating state.
   normalizeTheme: normalizeTheme,
   resolveTheme: resolveTheme,
   THEME_MODES: THEME_MODES,
   THEME_TOKEN_KEYS: THEME_TOKEN_KEYS,
+  // Multilingual support (core 12 locales + BCP-47 normalizers + DNS localization).
+  SUPPORTED_LOCALES: SUPPORTED_LOCALES,
+  LOCALE_METADATA: LOCALE_METADATA,
+  resolveLocale: resolveLocale,
+  translate: translate,
+  formatAlertCount: formatAlertCount,
+  isRtlLocale: isRtlLocale,
+  normalizeLocaleTag: normalizeLocaleTag,
 });
 
 export {
@@ -149,6 +196,7 @@ export {
   EVENT_NAMES,
   STORAGE_PREFIXES,
   BUNDLED_DEFAULTS,
+  INSTALL_EXPERIENCE_DEFAULTS,
   GATED_CAPABILITIES,
   isCapabilityEnabled,
   capabilityForAction,
@@ -157,6 +205,7 @@ export {
   disabledDiagnosticsResult,
   normalizeActions,
   normalizeFeatures,
+  normalizeInstallExperience,
   normalizeConfig,
   validatePublishedConfig,
   lkgStorageKey,
@@ -183,7 +232,12 @@ export {
   createDiagnosticsIntegration,
   readPwaSnapshot,
   deriveInstallationState,
+  resolveInstallationCopy,
   requestPwaInstall,
+  showPwaInstallDialog,
+  hidePwaInstallDialog,
+  triggerPwaInstall,
+  readInstalledRelatedApps,
   requestPwaUpdate,
   createAssistant,
   attachAssistant,
@@ -201,6 +255,21 @@ export {
   createChromeHandoff,
   THEME_MODES,
   THEME_TOKEN_KEYS,
+  DEFAULT_LOCALE,
+  SUPPORTED_LOCALES,
+  RTL_LOCALES,
+  LOCALE_METADATA,
+  SDK_TRANSLATIONS,
+  DNS_CLASSIFICATION_LABELS,
+  normalizeLocaleTag,
+  normalizeInstallLocaleTag,
+  resolveLocale,
+  isRtlLocale,
+  translate,
+  chromeHandoffLabels,
+  formatAlertCount,
+  localizeDnsClassification,
+  localizeDnsMessage,
   NOTIFICATION_LEVELS,
   NOTIFICATION_LEVEL_ICONS,
   NOTIFICATION_LEVEL_LABELS,

@@ -5,7 +5,7 @@ retained as a subpath-safe `importScripts` compatibility shim — see
 [`../reference/COMPATIBILITY_CONTRACTS.md`](../reference/COMPATIBILITY_CONTRACTS.md)) caches the app shell,
 which precache assets are required and which are optional, how installed apps
 receive new code, what the `precache-integrity` gate enforces, and how kit
-`1.2.5` refreshes the precache generation safely.
+`1.2.6` refreshes the precache generation safely.
 
 Everything below was verified with deterministic Node tests against the real
 worker source. **No real-browser or live-deployment verification was performed.**
@@ -15,9 +15,9 @@ worker source. **No real-browser or live-deployment verification was performed.*
 | Step | Source | Notes |
 | --- | --- | --- |
 | SDK sources → `assistant-state.js` | `npm run sync:sdk` (`scripts/sync-sdk-browser.mjs`) | The only generated precached file. `--check` (part of `npm run check`) fails when it is out of date. |
-| Precache manifest | `PRECACHE_ASSETS` in `you-ge-sw.js` | 13 scope-relative files, each declared `required: true` or `required: false` (§3). There is no separate manifest file: the worker is the single source, and the gate reads it by running the install handler. |
+| Precache manifest | `PRECACHE_ASSETS` in `you-ge-sw.js` | 14 scope-relative files, each declared `required: true` or `required: false` (§3). There is no separate manifest file: the worker is the single source, and the gate reads it by running the install handler. |
 | Never cached by the worker | `pwa.js`, `you-ge-sw.js`, `progressier.js` | Always fetched from the network (`fetch` handler returns early). |
-| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.5`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.3.0`) is a separate release line (§7). |
+| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.6`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.3.0`) is a separate release line (§7). |
 | Cache names | `you-ge-assistant:<host>:<scope>:static:v<VERSION>` and `…:pages:v<VERSION>` | Host- and scope-isolated. The **kit version is the only cache-invalidation key.** |
 | Deployment | `.github/workflows/pages.yml` | Every push to `main` publishes the runtime to GitHub Pages. |
 
@@ -78,6 +78,7 @@ a 404 used to be tolerated.
 | `dns-diagnostics.js` | Listed as optional in the `AGENTS.md` file map. | `pwa.js` and `offline.js` check for `window.YouGeDns` and report diagnostics as unavailable. |
 | `assistant-state.js`, `assistant-widget.js`, `assistant-widget.css` | Pages that do not include the Assistant (neither upload list in `README.md` / `../guides/INTEGRATION.md` contains them), and applications that bundle `@youge/assistant-sdk` and render their own UI. | No kit script depends on them; `offline.js` only publishes a DOM event the Assistant may listen to. |
 | `qrcode.js` | "Only for QR" in the file map; loaded on demand, and `data-qr-library` may point elsewhere. | QR rendering rejects with `Unable to load …`; everything else works. |
+| `pwa-install.js` | Optional self-contained `<pwa-install>` UI bundle; loaded on demand when `customElements` is available, or via `data-install-component-url`. | `pwa.js` and `assistant-sdk` fall back seamlessly to the native prompt and built-in localized `showHelp('ios' \| 'generic')` / QR sheets. |
 
 With the offline feature disabled for a host (`features.offline: false` in the
 domain registry) the worker precaches nothing.
@@ -419,3 +420,24 @@ deployment is part of it.
   `…:pages:v1.2.5`; `1.2.4` caches retire on activation.
 - Focused regression coverage lives in `tests/service-worker-lifecycle.test.mjs`,
   `tests/dns-diagnostics.test.mjs` and `tests/install-experience.test.mjs`.
+
+## 12. Kit version `1.2.6` — `<pwa-install>` integration and multilingual localization
+
+Authorized by the owner on 2026-11-18 (`1.2.5 → 1.2.6`), kit only:
+`@youge/assistant-sdk` remains `0.3.0`; no npm publish or deployment is part of it.
+
+- `src/runtime/pwa-install.js` adds the self-contained MIT `@khmyznikov/pwa-install`
+  0.7.0 web-component bundle across 35 locales (including native Georgian `ka`,
+  Russian `ru`, and Estonian `et`) as an optional precached runtime asset (`14` assets
+  total in `PRECACHE_ASSETS`: `6` required, `8` optional).
+- `src/runtime/pwa.js` (`PWA.version = '1.2.6'`) and `src/runtime/pwa.css` integrate
+  `<pwa-install>` under `installExperience` (`manual` gesture-triggered default with
+  opt-in `auto`), expose `showInstallDialog` / `hideInstallDialog` / `triggerInstall` /
+  `getInstalledRelatedApps` / `configureInstallExperience`, preserve classic iOS/generic
+  `showHelp` fallback, and unify runtime wording across all 12 core locales.
+- `packages/assistant-sdk` (`KIT_COMPAT_VERSION = '1.2.6'`, exposing `./i18n`) and
+  regenerated `src/assistant/assistant-state.js` mirror `installExperience` defaults,
+  12-locale copy/pluralization/DNS/Chrome-handoff helpers, and `pwa:install-dialog`
+  events without altering host worker ownership.
+- New cache generation: `…:static:v1.2.6` and `…:pages:v1.2.6`; `1.2.5` caches retire
+  cleanly on activation.

@@ -20,6 +20,7 @@ export interface ChromeIntentOptions {
 }
 
 export interface ChromeHandoffLabels {
+  locale?: string;
   title?: string;
   intro?: string;
   stepCopy?: string;
@@ -63,6 +64,7 @@ export interface ChromeHandoffEnvironment {
   clearTimeout?: (id: unknown) => void;
   fallbackDelayMs?: number;
   packageName?: string;
+  locale?: string;
   labels?: ChromeHandoffLabels;
 }
 

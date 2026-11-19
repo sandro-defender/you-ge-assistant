@@ -26,6 +26,7 @@ const targetFile = join(rootDir, 'src', 'assistant', 'assistant-state.js');
 
 const SOURCE_MODULES = [
   'core/constants.js',
+  'core/i18n.js',
   'core/capabilities.js',
   'core/sanitize.js',
   'theme/index.js',
@@ -99,6 +100,22 @@ ${sections.join('\n\n')}
     // Module capability policy: one mapping shared by every classic renderer
     // and runtime file, so a gated capability cannot be re-enabled locally.
     GATED_CAPABILITIES: GATED_CAPABILITIES,
+    // Unified i18n dictionary, locale resolver, plural helpers and DNS copy.
+    DEFAULT_LOCALE: DEFAULT_LOCALE,
+    SUPPORTED_LOCALES: SUPPORTED_LOCALES,
+    RTL_LOCALES: RTL_LOCALES,
+    LOCALE_METADATA: LOCALE_METADATA,
+    SDK_TRANSLATIONS: SDK_TRANSLATIONS,
+    DNS_CLASSIFICATION_LABELS: DNS_CLASSIFICATION_LABELS,
+    normalizeLocaleTag: normalizeLocaleTag,
+    normalizeInstallLocaleTag: normalizeInstallLocaleTag,
+    resolveLocale: resolveLocale,
+    isRtlLocale: isRtlLocale,
+    translate: translate,
+    chromeHandoffLabels: chromeHandoffLabels,
+    formatAlertCount: formatAlertCount,
+    localizeDnsClassification: localizeDnsClassification,
+    localizeDnsMessage: localizeDnsMessage,
     isCapabilityEnabled: isCapabilityEnabled,
     capabilityForAction: capabilityForAction,
     capabilitiesRecord: capabilitiesRecord,
@@ -112,6 +129,13 @@ ${sections.join('\n\n')}
     validateDomainRegistry: validateDomainRegistry,
     domain: createDomainResolver(root.YOU_GE_DOMAIN_REGISTRY || {}),
     validatePublishedConfig: validatePublishedConfig,
+    INSTALL_EXPERIENCE_DEFAULTS: INSTALL_EXPERIENCE_DEFAULTS,
+    normalizeInstallExperience: normalizeInstallExperience,
+    resolveInstallationCopy: resolveInstallationCopy,
+    showPwaInstallDialog: showPwaInstallDialog,
+    hidePwaInstallDialog: hidePwaInstallDialog,
+    triggerPwaInstall: triggerPwaInstall,
+    readInstalledRelatedApps: readInstalledRelatedApps,
     // Adaptive theming — same validation/resolution in classic and ESM pages.
     THEME_MODES: THEME_MODES,
     THEME_TOKEN_KEYS: THEME_TOKEN_KEYS,

@@ -7,6 +7,7 @@
  */
 
 import { safeText } from '../core/sanitize.js';
+import { resolveLocale, translate } from '../core/i18n.js';
 
 const DNS_FAILURE_CLASSIFICATIONS = [
   'nxdomain',
@@ -44,20 +45,22 @@ export function isCancelledResult(dns) {
  * Shared by the SDK API boundary and the adapter's live gate so a disabled
  * capability always reports the same thing, without touching the network.
  */
-export function disabledDiagnosticsResult(message) {
+export function disabledDiagnosticsResult(message, locale) {
+  const lang = resolveLocale({ explicit: locale });
   return {
     status: 'disabled',
     classification: 'disabled',
-    message: safeText(message, 240) || 'Network diagnostics are disabled for this project.',
+    message: safeText(message, 240) || translate(lang, 'diagDisabledProject'),
     failed: false,
   };
 }
 
-export function cancelledDiagnosticsResult(reason) {
+export function cancelledDiagnosticsResult(reason, locale) {
+  const lang = resolveLocale({ explicit: locale });
   return {
     status: 'cancelled',
     classification: 'cancelled',
-    message: safeText(reason, 200) || 'Diagnostics were cancelled.',
+    message: safeText(reason, 200) || translate(lang, 'diagCancelled'),
     failed: false,
     cancelled: true,
   };
@@ -145,6 +148,10 @@ export function createDiagnosticsIntegration(options) {
   function enabled() {
     return typeof opts.isEnabled === 'function' ? opts.isEnabled() !== false : true;
   }
+  function currentLocale() {
+    const rawLocale = typeof opts.getLocale === 'function' ? opts.getLocale() : opts.locale;
+    return resolveLocale({ explicit: rawLocale });
+  }
   // Per-run ownership record: the run that started last owns the controller,
   // its abort listeners and its detach function. A run's finalizer retires
   // only its own record, so a stale run can never detach a newer run's
@@ -156,15 +163,16 @@ export function createDiagnosticsIntegration(options) {
 
   function run(runOptions) {
     if (inFlight) return inFlight;
+    const lang = currentLocale();
     if (!enabled()) {
-      const disabled = disabledDiagnosticsResult();
+      const disabled = disabledDiagnosticsResult(undefined, lang);
       if (typeof opts.onResult === 'function') opts.onResult(disabled);
       return Promise.resolve(disabled);
     }
     const runOpts = Object.assign({}, runOptions || {});
     const callerSignal = resolveRunSignal(runOpts.signal);
     if (callerSignal && callerSignal.aborted) {
-      const cancelled = cancelledDiagnosticsResult('Diagnostics were cancelled before they started.');
+      const cancelled = cancelledDiagnosticsResult(translate(lang, 'diagCancelledBeforeStart'), lang);
       if (typeof opts.onResult === 'function') opts.onResult(cancelled);
       return Promise.resolve(cancelled);
     }
@@ -172,7 +180,7 @@ export function createDiagnosticsIntegration(options) {
     if (!runner) {
       const unavailable = {
         classification: 'unknown',
-        message: 'Network diagnostics are not available on this page.',
+        message: translate(lang, 'diagUnavailable'),
         status: 'unavailable',
       };
       if (typeof opts.onResult === 'function') opts.onResult(unavailable);
@@ -221,26 +229,27 @@ export function createDiagnosticsIntegration(options) {
     const finished = Promise.resolve()
       .then(function () {
         // Cancelled before the runner started: skip the network work entirely.
-        if (cancelled) throw Object.assign(new Error('Diagnostics were cancelled.'), { kind: 'cancelled' });
+        if (cancelled) throw Object.assign(new Error(translate(currentLocale(), 'diagCancelled')), { kind: 'cancelled' });
         // The capability may have been disabled between the API call and this
         // microtask (a synchronous `configure()` can do that): never start the
         // runner for a disabled capability.
-        if (!enabled()) throw Object.assign(new Error('Network diagnostics are disabled for this project.'), { kind: 'disabled' });
+        if (!enabled()) throw Object.assign(new Error(translate(currentLocale(), 'diagDisabledProject')), { kind: 'disabled' });
         return runner(runOpts);
       })
       .then(function (result) {
+        const activeLocale = currentLocale();
         // Disabled while the runner was in flight: the late result is dropped.
         // Checked before cancellation, because disabling the capability aborts
         // the owned controller too — the reason a run stopped is "disabled".
         if (!enabled()) {
-          const disabled = disabledDiagnosticsResult();
+          const disabled = disabledDiagnosticsResult(undefined, activeLocale);
           if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
           return disabled;
         }
         // Once the run was cancelled, a late resolution is discarded: a
         // cancellation must never turn into a reported result.
         if (cancelled) {
-          const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
+          const stopped = cancelledDiagnosticsResult(translate(activeLocale, 'diagCancelled'), activeLocale);
           if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
           return stopped;
         }
@@ -249,22 +258,23 @@ export function createDiagnosticsIntegration(options) {
         return safeResult;
       })
       .catch(function (error) {
+        const activeLocale = currentLocale();
         // A capability disabled before or during the run is a state, not a
         // failure and not a cancellation: it must not raise a critical notice.
         if (!enabled() || (error && error.kind === 'disabled')) {
-          const disabled = disabledDiagnosticsResult();
+          const disabled = disabledDiagnosticsResult(undefined, activeLocale);
           if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(disabled);
           return disabled;
         }
         // A run stopped by its own signal is a cancellation, never a failure.
         if (cancelled || (error && error.kind === 'cancelled')) {
-          const stopped = cancelledDiagnosticsResult('Diagnostics were cancelled.');
+          const stopped = cancelledDiagnosticsResult(translate(activeLocale, 'diagCancelled'), activeLocale);
           if (stillCurrent() && typeof opts.onResult === 'function') opts.onResult(stopped);
           return stopped;
         }
         const failed = {
           classification: 'error',
-          message: safeText(error && error.message, 200) || 'Diagnostics failed.',
+          message: safeText(error && error.message, 200) || translate(activeLocale, 'diagFailed'),
           status: 'error',
           failed: true,
         };

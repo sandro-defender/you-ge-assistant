@@ -1,4 +1,5 @@
 import type { AssistantConfigInput } from '../config/index.js';
+import type { LocaleMetadata, SupportedLocale } from '../core/i18n.js';
 import type {
   AssistantEnvironment,
   AssistantInstance,
@@ -50,7 +51,12 @@ export interface ReactAssistantAdapter {
     options?: { document?: Document | null; hostScheme?: ResolvedColorScheme }
   ): ResolvedTheme;
   /** Accessible tier name for a notification level. */
-  notificationLevelLabel(level: unknown): string;
+  notificationLevelLabel(level: unknown, locale?: string): string;
+  translate(locale: unknown, key: string, params?: Record<string, string | number>): string;
+  formatAlertCount(locale: unknown, count: number): string;
+  resolveLocale(options?: import('../core/i18n.js').LocaleResolutionOptions): SupportedLocale;
+  readonly SUPPORTED_LOCALES: readonly SupportedLocale[];
+  readonly LOCALE_METADATA: Readonly<Record<SupportedLocale, LocaleMetadata>>;
   /**
    * Build the level glyph with the host's own `createElement`, so applications
    * never inject markup. Falls back to `createElement` from the adapter options.
@@ -92,7 +98,14 @@ export declare function resolveAppearanceTheme(
   options?: ThemeResolutionContext & { hostScheme?: ResolvedColorScheme }
 ): ResolvedTheme;
 
-export declare function notificationLevelLabel(level: unknown): string;
+export declare function notificationLevelLabel(level: unknown, locale?: string): string;
+export {
+  LOCALE_METADATA,
+  SUPPORTED_LOCALES,
+  formatAlertCount,
+  resolveLocale,
+  translate,
+} from '../core/i18n.js';
 
 export declare function notificationLevelElement(
   level: unknown,

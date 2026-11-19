@@ -55,6 +55,8 @@ export interface DiagnosticsIntegrationOptions {
    * publish or continue after they were disabled.
    */
   isEnabled?: (() => boolean) | null;
+  locale?: string;
+  getLocale?: () => string;
 }
 
 export interface DiagnosticsController {
@@ -65,9 +67,9 @@ export interface DiagnosticsController {
 }
 
 export declare function isCancelledResult(dns?: Partial<DnsDiagnosticSnapshot> | null): boolean;
-export declare function cancelledDiagnosticsResult(reason?: string): DnsDiagnosticSnapshot;
+export declare function cancelledDiagnosticsResult(reason?: string, locale?: string): DnsDiagnosticSnapshot;
 /** `{ status: 'disabled', classification: 'disabled', ... }` — no network work. */
-export declare function disabledDiagnosticsResult(message?: string): DnsDiagnosticSnapshot;
+export declare function disabledDiagnosticsResult(message?: string, locale?: string): DnsDiagnosticSnapshot;
 export declare function resolveRunSignal(
   signal?: AbortSignalLike | { signal?: AbortSignalLike | null } | null
 ): AbortSignalLike | null;

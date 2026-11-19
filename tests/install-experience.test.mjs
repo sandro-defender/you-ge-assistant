@@ -320,6 +320,7 @@ function createContext(options = {}) {
 
   const navigator = {
     userAgent: options.userAgent || CHROME_UA,
+    language: options.language || 'en-US',
     maxTouchPoints: options.maxTouchPoints || 0,
     standalone: Boolean(options.iosStandalone),
     platform: 'Linux',
@@ -328,6 +329,12 @@ function createContext(options = {}) {
     vibrate() {},
     permissions: { query() { return Promise.resolve({ state: 'prompt' }); } },
   };
+  if (options.getInstalledRelatedApps) {
+    navigator.getInstalledRelatedApps = options.getInstalledRelatedApps;
+  }
+  if (options.customElements) {
+    win.customElements = options.customElements;
+  }
 
   const context = {
     window: win,
@@ -374,6 +381,7 @@ function createContext(options = {}) {
       this.signal = {};
       this.abort = function abort() {};
     },
+    customElements: options.customElements,
   };
 
   for (const node of options.installButtons || []) doc.body.appendChild(node);
@@ -1208,7 +1216,7 @@ test('cache diagnostics examine only opted-in Assistant cache names without chan
   assert.equal(result.status, 'ok');
   assert.equal(result.staticCache, true);
   assert.equal(result.pageCache, false);
-  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.5', 'you-ge-assistant:example.test:%2F:pages:v1.2.5']);
+  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.6', 'you-ge-assistant:example.test:%2F:pages:v1.2.6']);
   flags.cacheDiagnostics = false;
   assert.equal((await harness.win.PWA.runCacheDiagnostics()).status, 'disabled');
   assert.equal(queried.length, 2);
@@ -1239,4 +1247,150 @@ test('disabling Assistant update detection stops its background checks without d
   assert.equal(harness.win.PWA.hasUpdate(), false);
   assert.equal(await harness.win.PWA.applyUpdate(), true);
   assert.equal(waiting.messages.length, 1);
+});
+
+test('src/runtime/pwa-install.js ships self-contained MIT bundle with native ka localization and guarded customElements', () => {
+  const bundleSource = readFileSync(new URL('../src/runtime/pwa-install.js', import.meta.url), 'utf8');
+  assert.match(bundleSource, /@khmyznikov\/pwa-install/);
+  assert.match(bundleSource, /v0\.7\.0, MIT/);
+  assert.match(bundleSource, /"ka"/);
+  assert.match(bundleSource, /[\u10a0-\u10ff]{4,}/);
+  assert.match(bundleSource, /customElements\.get\(/);
+  assert.doesNotMatch(bundleSource, /cdn\.jsdelivr|unpkg\.com|esm\.sh/);
+});
+
+test('pwa.js defaults installExperience to manual presentation and supports native Georgian (ka) wording and showHelp', () => {
+  const harness = createContext({ language: 'ka-GE', userAgent: IPHONE_UA });
+  assert.equal(harness.win.PWA.version, '1.2.6');
+  assert.equal(harness.win.PWA.config.installExperience.presentation, 'manual');
+  assert.equal(harness.win.PWA.wording.language, 'ka');
+  assert.equal(harness.win.PWA.wording.get('install'), 'დაყენება');
+
+  harness.win.PWA.showInstallHelp('ios');
+  const host = findHelpHost(harness);
+  assert.ok(host, 'iOS help dialog mounts');
+  const rendered = textOf(host);
+  assert.match(rendered, /დააყენეთ You\.Ge Assistant iPhone-ზე/);
+  assert.match(rendered, /გაზიარების/);
+
+  harness.doc.dispatch('keydown', { key: 'Escape' });
+  assert.equal(findHelpHost(harness), null, 'Escape dismisses Georgian iOS help dialog');
+
+  harness.win.PWA.showInstallHelp('generic');
+  const genericHost = findHelpHost(harness);
+  assert.ok(genericHost, 'generic help dialog mounts after iOS sheet is dismissed');
+  assert.match(textOf(genericHost), /დააყენეთ You\.Ge Assistant/);
+  assert.match(textOf(genericHost), /გახსენით ბრაუზერის მენიუ/);
+});
+
+test('<pwa-install> component honors manual default vs opt-in auto presentation, bridges events, and falls back to showHelp', async () => {
+  function makeMockRegistry() {
+    const defs = new Map();
+    const waitPromises = new Map();
+    return {
+      get(name) { return defs.get(name); },
+      define(name, ctor) {
+        defs.set(name, ctor);
+        if (waitPromises.has(name)) {
+          waitPromises.get(name)(ctor);
+          waitPromises.delete(name);
+        }
+      },
+      whenDefined(name) {
+        if (defs.has(name)) return Promise.resolve(defs.get(name));
+        return new Promise((res) => waitPromises.set(name, res));
+      },
+    };
+  }
+
+  function installMockPwaInstallElement(doc, registry) {
+    registry.define('pwa-install', class {});
+    const realCreate = doc.createElement.bind(doc);
+    const createdNodes = [];
+    doc.createElement = function (tag) {
+      const node = realCreate(tag);
+      if (String(tag).toLowerCase() === 'pwa-install') {
+        node.isInstallAvailable = true;
+        node.isDialogHidden = true;
+        node.isAppleMobilePlatform = false;
+        node.isAppleDesktopPlatform = false;
+        node.isUnderStandaloneMode = false;
+        node.styles = {};
+        node.showCalls = [];
+        node.hideCalls = 0;
+        node.installCalls = 0;
+        node.showDialog = (forced) => {
+          node.showCalls.push(Boolean(forced));
+          node.isDialogHidden = false;
+        };
+        node.hideDialog = () => {
+          node.hideCalls += 1;
+          node.isDialogHidden = true;
+        };
+        node.install = () => {
+          node.installCalls += 1;
+        };
+        node.getInstalledRelatedApps = async () => [{ id: 'youge-test', platform: 'webapp' }];
+        createdNodes.push(node);
+      }
+      return node;
+    };
+    return createdNodes;
+  }
+
+  // 1. Default presentation ('manual') never auto-opens <pwa-install> on idle
+  const manualReg = makeMockRegistry();
+  const manualHarness = createContext({
+    customElements: manualReg,
+    language: 'ka-GE',
+    fakeTimers: true,
+    dataset: { installLocale: 'ka' },
+    getInstalledRelatedApps: async () => [{ id: 'manual-app', platform: 'webapp' }],
+  });
+  const manualEls = installMockPwaInstallElement(manualHarness.doc, manualReg);
+  manualHarness.advanceTime(2000);
+  await Promise.resolve();
+  assert.equal(manualEls.length, 1, 'manual presentation pre-mounts <pwa-install> silently');
+  assert.equal(manualEls[0].showCalls.length, 0, 'manual presentation never auto-opens <pwa-install>');
+  assert.equal(manualHarness.win.PWA.getState().installDialogOpen, false);
+
+  // Explicit showInstallDialog mounts <pwa-install>, applies Georgian locale, and returns shown
+  const res = await manualHarness.win.PWA.showInstallDialog({ forced: true });
+  assert.equal(res.outcome, 'shown');
+  assert.equal(res.backend, 'pwa-install');
+  assert.equal(manualEls.length, 1);
+  assert.equal(manualEls[0].getAttribute('locale'), 'ka');
+  assert.deepEqual(manualEls[0].showCalls, [true]);
+
+  // Escape closes an open <pwa-install> dialog
+  manualHarness.doc.dispatch('keydown', { key: 'Escape' });
+  assert.equal(manualEls[0].hideCalls, 1);
+
+  // pwa-install-fail-event with fallbackAvailable: false falls back cleanly to showHelp on prompt
+  manualEls[0].isDialogHidden = false;
+  manualEls[0].dispatch('pwa-install-fail-event', { detail: { message: new Error('NotSupportedError'), fallbackAvailable: false } });
+  const fallbackSheet = findHelpHost(manualHarness);
+  assert.ok(fallbackSheet, 'explicit dialog failure with fallbackAvailable=false triggers built-in showHelp');
+
+  // getInstalledRelatedApps delegates cleanly
+  assert.deepEqual(await manualHarness.win.PWA.getInstalledRelatedApps(), [{ id: 'youge-test', platform: 'webapp' }]);
+
+  // 2. Opt-in presentation ('auto') mounts <pwa-install> on DOMContentLoaded with manualApple/manualChrome disabled
+  const autoReg = makeMockRegistry();
+  const autoHarness = createContext({
+    customElements: autoReg,
+    fakeTimers: true,
+    dataset: { installPresentation: 'auto', installLocale: 'ka' },
+  });
+  const autoEls = installMockPwaInstallElement(autoHarness.doc, autoReg);
+  autoHarness.win.dispatch('beforeinstallprompt', { testPrompt: true });
+  autoHarness.doc.readyState = 'interactive';
+  autoHarness.doc.dispatch('DOMContentLoaded');
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(autoEls.length, 1, 'auto presentation mounts <pwa-install> on DOMContentLoaded');
+  assert.equal(autoEls[0].manualApple, false);
+  assert.equal(autoEls[0].manualChrome, false);
+  assert.equal(autoEls[0].locale, 'ka');
+  assert.deepEqual(autoEls[0].externalPromptEvent && { ok: autoEls[0].externalPromptEvent.testPrompt }, { ok: true });
 });

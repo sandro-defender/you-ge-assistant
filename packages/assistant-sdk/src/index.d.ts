@@ -35,6 +35,9 @@ import type {
   DomainResolver,
   DomainShortcut,
   GeneratedWebManifest,
+  InstallExperienceConfig,
+  InstallExperienceInput,
+  InstallPresentationMode,
   LocationInput,
   ProjectConfig,
   ResolvedDomainConfig,
@@ -50,9 +53,12 @@ import type {
 import type {
   AssistantInstallationState,
   AssistantUpdateResult,
+  InstallDialogResult,
+  InstallationCopySet,
   InstallationStatus,
   InstallationSupport,
   PwaRuntimeLike,
+  RelatedAppInfo,
   UpdateApplyOutcome,
 } from './installation/index.js';
 import type {
@@ -63,6 +69,17 @@ import type {
   InAppBrowserDetection,
   InAppBrowserName,
 } from './browser/index.js';
+import type {
+  LocaleMetadata,
+  LocaleResolutionOptions,
+  SupportedLocale,
+} from './core/i18n.js';
+
+export type {
+  LocaleMetadata,
+  LocaleResolutionOptions,
+  SupportedLocale,
+} from './core/i18n.js';
 
 export type {
   NotificationLevel as AssistantNotificationLevel,
@@ -118,6 +135,11 @@ export type {
   DomainResolver,
   DomainShortcut,
   GeneratedWebManifest,
+  InstallDialogResult,
+  InstallExperienceConfig,
+  InstallExperienceInput,
+  InstallPresentationMode,
+  InstallationCopySet,
   InstallationStatus,
   InstallationSupport,
   LocationInput,
@@ -125,6 +147,7 @@ export type {
   PublishedAssistantConfig,
   PublishedValidationResult,
   PwaRuntimeLike,
+  RelatedAppInfo,
   ResolvedAssistantConfig,
   ResolvedDomainConfig,
   StorageLike,
@@ -220,6 +243,8 @@ export interface AssistantAppearanceState {
 
 export interface AssistantState {
   enabled: boolean;
+  locale: SupportedLocale;
+  dir: 'ltr' | 'rtl';
   project: AssistantProjectInfo;
   installation: AssistantInstallationState;
   network: AssistantNetworkState;
@@ -266,6 +291,7 @@ export interface AssistantConfigSummary {
   /** Backward-compatible flat project ID. */
   projectId: string;
   domain: string;
+  locale: string;
   position: AssistantPosition;
   offsets: AssistantOffsets;
   modules: AssistantModulesConfig;
@@ -273,6 +299,7 @@ export interface AssistantConfigSummary {
   branding: AssistantBrandingConfig;
   actions: AssistantAction[];
   features: AssistantFeature[];
+  installExperience: InstallExperienceConfig;
   theme: AssistantTheme;
   themeConfig: import('./theme/index.js').NormalizedTheme;
   meta: AssistantConfigMeta;
@@ -299,6 +326,8 @@ export interface AssistantInstance {
   configure(nextOptions?: AssistantConfigInput): AssistantState;
   getConfig(): AssistantConfigSummary;
   getState(): AssistantState;
+  getLocale(): SupportedLocale;
+  setLocale(locale: string): AssistantState;
   subscribe(listener: (state: AssistantState) => void, options?: { immediate?: boolean }): () => void;
   setConnectivity(online: boolean): AssistantState;
   setEndpointStatus(detail: EndpointStatusInput): AssistantState;
@@ -314,7 +343,12 @@ export interface AssistantInstance {
    * actionable, even through a delegated or indirect code path.
    */
   isCapabilityEnabled(capability: AssistantCapabilityName | string): boolean;
+  getInstallConfig(): InstallExperienceConfig;
   requestInstall(options?: Record<string, unknown>): Promise<{ outcome: string }>;
+  showInstallDialog(options?: Record<string, unknown>): Promise<InstallDialogResult>;
+  hideInstallDialog(): boolean;
+  triggerInstall(options?: Record<string, unknown>): Promise<{ outcome: string; backend?: string }>;
+  getInstalledRelatedApps(): Promise<RelatedAppInfo[]>;
   applyUpdate(): Promise<AssistantUpdateResult>;
   dismiss(id: string): boolean;
   acknowledge(id: string): boolean;
@@ -338,9 +372,12 @@ export interface YouGeAssistantStatic {
   validateDomainConfigDetailed(raw?: unknown): DomainConfigValidationResult;
   validateDomainRegistry(raw?: unknown): DomainRegistryValidationResult;
   validatePublishedConfig(rawInput: unknown, options?: { expectedProjectId?: string }): PublishedValidationResult;
+  normalizeInstallExperience(raw?: InstallExperienceInput | null, fallback?: InstallExperienceConfig): InstallExperienceConfig;
+  resolveInstallationCopy(locale?: string): InstallationCopySet;
   detectInAppBrowser(userAgent?: string): InAppBrowserDetection;
   buildChromeIntentUrl(url: string, options?: { packageName?: string }): string | null;
   createChromeHandoff(options?: import('./browser/index.js').ChromeHandoffEnvironment): ChromeHandoffController;
+  chromeHandoffLabels(locale: unknown): Readonly<ChromeHandoffLabels>;
   normalizeTheme(raw?: import('./theme/index.js').AssistantThemeConfig | null): import('./theme/index.js').NormalizedTheme;
   resolveTheme(
     themeInput?: import('./theme/index.js').AssistantThemeConfig | import('./theme/index.js').NormalizedTheme | null,
@@ -348,6 +385,13 @@ export interface YouGeAssistantStatic {
   ): import('./theme/index.js').ResolvedTheme;
   readonly THEME_MODES: readonly import('./theme/index.js').ThemeMode[];
   readonly THEME_TOKEN_KEYS: readonly import('./theme/index.js').ThemeToken[];
+  readonly SUPPORTED_LOCALES: readonly SupportedLocale[];
+  readonly LOCALE_METADATA: Readonly<Record<SupportedLocale, LocaleMetadata>>;
+  resolveLocale(options?: LocaleResolutionOptions): SupportedLocale;
+  translate(locale: unknown, key: string, params?: Record<string, string | number>): string;
+  formatAlertCount(locale: unknown, count: number): string;
+  isRtlLocale(locale: unknown): boolean;
+  normalizeLocaleTag(value: unknown): SupportedLocale | '';
 }
 
 export interface ToolkitSummary {
@@ -372,12 +416,32 @@ export declare const EVENT_NAMES: Readonly<Record<string, string>>;
 export declare const STORAGE_PREFIXES: Readonly<{ notices: string; lastKnownGood: string }>;
 
 export {
+  DEFAULT_LOCALE,
+  DNS_CLASSIFICATION_LABELS,
+  LOCALE_METADATA,
+  RTL_LOCALES,
+  SDK_TRANSLATIONS,
+  SUPPORTED_LOCALES,
+  chromeHandoffLabels,
+  formatAlertCount,
+  isRtlLocale,
+  localizeDnsClassification,
+  localizeDnsMessage,
+  normalizeInstallLocaleTag,
+  normalizeLocaleTag,
+  resolveLocale,
+  translate,
+} from './core/i18n.js';
+
+export {
   BUNDLED_DEFAULTS,
+  INSTALL_EXPERIENCE_DEFAULTS,
   lkgStorageKey,
   loadLastKnownGood,
   normalizeActions,
   normalizeConfig,
   normalizeFeatures,
+  normalizeInstallExperience,
   resolveAssistantConfig,
   saveLastKnownGood,
   validatePublishedConfig,
@@ -413,9 +477,14 @@ export {
 
 export {
   deriveInstallationState,
+  hidePwaInstallDialog,
+  readInstalledRelatedApps,
   readPwaSnapshot,
   requestPwaInstall,
   requestPwaUpdate,
+  resolveInstallationCopy,
+  showPwaInstallDialog,
+  triggerPwaInstall,
 } from './installation/index.js';
 
 export {

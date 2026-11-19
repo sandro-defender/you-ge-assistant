@@ -1,3 +1,42 @@
+# Agent Handoff — `<pwa-install>` integration and full multilingual localization
+
+**Date:** 2026-11-18
+**Branch:** `arena/b025b717-you-ge-assistant`, based on `b256c49faf3b0198c890d5165126e6c60db1b29a` (`main`).
+**Working tree:** Complete implementation, multilingual coverage across all surfaces, tests, documentation, synchronized SDK/kit declarations, and `THIRD_PARTY_NOTICES.md`. Generated `dist/`, `examples/example/node_modules`, and `examples/example/dist` are gitignored. Host service-worker ownership remains unchanged.
+**Versions:** Kit `1.2.5 → 1.2.6`, **authorized by the owner because precached assets changed**; SDK package `@youge/assistant-sdk` remains `0.3.0`. No npm publish, tag, merge, or deployment was performed.
+
+## Completed
+
+- **Self-contained `@khmyznikov/pwa-install@0.7.0` runtime (`src/runtime/pwa-install.js`):** Bundled cleanly with MIT attribution (`THIRD_PARTY_NOTICES.md` and `examples/example/THIRD_PARTY_NOTICES.md`), zero remote CDN calls, idempotent `customElements` registration guards, all 35 built-in locales (including native Georgian `ka`, Russian `ru`, Estonian `et`, `nb`/`nn->no`, `zh-*`/`ca`, RTL handling, decorative `alt=""`, and localized accessible close controls).
+- **Classic PWA toolkit (`src/runtime/pwa.js`, `src/runtime/pwa.css`, `src/runtime/you-ge-sw.js`, `src/domain/dns-diagnostics.js`, `src/offline/offline.{html,js}`):**
+  - Added `pwa-install.js` as an optional precached asset (`14` assets total in `PRECACHE_ASSETS`: `6` required, `8` optional).
+  - Integrated `<pwa-install>` under `installExperience` (default `presentation: 'manual'` with opt-in `'auto'`), exposed `showInstallDialog`, `hideInstallDialog`, `triggerInstall`, `getInstalledRelatedApps`, and `configureInstallExperience`, unified all 12 core locales (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`) across `wording`, `showHelp('ios' | 'generic')`, install/push banners (with decorative `alt=""`), QR dialog, and captured `.youge-install-button` refreshes (`PWA.setLanguage`/`getLanguage`, `lastDispatchedLanguageKey` deduplication), while syncing bidirectionally with `YouGeAssistant` (`fromPwa`/`fromAssistant`) and respecting standalone explicit `<pwa-install locale="...">`.
+  - Localized all 33 DNS diagnostic keys across all 12 core locales (`YouGeDns`) and all 19 offline recovery targets (`offline.js` listening for `pwa:language` + forwarding locale to `YouGeDns.check`), plus fixed `src/assistant/assistant-widget.js` (`lang`, `dir`, `chromeOpenLabel`, `toolkitDialogOpen` `Escape` ownership).
+- **Domain, SDK & Browser State (`src/domain/domain-config.js`, `packages/assistant-sdk/`, `src/assistant/assistant-state.js`):**
+  - Added `packages/assistant-sdk/src/core/i18n.{js,d.ts}` (`@youge/assistant-sdk/i18n` subpath export), `KIT_COMPAT_VERSION = '1.2.6'`, 12-locale UI/notice/DNS/Chrome-handoff localization (`translate`, `formatAlertCount`, `resolveLocale`, `normalizeLocaleTag`, `normalizeInstallLocaleTag`, `isRtlLocale`, `resolveInstallationCopy`), `domainRegistry` language precedence in `'auto'` mode, live `navigator` `languagechange` tracking in `'auto'` mode (with runtime-only `setLocale`, zero `localStorage` locale persistence), `installExperience`, `showInstallDialog` / `hideInstallDialog` / `triggerInstall` / `getInstalledRelatedApps`, named `createChromeHandoff`, and `youge:locale-change` events (`bubbles: false` on `document` & `window`).
+  - Regenerated `src/assistant/assistant-state.js` via `npm run sync:sdk`.
+- **Examples, Tooling & Documentation:** Fully localized `examples/demo/index.html` and `examples/example` (`src/i18n.{js,d.ts}` with 186 verified keys, `example.js`, `main.jsx`, `landing.ts`, `ThemeStudio.jsx`, `FoundationPreview.tsx`, HTML/CSS/TS), fixed `'auto'` `<select>` persistence and `resolveExampleLocale` explicit locale resolution, updated `scripts/{source-paths,build,verify-deployment,check}.mjs`, `AGENTS.md`, `README.md`, `packages/assistant-sdk/README.md`, `docs/operations/PRECACHE_INTEGRITY.md` (§12), and `docs/guides/{INSTALLATION_EXPERIENCE,INTEGRATION}.md`.
+
+## Verification
+
+- `node scripts/check.mjs`: **passed** (required files, syntax, manifest, service worker, precache integrity `8 of 14 precached assets changed … kit version 1.2.5 → 1.2.6 synchronized`, examples, MIT notices, and Assistant contracts).
+- `node packages/assistant-sdk/scripts/validate-package.mjs`: **passed** (`KIT_COMPAT_VERSION` `1.2.6`, `SDK_VERSION` `0.3.0`, 26 tarball files, 23 source modules).
+- `npm run test:sdk`: **142 passed / 0 failed** (including `packages/assistant-sdk/tests/sdk-i18n.test.mjs`).
+- `examples/example`: `npm run typecheck` and `npm run build` **passed**; `node scripts/sync-pages-examples.mjs --check` **passed**; `assemblePages({ skipBuild: true })` verified root, `pwa-install.js`, `example/`, and `example/pwa-install.js`.
+- `node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs`: **613 passed / 1 failed** (the single failure is the pre-existing `tests/example-theme.test.mjs:149` assertion against `@playwright/test` in `examples/example/package.json`, which already failed on base `main` `b256c49`). All new and updated runtime/SDK/i18n/example tests (`tests/i18n-runtime.test.mjs`, `packages/assistant-sdk/tests/sdk-i18n.test.mjs`, `tests/install-experience.test.mjs`, `tests/assistant-widget.test.mjs`, `tests/example-ui.test.mjs`, `tests/identity-migration.test.mjs`, `tests/precache-integrity.test.mjs`, `tests/service-worker-precache-policy.test.mjs`, `packages/assistant-sdk/tests/sdk-core.test.mjs`) passed.
+- `git diff --check`: clean.
+
+## Limits, risks and exact next action
+
+- No physical mobile/desktop Chromium/Safari browser session or live deployment was run in this sandbox (`examples/example` Playwright e2e tests were not executed); `<pwa-install>` and runtime DOM sync tests exercised mocked DOM/custom-element harnesses.
+- `tests/example-theme.test.mjs:149` fails on base `main` (`b256c49`) due to `@playwright/test` in `examples/example/package.json` vs an expected 3-entry list; kept untouched so base-branch issues are not silently masked.
+- Host-owned service-worker registration, canonical identity, and legacy aliases remain preserved.
+- Leave merge, publish, release, tag, and deployment decisions to the owner.
+
+---
+
+## Historical handoff (superseded)
+
 # Agent Handoff — audited runtime follow-up fixes
 
 **Date:** 2026-11-16

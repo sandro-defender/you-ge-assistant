@@ -366,8 +366,8 @@ test('React widget renders from the plan and keeps every remaining control wired
   const recovery = /\{panelPlan\.showRecovery \? \([\s\S]*?\) : null\}/.exec(mainJsx);
   assert.ok(recovery, 'recovery guidance renders from the plan');
   assert.match(recovery[0], /<details className="assistant-panel-recovery"/);
-  assert.match(recovery[0], /<summary>Recovery guidance<\/summary>/);
-  assert.match(recovery[0], /RECOVERY_STEPS\.map\(\(step\) => <li key=\{step\}>\{step\}<\/li>\)/);
+  assert.match(recovery[0], /<summary>(?:Recovery guidance|\{dict\.recoveryGuidance\})<\/summary>/);
+  assert.match(recovery[0], /(?:RECOVERY_STEPS|recoverySteps)\.map\(\(step\) => <li key=\{step\}>\{step\}<\/li>\)/);
 });
 
 test('React widget leaves Escape to an open toolkit dialog', () => {
@@ -490,7 +490,7 @@ test('the sample keeps the accessibility contract while restyling', () => {
   assert.match(widgetSource, /aria-haspopup="dialog"/);
   assert.ok(widgetSource.includes('aria-label={open ? '), 'the FAB keeps a spoken label that changes with state');
   assert.ok(
-    widgetSource.includes('Open You.Ge Assistant menu') && widgetSource.includes('badge.count ? '),
+    widgetSource.includes('dict.openAssistantMenu') && widgetSource.includes('badge.count ? '),
     'the label still names the alert count and the highest priority in words',
   );
   assert.match(widgetSource, /className="assistant-badge" data-tone=\{badge\.tone\} aria-hidden="true"/, 'the visual chip stays decorative');
@@ -524,11 +524,15 @@ test('the React example demonstrates the Chrome handoff without forced redirects
   assert.match(widgetSource, /navigator\.clipboard\.writeText\(instructions\.url\)/, 'the copy action keeps the original URL');
   assert.match(
     widgetSource,
-    /\{open \? null : <ChromeHandoffBanner \/>\}/,
+    /\{open \? null : <ChromeHandoffBanner locale=\{activeLocale\} \/>\}/,
     'the offer never covers the open panel',
   );
   assert.doesNotMatch(widgetSource, /location\.href\s*=[^=]/, 'nothing force-redirects the visitor');
-  assert.match(widgetSource, /role="region" aria-label="Open in Chrome"/, 'the offer is an announced region');
+  assert.match(
+    widgetSource,
+    /role="region" aria-label=\{tExample\(activeLocale, 'chromeHandoffRegion'\)\}/,
+    'the offer is an announced region',
+  );
 
   assert.match(exampleCss, /\.chrome-handoff \{/, 'the example styles its offer');
   assert.match(exampleCss, /\.chrome-handoff-url \{/, 'the preserved URL is shown, selectable');

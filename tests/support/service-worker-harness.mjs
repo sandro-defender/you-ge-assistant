@@ -36,7 +36,7 @@ export const REQUIRED_PRECACHE = [
 export const OPTIONAL_PRECACHE = [
   'domain-config.js', 'domain-registry.js', 'dns-diagnostics.js',
   'assistant-state.js', 'assistant-widget.js', 'assistant-widget.css',
-  'qrcode.js',
+  'qrcode.js', 'pwa-install.js',
 ];
 export const PRECACHED = [...REQUIRED_PRECACHE, ...OPTIONAL_PRECACHE];
 
