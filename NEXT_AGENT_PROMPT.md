@@ -181,3 +181,11 @@ On `arena/b982ceb9-you-ge-assistant`, baseline `82a1ba36f290889f37c56d7c282b0d01
 ### Latest checkpoint: Phase 2 partial (2026-11-22)
 
 Owner approved the plan. Internal-only origin/environment and verified-claim metadata validators with tests are present; they do not authorize recovery. Phase 2 and the feature remain incomplete. Full check passed 649/649 after the three example CI installs/builds; package validation and bundle sync passed. Before connecting recovery to the Assistant/classic precached bundle, request explicit owner authorization for a synchronized kit-version bump under `AGENTS.md` and the precache gate. Obtain the missing Staff protocol/change-request materials before session/navigation integration. Do not publish, release or deploy. Continue on PR #55 and the existing branch only.
+
+### Latest: SDK 0.4.1 request (2026-11-22)
+
+Read `docs/architecture/assistant-sdk-cross-origin-recovery-progress-report.md`. Owner requested SDK 0.4.1; do not change version until separately authorized to bump synchronized kit version, since SDK_VERSION updates the precached generated bundle. Request desired kit version, preserve all changes, and reconcile local snapshot (baseline HEAD with uncommitted previous work) with remote PR #55 head 9a39bfe before any push. This turn: 156 SDK tests passed; sync and validator passed. Host protocol materials remain necessary for navigation/session work.
+
+### Latest: Staff evidence request (2026-11-22)
+
+Give the separate Staff agent `docs/architecture/staff-cross-origin-recovery-information-request.md` and collect the twelve evidence groups before assessing protocol compatibility. This task was documentation-only; SDK remains 0.4.0. SDK tests 156/156; package validator and browser bundle sync passed. Missing policy authority, auth/session protocol, exact origin and navigation evidence remain blockers. Never invent a host protocol or run competing controllers. Continue on PR #55 and the existing branch.
