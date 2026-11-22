@@ -173,3 +173,7 @@ own owner instruction:
   together with the version they describe.
 - No gate, test, or check may be weakened, skipped, or bypassed to make a run
   pass.
+
+## Current checkpoint: cross-origin recovery Phase 1 (2026-11-22)
+
+On `arena/b982ceb9-you-ge-assistant`, baseline `82a1ba36f290889f37c56d7c282b0d0112a402be`, read `docs/architecture/assistant-sdk-cross-origin-recovery-phase1.md` and `AGENT_HANDOFF.md`. Stop until the owner explicitly approves the plan; request missing change-request and Staff protocol materials. No implementation or release is authorized yet. Baseline SDK tests: 150/150 passed. Inspect `git status -sb`, `git log -1` and `gh pr list --head arena/b982ceb9-you-ge-assistant` for current commit, PR and working-tree state. After approval, implement only the next authorized phase on this same branch and PR; follow the stated security and version gates.

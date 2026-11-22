@@ -442,3 +442,7 @@ skipped or bypassed.
 Owner review of PR #40. The implementation is complete and every local gate is
 green; the only open items are the owner's merge decision and the separate
 SDK release line.
+
+## Cross-origin recovery — Phase 1 approval checkpoint (2026-11-22)
+
+Branch `arena/b982ceb9-you-ge-assistant`, baseline `82a1ba36f290889f37c56d7c282b0d0112a402be`. Plan and findings: `docs/architecture/assistant-sdk-cross-origin-recovery-phase1.md`. Phase 1 only; no SDK implementation, publish or deployment. `npm run test:sdk`: 150 passed, 0 failed. The requested architecture change-request and Staff protocol files are absent; owner must provide reviewed protocol materials. Recovery/session navigation is blocked until compatibility is established. Approval of the plan is required before Phase 2. PR and exact working-tree/commit state are available via `gh pr list --head arena/b982ceb9-you-ge-assistant` and `git status -sb` / `git log -1`; do not infer completion from a PR's existence. Next: await owner approval and decisions in the plan; continue on this branch only.
