@@ -316,6 +316,12 @@ export function validatePublishedConfig(rawInput, options) {
     };
   }
 
+  // Schema-version compatibility policy: a missing (undefined or null)
+  // `schemaVersion` is accepted as the current major for legacy payloads that
+  // predate the versioned envelope, and reported as `schema_version_missing`.
+  // A declared but malformed or different-major version keeps its legacy
+  // rejection (`unsupported_schema_version`).
+  const declaredSchemaVersion = parsed.schemaVersion !== undefined && parsed.schemaVersion !== null;
   const major = parseSchemaMajor(parsed.schemaVersion);
   if (major !== SCHEMA_VERSION) {
     return { valid: false, reason: 'unsupported_schema_version', warnings: ['unsupported_schema_version'] };
@@ -342,6 +348,10 @@ export function validatePublishedConfig(rawInput, options) {
       declaredProjectId ? { projectId: declaredProjectId } : {})
     : parsed;
 
+  const successWarnings = [];
+  if (hasInvalidProject) successWarnings.push('invalid_project_config');
+  if (!declaredSchemaVersion) successWarnings.push('schema_version_missing');
+
   return {
     valid: true,
     schemaVersion: SCHEMA_VERSION,
@@ -349,7 +359,7 @@ export function validatePublishedConfig(rawInput, options) {
     publishedAt: safeText(parsed.publishedAt || '', 60),
     projectId: declaredProjectId || (nestedProject && nestedProject.id) || (topProject && topProject.id) || expectedProjectId,
     config: extractLayerOverrides(payload),
-    warnings: hasInvalidProject ? ['invalid_project_config'] : [],
+    warnings: successWarnings,
   };
 }
 
@@ -447,6 +457,12 @@ export function resolveAssistantConfig(rawInput, context) {
       if (targetProject && ctx.storage) {
         saveLastKnownGood(ctx.storage, targetProject, validated);
       }
+      // Surface accepted-payload notices (e.g. `schema_version_missing`) on
+      // the existing warnings channel so a host can see them without reading
+      // the validator result directly.
+      validated.warnings.forEach(function (code) {
+        if (warnings.indexOf(code) === -1) warnings.push(code);
+      });
     } else {
       warnings.push('published_config_rejected:' + validated.reason);
       const fallbackProject = explicitProjectId || ctx.fallbackProjectId || '';

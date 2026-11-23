@@ -293,3 +293,62 @@ test('the Chrome handoff capability ships enabled and can be disabled through mo
   assert.equal(state.capabilities.diagnostics, BUNDLED_DEFAULTS.modules.diagnostics);
   off.destroy();
 });
+
+test('published schema-version policy: missing warns, malformed and unsupported majors reject (SDK-3)', () => {
+  const storage = makeStorage();
+
+  // Missing schemaVersion stays accepted (legacy `{ revision, config }` payloads)
+  // but is reported explicitly through warnings.
+  const missing = validatePublishedConfig(
+    { revision: 'r1', projectId: 'policy-p', config: { position: 'bottom-right' } },
+    { expectedProjectId: 'policy-p' },
+  );
+  assert.equal(missing.valid, true, 'missing schemaVersion is accepted for compatibility');
+  assert.ok(missing.warnings.includes('schema_version_missing'), 'missing schemaVersion warns');
+
+  const explicitNull = validatePublishedConfig(
+    { schemaVersion: null, revision: 'r1', projectId: 'policy-p', config: {} },
+    { expectedProjectId: 'policy-p' },
+  );
+  assert.equal(explicitNull.valid, true);
+  assert.ok(explicitNull.warnings.includes('schema_version_missing'), 'a null schemaVersion is treated as missing');
+
+  // Declared, supported versions stay valid and silent.
+  for (const declared of [1, '1', '1.0', '1.2.3']) {
+    const ok = validatePublishedConfig(
+      { schemaVersion: declared, revision: 'r', projectId: 'policy-p', config: {} },
+      { expectedProjectId: 'policy-p' },
+    );
+    assert.equal(ok.valid, true, `schemaVersion ${JSON.stringify(declared)} is supported`);
+    assert.ok(!ok.warnings.includes('schema_version_missing'), 'declared versions do not warn');
+  }
+
+  // Malformed values keep their legacy rejection (same reason code as before).
+  for (const bad of ['abc', '1.2.x', 1.5, {}, [], true, -1]) {
+    const res = validatePublishedConfig(
+      { schemaVersion: bad, revision: 'r', projectId: 'policy-p', config: {} },
+      { expectedProjectId: 'policy-p' },
+    );
+    assert.equal(res.valid, false, `malformed schemaVersion ${JSON.stringify(bad)} is rejected`);
+    assert.equal(res.reason, 'unsupported_schema_version');
+  }
+
+  // Well-formed but unsupported majors are rejected as before.
+  for (const major of [2, '2.0.0', 99]) {
+    const res = validatePublishedConfig(
+      { schemaVersion: major, revision: 'r', projectId: 'policy-p', config: {} },
+      { expectedProjectId: 'policy-p' },
+    );
+    assert.equal(res.valid, false);
+    assert.equal(res.reason, 'unsupported_schema_version');
+  }
+
+  // The warning surfaces through resolveAssistantConfig's meta.warnings channel
+  // while the published layer still applies.
+  const resolved = resolveAssistantConfig({
+    projectId: 'policy-p',
+    publishedConfig: { revision: 'r2', projectId: 'policy-p', config: { position: 'bottom-left' } },
+  }, { storage });
+  assert.ok(resolved.meta.warnings.includes('schema_version_missing'), 'resolveAssistantConfig surfaces the warning');
+  assert.equal(resolved.config.position, 'bottom-left', 'the published layer still applies');
+});

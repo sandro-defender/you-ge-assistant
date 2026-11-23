@@ -1,5 +1,78 @@
 # Changelog
 
+## 0.4.1 (SDK) / 1.2.9 (kit) — 2026-11-22 · version increment for the Phase 1 fixes
+
+`@youge/assistant-sdk` `0.4.0 → 0.4.1` and kit `1.2.8 → 1.2.9`, **the kit bump
+authorized by the owner in this release-preparation task** because the
+regenerated precached `assistant-state.js` mirrors `SDK_VERSION`. The
+synchronized declarations (`const VERSION` in `you-ge-sw.js`, `PWA.version` in
+`pwa.js`, root `package.json`, `KIT_COMPAT_VERSION`) moved together and
+`npm run sync:sdk` regenerated the bundle. New cache generation:
+`…:static:v1.2.9` and `…:pages:v1.2.9`; `1.2.8` caches retire on activation.
+
+- **Why a new version instead of shipping under `0.4.0`.** The registry
+  published `@youge/assistant-sdk@0.4.0` on 2026-11-19, before the Phase 1
+  correctness fixes. That published tarball contains none of them (verified
+  against the registry artifact on 2026-11-22: no immutable snapshots, no
+  destroyed-instance React guard, no `schema_version_missing` warning, no `ge`
+  locale alias). A published version cannot be replaced, so the fixes ship as
+  the next patch version, `0.4.1`.
+- **No behaviour change beyond the version literals.** The SDK source, the
+  generated bundle and the runtime are identical to the change described in the
+  entry below; only `SDK_VERSION`, `KIT_COMPAT_VERSION`, the package `version`,
+  the runtime `version` and the wrapped cache generation differ.
+- **The entry below is superseded by this one** and never shipped on its own.
+- **Nothing is published, tagged, merged or deployed by this entry.** npm still
+  serves `0.4.0`; `0.4.1` is prepared in the repository and publishes only
+  through the owner-authorized gated release
+  (see `packages/assistant-sdk/RELEASE.md`).
+
+## 0.4.1 (SDK) / 1.2.8 (kit) — 2026-11-22 · SDK Phase 1: correctness, compatibility and documentation
+
+> Superseded by the `0.4.1` / `1.2.9` entry above, which carries the same fixes
+> to the release version. Kept for the record of the Phase 1 content.
+
+Kit `1.2.7 → 1.2.8`, **the kit bump authorized by the owner in this task**,
+because the regenerated precached `assistant-state.js` mirrors the SDK core
+changes below. The synchronized declarations moved together and
+`npm run sync:sdk` regenerated the bundle. New cache generation:
+`…:static:v1.2.8` and `…:pages:v1.2.8`; `1.2.7` caches retire on activation.
+The SDK package version for these fixes is `0.4.1` — see the entry above, which
+supersedes this one. **Nothing is published, tagged, merged or deployed by this
+entry.** See
+[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §14.
+
+- **State snapshots are immutable.** `getState()`, the setter return values and
+  the `youge:state` event detail now publish a deeply frozen state tree (every
+  nested object and array); state builders copy project-supplied actions so the
+  snapshot never aliases caller configuration. Snapshot identity stays stable
+  between changes for `useSyncExternalStore` consumers. External mutation of a
+  returned snapshot now fails (throws in strict-mode consumers) instead of
+  silently corrupting internal assistant state. This is a hardening of the
+  published state contract; no state shape changed.
+- **React adapter never reuses a destroyed assistant.** `createReactAdapter`
+  drops its cached instance once `isDestroyed()` reports true and re-acquires a
+  live instance (a live explicit `opts.assistant` is preferred; otherwise the
+  idempotent `attachAssistant` reuses the live global or creates a single
+  replacement). Destroyed instances keep clearing their listeners on
+  `destroy()`; remounts bind to the live instance.
+- **Schema-version policy is explicit and testable.** A published config or
+  last-known-good payload without `schemaVersion` (or `null`) stays accepted as
+  the current major for legacy compatibility and now warns
+  `schema_version_missing` through `meta.warnings`; declared but malformed or
+  different-major values keep their `unsupported_schema_version` rejection.
+- **Georgian language-tag alias.** `normalizeLocaleTag` and
+  `normalizeInstallLocaleTag` map the common Georgian mistag `ge` (the ISO
+  country code) to the canonical `ka`, in the same class as the existing
+  `nb`/`nn` → `no` alias; canonical `ka`, `ka-GE` and all other locales are
+  unchanged.
+- **Documentation corrections.** The README no longer implies recovery entry
+  points exist: `modules.recovery` and `modules.failover` gate the `recovery`
+  and `backup-status` action items and notices only — health checks, hostname
+  switching, authorization and navigation remain host-owned. `network.recovery`
+  (the presentation flag set when the host reports a return from the fallback
+  endpoint) and the schema-version policy are documented.
+
 ## 0.4.0 (SDK) / 1.2.7 (kit) — 2026-11-19 · localization and PWA installation integration
 
 `@youge/assistant-sdk` `0.3.0 → 0.4.0` and kit `1.2.6 → 1.2.7`, **the kit bump

@@ -58,8 +58,9 @@ const INSTALL_LOCALE_CASE_MAP = Object.freeze({
 /**
  * Normalize any BCP-47 language tag to a supported project locale code
  * (`en, ka, ru, fr, it, de, sv, nl, no, da, et, es`), or `''` if unsupported.
- * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`) and maps Norwegian
- * subtags (`nb`, `nn`) to `no`.
+ * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`), maps Norwegian
+ * subtags (`nb`, `nn`) to `no`, and maps the common Georgian mistag `ge`
+ * (the ISO country code) to `ka`.
  */
 export function normalizeLocaleTag(value) {
   if (typeof value !== 'string') return '';
@@ -68,6 +69,7 @@ export function normalizeLocaleTag(value) {
   if (!/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleaned)) return '';
   let base = cleaned.toLowerCase().split('-')[0];
   if (base === 'nb' || base === 'nn') base = 'no';
+  if (base === 'ge') base = 'ka';
   return SUPPORTED_LOCALE_SET.has(base) ? base : '';
 }
 
@@ -90,6 +92,8 @@ export function normalizeInstallLocaleTag(value, fallback) {
   }
   if (parts[0] === 'nb' || parts[0] === 'nn' || parts[0] === 'no') return 'no';
   if (parts[0] === 'ka' && parts.length > 1) return 'ka';
+  // The common Georgian mistag `ge` (ISO country code) normalizes to `ka`.
+  if (parts[0] === 'ge') return 'ka';
   if (parts.length === 1) return parts[0];
   return parts[0] + '-' + (parts[1].length === 2 ? parts[1].toUpperCase() : parts[1]);
 }

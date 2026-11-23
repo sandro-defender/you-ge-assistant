@@ -26,6 +26,7 @@ import {
 import {
   INSTALL_EXPERIENCE_DEFAULTS,
   clone,
+  deepFreeze,
   normalizeInstallExperience,
   safeSameOriginIcon,
   safeText,
@@ -567,8 +568,10 @@ export function createAssistant(initialOptions, envOverrides) {
     // Project-supplied actions are data, but they can address a gated
     // capability (`id: 'diagnostics'` or `kind: 'help'`): gate them through the
     // same policy so configuration can never expose what the flag disabled.
+    // Each published entry is copied so the state snapshot never aliases the
+    // caller's configuration objects (snapshots are frozen as immutable trees).
     config.actions.forEach(function (action) {
-      if (isActionAllowed(config.modules, action)) add(action);
+      if (isActionAllowed(config.modules, action)) add(clone(action));
     });
     actions.sort(function (a, b) { return a.priority - b.priority; });
     return actions;
@@ -674,7 +677,15 @@ export function createAssistant(initialOptions, envOverrides) {
     // re-render forever) or `localStorage`. Conditions are still re-evaluated
     // above, so dismissal resets and persistence keep happening.
     if (snapshot && statesEqual(snapshot, next)) return;
-    snapshot = next;
+    // Snapshot immutability contract: the published state tree (and every
+    // nested object and array) is frozen once per state change, so external
+    // callers — widgets, React selectors, host listeners, `youge:state` event
+    // consumers — can never mutate internal assistant state through returned
+    // references. State builders copy (`clone`) anything derived from config,
+    // so freezing never reaches into caller-owned objects. Freezing happens
+    // here, not in `getState()`, so snapshot identity stays stable between
+    // changes for `useSyncExternalStore` consumers.
+    snapshot = deepFreeze(next);
     const doc = getDoc();
     if (shouldBindEvents) {
       try {

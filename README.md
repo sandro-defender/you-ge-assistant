@@ -22,7 +22,7 @@ configuration playground. **Live playground:**
 QR, offline recovery, push, share, caches, theme, wording and network diagnostics.
 
 **Product & integration guide:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
-discover the product, try the real Assistant, and integrate SDK 0.4.0 with verified
+discover the product, try the real Assistant, and integrate SDK 0.4.1 with verified
 code examples. The [workspace and theme studio](https://sandro-defender.github.io/you-ge-assistant/example/workspace.html)
 remain available; sample workspace data stays in the visitor’s browser. The React build dependencies are isolated to `examples/example/`; the core PWA
 toolkit remains dependency-free. See [`examples/example/README.md`](examples/example/README.md).
@@ -35,7 +35,7 @@ toolkit remains dependency-free. See [`examples/example/README.md`](examples/exa
 **Platform direction:** You.Ge Assistant is structured as a reusable PWA
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
-(`@youge/assistant-sdk` v`0.4.0`, prepared in this repository; npm still serves `0.3.0`) while keeping this repository's dependency-free PWA
+(`@youge/assistant-sdk` v`0.4.1`, prepared in this repository; npm serves `0.4.0`) while keeping this repository's dependency-free PWA
 toolkit (`window.YouGePWA` / `window.PWA`, `/you-ge-sw.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
 production failover engine or `staff.you.ge` modification is implemented here.
@@ -139,11 +139,12 @@ npm install @youge/assistant-sdk
 The package is ESM-only (`"type": "module"`), includes TypeScript declarations,
 and supports Node.js 18 or newer and modern browser bundlers using package
 `exports`/ESM resolution. Use `import`, not `require()`; CommonJS applications
-can use dynamic `import()`. This repository prepares `0.4.0`; the npm registry
-still serves `0.3.0` as `latest` (verified 2026-11-19) until the owner approves
-the gated release. Use `npm install @youge/assistant-sdk@0.3.0` for the current
-registry version, or `@youge/assistant-sdk@0.4.0` once the release is approved;
-allowing npm to select the current version is safe because `0.4.0` is additive.
+can use dynamic `import()`. This repository prepares `0.4.1`; the npm registry
+serves `0.4.0` as `latest` (published 2026-11-19) until the owner approves the
+gated release. Use `npm install @youge/assistant-sdk@0.4.0` for the current
+registry version, or `@youge/assistant-sdk@0.4.1` once the release is approved;
+allowing npm to select the current version is safe because `0.4.1` is additive
+over `0.4.0`.
 React is an **optional peer dependency** (`react >=18`) used only by the
 `/react` adapter; the core has no runtime dependencies.
 

@@ -241,6 +241,11 @@ export interface AssistantAppearanceState {
   themeColor: string;
 }
 
+/**
+ * Immutable state snapshot: every nested object and array published through
+ * `getState()`, setter returns and the `youge:state` event is deeply frozen.
+ * External mutation cannot change internal assistant state.
+ */
 export interface AssistantState {
   enabled: boolean;
   locale: SupportedLocale;
@@ -330,6 +335,7 @@ export interface AssistantInstance {
   setLocale(locale: string): AssistantState;
   subscribe(listener: (state: AssistantState) => void, options?: { immediate?: boolean }): () => void;
   setConnectivity(online: boolean): AssistantState;
+  /** Reports host endpoint health (presentation only). The `'backup' → 'primary'` transition with `primary: 'healthy'` sets `state.network.recovery`; it is `false` whenever `active !== 'primary'`. */
   setEndpointStatus(detail: EndpointStatusInput): AssistantState;
   setSessionStatus(detail: SessionStatusInput): AssistantState;
   setDnsResult(result: Record<string, unknown>): AssistantState;

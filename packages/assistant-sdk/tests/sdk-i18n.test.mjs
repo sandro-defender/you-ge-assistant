@@ -302,3 +302,29 @@ test('YouGeAssistant tracks browser languagechange in auto mode, respects domain
   assert.equal(domainAssistant.getLocale(), 'ru', 'returning to auto restores domain default');
   domainAssistant.destroy();
 });
+
+test('Georgian language-tag aliases resolve to ka without disturbing canonical tags (SDK-4)', () => {
+  // 'ge' is a common mistag of Georgian (GE is the country code); the alias is
+  // generic locale handling in the same class as the existing nb/nn -> no map.
+  assert.equal(normalizeLocaleTag('ge'), 'ka');
+  assert.equal(normalizeLocaleTag('GE'), 'ka');
+  assert.equal(normalizeLocaleTag('ge-GE'), 'ka');
+  assert.equal(normalizeLocaleTag('ge_GE'), 'ka');
+  assert.equal(normalizeLocaleTag('ka'), 'ka', 'canonical ka is unchanged');
+  assert.equal(normalizeLocaleTag('ka-GE'), 'ka');
+  assert.equal(normalizeLocaleTag('en-US'), 'en', 'territory tags fall back to the language');
+  assert.equal(normalizeLocaleTag('ru-RU'), 'ru');
+  assert.equal(normalizeLocaleTag('xx'), '');
+  assert.equal(normalizeLocaleTag('g'), '', 'shape guard still rejects one-letter tags');
+
+  assert.equal(normalizeInstallLocaleTag('ge'), 'ka');
+  assert.equal(normalizeInstallLocaleTag('ge-GE'), 'ka');
+  assert.equal(normalizeInstallLocaleTag('ka-GE'), 'ka');
+
+  assert.equal(resolveLocale({ explicit: 'ge' }), 'ka');
+  assert.equal(resolveLocale({ locale: 'ge-GE' }), 'ka');
+  assert.equal(resolveLocale({ explicit: 'ka' }), 'ka');
+  assert.equal(resolveLocale({ explicit: 'en-US' }), 'en');
+  assert.equal(resolveLocale({ explicit: 'ru-RU' }), 'ru');
+  assert.equal(resolveLocale({ explicit: 'xx' }), DEFAULT_LOCALE, 'unknown tags fall back to the default locale');
+});

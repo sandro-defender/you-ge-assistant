@@ -5,11 +5,12 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status:** SDK `0.4.0` is prepared in this repository and **not yet
-> published**. npm still serves `0.3.0` (registry verified 2026-11-19) until the
-> owner approves the gated release (see [`RELEASE.md`](RELEASE.md)); `0.4.0` is
-> additive over `0.3.0`. The compatible repository toolkit is `1.2.7`
-> (`KIT_COMPAT_VERSION`).
+> **Package status:** SDK `0.4.1` is prepared in this repository and **not yet
+> published**. npm serves `0.4.0` (published 2026-11-19, registry verified
+> 2026-11-22), which predates the Phase 1 correctness fixes described under
+> *Recovery and failover* below; `0.4.1` is additive over `0.4.0` and the owner
+> approves the gated release (see [`RELEASE.md`](RELEASE.md)). The compatible
+> repository toolkit is `1.2.9` (`KIT_COMPAT_VERSION`).
 > See [`MIGRATION.md`](MIGRATION.md) for host-owned worker integration and
 > [`RELEASE.md`](RELEASE.md) for the authorization-gated release runbook.
 
@@ -158,6 +159,15 @@ Configuration resolves deterministically in strict data-only order:
 2. **Validated published revision** (`publishedConfig`, schema major `1`) — persisted per project under `localStorage["youge-assistant:lkg:<projectId>"]`
 3. **Last-Known-Good fallback** — automatically loaded for the matching `projectId` if an incoming `publishedConfig` fails schema/security validation
 4. **Explicit project overrides** — local options passed to `create()` / `attach()` / `configure()`
+
+**Schema-version policy.** `schemaVersion` is optional for compatibility: a
+published payload (or stored last-known-good record) that omits it — or sets it
+to `null` — is accepted as the current major and reported as
+`schema_version_missing` in `meta.warnings`. A declared but malformed value
+(for example `'abc'`, `'1.2.x'`, `1.5`) or a different major (`2`, `'2.0.0'`)
+is rejected with `unsupported_schema_version`, exactly as before. Declare
+`schemaVersion: 1` in new payloads; the missing-value tolerance may be
+tightened in a future major.
 
 ```js
 const assistant = YouGeAssistant.create({
@@ -451,7 +461,7 @@ twelve locales as the classic toolkit runtime:
 ### Install and import
 
 ```bash
-npm install @youge/assistant-sdk@0.4.0   # exact-pin the prepared release
+npm install @youge/assistant-sdk@0.4.1   # exact-pin the prepared release
 ```
 
 ```js
@@ -793,8 +803,8 @@ as `GATED_CAPABILITIES`, `isCapabilityEnabled()`, `capabilityForAction()`,
 | Flag `false` | What stops working |
 | --- | --- |
 | `modules.diagnostics` | `runDiagnostics()` resolves `{ status: 'disabled' }` without starting any runner (including an application-owned `services.diagnostics`); the `diagnostics` action, its notice links and the live DNS pipeline follow. Disabling it mid-run aborts the run and discards the late result. |
-| `modules.recovery` | The `recovery` action and every recovery entry point. |
-| `modules.failover` | The `backup-status` action, the `api:backup-active` notice and failover UI. Endpoint state reported by the host is still recorded. |
+| `modules.recovery` | The `recovery` action item and its renderers. The SDK publishes recovery **state and actions only** — it performs no navigation, endpoint switching or authorization (see "Recovery and failover: division of responsibility" below). |
+| `modules.failover` | The `backup-status` action and the `api:backup-active` notice. Endpoint state reported by the host is still recorded regardless of the flag. |
 | `modules.help` | Help actions on notices and project-supplied actions with `kind: 'help'` (or a gated id). The underlying session condition is still reported. |
 
 Enforcement happens at the API boundary, in generated actions *and*
@@ -815,6 +825,28 @@ reconciliation are honored. `destroy()` unsubscribes from `PWA.onChange()` and
 removes Assistant listeners; `configure()` can toggle the updates module
 without replacing the instance.
 
+### Recovery and failover: division of responsibility
+
+The SDK is a **state and presentation layer** for recovery and failover, not an
+execution engine. It:
+
+- records endpoint conditions the host reports through `setEndpointStatus()`
+  and session conditions through `setSessionStatus()`;
+- derives notices (`api:primary-failed`, `api:backup-active`,
+  `api:primary-restored`, `session:issue`) and the `recovery` / `backup-status`
+  action items, gated by `modules.recovery` / `modules.failover`;
+- dispatches `youge:action` events and exposes the presentation flag
+  `state.network.recovery` (see `setEndpointStatus`).
+
+The SDK deliberately performs **no** endpoint health checks, **no** hostname or
+endpoint switching, **no** authorization, and **no** navigation — including no
+navigation to a fallback host. Those remain host-owned responsibilities: the
+host probes its endpoints, decides whether a failure can be solved by changing
+hostnames, validates any recovery destination against its own allowlist, and
+owns all authentication and session security. There are no recovery lifecycle
+hooks or navigation contracts in this release; the `recovery` action is a
+dispatched event for the host to answer.
+
 | Event | Meaning |
 | --- | --- |
 | `pwa:ready` | PWA API initialized; not a registration-success event. |
@@ -828,14 +860,14 @@ without replacing the instance.
 
 | Method | Signature / Return | Description |
 | --- | --- | --- |
-| `getState()` | `() => AssistantState` | Returns the current immutable-convention JSON-serializable state snapshot (`project`, `installation`, `network`, `capabilities`, `notifications`, `availableActions`, `badge`, `appearance`, `dismissed`, `acknowledged`). |
+| `getState()` | `() => AssistantState` | Returns the current deeply frozen (immutable) JSON-serializable state snapshot (`project`, `installation`, `network`, `capabilities`, `notifications`, `availableActions`, `badge`, `appearance`, `dismissed`, `acknowledged`). Every nested object and array is frozen, so external callers can never mutate internal assistant state through returned references (attempted mutation throws in strict-mode consumers); snapshot identity is stable between state changes for `useSyncExternalStore`. |
 | `getConfig()` | `() => AssistantConfigSummary` | Returns resolved sanitized configuration plus `meta` (`source`, `revision`, `usedLastKnownGood`, `warnings`). |
 | `getLocale()` | `() => SupportedLocale` | Returns the resolved active UI locale (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`). |
 | `setLocale(locale)` | `(string) => AssistantState` | Resolves `'auto'` (honoring `domainConfig.language` before browser `navigator.languages`) or an explicit BCP-47 tag, updates localized notices/labels runtime-only (never written to `localStorage`), syncs `window.PWA.setLanguage()` when attached, and emits `youge:locale-change`. |
 | `configure(options)` | `(AssistantConfigInput) => AssistantState` | Re-runs configuration resolution, reloads project-scoped notice state, and emits an updated snapshot without duplicating listeners. |
 | `subscribe(fn, opts?)` | `(fn, { immediate?: boolean }) => () => void` | Subscribes to state transitions. Calls `fn(state)` immediately unless `{ immediate: false }`. Returns an `unsubscribe` function. |
 | `setConnectivity(online)` | `(boolean) => AssistantState` | Updates online/offline condition explicitly. |
-| `setEndpointStatus(detail)` | `({ primary, backup, active, reason }) => AssistantState` | Reports host-app primary/backup API health. |
+| `setEndpointStatus(detail)` | `({ primary, backup, active, reason }) => AssistantState` | Reports host-app primary/backup API health (presentation only — the SDK never probes or switches endpoints). When `active` transitions `'backup' → 'primary'` while `primary` is `'healthy'`, the state flag `network.recovery` becomes `true` (the "returned from the fallback endpoint" presentation flag); it is `false` whenever `active !== 'primary'`. |
 | `setSessionStatus(detail)` | `({ state, message }) => AssistantState` | Reports `'unknown' \| 'ok' \| 'issue'` session condition from the host app's own auth layer. |
 | `setDnsResult(result)` | `(object) => AssistantState` | Records normalized DNS diagnostic status (`classification`, `message`, `checkedAt`). |
 | `setUpdateAvailable(flag?)` | `(boolean) => AssistantState` | Marks a waiting service worker update ready to apply. |
@@ -952,9 +984,9 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 - **Version sources are synchronized and machine-checked:** `package.json` ↔
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
-- **Publishing is gated, never automatic.** `0.4.0` is prepared in this
-  repository; the registry still reports `0.3.0` as `latest` (verified
-  2026-11-19). The manual release workflow remains authorization-gated — no
+- **Publishing is gated, never automatic.** `0.4.1` is prepared in this
+  repository; the registry reports `0.4.0` as `latest` (published 2026-11-19,
+  verified 2026-11-22). The manual release workflow remains authorization-gated — no
   push, pull request or merge publishes anything, and the owner approves the
   staged version on npmjs.com. Historical release decisions and the current
   runbook are recorded in [`RELEASE.md`](RELEASE.md).

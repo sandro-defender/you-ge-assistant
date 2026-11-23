@@ -84,6 +84,13 @@ export interface AssistantFeature {
 }
 
 export interface PublishedAssistantConfig {
+  /**
+   * Schema major version. Optional for legacy compatibility: a missing or
+   * `null` value is accepted as the current major and reported as
+   * `schema_version_missing` in the validation warnings. A declared but
+   * malformed value or a different major is rejected with
+   * `unsupported_schema_version`.
+   */
   schemaVersion?: number | string;
   revision?: string;
   publishedAt?: string;
