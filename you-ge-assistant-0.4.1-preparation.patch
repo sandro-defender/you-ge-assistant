@@ -1,0 +1,1582 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 91ad4e9..6fe3f5a 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -103,10 +103,11 @@ JavaScript, CSS, a manifest, a service worker, static icons, central domain
+ configuration, and an on-demand DNS diagnostics module. There is no build step
+ or runtime package install required for classic `<script>` integration.
+ 
+-Current runtime version: **1.2.7** (`YouGePWA.version` / `PWA.version`, `VERSION` in
++Current runtime version: **1.2.9** (`YouGePWA.version` / `PWA.version`, `VERSION` in
+ `you-ge-sw.js`, root `package.json` and the SDK's `KIT_COMPAT_VERSION`; the SDK
+-package itself is versioned separately, currently `0.4.0`, prepared in the
+-repository and not yet published). For architecture findings and risks, see
++package itself is versioned separately: `0.4.1` is prepared in this repository
++and not yet published; npm serves `0.4.0`, which predates the Phase 1 fixes).
++For architecture findings and risks, see
+ [`docs/architecture/ARCHITECTURE_AUDIT.md`](docs/architecture/ARCHITECTURE_AUDIT.md) and
+ [`docs/architecture/FOUNDATION_AUDIT.md`](docs/architecture/FOUNDATION_AUDIT.md).
+ 
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 565782d..eb00f47 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,5 +1,78 @@
+ # Changelog
+ 
++## 0.4.1 (SDK) / 1.2.9 (kit) — 2026-11-22 · version increment for the Phase 1 fixes
++
++`@youge/assistant-sdk` `0.4.0 → 0.4.1` and kit `1.2.8 → 1.2.9`, **the kit bump
++authorized by the owner in this release-preparation task** because the
++regenerated precached `assistant-state.js` mirrors `SDK_VERSION`. The
++synchronized declarations (`const VERSION` in `you-ge-sw.js`, `PWA.version` in
++`pwa.js`, root `package.json`, `KIT_COMPAT_VERSION`) moved together and
++`npm run sync:sdk` regenerated the bundle. New cache generation:
++`…:static:v1.2.9` and `…:pages:v1.2.9`; `1.2.8` caches retire on activation.
++
++- **Why a new version instead of shipping under `0.4.0`.** The registry
++  published `@youge/assistant-sdk@0.4.0` on 2026-11-19, before the Phase 1
++  correctness fixes. That published tarball contains none of them (verified
++  against the registry artifact on 2026-11-22: no immutable snapshots, no
++  destroyed-instance React guard, no `schema_version_missing` warning, no `ge`
++  locale alias). A published version cannot be replaced, so the fixes ship as
++  the next patch version, `0.4.1`.
++- **No behaviour change beyond the version literals.** The SDK source, the
++  generated bundle and the runtime are identical to the change described in the
++  entry below; only `SDK_VERSION`, `KIT_COMPAT_VERSION`, the package `version`,
++  the runtime `version` and the wrapped cache generation differ.
++- **The entry below is superseded by this one** and never shipped on its own.
++- **Nothing is published, tagged, merged or deployed by this entry.** npm still
++  serves `0.4.0`; `0.4.1` is prepared in the repository and publishes only
++  through the owner-authorized gated release
++  (see `packages/assistant-sdk/RELEASE.md`).
++
++## 0.4.1 (SDK) / 1.2.8 (kit) — 2026-11-22 · SDK Phase 1: correctness, compatibility and documentation
++
++> Superseded by the `0.4.1` / `1.2.9` entry above, which carries the same fixes
++> to the release version. Kept for the record of the Phase 1 content.
++
++Kit `1.2.7 → 1.2.8`, **the kit bump authorized by the owner in this task**,
++because the regenerated precached `assistant-state.js` mirrors the SDK core
++changes below. The synchronized declarations moved together and
++`npm run sync:sdk` regenerated the bundle. New cache generation:
++`…:static:v1.2.8` and `…:pages:v1.2.8`; `1.2.7` caches retire on activation.
++The SDK package version for these fixes is `0.4.1` — see the entry above, which
++supersedes this one. **Nothing is published, tagged, merged or deployed by this
++entry.** See
++[`docs/operations/PRECACHE_INTEGRITY.md`](docs/operations/PRECACHE_INTEGRITY.md) §14.
++
++- **State snapshots are immutable.** `getState()`, the setter return values and
++  the `youge:state` event detail now publish a deeply frozen state tree (every
++  nested object and array); state builders copy project-supplied actions so the
++  snapshot never aliases caller configuration. Snapshot identity stays stable
++  between changes for `useSyncExternalStore` consumers. External mutation of a
++  returned snapshot now fails (throws in strict-mode consumers) instead of
++  silently corrupting internal assistant state. This is a hardening of the
++  published state contract; no state shape changed.
++- **React adapter never reuses a destroyed assistant.** `createReactAdapter`
++  drops its cached instance once `isDestroyed()` reports true and re-acquires a
++  live instance (a live explicit `opts.assistant` is preferred; otherwise the
++  idempotent `attachAssistant` reuses the live global or creates a single
++  replacement). Destroyed instances keep clearing their listeners on
++  `destroy()`; remounts bind to the live instance.
++- **Schema-version policy is explicit and testable.** A published config or
++  last-known-good payload without `schemaVersion` (or `null`) stays accepted as
++  the current major for legacy compatibility and now warns
++  `schema_version_missing` through `meta.warnings`; declared but malformed or
++  different-major values keep their `unsupported_schema_version` rejection.
++- **Georgian language-tag alias.** `normalizeLocaleTag` and
++  `normalizeInstallLocaleTag` map the common Georgian mistag `ge` (the ISO
++  country code) to the canonical `ka`, in the same class as the existing
++  `nb`/`nn` → `no` alias; canonical `ka`, `ka-GE` and all other locales are
++  unchanged.
++- **Documentation corrections.** The README no longer implies recovery entry
++  points exist: `modules.recovery` and `modules.failover` gate the `recovery`
++  and `backup-status` action items and notices only — health checks, hostname
++  switching, authorization and navigation remain host-owned. `network.recovery`
++  (the presentation flag set when the host reports a return from the fallback
++  endpoint) and the schema-version policy are documented.
++
+ ## 0.4.0 (SDK) / 1.2.7 (kit) — 2026-11-19 · localization and PWA installation integration
+ 
+ `@youge/assistant-sdk` `0.3.0 → 0.4.0` and kit `1.2.6 → 1.2.7`, **the kit bump
+diff --git a/README.md b/README.md
+index d294d15..a4c804c 100644
+--- a/README.md
++++ b/README.md
+@@ -22,7 +22,7 @@ configuration playground. **Live playground:**
+ QR, offline recovery, push, share, caches, theme, wording and network diagnostics.
+ 
+ **Product & integration guide:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
+-discover the product, try the real Assistant, and integrate SDK 0.4.0 with verified
++discover the product, try the real Assistant, and integrate SDK 0.4.1 with verified
+ code examples. The [workspace and theme studio](https://sandro-defender.github.io/you-ge-assistant/example/workspace.html)
+ remain available; sample workspace data stays in the visitor’s browser. The React build dependencies are isolated to `examples/example/`; the core PWA
+ toolkit remains dependency-free. See [`examples/example/README.md`](examples/example/README.md).
+@@ -35,7 +35,7 @@ toolkit remains dependency-free. See [`examples/example/README.md`](examples/exa
+ **Platform direction:** You.Ge Assistant is structured as a reusable PWA
+ management and infrastructure platform. Phase 2 extracts the framework-independent
+ SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
+-(`@youge/assistant-sdk` v`0.4.0`, prepared in this repository; npm still serves `0.3.0`) while keeping this repository's dependency-free PWA
++(`@youge/assistant-sdk` v`0.4.1`, prepared in this repository; npm serves `0.4.0`) while keeping this repository's dependency-free PWA
+ toolkit (`window.YouGePWA` / `window.PWA`, `/you-ge-sw.js`, DNS diagnostics, manifest/offline
+ support) intact. No standalone dashboard, remote configuration service,
+ production failover engine or `staff.you.ge` modification is implemented here.
+@@ -139,11 +139,12 @@ npm install @youge/assistant-sdk
+ The package is ESM-only (`"type": "module"`), includes TypeScript declarations,
+ and supports Node.js 18 or newer and modern browser bundlers using package
+ `exports`/ESM resolution. Use `import`, not `require()`; CommonJS applications
+-can use dynamic `import()`. This repository prepares `0.4.0`; the npm registry
+-still serves `0.3.0` as `latest` (verified 2026-11-19) until the owner approves
+-the gated release. Use `npm install @youge/assistant-sdk@0.3.0` for the current
+-registry version, or `@youge/assistant-sdk@0.4.0` once the release is approved;
+-allowing npm to select the current version is safe because `0.4.0` is additive.
++can use dynamic `import()`. This repository prepares `0.4.1`; the npm registry
++serves `0.4.0` as `latest` (published 2026-11-19) until the owner approves the
++gated release. Use `npm install @youge/assistant-sdk@0.4.0` for the current
++registry version, or `@youge/assistant-sdk@0.4.1` once the release is approved;
++allowing npm to select the current version is safe because `0.4.1` is additive
++over `0.4.0`.
+ React is an **optional peer dependency** (`react >=18`) used only by the
+ `/react` adapter; the core has no runtime dependencies.
+ 
+diff --git a/docs/guides/INSTALLATION_EXPERIENCE.md b/docs/guides/INSTALLATION_EXPERIENCE.md
+index b075c3b..f077d6a 100644
+--- a/docs/guides/INSTALLATION_EXPERIENCE.md
++++ b/docs/guides/INSTALLATION_EXPERIENCE.md
+@@ -263,7 +263,7 @@ including native Georgian `ka`, Russian `ru`, and Estonian `et`):
+   `EVENT_NAMES.pwaInstallDialog` are mirrored in the SDK core and browser bundle
+   (`assistant-state.js`).
+ 
+-## 6. Driving it from the SDK `0.4.0`
++## 6. Driving it from the SDK `0.4.1`
+ 
+ The SDK does not add a second installation flow: it reads and calls the runtime
+ described above. Every helper returns an honest result instead of throwing, so a
+diff --git a/docs/guides/INTEGRATION.md b/docs/guides/INTEGRATION.md
+index 7e20c93..d4f353b 100644
+--- a/docs/guides/INTEGRATION.md
++++ b/docs/guides/INTEGRATION.md
+@@ -10,15 +10,18 @@ Existing compatibility migrations are described in
+ ## SDK or classic toolkit?
+ 
+ For a new SDK integration, start with the [product and getting-started guide](https://sandro-defender.github.io/you-ge-assistant/example/).
+-`npm install @youge/assistant-sdk` installs the published SDK (0.3.0 verified
+-2026-11-19; `0.4.0` is prepared in this repository and publishes only through
+-the owner-approved gated release), not the classic UI/worker assets below. The
+-SDK is ESM-only, ships TypeScript declarations, and has no core runtime
+-dependencies. `0.4.0` adds the localization module
++`npm install @youge/assistant-sdk` installs the published SDK (0.4.0, published
++2026-11-19 and verified 2026-11-22; `0.4.1` is prepared in this repository and
++publishes only through the owner-approved gated release), not the classic
++UI/worker assets below. The SDK is ESM-only, ships TypeScript declarations, and
++has no core runtime dependencies. Prepared `0.4.0` added the localization module
+ (`@youge/assistant-sdk/i18n`, twelve core locales) and the installation helpers
+ (`@youge/assistant-sdk/installation`: `deriveInstallationState`,
+ `resolveInstallationCopy`, `showPwaInstallDialog`, `hidePwaInstallDialog`,
+ `triggerPwaInstall`, `readInstalledRelatedApps`); both are additive over `0.3.0`.
++Prepared `0.4.1` is additive over `0.4.0` and carries the Phase 1 correctness
++fixes (see the [changelog](../../CHANGELOG.md) and the SDK
++[README](../../packages/assistant-sdk/README.md)).
+ 
+ Use `YouGeAssistant.create()` for an isolated instance and
+ `YouGeAssistant.attach()` to share the page singleton with classic scripts.
+diff --git a/docs/guides/MULTI_DOMAIN.md b/docs/guides/MULTI_DOMAIN.md
+index 39b2858..b589e5f 100644
+--- a/docs/guides/MULTI_DOMAIN.md
++++ b/docs/guides/MULTI_DOMAIN.md
+@@ -183,8 +183,8 @@ For a new domain, use a stable `id` such as `./` or an application-specific path
+ The worker cache namespace includes the current hostname, worker scope path and runtime version, for example:
+ 
+ ```text
+-you-ge-assistant:app.example.com:%2Fportal%2F:static:v1.2.2
+-you-ge-assistant:app.example.com:%2Fportal%2F:pages:v1.2.2
++you-ge-assistant:app.example.com:%2Fportal%2F:static:v1.2.9
++you-ge-assistant:app.example.com:%2Fportal%2F:pages:v1.2.9
+ ```
+ 
+ Cache Storage is already origin-partitioned by the browser; the namespace also prevents collisions between apps/scopes on a shared origin. The worker only handles same-origin requests inside its scope and prunes only its own new namespace. It copies same-origin, in-scope static assets from the last legacy cache names and migrates legacy HTML only when its response explicitly declares `Cache-Control: public`; old shared-name caches are retained because older releases did not namespace them safely. New navigation HTML is cached only when explicitly public. Mark authenticated/personalized HTML `Cache-Control: private, no-store`. Legacy IndexedDB records for saved shares and notification history are copied non-destructively into canonical `you-ge-shared-files` and `you-ge-notifications` stores while keeping the legacy databases intact for rollback.
+diff --git a/docs/operations/PRECACHE_INTEGRITY.md b/docs/operations/PRECACHE_INTEGRITY.md
+index 2197c48..9acea42 100644
+--- a/docs/operations/PRECACHE_INTEGRITY.md
++++ b/docs/operations/PRECACHE_INTEGRITY.md
+@@ -5,7 +5,7 @@ retained as a subpath-safe `importScripts` compatibility shim — see
+ [`../reference/COMPATIBILITY_CONTRACTS.md`](../reference/COMPATIBILITY_CONTRACTS.md)) caches the app shell,
+ which precache assets are required and which are optional, how installed apps
+ receive new code, what the `precache-integrity` gate enforces, and how kit
+-`1.2.7` refreshes the precache generation safely.
++`1.2.8` refreshes the precache generation safely.
+ 
+ Everything below was verified with deterministic Node tests against the real
+ worker source. **No real-browser or live-deployment verification was performed.**
+@@ -17,7 +17,7 @@ worker source. **No real-browser or live-deployment verification was performed.*
+ | SDK sources → `assistant-state.js` | `npm run sync:sdk` (`scripts/sync-sdk-browser.mjs`) | The only generated precached file. `--check` (part of `npm run check`) fails when it is out of date. |
+ | Precache manifest | `PRECACHE_ASSETS` in `you-ge-sw.js` | 14 scope-relative files, each declared `required: true` or `required: false` (§3). There is no separate manifest file: the worker is the single source, and the gate reads it by running the install handler. |
+ | Never cached by the worker | `pwa.js`, `you-ge-sw.js`, `progressier.js` | Always fetched from the network (`fetch` handler returns early). |
+-| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.7`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.4.0`) is a separate release line (§7); because the generated bundle mirrors it, an SDK release-version change regenerates `assistant-state.js` and therefore needs the owner-authorized synchronized kit bump (§13). |
++| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.8`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.4.1`) is a separate release line (§7); because the generated bundle mirrors it, an SDK release-version change regenerates `assistant-state.js` and therefore needs the owner-authorized synchronized kit bump (§13). |
+ | Cache names | `you-ge-assistant:<host>:<scope>:static:v<VERSION>` and `…:pages:v<VERSION>` | Host- and scope-isolated. The **kit version is the only cache-invalidation key.** |
+ | Deployment | `.github/workflows/pages.yml` | Every push to `main` publishes the runtime to GitHub Pages. |
+ 
+@@ -472,3 +472,69 @@ stage/publish, tag, GitHub release, merge or deployment is part of it.
+ - `0.4.0` itself ships no precached runtime change beyond the mirrored version
+   literal: the SDK package files are not part of the classic precache (the
+   runtime uses the generated `assistant-state.js`).
++
++## 14. Kit version `1.2.8` — SDK Phase 1 correctness, compatibility and documentation
++
++Authorized by the owner on 2026-11-22 (`1.2.7 → 1.2.8`) specifically for the
++SDK Phase 1 task (snapshot immutability, destroyed React adapter guard,
++schema-version policy, Georgian locale alias, documentation corrections). The
++SDK package stays `0.4.0` — this bump is kit-only. No npm stage/publish, tag,
++GitHub release, merge or deployment is part of it.
++
++- Regenerating `assistant-state.js` (`npm run sync:sdk`) after the SDK source
++  changes (`deepFreeze` snapshot contract in `assistant/index.js`,
++  `schema_version_missing` warning in `config/index.js`, `ge → ka` locale alias
++  in `core/i18n.js`, `deepFreeze` helper in `core/sanitize.js`) changes a
++  precached asset, so rule 3 requires the synchronized bump.
++- Declarations moved together (`const VERSION` in `you-ge-sw.js`,
++  `PWA.version` in `pwa.js`, root `package.json`, `KIT_COMPAT_VERSION` in
++  `packages/assistant-sdk/src/core/constants.js`), and `npm run sync:sdk`
++  regenerated the bundle. New cache generation: `…:static:v1.2.8` and
++  `…:pages:v1.2.8`; `1.2.7` caches retire on activation. No migration code is
++  needed.
++- Pinned expectations updated: `tests/identity-migration.test.mjs` (worker
++  version, cache names, gate summary — the success marker now accepts both the
++  bump-transition summary `kit version 1.2.7 → 1.2.8 synchronized` and the
++  post-merge steady summary `kit version 1.2.8 synchronized`),
++  `tests/example-theme.test.mjs` (kit pin), `tests/install-experience.test.mjs`
++  (cache names, `PWA.version`), `packages/assistant-sdk/tests/sdk-core.test.mjs`
++  and `packages/assistant-sdk/tests/sdk-public-api.test.mjs`
++  (`KIT_COMPAT_VERSION`). No rule was weakened and no historical record was
++  rewritten.
++
++## 15. Kit version `1.2.9` — SDK `0.4.1` version increment
++
++Authorized by the owner on 2026-11-22 (`1.2.8 → 1.2.9`) because the Phase 1
++fixes need a release version the registry has not already published, and the
++regenerated bundle mirrors that version. `@youge/assistant-sdk` `0.4.0 → 0.4.1`
++prepared here; no npm stage/publish, tag, GitHub release, merge or deployment is
++part of it.
++
++- **Why not `0.4.0`.** `@youge/assistant-sdk@0.4.0` was published on
++  2026-11-19, before the Phase 1 fixes; its tarball contains none of them
++  (verified against the registry artifact on 2026-11-22). A published version
++  cannot be replaced, so the fixes move to `0.4.1`.
++- Regenerating `assistant-state.js` (`npm run sync:sdk`) changes the mirrored
++  `SDK_VERSION` literal in a precached asset, so rule 3 requires the
++  synchronized kit bump.
++- Declarations moved together (`const VERSION` in `you-ge-sw.js`,
++  `PWA.version` in `pwa.js`, root `package.json`, `KIT_COMPAT_VERSION` in
++  `packages/assistant-sdk/src/core/constants.js`). New cache generation:
++  `…:static:v1.2.9` and `…:pages:v1.2.9`; `1.2.8` caches retire on activation.
++  No migration code is needed.
++- Gate result on the change: `1 of 14 precached assets changed
++  (assistant-state.js) since the baseline; kit version 1.2.8 → 1.2.9
++  synchronized`. The bundle diff is two lines: the mirrored `SDK_VERSION` and
++  the version line it stamps.
++- Pinned expectations updated: `tests/identity-migration.test.mjs` (worker
++  `VERSION`, cache names, gate summary — the success marker accepts both the
++  transition summary `kit version 1.2.8 → 1.2.9 synchronized` and the
++  post-merge steady summary `kit version 1.2.9 synchronized`, plus the
++  `Current runtime version` assertion against this file's sibling in
++  `AGENTS.md`), `tests/example-theme.test.mjs` (kit and SDK pins),
++  `tests/install-experience.test.mjs` (cache names, `PWA.version`),
++  `packages/assistant-sdk/tests/sdk-core.test.mjs` and
++  `packages/assistant-sdk/tests/sdk-public-api.test.mjs`
++  (`SDK_VERSION`, `KIT_COMPAT_VERSION`), and `scripts/check.mjs` (the SDK
++  release-ready gate). No rule was weakened and no historical record was
++  rewritten.
+diff --git a/examples/config-playground/package-lock.json b/examples/config-playground/package-lock.json
+index 3d87705..8d22f50 100644
+--- a/examples/config-playground/package-lock.json
++++ b/examples/config-playground/package-lock.json
+@@ -16,7 +16,7 @@
+     },
+     "../../packages/assistant-sdk": {
+       "name": "@youge/assistant-sdk",
+-      "version": "0.4.0",
++      "version": "0.4.1",
+       "license": "MIT",
+       "engines": {
+         "node": ">=18"
+diff --git a/examples/demo/index.html b/examples/demo/index.html
+index 4862ddc..40b537b 100644
+--- a/examples/demo/index.html
++++ b/examples/demo/index.html
+@@ -284,7 +284,7 @@
+         <h1 id="intro-title"><span id="intro-title-line1">A more capable web app.</span><br /><span id="intro-title-line2">A clearer experience.</span></h1>
+         <p id="intro-lead">Try the real PWA toolkit: installation guidance, sharing, network diagnostics, and actionable app status. Your application keeps control of its service worker.</p>
+         <div class="root-actions"><a class="intro-cta" href="../example/#quickstart" id="intro-cta">Get started →</a><a href="https://github.com/sandro-defender/you-ge-assistant" id="intro-explore">Explore GitHub ↗</a></div>
+-        <p class="intro-note" id="intro-note">SDK 0.4.0 · Framework-independent · Open source</p>
++        <p class="intro-note" id="intro-note">SDK 0.4.1 · Framework-independent · Open source</p>
+       </section>
+       <img class="root-product-visual" id="intro-visual" src="integration-preview.svg" width="540" height="410" alt="Your application connects to the official You.Ge Assistant SDK for installation, diagnostics and app status. Your framework and worker remain under your control." /></div>
+       <section class="root-benefits" aria-label="Product capabilities" id="section-capabilities">
+@@ -1311,7 +1311,7 @@
+             introLine1: 'A more capable web app.', introLine2: 'A clearer experience.',
+             introLead: 'Try the real PWA toolkit: installation guidance, sharing, network diagnostics, and actionable app status. Your application keeps control of its service worker.',
+             introCta: 'Get started →', introExplore: 'Explore GitHub ↗',
+-            introNote: 'SDK 0.4.0 · Framework-independent · Open source',
++            introNote: 'SDK 0.4.1 · Framework-independent · Open source',
+             introVisualAlt: 'Your application connects to the official You.Ge Assistant SDK for installation, diagnostics and app status. Your framework and worker remain under your control.',
+             cap1Title: 'Help users feel at home.', cap1Body: 'Installation prompts and manual guidance through the optional PWA toolkit. One clearer path from browser to home screen.',
+             cap2Title: 'Make app state useful.', cap2Body: 'Connectivity, host-reported endpoint and session signals, and prioritized notices in one subscribable SDK state.',
+@@ -1332,7 +1332,7 @@
+             introLine1: 'უფრო შესაძლებელი ვებ-აპი.', introLine2: 'უფრო მკაფიო გამოცდილება.',
+             introLead: 'გამოსცადეთ რეალური PWA კომპლექტი: დაყენების გზამკვლევი, გაზიარება, ქსელის დიაგნოსტიკა და მოქმედი აპის სტატუსი. სერვის-უორკერის კონტროლი თქვენს აპლიკაციაში რჩება.',
+             introCta: 'დაწყება →', introExplore: 'GitHub-ზე ნახვა ↗',
+-            introNote: 'SDK 0.4.0 · ფრეიმვორკისგან დამოუკიდებელი · ღია კოდი',
++            introNote: 'SDK 0.4.1 · ფრეიმვორკისგან დამოუკიდებელი · ღია კოდი',
+             introVisualAlt: 'თქვენი აპლიკაცია უკავშირდება ოფიციალურ You.Ge Assistant SDK-ს დაყენების, დიაგნოსტიკისა და აპის სტატუსისთვის.',
+             cap1Title: 'მარტივი გზა მომხმარებლისთვის.', cap1Body: 'დაყენების შეთავაზება და ხელით დაყენების ინსტრუქცია არასავალდებულო PWA კომპლექტით.',
+             cap2Title: 'აპის სტატუსის გამოყენება.', cap2Body: 'კავშირის მდგომარეობა, სერვერის და სესიის სიგნალები და პრიორიტეტული შეტყობინებები ერთიან SDK მდგომარეობაში.',
+diff --git a/examples/example/README.md b/examples/example/README.md
+index e067bdb..b3911ed 100644
+--- a/examples/example/README.md
++++ b/examples/example/README.md
+@@ -1,7 +1,7 @@
+ # GitHub Pages example
+ 
+ The GitHub Pages `/example/` route is the You.Ge Assistant product landing page
+-and SDK 0.4.0 integration guide. It includes original CSS illustrations, an
++and SDK 0.4.1 integration guide. It includes original CSS illustrations, an
+ accessible architecture diagram, typechecked code samples and a real SDK state
+ panel connected to the optional DOM widget. No worker is registered by the page.
+ 
+@@ -63,4 +63,5 @@ only wires the live SDK panel, appearance selector and clipboard feedback.
+ 
+ The example deliberately retains its local `file:` SDK dependency: CI builds
+ it before root assembly, using buildless SDK exports. Public snippets were
+-verified against the npm 0.3.0 tarball and the prepared repository 0.4.0 source; no SDK implementation is copied here.
++verified against the published npm 0.4.0 tarball and the prepared repository
++0.4.1 source; no SDK implementation is copied here.
+diff --git a/examples/example/index.html b/examples/example/index.html
+index c2588c8..94ecdba 100644
+--- a/examples/example/index.html
++++ b/examples/example/index.html
+@@ -9,7 +9,7 @@
+     <meta name="theme-color" content="#fafaff" />
+     <meta
+       name="description"
+-      content="A small SDK. A more capable web app. Add installation guidance, actionable status and on-demand diagnostics with You.Ge Assistant. Integration guide for SDK 0.4.0."
++      content="A small SDK. A more capable web app. Add installation guidance, actionable status and on-demand diagnostics with You.Ge Assistant. Integration guide for SDK 0.4.1."
+     />
+     <title>You.Ge Assistant — A more capable web app</title>
+     <link rel="manifest" href="/manifest.webmanifest" />
+@@ -68,7 +68,7 @@
+           <a
+             class="release-pill"
+             href="https://www.npmjs.com/package/@youge/assistant-sdk"
+-            ><span class="status-dot"></span> SDK 0.4.0
++            ><span class="status-dot"></span> SDK 0.4.1
+             <span class="pill-divider">/</span> Built for the open web ↗</a
+           >
+           <h1>
+@@ -285,9 +285,10 @@
+             <h3>A small addition to your stack.</h3>
+             <p>
+               Install the ESM package with paired TypeScript declarations. These
+-              examples target <strong>SDK 0.4.0</strong>; pin
+-              <code>@0.3.0</code> for today's registry release, or
+-              <code>@0.4.0</code> once the gated release is approved.
++              examples target <strong>SDK 0.4.1</strong>; the registry serves
++              <code>@0.4.0</code> today (published 2026-11-19), so pin
++              <code>@0.4.0</code> until the gated <code>0.4.1</code> release is
++              approved.
+             </p>
+             <div class="code-block">
+               <div class="code-header"><span>Terminal</span></div>
+@@ -509,6 +510,89 @@ function disableAssistant() {
+               caches, or disables its offline handling.
+             </p>
+           </article>
++          <article id="whats-new">
++            <p class="step-label">06 / WHAT'S NEW IN 0.4.1</p>
++            <h3>Five corrections. No migration step.</h3>
++            <p>
++              <code>0.4.1</code> is additive over the published
++              <code>0.4.0</code>. Imports, configuration precedence, worker
++              ownership and <code>SCHEMA_VERSION = 1</code> are unchanged, so
++              existing integrations keep working without edits. What changes is
++              behaviour you were previously left to reason about yourself:
++            </p>
++            <ul>
++              <li>
++                <strong>State snapshots are immutable.</strong>
++                <code>getState()</code>, setter return values and the
++                <code>youge:state</code> event detail are deeply frozen, and
++                snapshot identity is stable between changes for
++                <code>useSyncExternalStore</code>. Writing into a snapshot now
++                throws in strict-mode code instead of silently corrupting
++                assistant state.
++              </li>
++              <li>
++                <strong>A destroyed instance is never reused.</strong> The React
++                adapter drops a destroyed cached instance and re-acquires a live
++                one, so remounts no longer bind to a dead assistant.
++              </li>
++              <li>
++                <strong>Schema-version policy is explicit.</strong> A published
++                payload without <code>schemaVersion</code> stays accepted as the
++                current major and now reports the
++                <code>schema_version_missing</code> warning; malformed or
++                different-major values keep their
++                <code>unsupported_schema_version</code> rejection.
++              </li>
++              <li>
++                <strong>The Georgian locale is <code>ka</code>.</strong> The
++                common mistag <code>ge</code> (an ISO country code, not a
++                language) normalizes to <code>ka</code>, alongside the existing
++                <code>nb</code>/<code>nn</code> → <code>no</code> alias.
++              </li>
++              <li>
++                <strong>Recovery documentation is corrected.</strong>
++                <code>modules.recovery</code> and
++                <code>modules.failover</code> gate the <code>recovery</code> and
++                <code>backup-status</code> items and notices only; health checks,
++                hostname switching, authorization and navigation stay
++                host-owned.
++              </li>
++            </ul>
++            <p>
++              Read the warnings instead of guessing, and keep state handling
++              read-only:
++            </p>
++            <!-- guide:compatibilityNotes --><div class="code-block"><div class="code-header">TypeScript / JavaScript · @youge/assistant-sdk</div><pre tabindex="0" role="region" aria-label="Code example"><code>import { YouGeAssistant } from '@youge/assistant-sdk';
++
++function compatibilityNotes() {
++  const assistant = YouGeAssistant.attach();
++
++  // 1. State snapshots are deeply frozen. Read them; never write into them.
++  const state = assistant.getState();
++  const warnings = assistant.getConfig().meta.warnings;
++  if (warnings.includes("schema_version_missing")) {
++    // A published payload without `schemaVersion` is accepted as schema 1.
++    console.log("Payload predates the versioned envelope:", state.locale);
++  }
++
++  // 2. Georgian is `ka`; the common mistag `ge` normalizes to it.
++  assistant.setLocale("ge");
++  console.log("Resolved locale:", assistant.getLocale()); // "ka"
++
++  // 3. A destroyed instance is never reused: remounts get a live one.
++  assistant.destroy();
++  const remounted = YouGeAssistant.attach();
++
++  // 4. Validate a payload before you publish it (no secrets, no surprises).
++  const verdict = YouGeAssistant.validatePublishedConfig({ projectId: "my-web-app" });
++  return { warnings: verdict.warnings, locale: remounted.getLocale() };
++}</code></pre></div><!-- /guide:compatibilityNotes -->
++            <p>
++              Upgrading is additive: install the pinned version once the gated
++              release is approved, then run your existing tests. Nothing is
++              published to npm by this page.
++            </p>
++          </article>
+         </div>
+       </section>
+       <section id="try" class="try-band">
+@@ -545,7 +629,7 @@ function disableAssistant() {
+           <div class="live-panel">
+             <div class="live-panel-header">
+               <span class="status-dot"></span>LIVE SDK SNAPSHOT
+-              <span class="mono">0.4.0</span>
++              <span class="mono">0.4.1</span>
+             </div>
+             <dl>
+               <div>
+diff --git a/examples/example/package-lock.json b/examples/example/package-lock.json
+index ae013b7..6fa6811 100644
+--- a/examples/example/package-lock.json
++++ b/examples/example/package-lock.json
+@@ -22,7 +22,7 @@
+     },
+     "../../packages/assistant-sdk": {
+       "name": "@youge/assistant-sdk",
+-      "version": "0.4.0",
++      "version": "0.4.1",
+       "license": "MIT",
+       "engines": {
+         "node": ">=18"
+diff --git a/examples/example/src/guide-examples.ts b/examples/example/src/guide-examples.ts
+index be39b31..987e200 100644
+--- a/examples/example/src/guide-examples.ts
++++ b/examples/example/src/guide-examples.ts
+@@ -64,3 +64,27 @@ export function disableAssistant() {
+   // Re-enable with assistant.configure({ enabled: true }).
+   // Only the application owner should destroy a shared singleton at teardown.
+ }
++
++export function compatibilityNotes() {
++  const assistant = YouGeAssistant.attach();
++
++  // 1. State snapshots are deeply frozen. Read them; never write into them.
++  const state = assistant.getState();
++  const warnings = assistant.getConfig().meta.warnings;
++  if (warnings.includes("schema_version_missing")) {
++    // A published payload without `schemaVersion` is accepted as schema 1.
++    console.log("Payload predates the versioned envelope:", state.locale);
++  }
++
++  // 2. Georgian is `ka`; the common mistag `ge` normalizes to it.
++  assistant.setLocale("ge");
++  console.log("Resolved locale:", assistant.getLocale()); // "ka"
++
++  // 3. A destroyed instance is never reused: remounts get a live one.
++  assistant.destroy();
++  const remounted = YouGeAssistant.attach();
++
++  // 4. Validate a payload before you publish it (no secrets, no surprises).
++  const verdict = YouGeAssistant.validatePublishedConfig({ projectId: "my-web-app" });
++  return { warnings: verdict.warnings, locale: remounted.getLocale() };
++}
+diff --git a/examples/landing/index.html b/examples/landing/index.html
+index d20144b..3adf8e1 100644
+--- a/examples/landing/index.html
++++ b/examples/landing/index.html
+@@ -46,7 +46,7 @@
+               <a class="hub-button primary" href="example/#quickstart">Start with the instructions</a>
+               <a class="hub-button secondary" href="config-playground/">Open the Configuration Playground</a>
+             </div>
+-            <p class="hub-note">No account. No build step required for the classic toolkit. SDK 0.4.0 · Kit 1.2.7</p>
++            <p class="hub-note">No account. No build step required for the classic toolkit. SDK 0.4.1 · Kit 1.2.9</p>
+           </div>
+           <aside class="hub-hero-note" aria-label="What you can do here">
+             <p class="hub-kicker">START HERE</p>
+diff --git a/examples/sdk-demo/package-lock.json b/examples/sdk-demo/package-lock.json
+index cc9b683..a09667e 100644
+--- a/examples/sdk-demo/package-lock.json
++++ b/examples/sdk-demo/package-lock.json
+@@ -17,7 +17,7 @@
+     },
+     "../../packages/assistant-sdk": {
+       "name": "@youge/assistant-sdk",
+-      "version": "0.4.0",
++      "version": "0.4.1",
+       "license": "MIT",
+       "engines": {
+         "node": ">=18"
+diff --git a/package.json b/package.json
+index a50efcf..28994b5 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "you-ge-assistant",
+-  "version": "1.2.7",
++  "version": "1.2.9",
+   "private": true,
+   "description": "You.Ge Assistant: a dependency-free, multi-domain PWA toolkit with installation, offline support, sharing, push, badges, QR codes and diagnostics; foundation for the future dashboard and single SDK package.",
+   "license": "MIT",
+diff --git a/packages/assistant-sdk/MIGRATION.md b/packages/assistant-sdk/MIGRATION.md
+index da8b622..fe09726 100644
+--- a/packages/assistant-sdk/MIGRATION.md
++++ b/packages/assistant-sdk/MIGRATION.md
+@@ -1,7 +1,12 @@
+-> **0.4.0 prepared (not yet published; registry serves `0.3.0`):** additive over
+-> `0.3.0` — no migration step is required. It adds the `./i18n` subpath and the
+-> installation state/dialog helpers; imports, worker ownership, configuration
+-> precedence and `SCHEMA_VERSION = 1` are unchanged.
++> **0.4.1 prepared (not yet published; registry serves `0.4.0`):** additive over
++> `0.4.0` — no migration step is required. It carries the Phase 1 correctness
++> fixes (immutable state snapshots, destroyed-instance React guard,
++> `schema_version_missing` warning, `ge` → `ka` locale alias) and only
++> documentation corrections beyond them; imports, worker ownership,
++> configuration precedence, action shapes and `SCHEMA_VERSION = 1` are
++> unchanged, so code written against `0.3.0` or `0.4.0` keeps working. The
++> `./i18n` subpath and the installation state/dialog helpers first shipped as
++> prepared `0.4.0`.
+ >
+ > **0.3.0 published (registry verified 2026-11-15):** host-owned workers are never registered or
+ > replaced by the toolkit. Deployments relying on automatic registration must
+@@ -31,7 +36,7 @@
+ > or `0.1.1` pin keeps working unchanged.
+ 
+ Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.md)),
+-**kit compatibility `1.2.5`** (`KIT_COMPAT_VERSION` in the repository; the published `0.2.0` reports `1.1.0`), **config schema `1`**.
++**kit compatibility `1.2.9`** (`KIT_COMPAT_VERSION` in the repository; the published `0.2.0` reports `1.1.0`), **config schema `1`**.
+ 
+ ---
+ 
+diff --git a/packages/assistant-sdk/README.md b/packages/assistant-sdk/README.md
+index 1b37ea7..79404cc 100644
+--- a/packages/assistant-sdk/README.md
++++ b/packages/assistant-sdk/README.md
+@@ -5,11 +5,12 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
+ fallback, explicit on-demand DNS diagnostics integration, and existing PWA
+ installation integration.
+ 
+-> **Package status:** SDK `0.4.0` is prepared in this repository and **not yet
+-> published**. npm still serves `0.3.0` (registry verified 2026-11-19) until the
+-> owner approves the gated release (see [`RELEASE.md`](RELEASE.md)); `0.4.0` is
+-> additive over `0.3.0`. The compatible repository toolkit is `1.2.7`
+-> (`KIT_COMPAT_VERSION`).
++> **Package status:** SDK `0.4.1` is prepared in this repository and **not yet
++> published**. npm serves `0.4.0` (published 2026-11-19, registry verified
++> 2026-11-22), which predates the Phase 1 correctness fixes described under
++> *Recovery and failover* below; `0.4.1` is additive over `0.4.0` and the owner
++> approves the gated release (see [`RELEASE.md`](RELEASE.md)). The compatible
++> repository toolkit is `1.2.9` (`KIT_COMPAT_VERSION`).
+ > See [`MIGRATION.md`](MIGRATION.md) for host-owned worker integration and
+ > [`RELEASE.md`](RELEASE.md) for the authorization-gated release runbook.
+ 
+@@ -159,6 +160,15 @@ Configuration resolves deterministically in strict data-only order:
+ 3. **Last-Known-Good fallback** — automatically loaded for the matching `projectId` if an incoming `publishedConfig` fails schema/security validation
+ 4. **Explicit project overrides** — local options passed to `create()` / `attach()` / `configure()`
+ 
++**Schema-version policy.** `schemaVersion` is optional for compatibility: a
++published payload (or stored last-known-good record) that omits it — or sets it
++to `null` — is accepted as the current major and reported as
++`schema_version_missing` in `meta.warnings`. A declared but malformed value
++(for example `'abc'`, `'1.2.x'`, `1.5`) or a different major (`2`, `'2.0.0'`)
++is rejected with `unsupported_schema_version`, exactly as before. Declare
++`schemaVersion: 1` in new payloads; the missing-value tolerance may be
++tightened in a future major.
++
+ ```js
+ const assistant = YouGeAssistant.create({
+   projectId: 'portal-prod',
+@@ -451,7 +461,7 @@ twelve locales as the classic toolkit runtime:
+ ### Install and import
+ 
+ ```bash
+-npm install @youge/assistant-sdk@0.4.0   # exact-pin the prepared release
++npm install @youge/assistant-sdk@0.4.1   # exact-pin the prepared release
+ ```
+ 
+ ```js
+@@ -793,8 +803,8 @@ as `GATED_CAPABILITIES`, `isCapabilityEnabled()`, `capabilityForAction()`,
+ | Flag `false` | What stops working |
+ | --- | --- |
+ | `modules.diagnostics` | `runDiagnostics()` resolves `{ status: 'disabled' }` without starting any runner (including an application-owned `services.diagnostics`); the `diagnostics` action, its notice links and the live DNS pipeline follow. Disabling it mid-run aborts the run and discards the late result. |
+-| `modules.recovery` | The `recovery` action and every recovery entry point. |
+-| `modules.failover` | The `backup-status` action, the `api:backup-active` notice and failover UI. Endpoint state reported by the host is still recorded. |
++| `modules.recovery` | The `recovery` action item and its renderers. The SDK publishes recovery **state and actions only** — it performs no navigation, endpoint switching or authorization (see "Recovery and failover: division of responsibility" below). |
++| `modules.failover` | The `backup-status` action and the `api:backup-active` notice. Endpoint state reported by the host is still recorded regardless of the flag. |
+ | `modules.help` | Help actions on notices and project-supplied actions with `kind: 'help'` (or a gated id). The underlying session condition is still reported. |
+ 
+ Enforcement happens at the API boundary, in generated actions *and*
+@@ -815,6 +825,28 @@ reconciliation are honored. `destroy()` unsubscribes from `PWA.onChange()` and
+ removes Assistant listeners; `configure()` can toggle the updates module
+ without replacing the instance.
+ 
++### Recovery and failover: division of responsibility
++
++The SDK is a **state and presentation layer** for recovery and failover, not an
++execution engine. It:
++
++- records endpoint conditions the host reports through `setEndpointStatus()`
++  and session conditions through `setSessionStatus()`;
++- derives notices (`api:primary-failed`, `api:backup-active`,
++  `api:primary-restored`, `session:issue`) and the `recovery` / `backup-status`
++  action items, gated by `modules.recovery` / `modules.failover`;
++- dispatches `youge:action` events and exposes the presentation flag
++  `state.network.recovery` (see `setEndpointStatus`).
++
++The SDK deliberately performs **no** endpoint health checks, **no** hostname or
++endpoint switching, **no** authorization, and **no** navigation — including no
++navigation to a fallback host. Those remain host-owned responsibilities: the
++host probes its endpoints, decides whether a failure can be solved by changing
++hostnames, validates any recovery destination against its own allowlist, and
++owns all authentication and session security. There are no recovery lifecycle
++hooks or navigation contracts in this release; the `recovery` action is a
++dispatched event for the host to answer.
++
+ | Event | Meaning |
+ | --- | --- |
+ | `pwa:ready` | PWA API initialized; not a registration-success event. |
+@@ -828,14 +860,14 @@ without replacing the instance.
+ 
+ | Method | Signature / Return | Description |
+ | --- | --- | --- |
+-| `getState()` | `() => AssistantState` | Returns the current immutable-convention JSON-serializable state snapshot (`project`, `installation`, `network`, `capabilities`, `notifications`, `availableActions`, `badge`, `appearance`, `dismissed`, `acknowledged`). |
++| `getState()` | `() => AssistantState` | Returns the current deeply frozen (immutable) JSON-serializable state snapshot (`project`, `installation`, `network`, `capabilities`, `notifications`, `availableActions`, `badge`, `appearance`, `dismissed`, `acknowledged`). Every nested object and array is frozen, so external callers can never mutate internal assistant state through returned references (attempted mutation throws in strict-mode consumers); snapshot identity is stable between state changes for `useSyncExternalStore`. |
+ | `getConfig()` | `() => AssistantConfigSummary` | Returns resolved sanitized configuration plus `meta` (`source`, `revision`, `usedLastKnownGood`, `warnings`). |
+ | `getLocale()` | `() => SupportedLocale` | Returns the resolved active UI locale (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`). |
+ | `setLocale(locale)` | `(string) => AssistantState` | Resolves `'auto'` (honoring `domainConfig.language` before browser `navigator.languages`) or an explicit BCP-47 tag, updates localized notices/labels runtime-only (never written to `localStorage`), syncs `window.PWA.setLanguage()` when attached, and emits `youge:locale-change`. |
+ | `configure(options)` | `(AssistantConfigInput) => AssistantState` | Re-runs configuration resolution, reloads project-scoped notice state, and emits an updated snapshot without duplicating listeners. |
+ | `subscribe(fn, opts?)` | `(fn, { immediate?: boolean }) => () => void` | Subscribes to state transitions. Calls `fn(state)` immediately unless `{ immediate: false }`. Returns an `unsubscribe` function. |
+ | `setConnectivity(online)` | `(boolean) => AssistantState` | Updates online/offline condition explicitly. |
+-| `setEndpointStatus(detail)` | `({ primary, backup, active, reason }) => AssistantState` | Reports host-app primary/backup API health. |
++| `setEndpointStatus(detail)` | `({ primary, backup, active, reason }) => AssistantState` | Reports host-app primary/backup API health (presentation only — the SDK never probes or switches endpoints). When `active` transitions `'backup' → 'primary'` while `primary` is `'healthy'`, the state flag `network.recovery` becomes `true` (the "returned from the fallback endpoint" presentation flag); it is `false` whenever `active !== 'primary'`. |
+ | `setSessionStatus(detail)` | `({ state, message }) => AssistantState` | Reports `'unknown' \| 'ok' \| 'issue'` session condition from the host app's own auth layer. |
+ | `setDnsResult(result)` | `(object) => AssistantState` | Records normalized DNS diagnostic status (`classification`, `message`, `checkedAt`). |
+ | `setUpdateAvailable(flag?)` | `(boolean) => AssistantState` | Marks a waiting service worker update ready to apply. |
+@@ -952,9 +984,9 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
+ - **Version sources are synchronized and machine-checked:** `package.json` ↔
+   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
+   runtime line) ↔ the runtime version.
+-- **Publishing is gated, never automatic.** `0.4.0` is prepared in this
+-  repository; the registry still reports `0.3.0` as `latest` (verified
+-  2026-11-19). The manual release workflow remains authorization-gated — no
++- **Publishing is gated, never automatic.** `0.4.1` is prepared in this
++  repository; the registry reports `0.4.0` as `latest` (published 2026-11-19,
++  verified 2026-11-22). The manual release workflow remains authorization-gated — no
+   push, pull request or merge publishes anything, and the owner approves the
+   staged version on npmjs.com. Historical release decisions and the current
+   runbook are recorded in [`RELEASE.md`](RELEASE.md).
+diff --git a/packages/assistant-sdk/RELEASE.md b/packages/assistant-sdk/RELEASE.md
+index 6517d18..47e33fb 100644
+--- a/packages/assistant-sdk/RELEASE.md
++++ b/packages/assistant-sdk/RELEASE.md
+@@ -1,14 +1,16 @@
+ # `@youge/assistant-sdk` — Release Preparation & Publishing Decision
+ 
+-> **Repository preparation:** SDK `0.4.0`, kit `1.2.7`; no stage, publish,
++> **Repository preparation:** SDK `0.4.1`, kit `1.2.9`; no stage, publish,
+ > tag or release has been performed.
+ >
+-> **Last verified registry status (2026-11-19):** npm reports
+-> `@youge/assistant-sdk@0.3.0` as `latest`; `0.4.0` exists only in this
++> **Last verified registry status (2026-11-22):** npm reports
++> `@youge/assistant-sdk@0.4.0` as `latest`, published 2026-11-19 — before the
++> Phase 1 correctness fixes, and its tarball contains none of them (checked
++> against the registry artifact on 2026-11-22). `0.4.1` exists only in this
+ > repository. The detailed preparation and verification records below describe
+ > earlier release work and are historical where they name older versions; they
+-> do not describe the current registry state. The 0.4.0 preparation task did
+-> not stage, publish, release, or export any credential. The repository's
++> do not describe the current registry state. No preparation task has ever
++> staged, published, released, or exported any credential. The repository's
+ > release workflow remains manually authorized and gated; nothing is published
+ > automatically on push, pull request, or merge.
+ >
+@@ -36,7 +38,7 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
+ | Item | Value | Notes |
+ | --- | --- | --- |
+ | Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); npm registry currently reports `0.2.0` (verified 2026-11-14) |
+-| Version | `0.4.0` prepared in repository (not published) | Synced with `SDK_VERSION` in `src/core/constants.js`, `validate-package.mjs` and the `check.mjs` release-ready gate |
++| Version | `0.4.1` prepared in repository (not published) | Synced with `SDK_VERSION` in `src/core/constants.js`, `validate-package.mjs` and the `check.mjs` release-ready gate |
+ | Visibility | published (`0.1.0`, `0.1.1`, `0.2.0`, `0.3.0`) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every future publish path stays gated ([§5](#5-publishing-remains-disabled)) |
+ | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
+ | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
+@@ -45,7 +47,7 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
+ | Runtime dependencies | **Zero** | `react >= 18` is an optional peer only (for `./react`) |
+ | License | MIT ([`LICENSE`](LICENSE)) | Matches the repository license |
+ | Packed size | 27 files, 120.1 kB tarball / 458.2 kB unpacked | `npm pack --dry-run` (2026-11-19, `0.4.0`; the 12-locale dictionary is the largest addition) |
+-| Kit compatibility | `KIT_COMPAT_VERSION = 1.2.7` in the repository source | Matches the owner-authorized, synchronized You.Ge Assistant runtime version (`pwa.js` / `you-ge-sw.js` / root `package.json`). The published `0.3.0` tarball was built at kit `1.2.3` and reports `1.2.3`; the constant is informational and changes in a published package only with the next SDK release |
++| Kit compatibility | `KIT_COMPAT_VERSION = 1.2.9` in the repository source | Matches the owner-authorized, synchronized You.Ge Assistant runtime version (`pwa.js` / `you-ge-sw.js` / root `package.json`). The published `0.3.0` tarball was built at kit `1.2.3` and reports `1.2.3`; the constant is informational and changes in a published package only with the next SDK release |
+ | Config schema | `SCHEMA_VERSION = 1` | Data-only `publishedConfig` pipeline, LKG fallback |
+ | **Publishing auth** | **npm Trusted Publishing (OIDC) everywhere: the `stage` and `publish` jobs both carry `id-token: write`; no npm token reference exists anywhere in the workflows. First publication (0.1.0, 2026-11-06) used the temporary `NPM_STAGE_TOKEN` bootstrap — created, used and revoked** | Verify, stage and publish use no npm token at all; the bootstrap token was a temporary credential, not the future publishing method — [§4](#4-release-runbook-when-a-release-is-approved), [§6](#6-npm-trusted-publishing-oidc), [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important) |
+ 
+diff --git a/packages/assistant-sdk/package.json b/packages/assistant-sdk/package.json
+index 143889a..7445a16 100644
+--- a/packages/assistant-sdk/package.json
++++ b/packages/assistant-sdk/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "@youge/assistant-sdk",
+-  "version": "0.4.0",
++  "version": "0.4.1",
+   "description": "Framework-independent SDK core for You.Ge Assistant: explicit project configuration, domain resolution, centralized assistant state, diagnostics and PWA installation integration.",
+   "license": "MIT",
+   "type": "module",
+diff --git a/packages/assistant-sdk/src/adapters/react.js b/packages/assistant-sdk/src/adapters/react.js
+index fef339b..733bf9f 100644
+--- a/packages/assistant-sdk/src/adapters/react.js
++++ b/packages/assistant-sdk/src/adapters/react.js
+@@ -310,9 +310,20 @@ export function createReactAdapter(options) {
+     throw new TypeError('createReactAdapter requires { useSyncExternalStore } from React');
+   }
+   let cachedAdapterAssistant = null;
++  const isDestroyedInstance = function (instance) {
++    return Boolean(instance) && typeof instance.isDestroyed === 'function' && instance.isDestroyed();
++  };
+   const resolveAssistant = function () {
+-    if (cachedAdapterAssistant) return cachedAdapterAssistant;
+-    cachedAdapterAssistant = opts.assistant || attachAssistant(opts.config, opts.env);
++    // Never hand out a destroyed assistant: drop the cache and re-acquire.
++    // A live explicit `opts.assistant` is preferred; otherwise
++    // `attachAssistant` is idempotent — it reuses the live global instance or
++    // creates a single replacement after a destroy, never a duplicate.
++    if (cachedAdapterAssistant && !isDestroyedInstance(cachedAdapterAssistant)) {
++      return cachedAdapterAssistant;
++    }
++    cachedAdapterAssistant = (opts.assistant && !isDestroyedInstance(opts.assistant))
++      ? opts.assistant
++      : attachAssistant(opts.config, opts.env);
+     return cachedAdapterAssistant;
+   };
+   const useAssistant = createUseAssistant(
+diff --git a/packages/assistant-sdk/src/assistant/index.js b/packages/assistant-sdk/src/assistant/index.js
+index 5d21531..6e31236 100644
+--- a/packages/assistant-sdk/src/assistant/index.js
++++ b/packages/assistant-sdk/src/assistant/index.js
+@@ -26,6 +26,7 @@ import {
+ import {
+   INSTALL_EXPERIENCE_DEFAULTS,
+   clone,
++  deepFreeze,
+   normalizeInstallExperience,
+   safeSameOriginIcon,
+   safeText,
+@@ -567,8 +568,10 @@ export function createAssistant(initialOptions, envOverrides) {
+     // Project-supplied actions are data, but they can address a gated
+     // capability (`id: 'diagnostics'` or `kind: 'help'`): gate them through the
+     // same policy so configuration can never expose what the flag disabled.
++    // Each published entry is copied so the state snapshot never aliases the
++    // caller's configuration objects (snapshots are frozen as immutable trees).
+     config.actions.forEach(function (action) {
+-      if (isActionAllowed(config.modules, action)) add(action);
++      if (isActionAllowed(config.modules, action)) add(clone(action));
+     });
+     actions.sort(function (a, b) { return a.priority - b.priority; });
+     return actions;
+@@ -674,7 +677,15 @@ export function createAssistant(initialOptions, envOverrides) {
+     // re-render forever) or `localStorage`. Conditions are still re-evaluated
+     // above, so dismissal resets and persistence keep happening.
+     if (snapshot && statesEqual(snapshot, next)) return;
+-    snapshot = next;
++    // Snapshot immutability contract: the published state tree (and every
++    // nested object and array) is frozen once per state change, so external
++    // callers — widgets, React selectors, host listeners, `youge:state` event
++    // consumers — can never mutate internal assistant state through returned
++    // references. State builders copy (`clone`) anything derived from config,
++    // so freezing never reaches into caller-owned objects. Freezing happens
++    // here, not in `getState()`, so snapshot identity stays stable between
++    // changes for `useSyncExternalStore` consumers.
++    snapshot = deepFreeze(next);
+     const doc = getDoc();
+     if (shouldBindEvents) {
+       try {
+diff --git a/packages/assistant-sdk/src/config/index.d.ts b/packages/assistant-sdk/src/config/index.d.ts
+index 452ecca..38b0629 100644
+--- a/packages/assistant-sdk/src/config/index.d.ts
++++ b/packages/assistant-sdk/src/config/index.d.ts
+@@ -84,6 +84,13 @@ export interface AssistantFeature {
+ }
+ 
+ export interface PublishedAssistantConfig {
++  /**
++   * Schema major version. Optional for legacy compatibility: a missing or
++   * `null` value is accepted as the current major and reported as
++   * `schema_version_missing` in the validation warnings. A declared but
++   * malformed value or a different major is rejected with
++   * `unsupported_schema_version`.
++   */
+   schemaVersion?: number | string;
+   revision?: string;
+   publishedAt?: string;
+diff --git a/packages/assistant-sdk/src/config/index.js b/packages/assistant-sdk/src/config/index.js
+index 8148830..a8072c3 100644
+--- a/packages/assistant-sdk/src/config/index.js
++++ b/packages/assistant-sdk/src/config/index.js
+@@ -316,6 +316,12 @@ export function validatePublishedConfig(rawInput, options) {
+     };
+   }
+ 
++  // Schema-version compatibility policy: a missing (undefined or null)
++  // `schemaVersion` is accepted as the current major for legacy payloads that
++  // predate the versioned envelope, and reported as `schema_version_missing`.
++  // A declared but malformed or different-major version keeps its legacy
++  // rejection (`unsupported_schema_version`).
++  const declaredSchemaVersion = parsed.schemaVersion !== undefined && parsed.schemaVersion !== null;
+   const major = parseSchemaMajor(parsed.schemaVersion);
+   if (major !== SCHEMA_VERSION) {
+     return { valid: false, reason: 'unsupported_schema_version', warnings: ['unsupported_schema_version'] };
+@@ -342,6 +348,10 @@ export function validatePublishedConfig(rawInput, options) {
+       declaredProjectId ? { projectId: declaredProjectId } : {})
+     : parsed;
+ 
++  const successWarnings = [];
++  if (hasInvalidProject) successWarnings.push('invalid_project_config');
++  if (!declaredSchemaVersion) successWarnings.push('schema_version_missing');
++
+   return {
+     valid: true,
+     schemaVersion: SCHEMA_VERSION,
+@@ -349,7 +359,7 @@ export function validatePublishedConfig(rawInput, options) {
+     publishedAt: safeText(parsed.publishedAt || '', 60),
+     projectId: declaredProjectId || (nestedProject && nestedProject.id) || (topProject && topProject.id) || expectedProjectId,
+     config: extractLayerOverrides(payload),
+-    warnings: hasInvalidProject ? ['invalid_project_config'] : [],
++    warnings: successWarnings,
+   };
+ }
+ 
+@@ -447,6 +457,12 @@ export function resolveAssistantConfig(rawInput, context) {
+       if (targetProject && ctx.storage) {
+         saveLastKnownGood(ctx.storage, targetProject, validated);
+       }
++      // Surface accepted-payload notices (e.g. `schema_version_missing`) on
++      // the existing warnings channel so a host can see them without reading
++      // the validator result directly.
++      validated.warnings.forEach(function (code) {
++        if (warnings.indexOf(code) === -1) warnings.push(code);
++      });
+     } else {
+       warnings.push('published_config_rejected:' + validated.reason);
+       const fallbackProject = explicitProjectId || ctx.fallbackProjectId || '';
+diff --git a/packages/assistant-sdk/src/core/constants.js b/packages/assistant-sdk/src/core/constants.js
+index da081f9..9473d15 100644
+--- a/packages/assistant-sdk/src/core/constants.js
++++ b/packages/assistant-sdk/src/core/constants.js
+@@ -2,8 +2,8 @@
+  * @youge/assistant-sdk — core constants
+  */
+ 
+-export const SDK_VERSION = '0.4.0';
+-export const KIT_COMPAT_VERSION = '1.2.7';
++export const SDK_VERSION = '0.4.1';
++export const KIT_COMPAT_VERSION = '1.2.9';
+ export const SCHEMA_VERSION = 1;
+ 
+ export const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
+diff --git a/packages/assistant-sdk/src/core/i18n.js b/packages/assistant-sdk/src/core/i18n.js
+index 54eff31..f76328f 100644
+--- a/packages/assistant-sdk/src/core/i18n.js
++++ b/packages/assistant-sdk/src/core/i18n.js
+@@ -58,8 +58,9 @@ const INSTALL_LOCALE_CASE_MAP = Object.freeze({
+ /**
+  * Normalize any BCP-47 language tag to a supported project locale code
+  * (`en, ka, ru, fr, it, de, sv, nl, no, da, et, es`), or `''` if unsupported.
+- * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`) and maps Norwegian
+- * subtags (`nb`, `nn`) to `no`.
++ * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`), maps Norwegian
++ * subtags (`nb`, `nn`) to `no`, and maps the common Georgian mistag `ge`
++ * (the ISO country code) to `ka`.
+  */
+ export function normalizeLocaleTag(value) {
+   if (typeof value !== 'string') return '';
+@@ -68,6 +69,7 @@ export function normalizeLocaleTag(value) {
+   if (!/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleaned)) return '';
+   let base = cleaned.toLowerCase().split('-')[0];
+   if (base === 'nb' || base === 'nn') base = 'no';
++  if (base === 'ge') base = 'ka';
+   return SUPPORTED_LOCALE_SET.has(base) ? base : '';
+ }
+ 
+@@ -90,6 +92,8 @@ export function normalizeInstallLocaleTag(value, fallback) {
+   }
+   if (parts[0] === 'nb' || parts[0] === 'nn' || parts[0] === 'no') return 'no';
+   if (parts[0] === 'ka' && parts.length > 1) return 'ka';
++  // The common Georgian mistag `ge` (ISO country code) normalizes to `ka`.
++  if (parts[0] === 'ge') return 'ka';
+   if (parts.length === 1) return parts[0];
+   return parts[0] + '-' + (parts[1].length === 2 ? parts[1].toUpperCase() : parts[1]);
+ }
+diff --git a/packages/assistant-sdk/src/core/sanitize.js b/packages/assistant-sdk/src/core/sanitize.js
+index b5135b9..fbca1e9 100644
+--- a/packages/assistant-sdk/src/core/sanitize.js
++++ b/packages/assistant-sdk/src/core/sanitize.js
+@@ -23,6 +23,22 @@ export function clone(value) {
+   return value;
+ }
+ 
++/**
++ * Deep-freeze a value tree so it can be published to external callers as an
++ * immutable snapshot. Every nested object and array is frozen exactly once per
++ * state change (not per read), and shared references stay safe because state
++ * builders hand out copies (`clone`) of anything that also lives in config.
++ */
++export function deepFreeze(value) {
++  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
++    Object.freeze(value);
++    Object.keys(value).forEach(function (key) {
++      deepFreeze(value[key]);
++    });
++  }
++  return value;
++}
++
+ export function merge(target, source) {
+   if (!source || typeof source !== 'object' || Array.isArray(source)) return target;
+   Object.keys(source).forEach(function (key) {
+diff --git a/packages/assistant-sdk/src/index.d.ts b/packages/assistant-sdk/src/index.d.ts
+index b8904bc..deb3fc0 100644
+--- a/packages/assistant-sdk/src/index.d.ts
++++ b/packages/assistant-sdk/src/index.d.ts
+@@ -241,6 +241,11 @@ export interface AssistantAppearanceState {
+   themeColor: string;
+ }
+ 
++/**
++ * Immutable state snapshot: every nested object and array published through
++ * `getState()`, setter returns and the `youge:state` event is deeply frozen.
++ * External mutation cannot change internal assistant state.
++ */
+ export interface AssistantState {
+   enabled: boolean;
+   locale: SupportedLocale;
+@@ -330,6 +335,7 @@ export interface AssistantInstance {
+   setLocale(locale: string): AssistantState;
+   subscribe(listener: (state: AssistantState) => void, options?: { immediate?: boolean }): () => void;
+   setConnectivity(online: boolean): AssistantState;
++  /** Reports host endpoint health (presentation only). The `'backup' → 'primary'` transition with `primary: 'healthy'` sets `state.network.recovery`; it is `false` whenever `active !== 'primary'`. */
+   setEndpointStatus(detail: EndpointStatusInput): AssistantState;
+   setSessionStatus(detail: SessionStatusInput): AssistantState;
+   setDnsResult(result: Record<string, unknown>): AssistantState;
+diff --git a/packages/assistant-sdk/tests/sdk-config-security.test.mjs b/packages/assistant-sdk/tests/sdk-config-security.test.mjs
+index 271cf1d..0aae206 100644
+--- a/packages/assistant-sdk/tests/sdk-config-security.test.mjs
++++ b/packages/assistant-sdk/tests/sdk-config-security.test.mjs
+@@ -293,3 +293,62 @@ test('the Chrome handoff capability ships enabled and can be disabled through mo
+   assert.equal(state.capabilities.diagnostics, BUNDLED_DEFAULTS.modules.diagnostics);
+   off.destroy();
+ });
++
++test('published schema-version policy: missing warns, malformed and unsupported majors reject (SDK-3)', () => {
++  const storage = makeStorage();
++
++  // Missing schemaVersion stays accepted (legacy `{ revision, config }` payloads)
++  // but is reported explicitly through warnings.
++  const missing = validatePublishedConfig(
++    { revision: 'r1', projectId: 'policy-p', config: { position: 'bottom-right' } },
++    { expectedProjectId: 'policy-p' },
++  );
++  assert.equal(missing.valid, true, 'missing schemaVersion is accepted for compatibility');
++  assert.ok(missing.warnings.includes('schema_version_missing'), 'missing schemaVersion warns');
++
++  const explicitNull = validatePublishedConfig(
++    { schemaVersion: null, revision: 'r1', projectId: 'policy-p', config: {} },
++    { expectedProjectId: 'policy-p' },
++  );
++  assert.equal(explicitNull.valid, true);
++  assert.ok(explicitNull.warnings.includes('schema_version_missing'), 'a null schemaVersion is treated as missing');
++
++  // Declared, supported versions stay valid and silent.
++  for (const declared of [1, '1', '1.0', '1.2.3']) {
++    const ok = validatePublishedConfig(
++      { schemaVersion: declared, revision: 'r', projectId: 'policy-p', config: {} },
++      { expectedProjectId: 'policy-p' },
++    );
++    assert.equal(ok.valid, true, `schemaVersion ${JSON.stringify(declared)} is supported`);
++    assert.ok(!ok.warnings.includes('schema_version_missing'), 'declared versions do not warn');
++  }
++
++  // Malformed values keep their legacy rejection (same reason code as before).
++  for (const bad of ['abc', '1.2.x', 1.5, {}, [], true, -1]) {
++    const res = validatePublishedConfig(
++      { schemaVersion: bad, revision: 'r', projectId: 'policy-p', config: {} },
++      { expectedProjectId: 'policy-p' },
++    );
++    assert.equal(res.valid, false, `malformed schemaVersion ${JSON.stringify(bad)} is rejected`);
++    assert.equal(res.reason, 'unsupported_schema_version');
++  }
++
++  // Well-formed but unsupported majors are rejected as before.
++  for (const major of [2, '2.0.0', 99]) {
++    const res = validatePublishedConfig(
++      { schemaVersion: major, revision: 'r', projectId: 'policy-p', config: {} },
++      { expectedProjectId: 'policy-p' },
++    );
++    assert.equal(res.valid, false);
++    assert.equal(res.reason, 'unsupported_schema_version');
++  }
++
++  // The warning surfaces through resolveAssistantConfig's meta.warnings channel
++  // while the published layer still applies.
++  const resolved = resolveAssistantConfig({
++    projectId: 'policy-p',
++    publishedConfig: { revision: 'r2', projectId: 'policy-p', config: { position: 'bottom-left' } },
++  }, { storage });
++  assert.ok(resolved.meta.warnings.includes('schema_version_missing'), 'resolveAssistantConfig surfaces the warning');
++  assert.equal(resolved.config.position, 'bottom-left', 'the published layer still applies');
++});
+diff --git a/packages/assistant-sdk/tests/sdk-core.test.mjs b/packages/assistant-sdk/tests/sdk-core.test.mjs
+index af080a7..6a9bf1d 100644
+--- a/packages/assistant-sdk/tests/sdk-core.test.mjs
++++ b/packages/assistant-sdk/tests/sdk-core.test.mjs
+@@ -96,7 +96,7 @@ function makeHostEnv(overrides = {}) {
+ test('exposes explicit, documented public exports on root and subpath entry points', () => {
+   assert.equal(YouGeAssistantDefault, YouGeAssistant);
+   assert.equal(typeof SDK_VERSION, 'string');
+-  assert.equal(KIT_COMPAT_VERSION, '1.2.7');
++  assert.equal(KIT_COMPAT_VERSION, '1.2.9');
+   assert.equal(SCHEMA_VERSION, 1);
+   assert.deepEqual(PRIORITY, { critical: 1, auth: 2, backup: 3, install: 4, info: 5 });
+   assert.equal(typeof YouGeAssistant.create, 'function');
+diff --git a/packages/assistant-sdk/tests/sdk-i18n.test.mjs b/packages/assistant-sdk/tests/sdk-i18n.test.mjs
+index f79d496..6b2eeec 100644
+--- a/packages/assistant-sdk/tests/sdk-i18n.test.mjs
++++ b/packages/assistant-sdk/tests/sdk-i18n.test.mjs
+@@ -302,3 +302,29 @@ test('YouGeAssistant tracks browser languagechange in auto mode, respects domain
+   assert.equal(domainAssistant.getLocale(), 'ru', 'returning to auto restores domain default');
+   domainAssistant.destroy();
+ });
++
++test('Georgian language-tag aliases resolve to ka without disturbing canonical tags (SDK-4)', () => {
++  // 'ge' is a common mistag of Georgian (GE is the country code); the alias is
++  // generic locale handling in the same class as the existing nb/nn -> no map.
++  assert.equal(normalizeLocaleTag('ge'), 'ka');
++  assert.equal(normalizeLocaleTag('GE'), 'ka');
++  assert.equal(normalizeLocaleTag('ge-GE'), 'ka');
++  assert.equal(normalizeLocaleTag('ge_GE'), 'ka');
++  assert.equal(normalizeLocaleTag('ka'), 'ka', 'canonical ka is unchanged');
++  assert.equal(normalizeLocaleTag('ka-GE'), 'ka');
++  assert.equal(normalizeLocaleTag('en-US'), 'en', 'territory tags fall back to the language');
++  assert.equal(normalizeLocaleTag('ru-RU'), 'ru');
++  assert.equal(normalizeLocaleTag('xx'), '');
++  assert.equal(normalizeLocaleTag('g'), '', 'shape guard still rejects one-letter tags');
++
++  assert.equal(normalizeInstallLocaleTag('ge'), 'ka');
++  assert.equal(normalizeInstallLocaleTag('ge-GE'), 'ka');
++  assert.equal(normalizeInstallLocaleTag('ka-GE'), 'ka');
++
++  assert.equal(resolveLocale({ explicit: 'ge' }), 'ka');
++  assert.equal(resolveLocale({ locale: 'ge-GE' }), 'ka');
++  assert.equal(resolveLocale({ explicit: 'ka' }), 'ka');
++  assert.equal(resolveLocale({ explicit: 'en-US' }), 'en');
++  assert.equal(resolveLocale({ explicit: 'ru-RU' }), 'ru');
++  assert.equal(resolveLocale({ explicit: 'xx' }), DEFAULT_LOCALE, 'unknown tags fall back to the default locale');
++});
+diff --git a/packages/assistant-sdk/tests/sdk-integrations.test.mjs b/packages/assistant-sdk/tests/sdk-integrations.test.mjs
+index ea484e2..1c79962 100644
+--- a/packages/assistant-sdk/tests/sdk-integrations.test.mjs
++++ b/packages/assistant-sdk/tests/sdk-integrations.test.mjs
+@@ -874,3 +874,138 @@ test('the diagnostics adapter forwards app and backend probe paths so the probe
+   assert.equal(Object.prototype.hasOwnProperty.call(contexts[1], 'appProbePath'), false);
+   assert.equal(Object.prototype.hasOwnProperty.call(contexts[1], 'backendProbePath'), false);
+ });
++
++test('state snapshots and their nested structures are immutable to external callers (SDK-1)', () => {
++  const customAction = { id: 'custom-1', label: 'Custom', kind: 'custom', priority: 2 };
++  const assistant = YouGeAssistant.create({
++    projectId: 'snapshot-immutability',
++    actions: [customAction],
++    features: [{ id: 'f1', label: 'Feature 1' }],
++    bindEvents: false,
++  });
++
++  const state = assistant.getState();
++  assert.equal(assistant.getState(), state, 'unchanged state keeps snapshot identity for external-store consumers');
++
++  // The snapshot is frozen as a tree, not only at the top level.
++  assert.ok(Object.isFrozen(state));
++  assert.ok(Object.isFrozen(state.network));
++  assert.ok(Object.isFrozen(state.network.endpoints));
++  assert.ok(Object.isFrozen(state.appearance));
++  assert.ok(Object.isFrozen(state.appearance.offsets));
++  assert.ok(Object.isFrozen(state.notifications));
++  assert.ok(Object.isFrozen(state.availableActions));
++  assert.ok(Object.isFrozen(state.dismissed));
++  assert.ok(Object.isFrozen(state.badge));
++  assert.ok(state.notifications.length > 0 && Object.isFrozen(state.notifications[0]), 'entries inside arrays are frozen too');
++
++  // External mutation attempts cannot change internal state.
++  assert.throws(() => { state.network.endpoints.primary = 'failed'; }, TypeError);
++  assert.throws(() => { state.badge.count = 99; }, TypeError);
++  assert.throws(() => { state.dismissed.push('network:offline'); }, TypeError);
++  assert.throws(() => { state.availableActions.push({ id: 'evil' }); }, TypeError);
++  assert.throws(() => { state.notifications[0].title = 'hacked'; }, TypeError);
++
++  // State never aliases caller configuration objects.
++  const stateAction = state.availableActions.find((entry) => entry.id === 'custom-1');
++  assert.ok(stateAction);
++  assert.notEqual(stateAction, customAction, 'state action entries are copies, not references into config');
++  assert.throws(() => { stateAction.label = 'hacked'; }, TypeError);
++  assert.equal(customAction.label, 'Custom', 'the caller-owned config object is untouched');
++
++  // Setters return the same immutable snapshot contract.
++  const returned = assistant.setSessionStatus({ state: 'ok' });
++  assert.ok(Object.isFrozen(returned));
++  assert.equal(assistant.getState(), returned, 'setter returns the current snapshot identity');
++
++  // A real state change still produces the correct new state.
++  assistant.setConnectivity(false);
++  const next = assistant.getState();
++  assert.notEqual(next, state, 'a change produces a new snapshot identity');
++  assert.equal(next.network.online, false);
++  assert.equal(next.network.endpoints.primary, 'unknown', 'internal endpoint state was not corrupted by the mutation attempts');
++  assert.equal(assistant.getConfig().actions[0].label, 'Custom');
++  assistant.destroy();
++});
++
++test('React adapter never reuses a destroyed assistant and re-acquires a live one (SDK-2)', () => {
++  function fakeUseSyncExternalStore(subscribe, getSnapshot, getServerSnapshot) {
++    assert.equal(typeof getServerSnapshot, 'function');
++    const cleanup = subscribe(() => {});
++    const value = getSnapshot();
++    if (cleanup) cleanup();
++    return value;
++  }
++
++  // Adapter-owned resolution path (attachAssistant).
++  const adapter = createReactAdapter({
++    useSyncExternalStore: fakeUseSyncExternalStore,
++    config: { projectId: 'react-destroy-guard', bindEvents: false },
++  });
++  const first = adapter.getAssistant();
++  assert.equal(first.isDestroyed(), false);
++  assert.equal(adapter.getAssistant(), first, 'a live instance is reused, never duplicated');
++  first.destroy();
++  const second = adapter.getAssistant();
++  assert.notEqual(second, first, 'a destroyed instance is never handed out again');
++  assert.equal(second.isDestroyed(), false);
++  assert.equal(adapter.getAssistant(), second, 'the replacement instance is reused');
++
++  // Explicit-instance path: a destroyed host instance is not reused either.
++  const explicit = YouGeAssistant.create({ projectId: 'react-destroy-guard-2', bindEvents: false });
++  const adapter2 = createReactAdapter({ useSyncExternalStore: fakeUseSyncExternalStore, assistant: explicit });
++  assert.equal(adapter2.getAssistant(), explicit);
++  explicit.destroy();
++  const replacement = adapter2.getAssistant();
++  assert.notEqual(replacement, explicit);
++  assert.equal(replacement.isDestroyed(), false);
++
++  second.destroy();
++  replacement.destroy();
++});
++
++test('React bindings survive destroy and remount without stale listeners or duplicate subscriptions (SDK-2)', () => {
++  const adapter = createReactAdapter({
++    useSyncExternalStore: (subscribe, getSnapshot) => {
++      const cleanup = subscribe(() => {});
++      const value = getSnapshot();
++      if (cleanup) cleanup();
++      return value;
++    },
++    config: { projectId: 'react-remount', bindEvents: false },
++  });
++  const bindings = getExternalStoreBindings(() => adapter.getAssistant(), null);
++
++  // Double-subscribe is de-duplicated to one call per emit; refcounted unsubscribe.
++  let calls = 0;
++  const listener = () => { calls += 1; };
++  const unsubscribeOne = bindings.subscribe(listener);
++  const unsubscribeTwo = bindings.subscribe(listener);
++  adapter.getAssistant().setConnectivity(false);
++  assert.equal(calls, 1, 'a double-subscribed listener is called exactly once per emit');
++  unsubscribeOne();
++  adapter.getAssistant().setConnectivity(true);
++  assert.equal(calls, 2, 'one unsubscribe leaves the shared subscription active');
++  unsubscribeTwo();
++  adapter.getAssistant().setConnectivity(false);
++  assert.equal(calls, 2, 'no calls after the last unsubscribe (no stale subscriptions)');
++
++  // Destruction clears engine listeners with the instance.
++  const doomedInstance = adapter.getAssistant();
++  let destroyCalls = 0;
++  const doomedSubscription = doomedInstance.subscribe(() => { destroyCalls += 1; }, { immediate: false });
++  doomedInstance.destroy();
++  doomedInstance.setConnectivity(true);
++  assert.equal(destroyCalls, 0, 'a destroyed instance emits nothing — its listeners were cleared with it');
++  doomedSubscription();
++
++  // Remount binds to the reacquired instance, not the destroyed one.
++  let remountCalls = 0;
++  const unsubscribeRemount = bindings.subscribe(() => { remountCalls += 1; });
++  const fresh = adapter.getAssistant();
++  assert.notEqual(fresh, doomedInstance);
++  fresh.setConnectivity(false);
++  assert.ok(remountCalls >= 1, 'a remounted subscription receives updates from the live instance');
++  unsubscribeRemount();
++  fresh.destroy();
++});
+diff --git a/packages/assistant-sdk/tests/sdk-public-api.test.mjs b/packages/assistant-sdk/tests/sdk-public-api.test.mjs
+index cd940f6..0d992fb 100644
+--- a/packages/assistant-sdk/tests/sdk-public-api.test.mjs
++++ b/packages/assistant-sdk/tests/sdk-public-api.test.mjs
+@@ -46,9 +46,9 @@ test('the 0.4.0 export map publishes the localization and installation entries w
+     assert.ok(pkg.exports[subpath].types.endsWith('.d.ts'), `${subpath} ships paired declarations`);
+     assert.ok(pkg.exports[subpath].default.endsWith('.js'), `${subpath} resolves to a runtime module`);
+   }
+-  assert.equal(pkg.version, '0.4.0');
+-  assert.equal(root.SDK_VERSION, '0.4.0');
+-  assert.equal(root.KIT_COMPAT_VERSION, '1.2.7');
++  assert.equal(pkg.version, '0.4.1');
++  assert.equal(root.SDK_VERSION, '0.4.1');
++  assert.equal(root.KIT_COMPAT_VERSION, '1.2.9');
+   assert.deepEqual(Object.keys(pkg.dependencies || {}), [], 'the SDK keeps zero runtime dependencies');
+ });
+ 
+diff --git a/scripts/check.mjs b/scripts/check.mjs
+index 0c42087..2effc22 100644
+--- a/scripts/check.mjs
++++ b/scripts/check.mjs
+@@ -909,7 +909,7 @@ for (const rel of sdkRequired) {
+ 
+ const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
+ contract(sdkPkg.name === '@youge/assistant-sdk', 'SDK package name is @youge/assistant-sdk');
+-contract(sdkPkg.version === '0.4.0' && sdkPkg.private !== true, 'SDK package is prepared at 0.4.0 (publishing remains separately gated)');
++contract(sdkPkg.version === '0.4.1' && sdkPkg.private !== true, 'SDK package is prepared at 0.4.1 (publishing remains separately gated)');
+ contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
+ contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
+ contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
+diff --git a/src/assistant/assistant-state.js b/src/assistant/assistant-state.js
+index 13bce61..b16c82f 100644
+--- a/src/assistant/assistant-state.js
++++ b/src/assistant/assistant-state.js
+@@ -21,8 +21,8 @@
+ 
+   /* --- core/constants.js --- */
+ 
+-  const SDK_VERSION = '0.4.0';
+-  const KIT_COMPAT_VERSION = '1.2.7';
++  const SDK_VERSION = '0.4.1';
++  const KIT_COMPAT_VERSION = '1.2.9';
+   const SCHEMA_VERSION = 1;
+   const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
+   Object.freeze(PRIORITY);
+@@ -118,8 +118,9 @@
+   /**
+    * Normalize any BCP-47 language tag to a supported project locale code
+    * (`en, ka, ru, fr, it, de, sv, nl, no, da, et, es`), or `''` if unsupported.
+-   * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`) and maps Norwegian
+-   * subtags (`nb`, `nn`) to `no`.
++   * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`), maps Norwegian
++   * subtags (`nb`, `nn`) to `no`, and maps the common Georgian mistag `ge`
++   * (the ISO country code) to `ka`.
+    */
+   function normalizeLocaleTag(value) {
+     if (typeof value !== 'string') return '';
+@@ -128,6 +129,7 @@
+     if (!/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleaned)) return '';
+     let base = cleaned.toLowerCase().split('-')[0];
+     if (base === 'nb' || base === 'nn') base = 'no';
++    if (base === 'ge') base = 'ka';
+     return SUPPORTED_LOCALE_SET.has(base) ? base : '';
+   }
+ 
+@@ -150,6 +152,8 @@
+     }
+     if (parts[0] === 'nb' || parts[0] === 'nn' || parts[0] === 'no') return 'no';
+     if (parts[0] === 'ka' && parts.length > 1) return 'ka';
++    // The common Georgian mistag `ge` (ISO country code) normalizes to `ka`.
++    if (parts[0] === 'ge') return 'ka';
+     if (parts.length === 1) return parts[0];
+     return parts[0] + '-' + (parts[1].length === 2 ? parts[1].toUpperCase() : parts[1]);
+   }
+@@ -2132,6 +2136,22 @@
+     }
+     return value;
+   }
++
++  /**
++   * Deep-freeze a value tree so it can be published to external callers as an
++   * immutable snapshot. Every nested object and array is frozen exactly once per
++   * state change (not per read), and shared references stay safe because state
++   * builders hand out copies (`clone`) of anything that also lives in config.
++   */
++  function deepFreeze(value) {
++    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
++      Object.freeze(value);
++      Object.keys(value).forEach(function (key) {
++        deepFreeze(value[key]);
++      });
++    }
++    return value;
++  }
+   function merge(target, source) {
+     if (!source || typeof source !== 'object' || Array.isArray(source)) return target;
+     Object.keys(source).forEach(function (key) {
+@@ -4290,6 +4310,12 @@
+       };
+     }
+ 
++    // Schema-version compatibility policy: a missing (undefined or null)
++    // `schemaVersion` is accepted as the current major for legacy payloads that
++    // predate the versioned envelope, and reported as `schema_version_missing`.
++    // A declared but malformed or different-major version keeps its legacy
++    // rejection (`unsupported_schema_version`).
++    const declaredSchemaVersion = parsed.schemaVersion !== undefined && parsed.schemaVersion !== null;
+     const major = parseSchemaMajor(parsed.schemaVersion);
+     if (major !== SCHEMA_VERSION) {
+       return { valid: false, reason: 'unsupported_schema_version', warnings: ['unsupported_schema_version'] };
+@@ -4316,6 +4342,10 @@
+         declaredProjectId ? { projectId: declaredProjectId } : {})
+       : parsed;
+ 
++    const successWarnings = [];
++    if (hasInvalidProject) successWarnings.push('invalid_project_config');
++    if (!declaredSchemaVersion) successWarnings.push('schema_version_missing');
++
+     return {
+       valid: true,
+       schemaVersion: SCHEMA_VERSION,
+@@ -4323,7 +4353,7 @@
+       publishedAt: safeText(parsed.publishedAt || '', 60),
+       projectId: declaredProjectId || (nestedProject && nestedProject.id) || (topProject && topProject.id) || expectedProjectId,
+       config: extractLayerOverrides(payload),
+-      warnings: hasInvalidProject ? ['invalid_project_config'] : [],
++      warnings: successWarnings,
+     };
+   }
+   function lkgStorageKey(projectId) {
+@@ -4416,6 +4446,12 @@
+         if (targetProject && ctx.storage) {
+           saveLastKnownGood(ctx.storage, targetProject, validated);
+         }
++        // Surface accepted-payload notices (e.g. `schema_version_missing`) on
++        // the existing warnings channel so a host can see them without reading
++        // the validator result directly.
++        validated.warnings.forEach(function (code) {
++          if (warnings.indexOf(code) === -1) warnings.push(code);
++        });
+       } else {
+         warnings.push('published_config_rejected:' + validated.reason);
+         const fallbackProject = explicitProjectId || ctx.fallbackProjectId || '';
+@@ -5814,8 +5850,10 @@
+       // Project-supplied actions are data, but they can address a gated
+       // capability (`id: 'diagnostics'` or `kind: 'help'`): gate them through the
+       // same policy so configuration can never expose what the flag disabled.
++      // Each published entry is copied so the state snapshot never aliases the
++      // caller's configuration objects (snapshots are frozen as immutable trees).
+       config.actions.forEach(function (action) {
+-        if (isActionAllowed(config.modules, action)) add(action);
++        if (isActionAllowed(config.modules, action)) add(clone(action));
+       });
+       actions.sort(function (a, b) { return a.priority - b.priority; });
+       return actions;
+@@ -5921,7 +5959,15 @@
+       // re-render forever) or `localStorage`. Conditions are still re-evaluated
+       // above, so dismissal resets and persistence keep happening.
+       if (snapshot && statesEqual(snapshot, next)) return;
+-      snapshot = next;
++      // Snapshot immutability contract: the published state tree (and every
++      // nested object and array) is frozen once per state change, so external
++      // callers — widgets, React selectors, host listeners, `youge:state` event
++      // consumers — can never mutate internal assistant state through returned
++      // references. State builders copy (`clone`) anything derived from config,
++      // so freezing never reaches into caller-owned objects. Freezing happens
++      // here, not in `getState()`, so snapshot identity stays stable between
++      // changes for `useSyncExternalStore` consumers.
++      snapshot = deepFreeze(next);
+       const doc = getDoc();
+       if (shouldBindEvents) {
+         try {
+diff --git a/src/runtime/pwa.js b/src/runtime/pwa.js
+index c10b216..f7213f6 100644
+--- a/src/runtime/pwa.js
++++ b/src/runtime/pwa.js
+@@ -4700,7 +4700,7 @@
+   var PWA = {
+     __pwaKit: true,
+     __youGePwaKit: true,
+-    version: '1.2.7',
++    version: '1.2.9',
+     config: config,
+ 
+     // install
+diff --git a/src/runtime/you-ge-sw.js b/src/runtime/you-ge-sw.js
+index 175f09b..5d34158 100644
+--- a/src/runtime/you-ge-sw.js
++++ b/src/runtime/you-ge-sw.js
+@@ -18,7 +18,7 @@
+  * Configuration
+  * ------------------------------------------------------------------ */
+ 
+-const VERSION = '1.2.7';
++const VERSION = '1.2.9';
+ const WORKER_DIRECTORY = new URL('./', self.location.href);
+ const REGISTRATION_SCOPE = self.registration && self.registration.scope
+   ? new URL(self.registration.scope, self.location.href)
+diff --git a/tests/example-theme.test.mjs b/tests/example-theme.test.mjs
+index f0f9e53..d103cbf 100644
+--- a/tests/example-theme.test.mjs
++++ b/tests/example-theme.test.mjs
+@@ -158,7 +158,7 @@ test('the example adds no dependency and changes no package version', () => {
+     'the example declares only its browser-test runner, the local SDK and React',
+   );
+   assert.match(deps['@youge/assistant-sdk'], /^file:/, 'the example consumes the local SDK');
+-  assert.equal(rootPkg.version, '1.2.7', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
++  assert.equal(rootPkg.version, '1.2.9', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
+   assert.deepEqual(
+     Object.keys(rootPkg.dependencies || {}),
+     [],
+@@ -167,7 +167,7 @@ test('the example adds no dependency and changes no package version', () => {
+   const sdkPkg = JSON.parse(
+     readFileSync(new URL('../packages/assistant-sdk/package.json', import.meta.url), 'utf8'),
+   );
+-  assert.equal(sdkPkg.version, '0.4.0', 'the SDK version is bumped only by the release PR');
++  assert.equal(sdkPkg.version, '0.4.1', 'the SDK version is bumped only by the release PR');
+   assert.deepEqual(Object.keys(sdkPkg.dependencies || {}), [], 'the embedded SDK stays dependency-free');
+ });
+ 
+diff --git a/tests/identity-migration.test.mjs b/tests/identity-migration.test.mjs
+index f23a778..05ca173 100644
+--- a/tests/identity-migration.test.mjs
++++ b/tests/identity-migration.test.mjs
+@@ -242,18 +242,18 @@ function bootCustomWorker({
+   };
+ }
+ 
+-test('Phase 1: canonical you-ge-sw.js ships kit 1.2.7 and excludes both worker entrypoints from caching', async () => {
++test('Phase 1: canonical you-ge-sw.js ships kit 1.2.9 and excludes both worker entrypoints from caching', async () => {
+   assert.equal(existsSync(resolve(root, 'src/runtime/you-ge-sw.js')), true, 'you-ge-sw.js must exist as canonical worker');
+   const source = read('src/runtime/you-ge-sw.js');
+-  assert.match(source, /const VERSION = '1\.2\.7'/);
++  assert.match(source, /const VERSION = '1\.2\.9'/);
+ 
+   const sw = bootCustomWorker({ scriptName: 'you-ge-sw.js', scope: 'https://app.test/' });
+   await sw.install();
+   await sw.activate();
+ 
+   assert.deepEqual(sw.caches.names(), [
+-    'you-ge-assistant:app.test:%2F:static:v1.2.7',
+-    'you-ge-assistant:app.test:%2F:pages:v1.2.7',
++    'you-ge-assistant:app.test:%2F:static:v1.2.9',
++    'you-ge-assistant:app.test:%2F:pages:v1.2.9',
+   ]);
+   assert.equal(await sw.request('you-ge-sw.js'), null, 'canonical worker script is never intercepted/cached');
+   assert.equal(await sw.request('progressier.js'), null, 'legacy worker shim is never intercepted/cached');
+@@ -270,8 +270,8 @@ test('Phase 1: progressier.js acts as a subpath-safe importScripts shim to canon
+   await sw.activate();
+ 
+   assert.deepEqual(sw.caches.names(), [
+-    'you-ge-assistant:app.test:%2Fportal%2F:static:v1.2.7',
+-    'you-ge-assistant:app.test:%2Fportal%2F:pages:v1.2.7',
++    'you-ge-assistant:app.test:%2Fportal%2F:static:v1.2.9',
++    'you-ge-assistant:app.test:%2Fportal%2F:pages:v1.2.9',
+   ]);
+   assert.equal(await sw.request('progressier.js'), null);
+   assert.equal(await sw.request('you-ge-sw.js'), null);
+@@ -360,10 +360,10 @@ test('Phase 1: worker migrates legacy IndexedDB stores idempotently while keepin
+   );
+ });
+ 
+-test('Phase 1: precache integrity gate passes with kit 1.2.7 across you-ge-sw.js, pwa.js, package.json, and SDK constants', async () => {
++test('Phase 1: precache integrity gate passes with kit 1.2.9 across you-ge-sw.js, pwa.js, package.json, and SDK constants', async () => {
+   const verdict = await runPrecacheIntegrity({ root });
+   assert.equal(verdict.status, 'pass', verdict.report);
+-  assert.match(verdict.summary, /kit version 1\.2\.7 synchronized/);
++  assert.match(verdict.summary, /kit version (1\.2\.8 → )?1\.2\.9 synchronized/);
+ });
+ 
+ /* ------------------------------------------------------------------ *
+@@ -1011,7 +1011,7 @@ test('Phase 4: COMPATIBILITY_CONTRACTS.md and AGENTS.md establish canonical You.
+   }
+ 
+   const agents = read('AGENTS.md');
+-  assert.match(agents, /Current runtime version:\s*\*\*1\.2\.7\*\*/);
++  assert.match(agents, /Current runtime version:\s*\*\*1\.2\.9\*\*/);
+   assert.match(agents, /you-ge-sw\.js/);
+   assert.match(agents, /window\.YouGePWA/);
+   assert.match(agents, /temporary migration compatibility only/i);
+diff --git a/tests/install-experience.test.mjs b/tests/install-experience.test.mjs
+index 2acef55..d85f90c 100644
+--- a/tests/install-experience.test.mjs
++++ b/tests/install-experience.test.mjs
+@@ -1216,7 +1216,7 @@ test('cache diagnostics examine only opted-in Assistant cache names without chan
+   assert.equal(result.status, 'ok');
+   assert.equal(result.staticCache, true);
+   assert.equal(result.pageCache, false);
+-  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.7', 'you-ge-assistant:example.test:%2F:pages:v1.2.7']);
++  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.9', 'you-ge-assistant:example.test:%2F:pages:v1.2.9']);
+   flags.cacheDiagnostics = false;
+   assert.equal((await harness.win.PWA.runCacheDiagnostics()).status, 'disabled');
+   assert.equal(queried.length, 2);
+@@ -1261,7 +1261,7 @@ test('src/runtime/pwa-install.js ships self-contained MIT bundle with native ka
+ 
+ test('pwa.js defaults installExperience to manual presentation and supports native Georgian (ka) wording and showHelp', () => {
+   const harness = createContext({ language: 'ka-GE', userAgent: IPHONE_UA });
+-  assert.equal(harness.win.PWA.version, '1.2.7');
++  assert.equal(harness.win.PWA.version, '1.2.9');
+   assert.equal(harness.win.PWA.config.installExperience.presentation, 'manual');
+   assert.equal(harness.win.PWA.wording.language, 'ka');
+   assert.equal(harness.win.PWA.wording.get('install'), 'დაყენება');
+diff --git a/tests/pages-landing.test.mjs b/tests/pages-landing.test.mjs
+index 6898fb2..cb09050 100644
+--- a/tests/pages-landing.test.mjs
++++ b/tests/pages-landing.test.mjs
+@@ -38,7 +38,7 @@ test("landing guide is useful without JavaScript and matches typechecked example
+   ])
+     assert.ok(html.includes(`id="${id}"`));
+   assert.match(html, /npm install @youge\/assistant-sdk/);
+-  assert.match(html, /SDK 0\.4\.0/);
++  assert.match(html, /SDK 0\.4\.1/);
+   assert.doesNotMatch(html, /Progressier|Register a project|not yet published/);
+ });
+ 
