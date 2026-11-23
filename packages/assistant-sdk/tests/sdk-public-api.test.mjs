@@ -46,9 +46,9 @@ test('the 0.4.0 export map publishes the localization and installation entries w
     assert.ok(pkg.exports[subpath].types.endsWith('.d.ts'), `${subpath} ships paired declarations`);
     assert.ok(pkg.exports[subpath].default.endsWith('.js'), `${subpath} resolves to a runtime module`);
   }
-  assert.equal(pkg.version, '0.4.0');
-  assert.equal(root.SDK_VERSION, '0.4.0');
-  assert.equal(root.KIT_COMPAT_VERSION, '1.2.7');
+  assert.equal(pkg.version, '0.4.1');
+  assert.equal(root.SDK_VERSION, '0.4.1');
+  assert.equal(root.KIT_COMPAT_VERSION, '1.2.9');
   assert.deepEqual(Object.keys(pkg.dependencies || {}), [], 'the SDK keeps zero runtime dependencies');
 });
 

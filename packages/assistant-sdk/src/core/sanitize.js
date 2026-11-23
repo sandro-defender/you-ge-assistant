@@ -23,6 +23,22 @@ export function clone(value) {
   return value;
 }
 
+/**
+ * Deep-freeze a value tree so it can be published to external callers as an
+ * immutable snapshot. Every nested object and array is frozen exactly once per
+ * state change (not per read), and shared references stay safe because state
+ * builders hand out copies (`clone`) of anything that also lives in config.
+ */
+export function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    Object.keys(value).forEach(function (key) {
+      deepFreeze(value[key]);
+    });
+  }
+  return value;
+}
+
 export function merge(target, source) {
   if (!source || typeof source !== 'object' || Array.isArray(source)) return target;
   Object.keys(source).forEach(function (key) {

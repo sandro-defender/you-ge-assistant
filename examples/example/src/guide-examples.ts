@@ -64,3 +64,27 @@ export function disableAssistant() {
   // Re-enable with assistant.configure({ enabled: true }).
   // Only the application owner should destroy a shared singleton at teardown.
 }
+
+export function compatibilityNotes() {
+  const assistant = YouGeAssistant.attach();
+
+  // 1. State snapshots are deeply frozen. Read them; never write into them.
+  const state = assistant.getState();
+  const warnings = assistant.getConfig().meta.warnings;
+  if (warnings.includes("schema_version_missing")) {
+    // A published payload without `schemaVersion` is accepted as schema 1.
+    console.log("Payload predates the versioned envelope:", state.locale);
+  }
+
+  // 2. Georgian is `ka`; the common mistag `ge` normalizes to it.
+  assistant.setLocale("ge");
+  console.log("Resolved locale:", assistant.getLocale()); // "ka"
+
+  // 3. A destroyed instance is never reused: remounts get a live one.
+  assistant.destroy();
+  const remounted = YouGeAssistant.attach();
+
+  // 4. Validate a payload before you publish it (no secrets, no surprises).
+  const verdict = YouGeAssistant.validatePublishedConfig({ projectId: "my-web-app" });
+  return { warnings: verdict.warnings, locale: remounted.getLocale() };
+}

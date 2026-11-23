@@ -21,8 +21,8 @@
 
   /* --- core/constants.js --- */
 
-  const SDK_VERSION = '0.4.0';
-  const KIT_COMPAT_VERSION = '1.2.7';
+  const SDK_VERSION = '0.4.1';
+  const KIT_COMPAT_VERSION = '1.2.9';
   const SCHEMA_VERSION = 1;
   const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
   Object.freeze(PRIORITY);
@@ -118,8 +118,9 @@
   /**
    * Normalize any BCP-47 language tag to a supported project locale code
    * (`en, ka, ru, fr, it, de, sv, nl, no, da, et, es`), or `''` if unsupported.
-   * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`) and maps Norwegian
-   * subtags (`nb`, `nn`) to `no`.
+   * Preserves `ka` for Georgian (including `ka-GE`, `ka_GE`), maps Norwegian
+   * subtags (`nb`, `nn`) to `no`, and maps the common Georgian mistag `ge`
+   * (the ISO country code) to `ka`.
    */
   function normalizeLocaleTag(value) {
     if (typeof value !== 'string') return '';
@@ -128,6 +129,7 @@
     if (!/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(cleaned)) return '';
     let base = cleaned.toLowerCase().split('-')[0];
     if (base === 'nb' || base === 'nn') base = 'no';
+    if (base === 'ge') base = 'ka';
     return SUPPORTED_LOCALE_SET.has(base) ? base : '';
   }
 
@@ -150,6 +152,8 @@
     }
     if (parts[0] === 'nb' || parts[0] === 'nn' || parts[0] === 'no') return 'no';
     if (parts[0] === 'ka' && parts.length > 1) return 'ka';
+    // The common Georgian mistag `ge` (ISO country code) normalizes to `ka`.
+    if (parts[0] === 'ge') return 'ka';
     if (parts.length === 1) return parts[0];
     return parts[0] + '-' + (parts[1].length === 2 ? parts[1].toUpperCase() : parts[1]);
   }
@@ -2129,6 +2133,22 @@
         copy[key] = clone(value[key]);
       });
       return copy;
+    }
+    return value;
+  }
+
+  /**
+   * Deep-freeze a value tree so it can be published to external callers as an
+   * immutable snapshot. Every nested object and array is frozen exactly once per
+   * state change (not per read), and shared references stay safe because state
+   * builders hand out copies (`clone`) of anything that also lives in config.
+   */
+  function deepFreeze(value) {
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      Object.freeze(value);
+      Object.keys(value).forEach(function (key) {
+        deepFreeze(value[key]);
+      });
     }
     return value;
   }
@@ -4290,6 +4310,12 @@
       };
     }
 
+    // Schema-version compatibility policy: a missing (undefined or null)
+    // `schemaVersion` is accepted as the current major for legacy payloads that
+    // predate the versioned envelope, and reported as `schema_version_missing`.
+    // A declared but malformed or different-major version keeps its legacy
+    // rejection (`unsupported_schema_version`).
+    const declaredSchemaVersion = parsed.schemaVersion !== undefined && parsed.schemaVersion !== null;
     const major = parseSchemaMajor(parsed.schemaVersion);
     if (major !== SCHEMA_VERSION) {
       return { valid: false, reason: 'unsupported_schema_version', warnings: ['unsupported_schema_version'] };
@@ -4316,6 +4342,10 @@
         declaredProjectId ? { projectId: declaredProjectId } : {})
       : parsed;
 
+    const successWarnings = [];
+    if (hasInvalidProject) successWarnings.push('invalid_project_config');
+    if (!declaredSchemaVersion) successWarnings.push('schema_version_missing');
+
     return {
       valid: true,
       schemaVersion: SCHEMA_VERSION,
@@ -4323,7 +4353,7 @@
       publishedAt: safeText(parsed.publishedAt || '', 60),
       projectId: declaredProjectId || (nestedProject && nestedProject.id) || (topProject && topProject.id) || expectedProjectId,
       config: extractLayerOverrides(payload),
-      warnings: hasInvalidProject ? ['invalid_project_config'] : [],
+      warnings: successWarnings,
     };
   }
   function lkgStorageKey(projectId) {
@@ -4416,6 +4446,12 @@
         if (targetProject && ctx.storage) {
           saveLastKnownGood(ctx.storage, targetProject, validated);
         }
+        // Surface accepted-payload notices (e.g. `schema_version_missing`) on
+        // the existing warnings channel so a host can see them without reading
+        // the validator result directly.
+        validated.warnings.forEach(function (code) {
+          if (warnings.indexOf(code) === -1) warnings.push(code);
+        });
       } else {
         warnings.push('published_config_rejected:' + validated.reason);
         const fallbackProject = explicitProjectId || ctx.fallbackProjectId || '';
@@ -5814,8 +5850,10 @@
       // Project-supplied actions are data, but they can address a gated
       // capability (`id: 'diagnostics'` or `kind: 'help'`): gate them through the
       // same policy so configuration can never expose what the flag disabled.
+      // Each published entry is copied so the state snapshot never aliases the
+      // caller's configuration objects (snapshots are frozen as immutable trees).
       config.actions.forEach(function (action) {
-        if (isActionAllowed(config.modules, action)) add(action);
+        if (isActionAllowed(config.modules, action)) add(clone(action));
       });
       actions.sort(function (a, b) { return a.priority - b.priority; });
       return actions;
@@ -5921,7 +5959,15 @@
       // re-render forever) or `localStorage`. Conditions are still re-evaluated
       // above, so dismissal resets and persistence keep happening.
       if (snapshot && statesEqual(snapshot, next)) return;
-      snapshot = next;
+      // Snapshot immutability contract: the published state tree (and every
+      // nested object and array) is frozen once per state change, so external
+      // callers — widgets, React selectors, host listeners, `youge:state` event
+      // consumers — can never mutate internal assistant state through returned
+      // references. State builders copy (`clone`) anything derived from config,
+      // so freezing never reaches into caller-owned objects. Freezing happens
+      // here, not in `getState()`, so snapshot identity stays stable between
+      // changes for `useSyncExternalStore` consumers.
+      snapshot = deepFreeze(next);
       const doc = getDoc();
       if (shouldBindEvents) {
         try {

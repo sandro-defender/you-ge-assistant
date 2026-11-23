@@ -874,3 +874,138 @@ test('the diagnostics adapter forwards app and backend probe paths so the probe 
   assert.equal(Object.prototype.hasOwnProperty.call(contexts[1], 'appProbePath'), false);
   assert.equal(Object.prototype.hasOwnProperty.call(contexts[1], 'backendProbePath'), false);
 });
+
+test('state snapshots and their nested structures are immutable to external callers (SDK-1)', () => {
+  const customAction = { id: 'custom-1', label: 'Custom', kind: 'custom', priority: 2 };
+  const assistant = YouGeAssistant.create({
+    projectId: 'snapshot-immutability',
+    actions: [customAction],
+    features: [{ id: 'f1', label: 'Feature 1' }],
+    bindEvents: false,
+  });
+
+  const state = assistant.getState();
+  assert.equal(assistant.getState(), state, 'unchanged state keeps snapshot identity for external-store consumers');
+
+  // The snapshot is frozen as a tree, not only at the top level.
+  assert.ok(Object.isFrozen(state));
+  assert.ok(Object.isFrozen(state.network));
+  assert.ok(Object.isFrozen(state.network.endpoints));
+  assert.ok(Object.isFrozen(state.appearance));
+  assert.ok(Object.isFrozen(state.appearance.offsets));
+  assert.ok(Object.isFrozen(state.notifications));
+  assert.ok(Object.isFrozen(state.availableActions));
+  assert.ok(Object.isFrozen(state.dismissed));
+  assert.ok(Object.isFrozen(state.badge));
+  assert.ok(state.notifications.length > 0 && Object.isFrozen(state.notifications[0]), 'entries inside arrays are frozen too');
+
+  // External mutation attempts cannot change internal state.
+  assert.throws(() => { state.network.endpoints.primary = 'failed'; }, TypeError);
+  assert.throws(() => { state.badge.count = 99; }, TypeError);
+  assert.throws(() => { state.dismissed.push('network:offline'); }, TypeError);
+  assert.throws(() => { state.availableActions.push({ id: 'evil' }); }, TypeError);
+  assert.throws(() => { state.notifications[0].title = 'hacked'; }, TypeError);
+
+  // State never aliases caller configuration objects.
+  const stateAction = state.availableActions.find((entry) => entry.id === 'custom-1');
+  assert.ok(stateAction);
+  assert.notEqual(stateAction, customAction, 'state action entries are copies, not references into config');
+  assert.throws(() => { stateAction.label = 'hacked'; }, TypeError);
+  assert.equal(customAction.label, 'Custom', 'the caller-owned config object is untouched');
+
+  // Setters return the same immutable snapshot contract.
+  const returned = assistant.setSessionStatus({ state: 'ok' });
+  assert.ok(Object.isFrozen(returned));
+  assert.equal(assistant.getState(), returned, 'setter returns the current snapshot identity');
+
+  // A real state change still produces the correct new state.
+  assistant.setConnectivity(false);
+  const next = assistant.getState();
+  assert.notEqual(next, state, 'a change produces a new snapshot identity');
+  assert.equal(next.network.online, false);
+  assert.equal(next.network.endpoints.primary, 'unknown', 'internal endpoint state was not corrupted by the mutation attempts');
+  assert.equal(assistant.getConfig().actions[0].label, 'Custom');
+  assistant.destroy();
+});
+
+test('React adapter never reuses a destroyed assistant and re-acquires a live one (SDK-2)', () => {
+  function fakeUseSyncExternalStore(subscribe, getSnapshot, getServerSnapshot) {
+    assert.equal(typeof getServerSnapshot, 'function');
+    const cleanup = subscribe(() => {});
+    const value = getSnapshot();
+    if (cleanup) cleanup();
+    return value;
+  }
+
+  // Adapter-owned resolution path (attachAssistant).
+  const adapter = createReactAdapter({
+    useSyncExternalStore: fakeUseSyncExternalStore,
+    config: { projectId: 'react-destroy-guard', bindEvents: false },
+  });
+  const first = adapter.getAssistant();
+  assert.equal(first.isDestroyed(), false);
+  assert.equal(adapter.getAssistant(), first, 'a live instance is reused, never duplicated');
+  first.destroy();
+  const second = adapter.getAssistant();
+  assert.notEqual(second, first, 'a destroyed instance is never handed out again');
+  assert.equal(second.isDestroyed(), false);
+  assert.equal(adapter.getAssistant(), second, 'the replacement instance is reused');
+
+  // Explicit-instance path: a destroyed host instance is not reused either.
+  const explicit = YouGeAssistant.create({ projectId: 'react-destroy-guard-2', bindEvents: false });
+  const adapter2 = createReactAdapter({ useSyncExternalStore: fakeUseSyncExternalStore, assistant: explicit });
+  assert.equal(adapter2.getAssistant(), explicit);
+  explicit.destroy();
+  const replacement = adapter2.getAssistant();
+  assert.notEqual(replacement, explicit);
+  assert.equal(replacement.isDestroyed(), false);
+
+  second.destroy();
+  replacement.destroy();
+});
+
+test('React bindings survive destroy and remount without stale listeners or duplicate subscriptions (SDK-2)', () => {
+  const adapter = createReactAdapter({
+    useSyncExternalStore: (subscribe, getSnapshot) => {
+      const cleanup = subscribe(() => {});
+      const value = getSnapshot();
+      if (cleanup) cleanup();
+      return value;
+    },
+    config: { projectId: 'react-remount', bindEvents: false },
+  });
+  const bindings = getExternalStoreBindings(() => adapter.getAssistant(), null);
+
+  // Double-subscribe is de-duplicated to one call per emit; refcounted unsubscribe.
+  let calls = 0;
+  const listener = () => { calls += 1; };
+  const unsubscribeOne = bindings.subscribe(listener);
+  const unsubscribeTwo = bindings.subscribe(listener);
+  adapter.getAssistant().setConnectivity(false);
+  assert.equal(calls, 1, 'a double-subscribed listener is called exactly once per emit');
+  unsubscribeOne();
+  adapter.getAssistant().setConnectivity(true);
+  assert.equal(calls, 2, 'one unsubscribe leaves the shared subscription active');
+  unsubscribeTwo();
+  adapter.getAssistant().setConnectivity(false);
+  assert.equal(calls, 2, 'no calls after the last unsubscribe (no stale subscriptions)');
+
+  // Destruction clears engine listeners with the instance.
+  const doomedInstance = adapter.getAssistant();
+  let destroyCalls = 0;
+  const doomedSubscription = doomedInstance.subscribe(() => { destroyCalls += 1; }, { immediate: false });
+  doomedInstance.destroy();
+  doomedInstance.setConnectivity(true);
+  assert.equal(destroyCalls, 0, 'a destroyed instance emits nothing — its listeners were cleared with it');
+  doomedSubscription();
+
+  // Remount binds to the reacquired instance, not the destroyed one.
+  let remountCalls = 0;
+  const unsubscribeRemount = bindings.subscribe(() => { remountCalls += 1; });
+  const fresh = adapter.getAssistant();
+  assert.notEqual(fresh, doomedInstance);
+  fresh.setConnectivity(false);
+  assert.ok(remountCalls >= 1, 'a remounted subscription receives updates from the live instance');
+  unsubscribeRemount();
+  fresh.destroy();
+});

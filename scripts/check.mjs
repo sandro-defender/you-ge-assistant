@@ -909,7 +909,7 @@ for (const rel of sdkRequired) {
 
 const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
 contract(sdkPkg.name === '@youge/assistant-sdk', 'SDK package name is @youge/assistant-sdk');
-contract(sdkPkg.version === '0.4.0' && sdkPkg.private !== true, 'SDK package is prepared at 0.4.0 (publishing remains separately gated)');
+contract(sdkPkg.version === '0.4.1' && sdkPkg.private !== true, 'SDK package is prepared at 0.4.1 (publishing remains separately gated)');
 contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
 contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
 contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');

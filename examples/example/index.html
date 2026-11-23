@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#fafaff" />
     <meta
       name="description"
-      content="A small SDK. A more capable web app. Add installation guidance, actionable status and on-demand diagnostics with You.Ge Assistant. Integration guide for SDK 0.4.0."
+      content="A small SDK. A more capable web app. Add installation guidance, actionable status and on-demand diagnostics with You.Ge Assistant. Integration guide for SDK 0.4.1."
     />
     <title>You.Ge Assistant — A more capable web app</title>
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -68,7 +68,7 @@
           <a
             class="release-pill"
             href="https://www.npmjs.com/package/@youge/assistant-sdk"
-            ><span class="status-dot"></span> SDK 0.4.0
+            ><span class="status-dot"></span> SDK 0.4.1
             <span class="pill-divider">/</span> Built for the open web ↗</a
           >
           <h1>
@@ -285,9 +285,10 @@
             <h3>A small addition to your stack.</h3>
             <p>
               Install the ESM package with paired TypeScript declarations. These
-              examples target <strong>SDK 0.4.0</strong>; pin
-              <code>@0.3.0</code> for today's registry release, or
-              <code>@0.4.0</code> once the gated release is approved.
+              examples target <strong>SDK 0.4.1</strong>; the registry serves
+              <code>@0.4.0</code> today (published 2026-11-19), so pin
+              <code>@0.4.0</code> until the gated <code>0.4.1</code> release is
+              approved.
             </p>
             <div class="code-block">
               <div class="code-header"><span>Terminal</span></div>
@@ -509,6 +510,89 @@ function disableAssistant() {
               caches, or disables its offline handling.
             </p>
           </article>
+          <article id="whats-new">
+            <p class="step-label">06 / WHAT'S NEW IN 0.4.1</p>
+            <h3>Five corrections. No migration step.</h3>
+            <p>
+              <code>0.4.1</code> is additive over the published
+              <code>0.4.0</code>. Imports, configuration precedence, worker
+              ownership and <code>SCHEMA_VERSION = 1</code> are unchanged, so
+              existing integrations keep working without edits. What changes is
+              behaviour you were previously left to reason about yourself:
+            </p>
+            <ul>
+              <li>
+                <strong>State snapshots are immutable.</strong>
+                <code>getState()</code>, setter return values and the
+                <code>youge:state</code> event detail are deeply frozen, and
+                snapshot identity is stable between changes for
+                <code>useSyncExternalStore</code>. Writing into a snapshot now
+                throws in strict-mode code instead of silently corrupting
+                assistant state.
+              </li>
+              <li>
+                <strong>A destroyed instance is never reused.</strong> The React
+                adapter drops a destroyed cached instance and re-acquires a live
+                one, so remounts no longer bind to a dead assistant.
+              </li>
+              <li>
+                <strong>Schema-version policy is explicit.</strong> A published
+                payload without <code>schemaVersion</code> stays accepted as the
+                current major and now reports the
+                <code>schema_version_missing</code> warning; malformed or
+                different-major values keep their
+                <code>unsupported_schema_version</code> rejection.
+              </li>
+              <li>
+                <strong>The Georgian locale is <code>ka</code>.</strong> The
+                common mistag <code>ge</code> (an ISO country code, not a
+                language) normalizes to <code>ka</code>, alongside the existing
+                <code>nb</code>/<code>nn</code> → <code>no</code> alias.
+              </li>
+              <li>
+                <strong>Recovery documentation is corrected.</strong>
+                <code>modules.recovery</code> and
+                <code>modules.failover</code> gate the <code>recovery</code> and
+                <code>backup-status</code> items and notices only; health checks,
+                hostname switching, authorization and navigation stay
+                host-owned.
+              </li>
+            </ul>
+            <p>
+              Read the warnings instead of guessing, and keep state handling
+              read-only:
+            </p>
+            <!-- guide:compatibilityNotes --><div class="code-block"><div class="code-header">TypeScript / JavaScript · @youge/assistant-sdk</div><pre tabindex="0" role="region" aria-label="Code example"><code>import { YouGeAssistant } from '@youge/assistant-sdk';
+
+function compatibilityNotes() {
+  const assistant = YouGeAssistant.attach();
+
+  // 1. State snapshots are deeply frozen. Read them; never write into them.
+  const state = assistant.getState();
+  const warnings = assistant.getConfig().meta.warnings;
+  if (warnings.includes("schema_version_missing")) {
+    // A published payload without `schemaVersion` is accepted as schema 1.
+    console.log("Payload predates the versioned envelope:", state.locale);
+  }
+
+  // 2. Georgian is `ka`; the common mistag `ge` normalizes to it.
+  assistant.setLocale("ge");
+  console.log("Resolved locale:", assistant.getLocale()); // "ka"
+
+  // 3. A destroyed instance is never reused: remounts get a live one.
+  assistant.destroy();
+  const remounted = YouGeAssistant.attach();
+
+  // 4. Validate a payload before you publish it (no secrets, no surprises).
+  const verdict = YouGeAssistant.validatePublishedConfig({ projectId: "my-web-app" });
+  return { warnings: verdict.warnings, locale: remounted.getLocale() };
+}</code></pre></div><!-- /guide:compatibilityNotes -->
+            <p>
+              Upgrading is additive: install the pinned version once the gated
+              release is approved, then run your existing tests. Nothing is
+              published to npm by this page.
+            </p>
+          </article>
         </div>
       </section>
       <section id="try" class="try-band">
@@ -545,7 +629,7 @@ function disableAssistant() {
           <div class="live-panel">
             <div class="live-panel-header">
               <span class="status-dot"></span>LIVE SDK SNAPSHOT
-              <span class="mono">0.4.0</span>
+              <span class="mono">0.4.1</span>
             </div>
             <dl>
               <div>

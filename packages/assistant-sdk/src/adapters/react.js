@@ -310,9 +310,20 @@ export function createReactAdapter(options) {
     throw new TypeError('createReactAdapter requires { useSyncExternalStore } from React');
   }
   let cachedAdapterAssistant = null;
+  const isDestroyedInstance = function (instance) {
+    return Boolean(instance) && typeof instance.isDestroyed === 'function' && instance.isDestroyed();
+  };
   const resolveAssistant = function () {
-    if (cachedAdapterAssistant) return cachedAdapterAssistant;
-    cachedAdapterAssistant = opts.assistant || attachAssistant(opts.config, opts.env);
+    // Never hand out a destroyed assistant: drop the cache and re-acquire.
+    // A live explicit `opts.assistant` is preferred; otherwise
+    // `attachAssistant` is idempotent — it reuses the live global instance or
+    // creates a single replacement after a destroy, never a duplicate.
+    if (cachedAdapterAssistant && !isDestroyedInstance(cachedAdapterAssistant)) {
+      return cachedAdapterAssistant;
+    }
+    cachedAdapterAssistant = (opts.assistant && !isDestroyedInstance(opts.assistant))
+      ? opts.assistant
+      : attachAssistant(opts.config, opts.env);
     return cachedAdapterAssistant;
   };
   const useAssistant = createUseAssistant(
