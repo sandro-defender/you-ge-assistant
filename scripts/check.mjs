@@ -106,6 +106,7 @@ for (const file of [
   'manifest-handler.js',
   'qrcode.js',
   'examples/example/example.js',
+  'examples/example/public/launcher-demo.js',
   'reference/Script.js',
   'reference/Script.decompiled.js',
 ]) {

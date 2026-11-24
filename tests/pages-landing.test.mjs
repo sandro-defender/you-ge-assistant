@@ -53,9 +53,10 @@ test("landing anchors, asset paths and source documentation links resolve", () =
     }
   }
   assert.ok(existsSync(resolve(root, "examples/example/workspace.html")));
+  assert.ok(existsSync(resolve(root, "examples/example/launcher-demo.html")));
   assert.match(
     read("examples/example/vite.config.js"),
-    /workspace: path.join\(exampleRoot, 'workspace.html'\)/,
+    /launcherDemo: path.join\(exampleRoot, 'launcher-demo.html'\)/,
   );
 });
 
@@ -93,6 +94,7 @@ test("assembled Pages links and assets work under the project base path", (t) =>
     "demo/index.html",
     "example/index.html",
     "example/workspace.html",
+    "example/launcher-demo.html",
     "sdk-demo/index.html",
     "config-playground/index.html",
   ]) {

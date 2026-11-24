@@ -10,7 +10,7 @@ installation integration.
 > 2026-11-22), which predates the Phase 1 correctness fixes described under
 > *Recovery and failover* below; `0.4.1` is additive over `0.4.0` and the owner
 > approves the gated release (see [`RELEASE.md`](RELEASE.md)). The compatible
-> repository toolkit is `1.2.9` (`KIT_COMPAT_VERSION`).
+> repository toolkit is `1.2.10` (`KIT_COMPAT_VERSION`).
 > See [`MIGRATION.md`](MIGRATION.md) for host-owned worker integration and
 > [`RELEASE.md`](RELEASE.md) for the authorization-gated release runbook.
 

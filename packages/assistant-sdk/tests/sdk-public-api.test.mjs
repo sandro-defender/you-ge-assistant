@@ -50,7 +50,7 @@ test('the 0.4.0 export map publishes the localization and installation entries w
   }
   assert.equal(pkg.version, '0.4.1');
   assert.equal(root.SDK_VERSION, '0.4.1');
-  assert.equal(root.KIT_COMPAT_VERSION, '1.2.9');
+  assert.equal(root.KIT_COMPAT_VERSION, '1.2.10');
   assert.deepEqual(Object.keys(pkg.dependencies || {}), [], 'the SDK keeps zero runtime dependencies');
 });
 

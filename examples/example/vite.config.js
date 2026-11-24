@@ -63,7 +63,7 @@ export default defineConfig({
   preview: { host: '0.0.0.0', allowedHosts: true },
   build: {
     outDir: 'dist',
-    rollupOptions: { input: { index: path.join(exampleRoot, 'index.html'), workspace: path.join(exampleRoot, 'workspace.html') } },
+    rollupOptions: { input: { index: path.join(exampleRoot, 'index.html'), workspace: path.join(exampleRoot, 'workspace.html'), launcherDemo: path.join(exampleRoot, 'launcher-demo.html') } },
     emptyOutDir: true,
   },
 });

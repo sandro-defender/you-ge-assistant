@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1 (SDK) / 1.2.10 (kit) — 2026-11-24 · launcher runtime cache generation
+
+The SDK package remains `0.4.1`; only the You.Ge Assistant kit moves from
+`1.2.9` to `1.2.10`. PR #57 changes precached `assistant-state.js`,
+`assistant-widget.js`, and `assistant-widget.css`; the synchronized runtime bump
+ensures installed apps use those new assets offline as well as online. The
+service-worker source remains the single precache manifest, validated by
+executing its install handler and comparing asset fingerprints—no hash list or
+gate exception was added. No release, publication, tag, merge, or deployment is
+part of this change.
+
 ## 0.4.1 (SDK) / 1.2.9 (kit) — 2026-11-22 · version increment for the Phase 1 fixes
 
 `@youge/assistant-sdk` `0.4.0 → 0.4.1` and kit `1.2.8 → 1.2.9`, **the kit bump

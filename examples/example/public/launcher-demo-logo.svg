@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Northstar Workspace">
+  <defs>
+    <linearGradient id="northstar" x1="32" y1="20" x2="372" y2="390" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a58cff" />
+      <stop offset=".48" stop-color="#6651c9" />
+      <stop offset="1" stop-color="#30235e" />
+    </linearGradient>
+    <radialGradient id="glint" cx="0" cy="0" r="1" gradientTransform="matrix(0 254 -254 0 132 92)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".35" />
+      <stop offset="1" stop-color="#fff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <path fill="url(#northstar)" d="M0 0h400v400H0z" />
+  <path fill="url(#glint)" d="M0 0h400v400H0z" />
+  <circle cx="200" cy="200" r="141" fill="none" stroke="#fff" stroke-opacity=".19" stroke-width="2" />
+  <path d="m200 78 23.4 92.6L316 147l-70.8 62.5L316 272l-92.6-23.4L200 342l-23.4-93.4L84 272l70.8-62.5L84 147l92.6 23.6L200 78Z" fill="#fff" />
+  <circle cx="200" cy="209" r="21" fill="#47358e" />
+</svg>

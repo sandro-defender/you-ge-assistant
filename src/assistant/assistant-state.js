@@ -22,7 +22,7 @@
   /* --- core/constants.js --- */
 
   const SDK_VERSION = '0.4.1';
-  const KIT_COMPAT_VERSION = '1.2.9';
+  const KIT_COMPAT_VERSION = '1.2.10';
   const SCHEMA_VERSION = 1;
   const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
   Object.freeze(PRIORITY);

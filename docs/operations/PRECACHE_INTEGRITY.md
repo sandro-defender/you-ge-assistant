@@ -5,7 +5,7 @@ retained as a subpath-safe `importScripts` compatibility shim — see
 [`../reference/COMPATIBILITY_CONTRACTS.md`](../reference/COMPATIBILITY_CONTRACTS.md)) caches the app shell,
 which precache assets are required and which are optional, how installed apps
 receive new code, what the `precache-integrity` gate enforces, and how kit
-`1.2.9` refreshes the precache generation safely.
+`1.2.10` refreshes the precache generation safely.
 
 Everything below was verified with deterministic Node tests against the real
 worker source. **No real-browser or live-deployment verification was performed.**
@@ -17,7 +17,7 @@ worker source. **No real-browser or live-deployment verification was performed.*
 | SDK sources → `assistant-state.js` | `npm run sync:sdk` (`scripts/sync-sdk-browser.mjs`) | The only generated precached file. `--check` (part of `npm run check`) fails when it is out of date. |
 | Precache manifest | `PRECACHE_ASSETS` in `you-ge-sw.js` | 14 scope-relative files, each declared `required: true` or `required: false` (§3). There is no separate manifest file: the worker is the single source, and the gate reads it by running the install handler. |
 | Never cached by the worker | `pwa.js`, `you-ge-sw.js`, `progressier.js` | Always fetched from the network (`fetch` handler returns early). |
-| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.9`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.4.1`) is a separate release line (§7); because the generated bundle mirrors it, an SDK release-version change regenerates `assistant-state.js` and therefore needs the owner-authorized synchronized kit bump (§13). |
+| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.10`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.4.1`) is a separate release line (§7); because the generated bundle mirrors it, an SDK release-version change regenerates `assistant-state.js` and therefore needs the owner-authorized synchronized kit bump (§13). |
 | Cache names | `you-ge-assistant:<host>:<scope>:static:v<VERSION>` and `…:pages:v<VERSION>` | Host- and scope-isolated. The **kit version is the only cache-invalidation key.** |
 | Deployment | `.github/workflows/pages.yml` | Every push to `main` publishes the runtime to GitHub Pages. |
 
@@ -538,3 +538,33 @@ part of it.
   (`SDK_VERSION`, `KIT_COMPAT_VERSION`), and `scripts/check.mjs` (the SDK
   release-ready gate). No rule was weakened and no historical record was
   rewritten.
+
+## 16. Kit version `1.2.10` — launcher appearance and attention runtime
+
+Authorized by the owner on 2026-11-24 for the continuation of PR #57. This is a
+kit-only cache-generation update: `@youge/assistant-sdk` remains `0.4.1`; no
+SDK release, publication, tag, merge, or deployment is part of the change.
+
+- PR #57 changes three assets in the worker's precache: generated
+  `assistant-state.js`, `assistant-widget.js`, and `assistant-widget.css`.
+  With a byte-identical service worker and kit still at `1.2.9`, already
+  installed clients would keep using the cache namespace
+  `…:static:v1.2.9`; in particular, offline clients could retain the previous
+  launcher renderer indefinitely.
+- The synchronized kit declarations move together from `1.2.9` to `1.2.10`:
+  `VERSION` in `src/runtime/you-ge-sw.js`, `PWA.version` in
+  `src/runtime/pwa.js`, root `package.json` `version`, and SDK
+  `KIT_COMPAT_VERSION`. `npm run sync:sdk` regenerates the browser bundle so
+  its mirrored constant also reads `1.2.10`. The SDK package `version` and
+  `SDK_VERSION` remain `0.4.1`.
+- There is no separately maintained precache manifest or replacement hash
+  table. `scripts/precache-integrity.mjs` executes the worker's actual install
+  handler in an isolated VM, resolves the declared asset set, computes its
+  content fingerprints from the files on disk, and compares it with the merge
+  base. The gate reports `3 of 14 precached assets changed (assistant-state.js,
+  assistant-widget.css, assistant-widget.js) since 6ff6726; kit version 1.2.9
+  → 1.2.10 synchronized`. This preserves the gate's source-of-truth and
+  security checks; no replacement hashes are stored or hardcoded.
+- Pinned current-version expectations move to `1.2.10` in the identity,
+  install-experience, example-theme, and SDK compatibility tests. The historical
+  `1.2.9` entries above remain unchanged.

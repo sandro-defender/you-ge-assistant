@@ -5,7 +5,24 @@ and SDK 0.4.1 integration guide. It includes original CSS illustrations, an
 accessible architecture diagram, typechecked code samples and a real SDK state
 panel connected to the optional DOM widget. No worker is registered by the page.
 
-The preserved Staff Space sample is at `/example/workspace.html`.
+The preserved Staff Space sample is at `/example/workspace.html`. The interactive
+SDK launcher studio is at `/example/launcher-demo.html` (local Vite route:
+`http://localhost:5173/launcher-demo.html`). It renders the actual classic
+`assistant-state.js` and `assistant-widget.js`, not the mock preview from the
+configuration playground. Open the floating launcher at the lower right to see
+the real panel and action buttons.
+
+The studio includes four scenario controls: **Idle** has no PWA install adapter
+or actionable notice; **Installation** attaches a host PWA adapter exposing the
+SDK's real `getState()` / `canInstall` snapshot; **Network problem** calls the
+SDK's `setConnectivity(false)` host-state API to publish its actual diagnostics
+and recovery actions; **Multiple actions** combines those same two SDK states.
+Use **Complete installation** or **Restore connection** one at a time to verify
+the single attention outline stays on while another eligible action remains.
+**Resolve all** reaches the quiet resolved state. The shape, logo fit/zoom,
+outline toggle/color/speed/intensity controls call `YouGeAssistant.configure()`
+on that same centralized instance. The demo uses no service worker or outbound
+network calls, and honors reduced-motion preferences.
 A fixed circular floating button shows the You.Ge Assistant icon and opens the
 **Intelligent Floating Assistant** panel. The launcher shows one simple static zoomed mark — the animated
 logo was removed — so the assistant never moves while idle; the button fill turns the toolkit's red while

@@ -158,7 +158,7 @@ test('the example adds no dependency and changes no package version', () => {
     'the example declares only its browser-test runner, the local SDK and React',
   );
   assert.match(deps['@youge/assistant-sdk'], /^file:/, 'the example consumes the local SDK');
-  assert.equal(rootPkg.version, '1.2.9', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
+  assert.equal(rootPkg.version, '1.2.10', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
   assert.deepEqual(
     Object.keys(rootPkg.dependencies || {}),
     [],
