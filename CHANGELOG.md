@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.5.0 (SDK) / 1.2.11 (kit) — 2026-11-24 · production ElectricBorder renderer
+
+The SDK adds `createElectricBorder()` and `bindElectricBorder()` from the root
+and launcher exports. This is the original React Bits WebGL2 ElectricBorder
+implementation, integrated into the production classic widget and the ESM SDK;
+it follows centralized launcher attention state, includes lifecycle handling
+and a safe CSS fallback, and does not require React. The upstream license and
+attribution ship with both distributions. Existing SDK exports/config remain
+compatible; schema stays at version 1. The ESM renderer and classic renderer use
+the shared state/config contract while remaining separately bundled for their
+module/runtime formats.
+
+The kit moves `1.2.10 → 1.2.11`; the SDK moves `0.4.1 → 0.5.0` (additive
+pre-1.0 minor API release). The new worker cache generation retires `1.2.10`
+caches on activation. Validation only; no merge, release, publication, tag or
+deployment is part of this change.
+
+## 0.4.1 (SDK) / 1.2.10 (kit) — 2026-11-24 · launcher runtime cache generation
+
+The SDK package remains `0.4.1`; only the You.Ge Assistant kit moves from
+`1.2.9` to `1.2.10`. PR #57 changes precached `assistant-state.js`,
+`assistant-widget.js`, and `assistant-widget.css`; the synchronized runtime bump
+ensures installed apps use those new assets offline as well as online. The
+service-worker source remains the single precache manifest, validated by
+executing its install handler and comparing asset fingerprints—no hash list or
+gate exception was added. No release, publication, tag, merge, or deployment is
+part of this change.
+
 ## 0.4.1 (SDK) / 1.2.9 (kit) — 2026-11-22 · version increment for the Phase 1 fixes
 
 `@youge/assistant-sdk` `0.4.0 → 0.4.1` and kit `1.2.8 → 1.2.9`, **the kit bump

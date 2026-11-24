@@ -599,7 +599,10 @@ function cssRuleBody(selector) {
 test('the widget keeps a minimal, intentional selector footprint', () => {
   // Every selector must stay inside the widget's own namespaces. Comments and
   // at-rule preludes are stripped first so the check reads declarations only.
-  const css = widgetCss.replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = widgetCss
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    // Keyframe labels (`to`, `from`, percentages) are not CSS selectors.
+    .replace(/@keyframes[^{}]+\{[\s\S]*?\n\}/g, '');
   const selectors = [...css.matchAll(/([^{}]+)\{/g)]
     .map((match) => match[1].trim())
     .filter((prelude) => prelude && !prelude.startsWith('@'));
@@ -700,7 +703,8 @@ test('reduced motion still disables travel and transitions', () => {
   const reduced = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(widgetCss)[1];
   assert.match(reduced, /transition-duration: 0\.01ms !important/);
   assert.match(reduced, /\.youge-fab:hover, \.youge-fab:active[^{]*\{ transform: none !important; \}/);
-  assert.doesNotMatch(widgetCss, /@keyframes/, 'no infinite animation was introduced');
+  assert.match(widgetCss, /@keyframes youge-electric-flow/, 'the opt-in action outline may animate');
+  assert.match(widgetCss, /prefers-reduced-motion: reduce[\s\S]*?animation: none[\s\S]*?stroke-dasharray: none/s, 'reduced motion disables the outline animation');
 });
 
 test('mobile presentation is preserved: full-width-safe panel and responsive launcher', () => {

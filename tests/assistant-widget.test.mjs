@@ -603,7 +603,11 @@ test('widget CSS enforces fixed placement, safe areas, 44px targets, mobile view
   assert.match(widgetCss, /max-width:\s*480px/);
   assert.match(widgetCss, /100dvh/);
   assert.match(widgetCss, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(widgetCss, /@keyframes/);
+  assert.match(widgetCss, /@keyframes youge-electric-flow/);
+  assert.match(widgetCss, /data-attention="active"[^}]*animation: youge-electric-flow/);
+  assert.match(widgetCss, /data-attention="static"[^}]*stroke-dasharray: none/);
+  assert.match(widgetCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?data-attention="active"[^}]*animation: none/s);
+  assert.match(widgetCss, /\.youge-fab\[data-attention="active"\] \.youge-electric-border path \{ animation:/);
 });
 
 test('every participating page integrates the widget; React example uses React Bits + centralized state', () => {
@@ -734,7 +738,9 @@ test('widget renderer has no network, polling, SW registration, auto-open or hea
   assert.doesNotMatch(code, /\.register\s*\(/);
   assert.doesNotMatch(code, /setInterval\s*\(/);
   assert.doesNotMatch(code, /\bimport\s/);
-  assert.doesNotMatch(code, /ogl|gsap|three|WebGL/);
+  assert.doesNotMatch(code, /ogl|gsap|three/);
+  assert.match(code, /getContext\('webgl2'/, 'the electric renderer uses the browser WebGL API directly');
+  assert.match(code, /if \(!gl \|\| !program\)/, 'unsupported WebGL falls back without blocking the classic launcher');
   assert.doesNotMatch(code, /staff\.you\.ge/);
   assert.match(code, /api\.subscribe\(onState\)/);
   assert.match(code, /api\.subscribe\(onState\)/);
@@ -965,15 +971,18 @@ const autoDarkTokens = () => /@media \(prefers-color-scheme: dark\) \{\s*\.youge
 
 test('the floating entry point is a true circle at every size', () => {
   const rule = fabRule();
-  assert.match(rule, /border-radius: 50%/, 'a real circle, not a rounded square');
-  assert.doesNotMatch(rule, /border-radius:\s*(?!50%)\d/, 'no competing radius on the button');
+  assert.match(rule, /--youge-launcher-radius: 50%/, 'the backward-compatible default is a real circle');
+  assert.match(rule, /border-radius: var\(--youge-launcher-radius\)/, 'validated per-instance shape controls the radius');
+  assert.match(widgetCss, /\.youge-fab\[data-shape="circle"\] \{ --youge-launcher-radius: 50%; \}/);
+  assert.match(widgetCss, /\.youge-fab\[data-shape="rounded-square"\]/);
+  assert.match(widgetCss, /\.youge-fab\[data-shape="square"\]/);
   assert.doesNotMatch(widgetCss, /\.youge-fab[^{]*\{[^}]*border-radius:\s*1[68]px/, 'the old 18px radius is gone');
 
   const compact = /@media \(max-width: 480px\) \{([\s\S]*?)\n\}/.exec(widgetCss)[1];
   assert.match(compact, /\.youge-fab \{ width: 54px; height: 54px; \}/, 'the small-screen variant stays a square box, so 50% stays a circle');
   assert.doesNotMatch(compact, /\.youge-fab \{[^}]*border-radius/, 'it never re-declares a different radius');
 
-  assert.match(widgetCss, /\.youge-fab::before \{[^}]*inset: 0;[^}]*border-radius: 50%/, 'the decorative light lives inside the circle');
+  assert.match(widgetCss, /\.youge-fab::before \{[^}]*inset: 0;[^}]*border-radius: var\(--youge-launcher-radius\)/, 'the decorative light follows the configured shape');
   assert.match(widgetCss, /\.youge-fab::before \{[^}]*pointer-events: none/, 'and cannot swallow a click');
   assert.match(widgetCss, /\.youge-fab \.youge-icon \{ position: relative; z-index: 1; \}/, 'the glyph stays above the sheen');
   assert.match(widgetCss, /\.youge-badge \{[\s\S]*?z-index: 2;/, 'the count badge stays above both');
@@ -997,8 +1006,9 @@ test('the resting button is subdued: no glow, no blur, no continuous animation',
   assert.doesNotMatch(rule, /filter:|blur\(|text-shadow/, 'no glow or blur on the resting button');
   assert.doesNotMatch(rule, /box-shadow:\s*var\(--youge-shadow\)/, 'the 40px panel shadow is no longer used for the entry point');
   assert.match(widgetCss, /--youge-fab-shadow: 0 4px 10px/, 'depth is one short elevation step');
-  assert.doesNotMatch(widgetCss, /@keyframes/, 'the widget defines no infinite animation at all');
-  assert.doesNotMatch(widgetCss, /animation:/, 'and never animates on its own');
+  assert.match(widgetCss, /@keyframes youge-electric-flow/, 'the opt-in effect is available');
+  assert.match(widgetCss, /\.youge-fab\[data-attention="active"\] \.youge-electric-border path \{ animation:/, 'only an active actionable state animates the outline');
+  assert.doesNotMatch(rule, /animation:/, 'the resting button itself never animates');
   assert.match(widgetCss, /\.youge-fab:hover \{ transform: translateY\(-1px\);/, 'hover travel stays under 2px');
   assert.match(widgetCss, /\.youge-fab:active \{ transform: translateY\(0\) scale\(0\.98\); \}/, 'press feedback survives, gently');
   const bg = tokenValue(lightTokens(), '--youge-fab-bg');
@@ -1105,7 +1115,8 @@ test('the floating entry point scales automatically across phone, tablet and des
   assert.match(rule, /height: var\(--youge-fab-size\)/);
   assert.doesNotMatch(rule, /width: 56px/, 'the base rule is not a fixed pixel size');
   // …and stays a true circle at every tier (border-radius: 50% on the square box).
-  assert.match(rule, /border-radius: 50%/);
+  assert.match(rule, /--youge-launcher-radius: 50%/);
+  assert.match(rule, /border-radius: var\(--youge-launcher-radius\)/);
   // The glyph and the panel gap follow the same token.
   assert.match(widgetCss, /\.youge-fab \.youge-icon svg \{ width: var\(--youge-fab-glyph, 26px\)/);
   assert.match(widgetCss, /var\(--youge-offset-y\) \+ var\(--youge-fab-size\) \+ 10px \+ env\(safe-area-inset-bottom/);

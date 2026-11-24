@@ -427,7 +427,7 @@ function ruleBody(css, selector) {
 
 test('the sample floating button is a clipped circle, not a glowing square', () => {
   const fab = ruleBody(exampleCss, 'assistant-fab');
-  assert.match(fab, /border-radius: 50%/, 'still a true circle');
+  assert.match(fab, /border-radius: var\(--assistant-launcher-radius, 50%\)/, 'the configured shape overrides a backward-compatible circle default');
   assert.match(fab, /background: var\(--assistant-fab-fill\)/, 'a single flat fill instead of a lit gradient');
   assert.doesNotMatch(fab, /radial-gradient\(circle at 50% 37%/, 'the bright inner spotlight is gone');
   assert.doesNotMatch(fab, /box-shadow: 0 9px 30px|0 14px 38px/, 'no big bloom shadow at rest or on hover');
@@ -436,7 +436,7 @@ test('the sample floating button is a clipped circle, not a glowing square', () 
   const stage = ruleBody(exampleCss, 'assistant-fab-stage');
   assert.match(stage, /inset: 0;/, 'the WebGL layer no longer hangs 12px outside the button');
   assert.match(stage, /overflow: hidden;/);
-  assert.match(stage, /border-radius: 50%;/, 'the accent is clipped to the disc, so no square edge appears');
+  assert.match(stage, /border-radius: var\(--assistant-launcher-radius, 50%\)/, 'the logo clipping follows the configured launcher shape');
   assert.doesNotMatch(exampleCss, /\.assistant-fab-stage canvas|\.electric-logo/, 'the animated logo/canvas layer is gone entirely');
   assert.doesNotMatch(exampleCss, /\.assistant-fab::before \{[^}]*filter: blur\(/, 'the blurred outer halo is removed');
   assert.doesNotMatch(exampleCss, /\.assistant-mark-image \{[^}]*filter: drop-shadow/, 'the mark itself is not glowing');
@@ -470,7 +470,7 @@ test('the sample button shares the shipped widget’s actionable-tone rule', () 
 test('the sample button shows one static zoomed mark and no logo animation', () => {
   assert.doesNotMatch(widgetSource, /ElectricLogo|electric-logo|LogoBoundary/, 'no animated logo component is mounted');
   assert.doesNotMatch(widgetSource, /setEngaged|\{engaged/, 'and no interaction gate for a logo that no longer animates');
-  assert.match(widgetSource, /<img className="assistant-mark-image" src=\{assistantMark\}/, 'one simple static mark is always mounted');
+  assert.match(widgetSource, /<img className="assistant-mark-image" src=\{launcher\.logo \|\| assistantMark\}/, 'a configured logo overrides the static default mark');
   const mark = ruleBody(exampleCss, 'assistant-mark-image');
   assert.match(mark, /width: 44px/, 'zoomed to 44px inside the 66px circle');
   assert.match(mark, /top: 50%;\s*left: 50%/, 'centred by positioning only');

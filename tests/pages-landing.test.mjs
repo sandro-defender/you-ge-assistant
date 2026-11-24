@@ -38,7 +38,7 @@ test("landing guide is useful without JavaScript and matches typechecked example
   ])
     assert.ok(html.includes(`id="${id}"`));
   assert.match(html, /npm install @youge\/assistant-sdk/);
-  assert.match(html, /SDK 0\.4\.1/);
+  assert.match(html, /SDK 0\.5\.0/);
   assert.doesNotMatch(html, /Progressier|Register a project|not yet published/);
 });
 
@@ -53,9 +53,10 @@ test("landing anchors, asset paths and source documentation links resolve", () =
     }
   }
   assert.ok(existsSync(resolve(root, "examples/example/workspace.html")));
+  assert.ok(existsSync(resolve(root, "examples/example/launcher-demo.html")));
   assert.match(
     read("examples/example/vite.config.js"),
-    /workspace: path.join\(exampleRoot, 'workspace.html'\)/,
+    /launcherDemo: path.join\(exampleRoot, 'launcher-demo.html'\)/,
   );
 });
 
@@ -93,6 +94,7 @@ test("assembled Pages links and assets work under the project base path", (t) =>
     "demo/index.html",
     "example/index.html",
     "example/workspace.html",
+    "example/launcher-demo.html",
     "sdk-demo/index.html",
     "config-playground/index.html",
   ]) {

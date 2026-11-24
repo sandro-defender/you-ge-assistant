@@ -2,8 +2,8 @@
  * @youge/assistant-sdk — core constants
  */
 
-export const SDK_VERSION = '0.4.1';
-export const KIT_COMPAT_VERSION = '1.2.9';
+export const SDK_VERSION = '0.5.0';
+export const KIT_COMPAT_VERSION = '1.2.11';
 export const SCHEMA_VERSION = 1;
 
 export const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
@@ -32,6 +32,7 @@ Object.freeze(ICONS);
 export const EVENT_NAMES = {
   state: 'youge:state',
   action: 'youge:action',
+  actionCompleted: 'youge:action:complete',
   localeChange: 'youge:locale-change',
   endpointStatus: 'youge:endpoint-status',
   sessionStatus: 'youge:session-status',

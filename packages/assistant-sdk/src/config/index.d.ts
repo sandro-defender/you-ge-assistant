@@ -52,6 +52,57 @@ export interface AssistantBrandingConfig {
   themeColor: string;
 }
 
+export type LauncherShape = 'circle' | 'rounded-square' | 'square';
+export type LauncherLogoFit = 'contain' | 'cover' | 'fill';
+export type LauncherActionCategory = 'installation' | 'connectivity' | 'recovery' | 'backup' | 'update' | 'help' | 'custom';
+
+export interface LauncherBorderConfig {
+  width: number;
+  color: string;
+  style: 'solid' | 'dashed' | 'none';
+}
+
+export interface LauncherAppearanceConfig {
+  shape: LauncherShape;
+  logoFit: LauncherLogoFit;
+  logoScale: number;
+  logoPosition: { x: number; y: number };
+  logoBorderRadius: string | number;
+  logoSize: number;
+  border: LauncherBorderConfig;
+}
+
+export interface LauncherAnimationConfig {
+  enabled: boolean;
+  type: 'electric-border';
+  color: string;
+  preset: 'plasma';
+  speed: number;
+  intensity: number;
+  trigger: 'action-available';
+  triggerCategories: LauncherActionCategory[];
+  stopWhenViewed: boolean;
+}
+
+export interface LauncherConfig {
+  /** Visual diameter in CSS pixels, clamped to 40–128. */
+  size: number;
+  /** Internal compatibility hint: false keeps the existing responsive default sizing. */
+  sizeConfigured: boolean;
+  /** Optional same-origin image URL. Empty keeps the renderer's existing mark. */
+  logo: string;
+  appearance: LauncherAppearanceConfig;
+  animation: LauncherAnimationConfig;
+}
+
+export type LauncherConfigInput = Partial<Omit<LauncherConfig, 'appearance' | 'animation' | 'sizeConfigured'>> & {
+  appearance?: Partial<Omit<LauncherAppearanceConfig, 'logoPosition' | 'border'>> & {
+    logoPosition?: Partial<LauncherAppearanceConfig['logoPosition']>;
+    border?: Partial<LauncherBorderConfig>;
+  };
+  animation?: Partial<LauncherAnimationConfig>;
+};
+
 export interface AssistantActionInput {
   id: string;
   label?: string;
@@ -107,6 +158,7 @@ export interface PublishedAssistantConfig {
   actions?: AssistantActionInput[];
   features?: AssistantFeatureInput[];
   installExperience?: InstallExperienceInput;
+  launcher?: LauncherConfigInput;
   /** A published (remote) revision may select a mode, but never carries custom
    * tokens: published configuration stays data-only and identity-neutral. */
   theme?: 'auto' | 'light' | 'dark';
@@ -132,6 +184,7 @@ export interface AssistantConfigInput {
   actions?: AssistantActionInput[];
   features?: AssistantFeatureInput[];
   installExperience?: InstallExperienceInput;
+  launcher?: LauncherConfigInput;
   domainRegistry?: DomainRegistry;
   publishedConfig?: PublishedAssistantConfig | string | null;
   useLastKnownGood?: boolean;
@@ -158,6 +211,7 @@ export interface ResolvedAssistantConfig {
   actions: AssistantAction[];
   features: AssistantFeature[];
   installExperience: InstallExperienceConfig;
+  launcher: LauncherConfig;
   domainRegistry: DomainRegistry | null;
   services: {
     diagnostics: (() => Promise<Record<string, unknown>> | Record<string, unknown>) | null;
@@ -191,6 +245,8 @@ export interface StorageLike {
   removeItem?(key: string): void;
 }
 
+export declare const LAUNCHER_DEFAULTS: Readonly<LauncherConfig>;
+export declare function normalizeLauncherConfig(raw?: LauncherConfigInput | null): LauncherConfig;
 export declare const BUNDLED_DEFAULTS: Omit<ResolvedAssistantConfig, 'domainRegistry' | 'services'>;
 export declare const INSTALL_EXPERIENCE_DEFAULTS: InstallExperienceConfig;
 export declare function normalizeInstallExperience(

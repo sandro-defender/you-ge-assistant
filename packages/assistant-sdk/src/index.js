@@ -51,6 +51,8 @@ import {
   normalizeActions,
   normalizeConfig,
   normalizeFeatures,
+  LAUNCHER_DEFAULTS,
+  normalizeLauncherConfig,
   resolveAssistantConfig,
   saveLastKnownGood,
   validatePublishedConfig,
@@ -128,6 +130,14 @@ import {
   themeToCssVariables,
 } from './theme/index.js';
 import {
+  LAUNCHER_ACTION_CATEGORIES,
+  LAUNCHER_ANIMATION_TYPES,
+  LAUNCHER_LOGO_FITS,
+  LAUNCHER_SHAPES,
+  deriveLauncherAttention,
+  launcherActionCategory,
+} from './launcher/index.js';
+import {
   CHROME_OFFER_STORAGE_KEY,
   CHROME_PACKAGE,
   buildChromeIntentUrl,
@@ -164,6 +174,7 @@ export const YouGeAssistant = Object.freeze({
   validateDomainRegistry: validateDomainRegistry,
   validatePublishedConfig: validatePublishedConfig,
   normalizeInstallExperience: normalizeInstallExperience,
+  normalizeLauncherConfig: normalizeLauncherConfig,
   resolveInstallationCopy: resolveInstallationCopy,
   detectInAppBrowser: detectInAppBrowser,
   buildChromeIntentUrl: buildChromeIntentUrl,
@@ -206,6 +217,14 @@ export {
   normalizeActions,
   normalizeFeatures,
   normalizeInstallExperience,
+  normalizeLauncherConfig,
+  LAUNCHER_DEFAULTS,
+  LAUNCHER_SHAPES,
+  LAUNCHER_LOGO_FITS,
+  LAUNCHER_ANIMATION_TYPES,
+  LAUNCHER_ACTION_CATEGORIES,
+  launcherActionCategory,
+  deriveLauncherAttention,
   normalizeConfig,
   validatePublishedConfig,
   lkgStorageKey,
@@ -294,5 +313,7 @@ export {
   bestInk,
   isSafeCssValue,
 };
+
+export { bindElectricBorder, createElectricBorder } from './launcher/index.js';
 
 export default YouGeAssistant;

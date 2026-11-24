@@ -156,8 +156,8 @@ a { color: inherit; }
      the circle stays findable in dim light, and the mark on the fill is 15:1. */
   --assistant-fab-fill: #221a2c;
   --assistant-fab-ink: #f4f1f8;
-  border: 1px solid rgba(199, 187, 220, 0.42);
-  border-radius: 50%;
+  border: var(--assistant-launcher-border-width, 1px) var(--assistant-launcher-border-style, solid) var(--assistant-launcher-border-color, rgba(199, 187, 220, 0.42));
+  border-radius: var(--assistant-launcher-radius, 50%);
   background: var(--assistant-fab-fill);
   box-shadow: 0 6px 16px rgba(8, 6, 14, 0.4);
   color: var(--assistant-fab-ink);
@@ -170,14 +170,14 @@ a { color: inherit; }
 
 /* The blurred halo that used to sit eight pixels outside the button is gone;
    the light now lives inside the disc, so nothing glows into the page. */
-.assistant-fab::before { position: absolute; z-index: 0; inset: 0; border-radius: 50%; background: radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 62%); content: ''; pointer-events: none; }
+.assistant-fab::before { position: absolute; z-index: 0; inset: 0; border-radius: var(--assistant-launcher-radius, 50%); background: radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 62%); content: ''; pointer-events: none; }
 .assistant-fab:hover { transform: translateY(-1px); border-color: rgba(214, 202, 232, 0.6); box-shadow: 0 8px 18px rgba(8, 6, 14, 0.46); }
 .assistant-fab:active { transform: translateY(0) scale(0.98); }
 .assistant-fab:focus-visible { outline: 3px solid #c7bbdc; outline-offset: 5px; }
 /* Clipped to the circle: the stage now holds only the static zoomed mark (the
    animated logo/canvas layer was removed), so no stray edge can form the
    square look the button used to have. */
-.assistant-fab-stage { position: absolute; z-index: 1; inset: 0; display: block; overflow: hidden; border-radius: 50%; }
+.assistant-fab-stage { position: absolute; z-index: 1; inset: 0; display: block; overflow: hidden; border-radius: var(--assistant-launcher-radius, 50%); }
 /* One simple, static, zoomed mark — always mounted, never animated — sized
    to fill the 66px disc the way the panel logo fills its circle. */
 .assistant-mark-image {
@@ -191,6 +191,30 @@ a { color: inherit; }
   object-fit: contain;
   transform: translate(-50%, -50%);
   pointer-events: none;
+}
+.assistant-fab[data-logo="true"] .assistant-fab-stage { border-radius: var(--assistant-launcher-radius, 50%); }
+.assistant-electric-border { position: absolute; z-index: 3; inset: -10px; width: calc(100% + 20px); height: calc(100% + 20px); overflow: visible; opacity: 0; color: var(--assistant-electric-color, #c084fc); pointer-events: none; }
+.assistant-electric-border path { display: none; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2.5; stroke-dasharray: 13 6 2 6; filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor); opacity: var(--assistant-electric-intensity, .8); }
+.assistant-electric-border .assistant-electric-halo { stroke-width: 5; opacity: .22; filter: blur(2px); }
+.assistant-fab[data-attention="active"] .assistant-electric-border, .assistant-fab[data-attention="static"] .assistant-electric-border { opacity: 1; }
+.assistant-fab[data-attention="active"][data-shape="circle"] .assistant-electric-circle,
+.assistant-fab[data-attention="active"][data-shape="rounded-square"] .assistant-electric-rounded,
+.assistant-fab[data-attention="active"][data-shape="square"] .assistant-electric-square,
+.assistant-fab[data-attention="active"] .assistant-electric-halo,
+.assistant-fab[data-attention="static"][data-shape="circle"] .assistant-electric-circle,
+.assistant-fab[data-attention="static"][data-shape="rounded-square"] .assistant-electric-rounded,
+.assistant-fab[data-attention="static"][data-shape="square"] .assistant-electric-square,
+.assistant-fab[data-attention="static"] .assistant-electric-halo { display: block; }
+.assistant-fab[data-attention="active"] .assistant-electric-border path { animation: assistant-electric-flow var(--assistant-electric-duration, 3s) linear infinite; }
+.assistant-fab[data-attention="static"] .assistant-electric-border path { stroke-dasharray: none; }
+@keyframes assistant-electric-flow { to { stroke-dashoffset: -54; } }
+/* Coarse-pointer/mobile keeps a static action outline without continuous path or filter work. */
+@media (hover: none) and (pointer: coarse) {
+  .assistant-fab[data-attention="active"] .assistant-electric-border path { animation: none; stroke-dasharray: none; filter: none; }
+  .assistant-electric-border .assistant-electric-halo { filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-fab[data-attention="active"] .assistant-electric-border path { animation: none; stroke-dasharray: none; }
 }
 /* Red means "act on this". The button does not decide: data-tone is the SDK
    badge tone (the tone of the highest-priority notice still on screen), and the

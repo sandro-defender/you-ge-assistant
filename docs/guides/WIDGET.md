@@ -23,8 +23,8 @@ project HTML
             │        │        │
      PWA events  project events  browser events
             │        │        │
-            └── prioritized snapshot ──┬─ assistant-widget.js  (dependency-free DOM renderer)
-                                       └─ React renderer in examples/example/src/main.jsx (React Bits)
+            └── prioritized snapshot ──┬─ assistant-widget.js  (dependency-free DOM renderer + WebGL2 attention effect)
+                                       └─ React renderer in examples/example/src/main.jsx
 ```
 
 - **`assistant-state.js`** is the single source of truth. It owns project
@@ -53,8 +53,8 @@ project HTML
 | `assistant-state.js` | Classic browser state script synchronized deterministically from `packages/assistant-sdk/src/` via `npm run sync:sdk` (`window.YouGeAssistant`). |
 | `assistant-widget.js` | Dependency-free DOM renderer for any configured page. |
 | `assistant-widget.css` | Fixed placement, safe areas, responsive panel, badges, reduced motion. |
-| `examples/example/src/main.jsx` | React renderer using `useSyncExternalStore` and vendored React Bits. |
-| `examples/example/example.css` | React renderer styles and React Bits local adaptations. |
+| `examples/example/src/main.jsx` | React example renderer using the optional external-store adapter. |
+| `examples/example/example.css` | React example renderer styles and local design-system adaptations. |
 | `snippet.html` | Copy-paste integration block including SDK configuration. |
 | `examples/demo/index.html`, `examples/example/index.html`, `offline.html` | Participating pages. |
 | `tests/assistant-widget.test.mjs` | 58 behavioral/static tests for the widget contract (including the CD-1 capability matrix). |
@@ -123,6 +123,45 @@ health. It never probes the primary API in the background, never replays writes,
 and never treats hostname detection as authentication. DNS classifications are
 cautious: a DoH result is not proof of an ISP problem.
 
+### Launcher appearance and attention
+
+Each instance may configure `launcher.size`, `launcher.logo`, and
+`launcher.appearance` (`shape`, `logoFit`, `logoSize`, `logoScale`,
+`logoPosition`, `logoBorderRadius`, and `border`). Defaults retain the existing
+responsive dimensions/mark. Shape options are `circle`, `rounded-square`, and
+`square`; logo fit is `contain`, `cover`, or `fill`. Logo URLs are relative,
+same-origin paths. Values are normalized and clamped before entering the state
+snapshot; bad values fall back independently.
+
+`launcher.animation.enabled` defaults to `false`. When enabled, the supported
+`electric-border` / `plasma` outline is still **off** unless the centralized
+state finds an unviewed notification with an action ID that exists in
+`availableActions` and belongs to one of `triggerCategories`. Default categories
+are installation, connectivity, and recovery. A static shortcut by itself and
+informational notices cannot animate it. The shared model resolves multiple
+eligible actions into one outline and keeps it active until no eligible item
+remains.
+
+Opening the built-in widget marks currently actionable notices viewed. This
+stops attention without dismissing or hiding those notices. Custom renderers can
+call `assistant.markViewed(notificationIds)` when they display the actions.
+A host-owned action reports completion with
+`assistant.completeAction(actionId)` or a `youge:action:complete` event whose
+detail has `{ actionId }`. Existing `dismiss()` / `acknowledge()` methods keep
+their original notification behavior. `stopWhenViewed: false` allows continued
+attention while the action remains available.
+
+The production launcher uses the original React Bits ElectricBorder WebGL2
+shader/geometry/arc renderer, ported with the project owner's explicit
+integration and redistribution permission. The framework-independent SDK also
+exports `createElectricBorder(element)`; React remains optional. The effect is
+limited to the launcher and follows centralized SDK attention state. It honors
+reduced motion, pauses while hidden/offscreen, responds to resize and context
+loss, cleans up listeners and GPU resources on destroy, and leaves the existing
+semantic button, focus treatment, badge and CSS fallback intact. The complete
+upstream license and attribution ship in `public/licenses/electric-border.txt`
+and the SDK package's `LICENSE-ElectricBorder.txt`.
+
 ---
 
 ## 3. Event-driven lifecycle
@@ -167,6 +206,19 @@ window.YOU_GE_ASSISTANT_CONFIG = {
   //          tokens: { primary, radius, … }, host: { … }, variables: { … } },
   modules: { installation, diagnostics, recovery, failover, help, updates, chromeHandoff },
   notifications: { dismissible, suppressRepeats, criticalPersistent },
+  launcher: {
+    size: 68, logo: '/brand/mark.svg',
+    appearance: {
+      shape: 'circle', logoFit: 'cover', logoSize: 78, logoScale: 1.18,
+      logoPosition: { x: 50, y: 50 }, logoBorderRadius: '50%',
+      border: { width: 1, color: '#334155', style: 'solid' },
+    },
+    animation: {
+      enabled: true, type: 'electric-border', preset: 'plasma', color: '#c084fc',
+      speed: 1, intensity: 0.8, trigger: 'action-available',
+      triggerCategories: ['installation', 'connectivity', 'recovery'], stopWhenViewed: true,
+    },
+  },
   actions: [{ id, label, icon, priority, kind, message }],
   features: [{ id, label, message }],
   // optional local-only service:
@@ -187,6 +239,8 @@ Public API:
 | `runDiagnostics()` | On-demand, single-flight check. |
 | `requestInstall()` | Delegate to `PWA.promptInstall()` when available. |
 | `dismiss(id)` / `acknowledge(id)` | Suppression controls. |
+| `markViewed(notificationIds)` | Records that currently actionable notices were shown; does not hide them. |
+| `completeAction(actionId)` | Host-owned action lifecycle signal; stops attention for linked notices. Equivalent event: `youge:action:complete` with `{ actionId }`. |
 | `destroy()` | Cleanup. |
 
 `isCapabilityEnabled(name)` reports the live capabilities below.
@@ -361,12 +415,12 @@ sources are used again:
 | `SpotlightCard` | Connection-status card in the panel. | Pointer/focus-driven light, `ambient=false`, `flare=false`, reduced-motion override. |
 | `LatticeLoader` | Bounded "checking connection" feedback. | Only rendered while diagnostics are running; accessible status; stops under reduced motion. |
 
-The dependency-free DOM renderer uses equivalent CSS transitions rather than
-importing React, because a classic script cannot consume React components. No
-GSAP, Motion, HugeIcons, Tailwind, shaders, WebGL backgrounds or component
-collections were added. The React example's brand mark is now a static zoomed
-image (the former `ElectricLogo`/`ogl` animation was removed on request); no
-new WebGL effect is introduced by this widget.
+The dependency-free DOM renderer does not import React. It now includes the
+licensed, original ElectricBorder WebGL2 effect specifically on the launcher;
+there are no GSAP, Motion, HugeIcons, Tailwind or WebGL backgrounds. The effect
+uses the centralized attention state and gracefully falls back to the existing
+CSS ring when WebGL2 is unavailable. The React example remains an optional
+consumer of the same framework-independent SDK state.
 
 ### `ui-ux-pro-max-skill`
 

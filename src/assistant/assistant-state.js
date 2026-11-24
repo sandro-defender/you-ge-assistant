@@ -21,8 +21,8 @@
 
   /* --- core/constants.js --- */
 
-  const SDK_VERSION = '0.4.1';
-  const KIT_COMPAT_VERSION = '1.2.9';
+  const SDK_VERSION = '0.5.0';
+  const KIT_COMPAT_VERSION = '1.2.11';
   const SCHEMA_VERSION = 1;
   const PRIORITY = { critical: 1, auth: 2, backup: 3, install: 4, info: 5 };
   Object.freeze(PRIORITY);
@@ -46,6 +46,7 @@
   const EVENT_NAMES = {
     state: 'youge:state',
     action: 'youge:action',
+    actionCompleted: 'youge:action:complete',
     localeChange: 'youge:locale-change',
     endpointStatus: 'youge:endpoint-status',
     sessionStatus: 'youge:session-status',
@@ -3200,6 +3201,178 @@
     return out;
   }
 
+  /* --- launcher/index.js --- */
+
+  const SHAPES = Object.freeze(['circle', 'rounded-square', 'square']);
+  const LOGO_FITS = Object.freeze(['contain', 'cover', 'fill']);
+  const ANIMATION_TYPES = Object.freeze(['electric-border']);
+  const CATEGORIES = Object.freeze(['installation', 'connectivity', 'recovery', 'backup', 'update', 'help', 'custom']);
+  const COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+  const LAUNCHER_DEFAULTS = Object.freeze({
+    size: 56,
+    logo: '',
+    appearance: Object.freeze({
+      shape: 'circle',
+      logoFit: 'contain',
+      logoScale: 1,
+      logoPosition: Object.freeze({ x: 50, y: 50 }),
+      logoBorderRadius: '50%',
+      logoSize: 72,
+      border: Object.freeze({ width: 1, color: '#334155', style: 'solid' }),
+    }),
+    animation: Object.freeze({
+      enabled: false,
+      type: 'electric-border',
+      color: '#c084fc',
+      preset: 'plasma',
+      speed: 1,
+      intensity: 0.8,
+      trigger: 'action-available',
+      triggerCategories: Object.freeze(['installation', 'connectivity', 'recovery']),
+      stopWhenViewed: true,
+    }),
+  });
+
+  function record(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  }
+
+  function number(value, fallback, min, max) {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+  }
+
+  function oneOf(value, allowed, fallback) {
+    return allowed.includes(value) ? value : fallback;
+  }
+
+  function cssRadius(value, fallback) {
+    if (typeof value === 'number' && Number.isFinite(value)) return `${number(value, 0, 0, 64)}px`;
+    if (typeof value !== 'string') return fallback;
+    const cleaned = value.trim();
+    if (/^(?:\d+(?:\.\d+)?)(?:px|%)$/.test(cleaned)) {
+      const amount = Number.parseFloat(cleaned);
+      const unit = cleaned.endsWith('%') ? '%' : 'px';
+      return `${Math.min(unit === '%' ? 50 : 64, Math.max(0, amount))}${unit}`;
+    }
+    return fallback;
+  }
+  function normalizeLauncherConfig(input) {
+    const raw = record(input);
+    const appearance = record(raw.appearance);
+    const position = record(appearance.logoPosition);
+    const border = record(appearance.border);
+    const animation = record(raw.animation);
+    const categories = Array.isArray(animation.triggerCategories)
+      ? [...new Set(animation.triggerCategories.filter((category) => CATEGORIES.includes(category)))].slice(0, CATEGORIES.length)
+      : [...LAUNCHER_DEFAULTS.animation.triggerCategories];
+    const color = typeof animation.color === 'string' && COLOR.test(animation.color)
+      ? animation.color
+      : LAUNCHER_DEFAULTS.animation.color;
+    const borderColor = typeof border.color === 'string' && COLOR.test(border.color)
+      ? border.color
+      : LAUNCHER_DEFAULTS.appearance.border.color;
+    const candidateLogo = typeof raw.logo === 'string' ? raw.logo.trim() : '';
+    const logo = candidateLogo.length <= 2048 &&
+      !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(candidateLogo) &&
+      candidateLogo.indexOf(String.fromCharCode(92)) === -1 && !/[<>\u0000-\u001f]/.test(candidateLogo) &&
+      !candidateLogo.split(/[/?#]/).some((part) => part === '..')
+      ? candidateLogo
+      : '';
+
+    return {
+      size: number(raw.size, LAUNCHER_DEFAULTS.size, 40, 128),
+      sizeConfigured: raw.size !== undefined && raw.size !== null,
+      logo,
+      appearance: {
+        shape: oneOf(appearance.shape, SHAPES, LAUNCHER_DEFAULTS.appearance.shape),
+        logoFit: oneOf(appearance.logoFit, LOGO_FITS, LAUNCHER_DEFAULTS.appearance.logoFit),
+        logoScale: number(appearance.logoScale, LAUNCHER_DEFAULTS.appearance.logoScale, 0.5, 2.5),
+        logoPosition: {
+          x: number(position.x, LAUNCHER_DEFAULTS.appearance.logoPosition.x, 0, 100),
+          y: number(position.y, LAUNCHER_DEFAULTS.appearance.logoPosition.y, 0, 100),
+        },
+        logoBorderRadius: cssRadius(appearance.logoBorderRadius, LAUNCHER_DEFAULTS.appearance.logoBorderRadius),
+        logoSize: number(appearance.logoSize, LAUNCHER_DEFAULTS.appearance.logoSize, 30, 100),
+        border: {
+          width: number(border.width, LAUNCHER_DEFAULTS.appearance.border.width, 0, 8),
+          color: borderColor,
+          style: oneOf(border.style, ['solid', 'dashed', 'none'], LAUNCHER_DEFAULTS.appearance.border.style),
+        },
+      },
+      animation: {
+        enabled: animation.enabled === true,
+        type: oneOf(animation.type, ANIMATION_TYPES, LAUNCHER_DEFAULTS.animation.type),
+        color,
+        preset: animation.preset === 'plasma' ? 'plasma' : LAUNCHER_DEFAULTS.animation.preset,
+        speed: number(animation.speed, LAUNCHER_DEFAULTS.animation.speed, 0.25, 2.5),
+        intensity: number(animation.intensity, LAUNCHER_DEFAULTS.animation.intensity, 0, 1),
+        trigger: animation.trigger === 'action-available' ? 'action-available' : LAUNCHER_DEFAULTS.animation.trigger,
+        triggerCategories: categories,
+        stopWhenViewed: animation.stopWhenViewed !== false,
+      },
+    };
+  }
+  function launcherActionCategory(action) {
+    if (!action || typeof action !== 'object') return null;
+    switch (action.kind) {
+      case 'install': return 'installation';
+      case 'diagnostics': return 'connectivity';
+      case 'recovery': return 'recovery';
+      case 'backup': return 'backup';
+      case 'update': return 'update';
+      case 'help': return 'help';
+      case 'custom': return 'custom';
+      default: return null;
+    }
+  }
+
+  /**
+   * Attention is tied to existing notification/action pairs. Merely having
+   * available actions (for example the always-present diagnostics shortcut) is
+   * not enough to animate the launcher.
+   */
+  function deriveLauncherAttention(state, launcherConfig) {
+    const suppliedAnimation = launcherConfig && record(launcherConfig).animation;
+    const config = suppliedAnimation && typeof suppliedAnimation.enabled === 'boolean' && Array.isArray(suppliedAnimation.triggerCategories)
+      ? launcherConfig
+      : normalizeLauncherConfig(launcherConfig);
+    const options = config.animation;
+    const notifications = state && Array.isArray(state.notifications) ? state.notifications : [];
+    const actions = state && Array.isArray(state.availableActions) ? state.availableActions : [];
+    const viewed = state && Array.isArray(state.viewed) ? state.viewed : [];
+    const dismissed = state && Array.isArray(state.dismissed) ? state.dismissed : [];
+    const acknowledged = state && Array.isArray(state.acknowledged) ? state.acknowledged : [];
+    const completed = state && Array.isArray(state.completed) ? state.completed : [];
+    const hasNotice = (keys, id) => keys.some((key) => key === id || String(key).endsWith(`:${id}`));
+    if (!options.enabled) return { active: false, eligibleActionIds: [], priority: null };
+
+    const eligible = [];
+    notifications.forEach((notification) => {
+      if (!notification || (!notification.actionId && !Array.isArray(notification.actionIds))) return;
+      if ((options.stopWhenViewed && hasNotice(viewed, notification.id)) || hasNotice(dismissed, notification.id) || hasNotice(acknowledged, notification.id) || hasNotice(completed, notification.id)) return;
+      const candidates = Array.isArray(notification.actionIds) ? notification.actionIds : [notification.actionId];
+      candidates.forEach((actionId) => {
+        const action = actions.find((entry) => entry && entry.id === actionId);
+        if (!action) return;
+        const category = launcherActionCategory(action);
+        if (!category || !options.triggerCategories.includes(category)) return;
+        eligible.push({ id: action.id, priority: Number(action.priority) || Number(notification.priority) || 5 });
+      });
+    });
+    const bestPriority = eligible.reduce((best, entry) => Math.min(best, entry.priority), Infinity);
+    return {
+      active: eligible.length > 0,
+      eligibleActionIds: [...new Set(eligible.map((entry) => entry.id))],
+      priority: Number.isFinite(bestPriority) ? bestPriority : null,
+    };
+  }
+  const LAUNCHER_SHAPES = SHAPES;
+  const LAUNCHER_LOGO_FITS = LOGO_FITS;
+  const LAUNCHER_ANIMATION_TYPES = ANIMATION_TYPES;
+  const LAUNCHER_ACTION_CATEGORIES = CATEGORIES;
+
   /* --- domain/index.js --- */
 
   const DOMAIN_DEFAULTS = {
@@ -4079,6 +4252,7 @@
       variables: {},
     },
     themeMode: 'auto',
+    launcher: normalizeLauncherConfig(),
   };
   function normalizeActions(raw) {
     if (!Array.isArray(raw)) return [];
@@ -4234,6 +4408,7 @@
       };
       out.themeMode = theme.mode;
     }
+    if (source.launcher !== undefined) out.launcher = normalizeLauncherConfig(source.launcher);
     if (source.domainRegistry && typeof source.domainRegistry === 'object' && !Array.isArray(source.domainRegistry)) {
       out.domainRegistry = sanitizePlainData(source.domainRegistry);
     }
@@ -4277,6 +4452,7 @@
       base.themeMode = layer.theme.mode || 'auto';
     }
     if (layer.themeMode) base.themeMode = layer.themeMode;
+    if (layer.launcher) base.launcher = clone(layer.launcher);
     if (layer.domainRegistry) base.domainRegistry = clone(layer.domainRegistry);
     return base;
   }
@@ -5480,7 +5656,7 @@
 
     const listeners = new Set();
     const listenerCounts = new Map();
-    let noticeStore = { dismissed: {}, acknowledged: {} };
+    let noticeStore = { dismissed: {}, acknowledged: {}, viewed: {}, completed: {} };
     let snapshot = null;
     let bound = false;
     let destroyed = false;
@@ -5655,7 +5831,7 @@
     }
 
     function loadNotices(projectId) {
-      noticeStore = { dismissed: {}, acknowledged: {} };
+      noticeStore = { dismissed: {}, acknowledged: {}, viewed: {}, completed: {} };
       const storage = getStorage();
       try {
         const raw = storage && typeof storage.getItem === 'function' ? storage.getItem(storageKey(projectId)) : null;
@@ -5664,6 +5840,8 @@
         if (parsed && typeof parsed === 'object') {
           noticeStore.dismissed = parsed.dismissed && typeof parsed.dismissed === 'object' ? parsed.dismissed : {};
           noticeStore.acknowledged = parsed.acknowledged && typeof parsed.acknowledged === 'object' ? parsed.acknowledged : {};
+          noticeStore.viewed = parsed.viewed && typeof parsed.viewed === 'object' ? parsed.viewed : {};
+          noticeStore.completed = parsed.completed && typeof parsed.completed === 'object' ? parsed.completed : {};
         }
       } catch (error) { /* storage unavailable */ }
     }
@@ -5697,6 +5875,16 @@
       const out = [];
       const activeKeys = new Set();
 
+      // Preserve the primary renderer link and also record any real recovery
+      // action already generated for a connectivity notice. Attention derivation
+      // consumes these IDs only if they remain in `availableActions`.
+      function linkedActionIds(primaryId) {
+        const ids = [];
+        if (isActionAllowed(config.modules, primaryId)) ids.push(primaryId);
+        if (capabilityEnabled('recovery')) ids.push('recovery');
+        return ids;
+      }
+
       function add(notification, conditionKey) {
         activeKeys.add(conditionKey);
         // Capability enforcement happens here, before suppression bookkeeping, so
@@ -5715,6 +5903,7 @@
           critical: true, dismissible: false, title: translate(locale, 'offlineTitle'),
           message: translate(locale, 'offlineMessage'),
           actionId: 'diagnostics',
+          actionIds: linkedActionIds('diagnostics'),
         }, 'network:offline');
       }
       if (dnsFailure(network.dns)) {
@@ -5723,6 +5912,7 @@
           critical: true, dismissible: false, title: translate(locale, 'dnsTitle'),
           message: network.dns.message || translate(locale, 'dnsMessage'),
           actionId: 'diagnostics',
+          actionIds: linkedActionIds('diagnostics'),
         }, 'dns:failure');
       }
       if (network.online && connectivityFailure(network.dns)) {
@@ -5731,6 +5921,7 @@
           critical: true, dismissible: false, title: translate(locale, 'unreachableTitle'),
           message: network.dns.message || translate(locale, 'unreachableMessage'),
           actionId: 'diagnostics',
+          actionIds: linkedActionIds('diagnostics'),
         }, 'network:unreachable');
       }
       if (endpointFailure(network.endpoints)) {
@@ -5739,6 +5930,7 @@
           critical: true, dismissible: false, title: translate(locale, 'primaryApiTitle'),
           message: network.endpoints.reason || translate(locale, 'primaryApiMessage'),
           actionId: 'diagnostics',
+          actionIds: linkedActionIds('diagnostics'),
         }, 'api:primary-failed');
       }
       if (network.session.state === 'issue') {
@@ -5796,6 +5988,8 @@
         if (activeKeys.has(key)) return;
         delete noticeStore.dismissed[noticeKey(project.id, key)];
         delete noticeStore.acknowledged[noticeKey(project.id, key)];
+        delete noticeStore.viewed[noticeKey(project.id, key)];
+        delete noticeStore.completed[noticeKey(project.id, key)];
       });
       lastConditionKeys = activeKeys;
       saveNotices(project.id);
@@ -5907,6 +6101,16 @@
       const notifications = buildNotifications(project, installation, network, lang);
       const availableActions = buildActions(project, installation, network, notifications, lang);
       const top = notifications[0] || null;
+      const launcher = clone(config.launcher);
+      launcher.logo = safeSameOriginIcon(launcher.logo, '', project.origin + project.basePath, UrlCtor);
+      const launcherAttention = deriveLauncherAttention({
+        notifications,
+        availableActions,
+        viewed: Object.keys(noticeStore.viewed),
+        dismissed: Object.keys(noticeStore.dismissed),
+        acknowledged: Object.keys(noticeStore.acknowledged),
+        completed: Object.keys(noticeStore.completed),
+      }, launcher);
       return {
         enabled: config.enabled,
         locale: lang,
@@ -5934,9 +6138,12 @@
           theme: config.themeMode || (config.theme && config.theme.mode) || 'auto',
           themeConfig: clone(config.theme || normalizeTheme('auto')),
           themeColor: project.themeColor,
+          launcher: Object.assign({}, launcher, { attention: launcherAttention }),
         },
         dismissed: Object.keys(noticeStore.dismissed),
         acknowledged: Object.keys(noticeStore.acknowledged),
+        viewed: Object.keys(noticeStore.viewed),
+        completed: Object.keys(noticeStore.completed),
       };
     }
 
@@ -6198,6 +6405,7 @@
         actions: clone(config.actions),
         features: clone(config.features),
         installExperience: effectiveInstallConfig(),
+        launcher: clone(config.launcher),
         // Backward compatible string (0.x contract) plus the validated record.
         theme: config.themeMode || (config.theme && config.theme.mode) || 'auto',
         themeConfig: clone(config.theme || normalizeTheme('auto')),
@@ -6392,6 +6600,46 @@
       return true;
     }
 
+    /** Mark currently actionable notices as viewed without dismissing or hiding them. */
+    function markViewed(ids) {
+      if (destroyed || !snapshot) return false;
+      const requested = new Set((Array.isArray(ids) ? ids : [ids]).map((id) => safeText(id, 80)).filter(Boolean));
+      const actionable = new Set((snapshot.availableActions || []).map((action) => action.id));
+      let changed = false;
+      (snapshot.notifications || []).forEach(function (notification) {
+        const linkedActions = Array.isArray(notification.actionIds) ? notification.actionIds : [notification.actionId];
+        if (!requested.has(notification.id) || !linkedActions.some((actionId) => actionId && actionable.has(actionId))) return;
+        const key = noticeKey(snapshot.project.id, notification.id);
+        if (noticeStore.viewed[key]) return;
+        noticeStore.viewed[key] = new DateCtor().toISOString();
+        changed = true;
+      });
+      if (!changed) return false;
+      saveNotices(snapshot.project.id);
+      emit();
+      return true;
+    }
+
+    /** Report successful completion of a host-owned action, stopping attention for its notices. */
+    function completeAction(actionId) {
+      if (destroyed || !snapshot) return false;
+      const safeId = safeText(actionId, 80);
+      if (!(snapshot.availableActions || []).some((action) => action.id === safeId)) return false;
+      let changed = false;
+      (snapshot.notifications || []).forEach(function (notification) {
+        const linkedActions = Array.isArray(notification.actionIds) ? notification.actionIds : [notification.actionId];
+        if (!linkedActions.includes(safeId)) return;
+        const key = noticeKey(snapshot.project.id, notification.id);
+        if (noticeStore.completed[key]) return;
+        noticeStore.completed[key] = new DateCtor().toISOString();
+        changed = true;
+      });
+      if (!changed) return false;
+      saveNotices(snapshot.project.id);
+      emit();
+      return true;
+    }
+
     const handlers = {
       online: function () { conditions.online = true; emit(); },
       offline: function () { conditions.online = false; emit(); },
@@ -6417,6 +6665,10 @@
       yougeDiagnostics: function (event) { setDnsResult((event && event.detail) || {}); },
       yougeInstallDialog: function () { syncPwaSubscription(); emit(); },
       action: function () { /* widgets dispatch actions; host apps listen. No state change. */ },
+      actionCompleted: function (event) {
+        const detail = event && event.detail;
+        completeAction(detail && (detail.actionId || detail.id));
+      },
       storage: function (event) {
         if (!event || !event.key || event.key.indexOf(STORAGE_PREFIXES.notices) !== 0) return;
         loadNotices(snapshot ? snapshot.project.id : projectInfo().id);
@@ -6458,6 +6710,7 @@
         doc.addEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
         doc.addEventListener(EVENT_NAMES.pwaInstallDialog, handlers.installDialog);
         doc.addEventListener(EVENT_NAMES.action, handlers.action);
+        doc.addEventListener(EVENT_NAMES.actionCompleted, handlers.actionCompleted);
       }
       syncPwaSubscription();
       syncPwaInstallConfig();
@@ -6492,6 +6745,7 @@
           doc.removeEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
           doc.removeEventListener(EVENT_NAMES.pwaInstallDialog, handlers.installDialog);
           doc.removeEventListener(EVENT_NAMES.action, handlers.action);
+          doc.removeEventListener(EVENT_NAMES.actionCompleted, handlers.actionCompleted);
         }
       }
       if (unsubscribePwa) {
@@ -6535,6 +6789,8 @@
       applyUpdate: applyUpdate,
       dismiss: dismiss,
       acknowledge: acknowledge,
+      markViewed: markViewed,
+      completeAction: completeAction,
       isDestroyed: function () { return destroyed; },
       destroy: destroy,
     };

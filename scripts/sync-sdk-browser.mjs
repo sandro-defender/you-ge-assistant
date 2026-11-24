@@ -30,6 +30,7 @@ const SOURCE_MODULES = [
   'core/capabilities.js',
   'core/sanitize.js',
   'theme/index.js',
+  'launcher/index.js',
   'domain/index.js',
   'config/index.js',
   'diagnostics/index.js',
@@ -46,6 +47,8 @@ function stripEsmSyntax(source) {
     .replace(/^\s*import\s+[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, '')
     // Convert exported declarations into module-local declarations inside the IIFE
     .replace(/^\s*export\s+(?=(?:const|let|var|function)\s)/gm, '')
+    // Remove ESM-only re-exports (renderer modules stay out of state bundle)
+    .replace(/^\s*export\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?\s*$/gm, '')
     // Remove any trailing export { ... } blocks if present
     .replace(/^\s*export\s*\{[\s\S]*?\};?\s*$/gm, '')
     .trim();

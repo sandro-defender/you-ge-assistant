@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f4f8" />
+    <meta name="description" content="An interactive visual demo of the real You.Ge Assistant launcher and SDK action lifecycle." />
+    <title>Launcher Studio — You.Ge Assistant</title>
+    <link rel="icon" type="image/svg+xml" href="assistant-symbol.svg" />
+    <link rel="stylesheet" href="product.css" />
+    <link rel="stylesheet" href="assistant-widget.css" />
+    <link rel="stylesheet" href="launcher-demo.css" />
+    <script src="product.js" defer></script>
+    <script>
+      // A tiny host PWA adapter exercises the SDK's documented getState() contract.
+      // It is installed only when the demo selects an installation scenario.
+      window.__launcherDemoPwa = (() => {
+        let snapshot = { canInstall: false, installed: false, standalone: false };
+        return {
+          getState: () => ({ ...snapshot }),
+          canInstall: () => snapshot.canInstall,
+          isInstalled: () => snapshot.installed,
+          promptInstall: async () => {
+            snapshot = { canInstall: false, installed: true, standalone: true };
+            document.dispatchEvent(new Event('pwa:installed'));
+            return { outcome: 'accepted', backend: 'launcher-demo' };
+          },
+          setState: (next) => { snapshot = { ...snapshot, ...next }; },
+        };
+      })();
+      window.YOU_GE_ASSISTANT_CONFIG = {
+        projectId: 'launcher-studio-demo',
+        position: 'bottom-right',
+        offsets: { x: 22, y: 22 },
+        branding: {
+          name: 'Northstar Workspace',
+          shortName: 'Northstar',
+          icon: './launcher-demo-logo.svg',
+          themeColor: '#5140a8',
+        },
+        theme: 'light',
+        modules: { installation: true, diagnostics: true, recovery: true, failover: true, help: true },
+        launcher: {
+          size: 68,
+          logo: './launcher-demo-logo.svg',
+          appearance: {
+            shape: 'circle', logoFit: 'cover', logoScale: 1.35,
+            logoPosition: { x: 50, y: 50 }, logoSize: 90, logoBorderRadius: '50%',
+            border: { width: 1, color: '#d2c8f3', style: 'solid' },
+          },
+          animation: {
+            enabled: true, type: 'electric-border', color: '#9b79ff', preset: 'plasma',
+            speed: 1, intensity: 0.9, trigger: 'action-available',
+            triggerCategories: ['installation', 'connectivity', 'recovery'],
+            stopWhenViewed: false,
+          },
+        },
+      };
+    </script>
+    <script src="assistant-state.js" defer></script>
+    <script src="assistant-widget.js" defer></script>
+    <script src="launcher-demo.js" defer></script>
+  </head>
+  <body class="launcher-demo-page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="product-header" data-product-header>
+      <div class="product-width product-row">
+        <a class="product-brand" href="./"><img src="assistant-symbol.svg" width="34" height="34" alt="" /><span>You.Ge <b>Assistant</b></span></a>
+        <nav class="product-nav" id="product-navigation" aria-label="Main navigation">
+          <a href="./">Overview</a>
+          <a href="./workspace.html">Sample app</a>
+          <a href="./launcher-demo.html" aria-current="page">Launcher studio</a>
+        </nav>
+        <a class="product-start" href="https://github.com/sandro-defender/you-ge-assistant/pull/57">SDK implementation <span aria-hidden="true">↗</span></a>
+        <button class="product-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="product-navigation" aria-label="Toggle navigation" hidden>Menu</button>
+      </div>
+    </header>
+
+    <main id="main" class="demo-shell">
+      <section class="demo-intro">
+        <div class="demo-copy">
+          <p class="demo-kicker"><span class="demo-kicker-dot"></span> INTERACTIVE SDK DEMO</p>
+          <h1>A helpful signal.<br /><em>Never an interruption.</em></h1>
+          <p>Explore the real SDK-powered Assistant launcher. Change its shape and logo, then switch between install and network states to see action-driven attention update live.</p>
+          <div class="demo-proof"><span>● Real SDK state</span><span>● Real launcher renderer</span><span>● No service worker required</span></div>
+        </div>
+        <div class="demo-app-card" aria-label="Sample Northstar Workspace application">
+          <div class="demo-app-top"><img src="./launcher-demo-logo.svg" alt="" /><span><strong>Northstar</strong><small>WORKSPACE</small></span><button type="button" aria-label="More workspace options">···</button></div>
+          <div class="demo-app-content">
+            <div class="demo-app-greeting"><span>MONDAY, NOVEMBER 24</span><h2>Your week,<br />in a good place.</h2><p>Everything your team needs, gathered in one calm workspace.</p></div>
+            <div class="demo-task"><span class="demo-task-icon">✳</span><div><b>Design review</b><small>Today · 10:30 AM</small></div><span class="demo-task-check">✓</span></div>
+            <div class="demo-task"><span class="demo-task-icon lavender">↗</span><div><b>Project Northstar</b><small>3 updates · 2 people</small></div><span class="demo-task-arrow">→</span></div>
+            <div class="demo-app-footer"><span><i></i> All services operational</span><span>VIEW STATUS ↗</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-workbench" aria-labelledby="scenario-title">
+        <div class="demo-scenario-column">
+          <div class="demo-section-head"><div><p class="demo-kicker">01 · ACTION LIFECYCLE</p><h2 id="scenario-title">Choose a scenario</h2></div><span class="demo-live-tag"><i></i> LIVE</span></div>
+          <p class="demo-section-copy">The controls below update the Assistant's centralized SDK state. Open the floating launcher in the lower-right corner to inspect its real notices and actions.</p>
+          <div class="scenario-grid" role="group" aria-label="Assistant action scenarios">
+            <button type="button" class="scenario-button is-selected" data-scenario="idle" aria-pressed="true"><span class="scenario-letter">A</span><span><b>Idle</b><small>No actionable notices</small></span><span class="scenario-arrow">→</span></button>
+            <button type="button" class="scenario-button" data-scenario="install" aria-pressed="false"><span class="scenario-letter">B</span><span><b>Installation</b><small>Native install action available</small></span><span class="scenario-arrow">→</span></button>
+            <button type="button" class="scenario-button" data-scenario="network" aria-pressed="false"><span class="scenario-letter">C</span><span><b>Network problem</b><small>Diagnostics and recovery actions</small></span><span class="scenario-arrow">→</span></button>
+            <button type="button" class="scenario-button" data-scenario="multiple" aria-pressed="false"><span class="scenario-letter">D</span><span><b>Multiple actions</b><small>One cue, two live conditions</small></span><span class="scenario-arrow">→</span></button>
+          </div>
+          <div class="demo-state-readout" aria-live="polite" aria-atomic="true">
+            <span class="state-readout-icon" id="state-readout-icon">◌</span>
+            <div><b id="state-readout-title">All clear</b><span id="state-readout-detail">No eligible actions. The launcher is resting.</span></div>
+            <span class="state-readout-count" id="state-readout-count">0 ACTIONS</span>
+          </div>
+          <div class="demo-resolution-controls">
+            <p class="demo-kicker">RESOLVE LIVE ACTIONS</p>
+            <div class="resolution-row">
+              <button type="button" id="complete-install" class="resolution-button" disabled>Complete installation</button>
+              <button type="button" id="resolve-network" class="resolution-button" disabled>Restore connection</button>
+              <button type="button" id="resolve-all" class="resolution-button all" disabled>Resolve all</button>
+            </div>
+            <p class="resolution-note">In Multiple actions, resolve either condition first: attention stays on for the remaining eligible action.</p>
+          </div>
+        </div>
+
+        <aside class="demo-controls" aria-labelledby="controls-title">
+          <div class="demo-controls-head"><div><p class="demo-kicker">02 · APPEARANCE</p><h2 id="controls-title">Make it yours</h2></div><span class="control-sliders" aria-hidden="true">☷</span></div>
+          <label class="control-toggle" for="animation-enabled"><span><b>Electric outline</b><small>Only while an eligible action is available</small></span><input type="checkbox" id="animation-enabled" checked /></label>
+          <label class="demo-control" for="launcher-shape"><span>Launcher shape</span><select id="launcher-shape"><option value="circle">Circle</option><option value="rounded-square">Rounded square</option><option value="square">Square</option></select></label>
+          <label class="demo-control" for="logo-fit"><span>Logo fit</span><select id="logo-fit"><option value="cover">Fill and crop</option><option value="contain">Show all</option><option value="fill">Stretch</option></select></label>
+          <label class="demo-control range-control" for="logo-zoom"><span>Logo zoom <output id="logo-zoom-value">1.35×</output></span><input id="logo-zoom" type="range" min="0.5" max="2.5" step="0.05" value="1.35" /></label>
+          <label class="demo-control color-control" for="outline-color"><span>Outline color</span><input id="outline-color" type="color" value="#9b79ff" /></label>
+          <label class="demo-control range-control" for="outline-speed"><span>Animation speed <output id="outline-speed-value">1.00×</output></span><input id="outline-speed" type="range" min="0.25" max="2.5" step="0.05" value="1" /></label>
+          <label class="demo-control range-control" for="outline-intensity"><span>Outline intensity <output id="outline-intensity-value">90%</output></span><input id="outline-intensity" type="range" min="0" max="1" step="0.05" value="0.9" /></label>
+          <div class="demo-code-note"><span>SDK</span><p>These controls call <code>YouGeAssistant.configure()</code>. The animation stays off until the SDK reports an eligible action.</p></div>
+        </aside>
+      </section>
+
+      <footer class="demo-footer"><span>Powered by <strong>@youge/assistant-sdk 0.5.0</strong></span><span>State stays local to this demo tab · No network diagnostics are run</span></footer>
+    </main>
+  </body>
+</html>

@@ -41,6 +41,10 @@ SOFTWARE.
 
 Local QR generation uses the vendored MIT-licensed `qrcode-generator` library in `src/shared/qrcode.js`.
 
+## React Bits ElectricBorder (`src/assistant/assistant-widget.js`, `packages/assistant-sdk/src/launcher/electric-border.js`)
+
+The original ElectricBorder WebGL2 shader, geometry and arc-generation source from [React Bits](https://github.com/DavidHDev/react-bits/tree/main/src/content/Animations/ElectricBorder) is integrated into the production launcher under the project owner's explicit authorization. The upstream MIT + Commons Clause notice and attribution are reproduced in [`public/licenses/electric-border.txt`](public/licenses/electric-border.txt) and included in the SDK package as `LICENSE-ElectricBorder.txt`.
+
 ## Example-only React Bits components (`examples/example/`)
 
-See [`examples/example/THIRD_PARTY_NOTICES.md`](examples/example/THIRD_PARTY_NOTICES.md) for the MIT + Commons Clause notices governing the components vendored into the example application.
+See [`examples/example/THIRD_PARTY_NOTICES.md`](examples/example/THIRD_PARTY_NOTICES.md) for notices governing the other components vendored into the example application.

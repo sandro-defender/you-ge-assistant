@@ -1216,7 +1216,7 @@ test('cache diagnostics examine only opted-in Assistant cache names without chan
   assert.equal(result.status, 'ok');
   assert.equal(result.staticCache, true);
   assert.equal(result.pageCache, false);
-  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.9', 'you-ge-assistant:example.test:%2F:pages:v1.2.9']);
+  assert.deepEqual(queried, ['you-ge-assistant:example.test:%2F:static:v1.2.11', 'you-ge-assistant:example.test:%2F:pages:v1.2.11']);
   flags.cacheDiagnostics = false;
   assert.equal((await harness.win.PWA.runCacheDiagnostics()).status, 'disabled');
   assert.equal(queried.length, 2);
@@ -1261,7 +1261,7 @@ test('src/runtime/pwa-install.js ships self-contained MIT bundle with native ka 
 
 test('pwa.js defaults installExperience to manual presentation and supports native Georgian (ka) wording and showHelp', () => {
   const harness = createContext({ language: 'ka-GE', userAgent: IPHONE_UA });
-  assert.equal(harness.win.PWA.version, '1.2.9');
+  assert.equal(harness.win.PWA.version, '1.2.11');
   assert.equal(harness.win.PWA.config.installExperience.presentation, 'manual');
   assert.equal(harness.win.PWA.wording.language, 'ka');
   assert.equal(harness.win.PWA.wording.get('install'), 'დაყენება');

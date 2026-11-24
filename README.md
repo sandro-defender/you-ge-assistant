@@ -22,7 +22,7 @@ configuration playground. **Live playground:**
 QR, offline recovery, push, share, caches, theme, wording and network diagnostics.
 
 **Product & integration guide:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
-discover the product, try the real Assistant, and integrate SDK 0.4.1 with verified
+discover the product, try the real Assistant, and integrate SDK 0.5.0 with verified
 code examples. The [workspace and theme studio](https://sandro-defender.github.io/you-ge-assistant/example/workspace.html)
 remain available; sample workspace data stays in the visitor’s browser. The React build dependencies are isolated to `examples/example/`; the core PWA
 toolkit remains dependency-free. See [`examples/example/README.md`](examples/example/README.md).
@@ -35,7 +35,7 @@ toolkit remains dependency-free. See [`examples/example/README.md`](examples/exa
 **Platform direction:** You.Ge Assistant is structured as a reusable PWA
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
-(`@youge/assistant-sdk` v`0.4.1`, prepared in this repository; npm serves `0.4.0`) while keeping this repository's dependency-free PWA
+(`@youge/assistant-sdk` v`0.5.0`, prepared in this repository; npm serves `0.4.1`) while keeping this repository's dependency-free PWA
 toolkit (`window.YouGePWA` / `window.PWA`, `/you-ge-sw.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
 production failover engine or `staff.you.ge` modification is implemented here.
@@ -139,12 +139,12 @@ npm install @youge/assistant-sdk
 The package is ESM-only (`"type": "module"`), includes TypeScript declarations,
 and supports Node.js 18 or newer and modern browser bundlers using package
 `exports`/ESM resolution. Use `import`, not `require()`; CommonJS applications
-can use dynamic `import()`. This repository prepares `0.4.1`; the npm registry
-serves `0.4.0` as `latest` (published 2026-11-19) until the owner approves the
-gated release. Use `npm install @youge/assistant-sdk@0.4.0` for the current
-registry version, or `@youge/assistant-sdk@0.4.1` once the release is approved;
-allowing npm to select the current version is safe because `0.4.1` is additive
-over `0.4.0`.
+can use dynamic `import()`. This repository prepares `0.5.0`; the npm registry
+serves `0.4.1` as `latest` (published 2026-11-23) until the owner approves the
+gated release. Use `npm install @youge/assistant-sdk@0.4.1` for the current
+registry version, or `@youge/assistant-sdk@0.5.0` once the release is approved;
+allowing npm to select the current version is safe because `0.5.0` is additive
+over `0.4.1`.
 React is an **optional peer dependency** (`react >=18`) used only by the
 `/react` adapter; the core has no runtime dependencies.
 
@@ -195,6 +195,7 @@ configuration options (defaults are from `BUNDLED_DEFAULTS` and normalizers):
 | `project` / `projectId` | No explicit project; prefer stable `project: { id }`. `projectId` remains a compatibility alias. |
 | `domain`, `domainRegistry` | Host is detected when not overridden. Registry entries can customize project identity, branding, PWA settings, feature flags and diagnostics paths for a host/path. Host matching is public configuration, never authorization. |
 | `position`, `offsets` | `bottom-right`; `{ x: 20, y: 20 }`. |
+| `launcher` | Per-app size/logo/shape/border plus opt-in action-triggered Plasma electric outline; defaults preserve the current responsive launcher and keep animation off. See [launcher configuration](packages/assistant-sdk/README.md#launcher-appearance-and-action-triggered-attention). |
 | `theme` | `auto`; accepts the legacy string modes or a validated theme object. See [`THEMING.md`](docs/guides/THEMING.md). |
 | `modules` | Existing modules plus independent PWA controls; defaults are enabled. `autoUpdate` permits, but does not itself enable, the opt-in toolkit auto-update. No module changes host registration. See [SDK feature controls](packages/assistant-sdk/README.md#pwa-feature-controls-030) and the [runtime admin settings example](packages/assistant-sdk/README.md#changing-settings-at-runtime). |
 | `notifications` | `dismissible: true`, `suppressRepeats: true`, `criticalPersistent: true`. |
@@ -393,6 +394,7 @@ Supported typed package subpaths (all resolve through `package.json` `exports`):
 | `@youge/assistant-sdk/installation` | Existing PWA install/update adapter — [`installation/index.d.ts`](packages/assistant-sdk/src/installation/index.d.ts) |
 | `@youge/assistant-sdk/browser` | Android browser handoff helpers — [`browser/index.d.ts`](packages/assistant-sdk/src/browser/index.d.ts) |
 | `@youge/assistant-sdk/theme` | Theme tokens and resolution — [`theme/index.d.ts`](packages/assistant-sdk/src/theme/index.d.ts) |
+| `@youge/assistant-sdk/launcher` | Validated appearance and action-attention helpers — [`launcher/index.d.ts`](packages/assistant-sdk/src/launcher/index.d.ts) |
 | `@youge/assistant-sdk/i18n` | 12-locale dictionary and locale utilities — [`core/i18n.d.ts`](packages/assistant-sdk/src/core/i18n.d.ts) |
 | `@youge/assistant-sdk/react` | Optional React external-store adapter — [`adapters/react.d.ts`](packages/assistant-sdk/src/adapters/react.d.ts) |
 

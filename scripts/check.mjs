@@ -106,6 +106,7 @@ for (const file of [
   'manifest-handler.js',
   'qrcode.js',
   'examples/example/example.js',
+  'examples/example/public/launcher-demo.js',
   'reference/Script.js',
   'reference/Script.decompiled.js',
 ]) {
@@ -897,6 +898,8 @@ const sdkRequired = [
   'packages/assistant-sdk/src/assistant/index.js',
   'packages/assistant-sdk/src/theme/index.js',
   'packages/assistant-sdk/src/theme/index.d.ts',
+  'packages/assistant-sdk/src/launcher/index.js',
+  'packages/assistant-sdk/src/launcher/index.d.ts',
   'packages/assistant-sdk/src/core/i18n.js',
   'packages/assistant-sdk/src/core/i18n.d.ts',
   'packages/assistant-sdk/src/adapters/pwa-kit.js',
@@ -909,9 +912,9 @@ for (const rel of sdkRequired) {
 
 const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
 contract(sdkPkg.name === '@youge/assistant-sdk', 'SDK package name is @youge/assistant-sdk');
-contract(sdkPkg.version === '0.4.1' && sdkPkg.private !== true, 'SDK package is prepared at 0.4.1 (publishing remains separately gated)');
+contract(sdkPkg.version === '0.5.0' && sdkPkg.private !== true, 'SDK package is prepared at 0.5.0 (publishing remains separately gated)');
 contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
-contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
+contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react'] && sdkPkg.exports['./launcher']), 'SDK package declares explicit subpath exports, including the launcher helpers');
 contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
 contract(
   /export const GATED_CAPABILITIES/.test(readFileSync(at('packages/assistant-sdk/src/core/capabilities.js'), 'utf8')) &&

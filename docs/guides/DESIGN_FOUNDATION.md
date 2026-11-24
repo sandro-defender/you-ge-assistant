@@ -568,3 +568,63 @@ light-first navy/violet identity, system fonts and no third-party font request.
 The shared `product.css`/`product.js` chrome and the existing SVG symbol were
 reused instead of introducing a new component library or emoji icons. No skill
 data or generated catalog was added to the repository.
+
+## 17. Configurable launcher attention (2026-11-24)
+
+The `ui-ux-pro-max-skill` was actively used again for the launcher UI: the
+official upstream checkout outside the repository was read, including its UX
+search workflow, the accessibility/motion rules in `references/quick-reference.md`,
+and the pre-delivery guidance in `references/pro-rules.md`. Targeted queries:
+
+```bash
+python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py \
+  "actionable attention animation reduced motion accessible launcher touch target" \
+  --domain ux --max-results 5
+python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py \
+  "CSS animated launcher focus button performance" --stack react --max-results 5
+```
+
+The verified UX results advised honoring reduced motion, limiting the effect to
+one context-relevant element, retaining semantic button/focus behavior, and not
+relying on color alone. The effect is state-only and absent by default; when
+The launcher attention effect is the original React Bits ElectricBorder
+WebGL2 shader/geometry/arc renderer, ported after the project owner explicitly
+authorized integration and redistribution. This supersedes the earlier
+CSS/SVG-only decision recorded below. It is integrated in the production classic
+widget and is also available to ESM consumers through the dependency-free SDK
+`createElectricBorder()` / `bindElectricBorder()` APIs; React remains optional.
+
+The renderer is limited to the launcher perimeter and is driven by the SDK's
+centralized eligible notification/action state. Lifecycle handling covers
+visibility, offscreen observation, resizing, reduced motion, WebGL context loss
+and teardown; the existing CSS ring remains the fallback if WebGL2 is absent.
+The upstream license and attribution ship in `public/licenses/electric-border.txt`
+and `packages/assistant-sdk/LICENSE-ElectricBorder.txt`.
+
+### React Bits compatibility decision — superseded
+
+The earlier assessment above predated project-owner authorization. The present
+implementation intentionally ports the original licensed component, not a
+visual approximation, and does not require React or add a runtime package.
+
+
+### State/API and verification boundaries
+
+The SDK already supplied centralized notices/actions, but not a viewed lifecycle
+or a completion signal for host-owned actions. The extension is deliberately
+small: `markViewed()` records currently actionable notifications separately
+from acknowledgement; `completeAction()` (also the
+`youge:action:complete` event) records completed action-linked notices. The
+existing state engine still owns installation/network availability and action
+priority; renderers contain no duplicate detectors. Per-project notice storage
+remains backward-compatible and reads older records without `viewed` or
+`completed` keys.
+
+Tests cover normalized configuration, defaults, all shapes/fits, invalid-value
+fallbacks, opt-in Plasma styling, real installation/network state, category
+filtering, repeated/viewed/completed/dismissed action state, multi-action
+priority, static reduced-motion behavior, pointer transparency, semantic
+controls and backwards-compatible state configuration. The prior §8 static-only
+launcher description is historical: the idle launcher is still unchanged, with
+this new optional attention layer activated only for actionable state. No skill
+data was committed.

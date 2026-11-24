@@ -55,6 +55,7 @@ import {
   triggerPwaInstall,
 } from '../installation/index.js';
 import { normalizeTheme } from '../theme/index.js';
+import { deriveLauncherAttention } from '../launcher/index.js';
 
 /**
  * Presentation severity for a notification.
@@ -198,7 +199,7 @@ export function createAssistant(initialOptions, envOverrides) {
 
   const listeners = new Set();
   const listenerCounts = new Map();
-  let noticeStore = { dismissed: {}, acknowledged: {} };
+  let noticeStore = { dismissed: {}, acknowledged: {}, viewed: {}, completed: {} };
   let snapshot = null;
   let bound = false;
   let destroyed = false;
@@ -373,7 +374,7 @@ export function createAssistant(initialOptions, envOverrides) {
   }
 
   function loadNotices(projectId) {
-    noticeStore = { dismissed: {}, acknowledged: {} };
+    noticeStore = { dismissed: {}, acknowledged: {}, viewed: {}, completed: {} };
     const storage = getStorage();
     try {
       const raw = storage && typeof storage.getItem === 'function' ? storage.getItem(storageKey(projectId)) : null;
@@ -382,6 +383,8 @@ export function createAssistant(initialOptions, envOverrides) {
       if (parsed && typeof parsed === 'object') {
         noticeStore.dismissed = parsed.dismissed && typeof parsed.dismissed === 'object' ? parsed.dismissed : {};
         noticeStore.acknowledged = parsed.acknowledged && typeof parsed.acknowledged === 'object' ? parsed.acknowledged : {};
+        noticeStore.viewed = parsed.viewed && typeof parsed.viewed === 'object' ? parsed.viewed : {};
+        noticeStore.completed = parsed.completed && typeof parsed.completed === 'object' ? parsed.completed : {};
       }
     } catch (error) { /* storage unavailable */ }
   }
@@ -415,6 +418,16 @@ export function createAssistant(initialOptions, envOverrides) {
     const out = [];
     const activeKeys = new Set();
 
+    // Preserve the primary renderer link and also record any real recovery
+    // action already generated for a connectivity notice. Attention derivation
+    // consumes these IDs only if they remain in `availableActions`.
+    function linkedActionIds(primaryId) {
+      const ids = [];
+      if (isActionAllowed(config.modules, primaryId)) ids.push(primaryId);
+      if (capabilityEnabled('recovery')) ids.push('recovery');
+      return ids;
+    }
+
     function add(notification, conditionKey) {
       activeKeys.add(conditionKey);
       // Capability enforcement happens here, before suppression bookkeeping, so
@@ -433,6 +446,7 @@ export function createAssistant(initialOptions, envOverrides) {
         critical: true, dismissible: false, title: translate(locale, 'offlineTitle'),
         message: translate(locale, 'offlineMessage'),
         actionId: 'diagnostics',
+        actionIds: linkedActionIds('diagnostics'),
       }, 'network:offline');
     }
     if (dnsFailure(network.dns)) {
@@ -441,6 +455,7 @@ export function createAssistant(initialOptions, envOverrides) {
         critical: true, dismissible: false, title: translate(locale, 'dnsTitle'),
         message: network.dns.message || translate(locale, 'dnsMessage'),
         actionId: 'diagnostics',
+        actionIds: linkedActionIds('diagnostics'),
       }, 'dns:failure');
     }
     if (network.online && connectivityFailure(network.dns)) {
@@ -449,6 +464,7 @@ export function createAssistant(initialOptions, envOverrides) {
         critical: true, dismissible: false, title: translate(locale, 'unreachableTitle'),
         message: network.dns.message || translate(locale, 'unreachableMessage'),
         actionId: 'diagnostics',
+        actionIds: linkedActionIds('diagnostics'),
       }, 'network:unreachable');
     }
     if (endpointFailure(network.endpoints)) {
@@ -457,6 +473,7 @@ export function createAssistant(initialOptions, envOverrides) {
         critical: true, dismissible: false, title: translate(locale, 'primaryApiTitle'),
         message: network.endpoints.reason || translate(locale, 'primaryApiMessage'),
         actionId: 'diagnostics',
+        actionIds: linkedActionIds('diagnostics'),
       }, 'api:primary-failed');
     }
     if (network.session.state === 'issue') {
@@ -514,6 +531,8 @@ export function createAssistant(initialOptions, envOverrides) {
       if (activeKeys.has(key)) return;
       delete noticeStore.dismissed[noticeKey(project.id, key)];
       delete noticeStore.acknowledged[noticeKey(project.id, key)];
+      delete noticeStore.viewed[noticeKey(project.id, key)];
+      delete noticeStore.completed[noticeKey(project.id, key)];
     });
     lastConditionKeys = activeKeys;
     saveNotices(project.id);
@@ -625,6 +644,16 @@ export function createAssistant(initialOptions, envOverrides) {
     const notifications = buildNotifications(project, installation, network, lang);
     const availableActions = buildActions(project, installation, network, notifications, lang);
     const top = notifications[0] || null;
+    const launcher = clone(config.launcher);
+    launcher.logo = safeSameOriginIcon(launcher.logo, '', project.origin + project.basePath, UrlCtor);
+    const launcherAttention = deriveLauncherAttention({
+      notifications,
+      availableActions,
+      viewed: Object.keys(noticeStore.viewed),
+      dismissed: Object.keys(noticeStore.dismissed),
+      acknowledged: Object.keys(noticeStore.acknowledged),
+      completed: Object.keys(noticeStore.completed),
+    }, launcher);
     return {
       enabled: config.enabled,
       locale: lang,
@@ -652,9 +681,12 @@ export function createAssistant(initialOptions, envOverrides) {
         theme: config.themeMode || (config.theme && config.theme.mode) || 'auto',
         themeConfig: clone(config.theme || normalizeTheme('auto')),
         themeColor: project.themeColor,
+        launcher: Object.assign({}, launcher, { attention: launcherAttention }),
       },
       dismissed: Object.keys(noticeStore.dismissed),
       acknowledged: Object.keys(noticeStore.acknowledged),
+      viewed: Object.keys(noticeStore.viewed),
+      completed: Object.keys(noticeStore.completed),
     };
   }
 
@@ -916,6 +948,7 @@ export function createAssistant(initialOptions, envOverrides) {
       actions: clone(config.actions),
       features: clone(config.features),
       installExperience: effectiveInstallConfig(),
+      launcher: clone(config.launcher),
       // Backward compatible string (0.x contract) plus the validated record.
       theme: config.themeMode || (config.theme && config.theme.mode) || 'auto',
       themeConfig: clone(config.theme || normalizeTheme('auto')),
@@ -1110,6 +1143,46 @@ export function createAssistant(initialOptions, envOverrides) {
     return true;
   }
 
+  /** Mark currently actionable notices as viewed without dismissing or hiding them. */
+  function markViewed(ids) {
+    if (destroyed || !snapshot) return false;
+    const requested = new Set((Array.isArray(ids) ? ids : [ids]).map((id) => safeText(id, 80)).filter(Boolean));
+    const actionable = new Set((snapshot.availableActions || []).map((action) => action.id));
+    let changed = false;
+    (snapshot.notifications || []).forEach(function (notification) {
+      const linkedActions = Array.isArray(notification.actionIds) ? notification.actionIds : [notification.actionId];
+      if (!requested.has(notification.id) || !linkedActions.some((actionId) => actionId && actionable.has(actionId))) return;
+      const key = noticeKey(snapshot.project.id, notification.id);
+      if (noticeStore.viewed[key]) return;
+      noticeStore.viewed[key] = new DateCtor().toISOString();
+      changed = true;
+    });
+    if (!changed) return false;
+    saveNotices(snapshot.project.id);
+    emit();
+    return true;
+  }
+
+  /** Report successful completion of a host-owned action, stopping attention for its notices. */
+  function completeAction(actionId) {
+    if (destroyed || !snapshot) return false;
+    const safeId = safeText(actionId, 80);
+    if (!(snapshot.availableActions || []).some((action) => action.id === safeId)) return false;
+    let changed = false;
+    (snapshot.notifications || []).forEach(function (notification) {
+      const linkedActions = Array.isArray(notification.actionIds) ? notification.actionIds : [notification.actionId];
+      if (!linkedActions.includes(safeId)) return;
+      const key = noticeKey(snapshot.project.id, notification.id);
+      if (noticeStore.completed[key]) return;
+      noticeStore.completed[key] = new DateCtor().toISOString();
+      changed = true;
+    });
+    if (!changed) return false;
+    saveNotices(snapshot.project.id);
+    emit();
+    return true;
+  }
+
   const handlers = {
     online: function () { conditions.online = true; emit(); },
     offline: function () { conditions.online = false; emit(); },
@@ -1135,6 +1208,10 @@ export function createAssistant(initialOptions, envOverrides) {
     yougeDiagnostics: function (event) { setDnsResult((event && event.detail) || {}); },
     yougeInstallDialog: function () { syncPwaSubscription(); emit(); },
     action: function () { /* widgets dispatch actions; host apps listen. No state change. */ },
+    actionCompleted: function (event) {
+      const detail = event && event.detail;
+      completeAction(detail && (detail.actionId || detail.id));
+    },
     storage: function (event) {
       if (!event || !event.key || event.key.indexOf(STORAGE_PREFIXES.notices) !== 0) return;
       loadNotices(snapshot ? snapshot.project.id : projectInfo().id);
@@ -1176,6 +1253,7 @@ export function createAssistant(initialOptions, envOverrides) {
       doc.addEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
       doc.addEventListener(EVENT_NAMES.pwaInstallDialog, handlers.installDialog);
       doc.addEventListener(EVENT_NAMES.action, handlers.action);
+      doc.addEventListener(EVENT_NAMES.actionCompleted, handlers.actionCompleted);
     }
     syncPwaSubscription();
     syncPwaInstallConfig();
@@ -1210,6 +1288,7 @@ export function createAssistant(initialOptions, envOverrides) {
         doc.removeEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
         doc.removeEventListener(EVENT_NAMES.pwaInstallDialog, handlers.installDialog);
         doc.removeEventListener(EVENT_NAMES.action, handlers.action);
+        doc.removeEventListener(EVENT_NAMES.actionCompleted, handlers.actionCompleted);
       }
     }
     if (unsubscribePwa) {
@@ -1253,6 +1332,8 @@ export function createAssistant(initialOptions, envOverrides) {
     applyUpdate: applyUpdate,
     dismiss: dismiss,
     acknowledge: acknowledge,
+    markViewed: markViewed,
+    completeAction: completeAction,
     isDestroyed: function () { return destroyed; },
     destroy: destroy,
   };

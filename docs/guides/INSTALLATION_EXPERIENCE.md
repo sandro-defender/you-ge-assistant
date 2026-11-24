@@ -263,7 +263,7 @@ including native Georgian `ka`, Russian `ru`, and Estonian `et`):
   `EVENT_NAMES.pwaInstallDialog` are mirrored in the SDK core and browser bundle
   (`assistant-state.js`).
 
-## 6. Driving it from the SDK `0.4.1`
+## 6. Driving it from the SDK `0.5.0`
 
 The SDK does not add a second installation flow: it reads and calls the runtime
 described above. Every helper returns an honest result instead of throwing, so a

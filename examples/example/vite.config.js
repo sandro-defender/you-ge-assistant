@@ -23,6 +23,7 @@ const sharedFiles = new Map([
   ['offline.js', 'src/offline/offline.js'],
   ['browserconfig.xml', 'public/browserconfig.xml'],
   ['favicon.ico', 'public/favicon.ico'],
+  ['licenses/electric-border.txt', 'public/licenses/electric-border.txt'],
 ]);
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -30,6 +31,7 @@ const mimeTypes = {
   '.ico': 'image/x-icon',
   '.js': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
+  '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
 };
 
@@ -63,7 +65,7 @@ export default defineConfig({
   preview: { host: '0.0.0.0', allowedHosts: true },
   build: {
     outDir: 'dist',
-    rollupOptions: { input: { index: path.join(exampleRoot, 'index.html'), workspace: path.join(exampleRoot, 'workspace.html') } },
+    rollupOptions: { input: { index: path.join(exampleRoot, 'index.html'), workspace: path.join(exampleRoot, 'workspace.html'), launcherDemo: path.join(exampleRoot, 'launcher-demo.html') } },
     emptyOutDir: true,
   },
 });

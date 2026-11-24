@@ -158,7 +158,7 @@ test('the example adds no dependency and changes no package version', () => {
     'the example declares only its browser-test runner, the local SDK and React',
   );
   assert.match(deps['@youge/assistant-sdk'], /^file:/, 'the example consumes the local SDK');
-  assert.equal(rootPkg.version, '1.2.9', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
+  assert.equal(rootPkg.version, '1.2.11', 'the kit version is bumped once, deliberately, by an owner-authorized PR');
   assert.deepEqual(
     Object.keys(rootPkg.dependencies || {}),
     [],
@@ -167,7 +167,7 @@ test('the example adds no dependency and changes no package version', () => {
   const sdkPkg = JSON.parse(
     readFileSync(new URL('../packages/assistant-sdk/package.json', import.meta.url), 'utf8'),
   );
-  assert.equal(sdkPkg.version, '0.4.1', 'the SDK version is bumped only by the release PR');
+  assert.equal(sdkPkg.version, '0.5.0', 'the SDK version is bumped only by the release PR');
   assert.deepEqual(Object.keys(sdkPkg.dependencies || {}), [], 'the embedded SDK stays dependency-free');
 });
 

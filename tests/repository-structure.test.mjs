@@ -171,6 +171,7 @@ test('source files are organized under src/ and public/ while build output prese
     'domain-config.js', 'domain-registry.js', 'dns-diagnostics.js',
     'qrcode.js', 'browserconfig.xml', 'favicon.ico',
     'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png',
+    'licenses/electric-border.txt',
   ];
 
   // Runtime and public assets should live in src/ or public/, not at repo root

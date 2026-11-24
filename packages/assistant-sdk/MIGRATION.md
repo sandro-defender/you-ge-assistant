@@ -1,12 +1,12 @@
-> **0.4.1 prepared (not yet published; registry serves `0.4.0`):** additive over
-> `0.4.0` — no migration step is required. It carries the Phase 1 correctness
+> **0.5.0 prepared (not yet published; registry serves `0.4.1`):** additive over
+> `0.4.1` — no migration step is required. It carries the Phase 1 correctness
 > fixes (immutable state snapshots, destroyed-instance React guard,
-> `schema_version_missing` warning, `ge` → `ka` locale alias) and only
-> documentation corrections beyond them; imports, worker ownership,
-> configuration precedence, action shapes and `SCHEMA_VERSION = 1` are
-> unchanged, so code written against `0.3.0` or `0.4.0` keeps working. The
-> `./i18n` subpath and the installation state/dialog helpers first shipped as
-> prepared `0.4.0`.
+> `schema_version_missing` warning, `ge` → `ka` locale alias) and adds the
+> optional framework-independent ElectricBorder renderer and SDK-state binding.
+> React remains optional; imports, worker ownership, configuration precedence,
+> action shapes and `SCHEMA_VERSION = 1` remain compatible. Code written against
+> `0.3.0`, `0.4.0` or `0.4.1` keeps working. The `./i18n` subpath and
+> installation state/dialog helpers first shipped as prepared `0.4.0`.
 >
 > **0.3.0 published (registry verified 2026-11-15):** host-owned workers are never registered or
 > replaced by the toolkit. Deployments relying on automatic registration must
@@ -36,7 +36,7 @@
 > or `0.1.1` pin keeps working unchanged.
 
 Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.md)),
-**kit compatibility `1.2.9`** (`KIT_COMPAT_VERSION` in the repository; the published `0.2.0` reports `1.1.0`), **config schema `1`**.
+**kit compatibility `1.2.11`** (`KIT_COMPAT_VERSION` in the prepared repository; the published `0.4.1` artifact predates this kit update), **config schema `1`**.
 
 ---
 

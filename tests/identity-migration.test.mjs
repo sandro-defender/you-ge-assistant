@@ -242,18 +242,18 @@ function bootCustomWorker({
   };
 }
 
-test('Phase 1: canonical you-ge-sw.js ships kit 1.2.9 and excludes both worker entrypoints from caching', async () => {
+test('Phase 1: canonical you-ge-sw.js ships kit 1.2.11 and excludes both worker entrypoints from caching', async () => {
   assert.equal(existsSync(resolve(root, 'src/runtime/you-ge-sw.js')), true, 'you-ge-sw.js must exist as canonical worker');
   const source = read('src/runtime/you-ge-sw.js');
-  assert.match(source, /const VERSION = '1\.2\.9'/);
+  assert.match(source, /const VERSION = '1\.2\.11'/);
 
   const sw = bootCustomWorker({ scriptName: 'you-ge-sw.js', scope: 'https://app.test/' });
   await sw.install();
   await sw.activate();
 
   assert.deepEqual(sw.caches.names(), [
-    'you-ge-assistant:app.test:%2F:static:v1.2.9',
-    'you-ge-assistant:app.test:%2F:pages:v1.2.9',
+    'you-ge-assistant:app.test:%2F:static:v1.2.11',
+    'you-ge-assistant:app.test:%2F:pages:v1.2.11',
   ]);
   assert.equal(await sw.request('you-ge-sw.js'), null, 'canonical worker script is never intercepted/cached');
   assert.equal(await sw.request('progressier.js'), null, 'legacy worker shim is never intercepted/cached');
@@ -270,8 +270,8 @@ test('Phase 1: progressier.js acts as a subpath-safe importScripts shim to canon
   await sw.activate();
 
   assert.deepEqual(sw.caches.names(), [
-    'you-ge-assistant:app.test:%2Fportal%2F:static:v1.2.9',
-    'you-ge-assistant:app.test:%2Fportal%2F:pages:v1.2.9',
+    'you-ge-assistant:app.test:%2Fportal%2F:static:v1.2.11',
+    'you-ge-assistant:app.test:%2Fportal%2F:pages:v1.2.11',
   ]);
   assert.equal(await sw.request('progressier.js'), null);
   assert.equal(await sw.request('you-ge-sw.js'), null);
@@ -360,10 +360,10 @@ test('Phase 1: worker migrates legacy IndexedDB stores idempotently while keepin
   );
 });
 
-test('Phase 1: precache integrity gate passes with kit 1.2.9 across you-ge-sw.js, pwa.js, package.json, and SDK constants', async () => {
+test('Phase 1: precache integrity gate passes with kit 1.2.11 across you-ge-sw.js, pwa.js, package.json, and SDK constants', async () => {
   const verdict = await runPrecacheIntegrity({ root });
   assert.equal(verdict.status, 'pass', verdict.report);
-  assert.match(verdict.summary, /kit version (1\.2\.[78] → )?1\.2\.9 synchronized/);
+  assert.match(verdict.summary, /kit version (1\.2\.9 → )?1\.2\.11 synchronized/);
 });
 
 /* ------------------------------------------------------------------ *
@@ -1011,7 +1011,7 @@ test('Phase 4: COMPATIBILITY_CONTRACTS.md and AGENTS.md establish canonical You.
   }
 
   const agents = read('AGENTS.md');
-  assert.match(agents, /Current runtime version:\s*\*\*1\.2\.9\*\*/);
+  assert.match(agents, /Current runtime version:\s*\*\*1\.2\.11\*\*/);
   assert.match(agents, /you-ge-sw\.js/);
   assert.match(agents, /window\.YouGePWA/);
   assert.match(agents, /temporary migration compatibility only/i);

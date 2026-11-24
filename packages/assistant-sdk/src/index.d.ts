@@ -3,6 +3,14 @@ import type {
   AssistantActionIcon,
   AssistantActionInput,
   AssistantBrandingConfig,
+  LauncherActionCategory,
+  LauncherAnimationConfig,
+  LauncherAppearanceConfig,
+  LauncherBorderConfig,
+  LauncherConfig,
+  LauncherConfigInput,
+  LauncherLogoFit,
+  LauncherShape,
   AssistantCapabilityName,
   AssistantConfigInput,
   AssistantConfigMeta,
@@ -101,6 +109,14 @@ export type {
   AssistantActionIcon,
   AssistantActionInput,
   AssistantBrandingConfig,
+  LauncherActionCategory,
+  LauncherAnimationConfig,
+  LauncherAppearanceConfig,
+  LauncherBorderConfig,
+  LauncherConfig,
+  LauncherConfigInput,
+  LauncherLogoFit,
+  LauncherShape,
   AssistantCapabilityName,
   AssistantConfigInput,
   AssistantConfigMeta,
@@ -222,6 +238,8 @@ export interface AssistantNotification {
   title: string;
   message: string;
   actionId?: string;
+  /** Real action IDs relevant to this notice; the singular `actionId` remains the preferred renderer link. */
+  actionIds?: string[];
 }
 
 export interface AssistantBadgeState {
@@ -229,6 +247,16 @@ export interface AssistantBadgeState {
   tone: NotificationTone | 'none';
   label: string;
   priority: number | null;
+}
+
+export interface LauncherAttentionState {
+  active: boolean;
+  eligibleActionIds: string[];
+  priority: number | null;
+}
+
+export interface LauncherAppearanceState extends LauncherConfig {
+  attention: LauncherAttentionState;
 }
 
 export interface AssistantAppearanceState {
@@ -239,6 +267,8 @@ export interface AssistantAppearanceState {
   /** Validated theme record (mode, inheritHost, tokens, host, variables). */
   themeConfig: import('./theme/index.js').NormalizedTheme;
   themeColor: string;
+  /** Resolved launcher configuration plus the shared action-availability state. */
+  launcher: LauncherAppearanceState;
 }
 
 /**
@@ -260,6 +290,8 @@ export interface AssistantState {
   appearance: AssistantAppearanceState;
   dismissed: string[];
   acknowledged: string[];
+  viewed: string[];
+  completed: string[];
 }
 
 export interface AssistantEnvironment {
@@ -305,6 +337,7 @@ export interface AssistantConfigSummary {
   actions: AssistantAction[];
   features: AssistantFeature[];
   installExperience: InstallExperienceConfig;
+  launcher: LauncherConfig;
   theme: AssistantTheme;
   themeConfig: import('./theme/index.js').NormalizedTheme;
   meta: AssistantConfigMeta;
@@ -358,6 +391,10 @@ export interface AssistantInstance {
   applyUpdate(): Promise<AssistantUpdateResult>;
   dismiss(id: string): boolean;
   acknowledge(id: string): boolean;
+  /** Marks currently actionable notices as viewed without hiding/dismissing them. */
+  markViewed(id: string | string[]): boolean;
+  /** Report completion of a host-owned action by its `availableActions[].id`. */
+  completeAction(actionId: string): boolean;
   isDestroyed(): boolean;
   destroy(): void;
 }
@@ -379,6 +416,7 @@ export interface YouGeAssistantStatic {
   validateDomainRegistry(raw?: unknown): DomainRegistryValidationResult;
   validatePublishedConfig(rawInput: unknown, options?: { expectedProjectId?: string }): PublishedValidationResult;
   normalizeInstallExperience(raw?: InstallExperienceInput | null, fallback?: InstallExperienceConfig): InstallExperienceConfig;
+  normalizeLauncherConfig(raw?: LauncherConfigInput | null): LauncherConfig;
   resolveInstallationCopy(locale?: string): InstallationCopySet;
   detectInAppBrowser(userAgent?: string): InAppBrowserDetection;
   buildChromeIntentUrl(url: string, options?: { packageName?: string }): string | null;
@@ -557,6 +595,35 @@ export declare function isActionAllowed(
 export declare function capabilitiesRecord(
   modules: Partial<AssistantModulesConfig> | null | undefined
 ): AssistantModulesConfig;
+
+export declare const LAUNCHER_DEFAULTS: Readonly<LauncherConfig>;
+export declare const LAUNCHER_SHAPES: readonly LauncherShape[];
+export declare const LAUNCHER_LOGO_FITS: readonly LauncherLogoFit[];
+export declare const LAUNCHER_ANIMATION_TYPES: readonly ('electric-border')[];
+export declare const LAUNCHER_ACTION_CATEGORIES: readonly LauncherActionCategory[];
+export declare function normalizeLauncherConfig(raw?: LauncherConfigInput | null): LauncherConfig;
+export declare function launcherActionCategory(action: AssistantAction | null | undefined): LauncherActionCategory | null;
+export interface ElectricBorderOptions {
+  active?: boolean;
+  color?: string;
+  speed?: number;
+  intensity?: number;
+  shape?: LauncherShape;
+  borderRadius?: number;
+  light?: boolean;
+  interactive?: boolean;
+  cursorRadius?: number;
+  reducedMotion?: boolean;
+}
+export interface ElectricBorderRenderer {
+  update(options?: ElectricBorderOptions): void;
+  destroy(): void;
+}
+/** Mount the licensed, framework-independent WebGL2 ElectricBorder on an element. */
+export declare function createElectricBorder(container: HTMLElement, environment?: { window?: Window; document?: Document }): ElectricBorderRenderer | null;
+/** Mount the renderer and keep it synchronized with the Assistant's centralized attention state. */
+export declare function bindElectricBorder(container: HTMLElement, assistant: Pick<AssistantInstance, 'getState' | 'subscribe'>, environment?: { window?: Window; document?: Document }): (ElectricBorderRenderer & { renderer: ElectricBorderRenderer; update(): void }) | null;
+export declare function deriveLauncherAttention(state: Pick<AssistantState, 'notifications' | 'availableActions' | 'viewed' | 'dismissed' | 'acknowledged' | 'completed'>, launcher?: LauncherConfig | LauncherConfigInput): LauncherAttentionState;
 
 export declare const NOTIFICATION_LEVEL_MAP: Readonly<Record<string, NotificationLevel>>;
 export declare function notificationLevel(id?: string, priority?: number): NotificationLevel;
