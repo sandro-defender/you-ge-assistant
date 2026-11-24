@@ -10,18 +10,17 @@ Existing compatibility migrations are described in
 ## SDK or classic toolkit?
 
 For a new SDK integration, start with the [product and getting-started guide](https://sandro-defender.github.io/you-ge-assistant/example/).
-`npm install @youge/assistant-sdk` installs the published SDK (0.4.0, published
-2026-11-19 and verified 2026-11-22; `0.4.1` is prepared in this repository and
-publishes only through the owner-approved gated release), not the classic
-UI/worker assets below. The SDK is ESM-only, ships TypeScript declarations, and
-has no core runtime dependencies. Prepared `0.4.0` added the localization module
-(`@youge/assistant-sdk/i18n`, twelve core locales) and the installation helpers
+`npm install @youge/assistant-sdk` installs the published SDK (`0.4.1`,
+published 2026-11-23 and verified 2026-11-24; `0.5.0` is prepared in this
+repository and publishes only through the owner-approved gated release), not
+the classic UI/worker assets below. The SDK is ESM-only, ships TypeScript
+declarations, and has no core runtime dependencies. `0.5.0` adds the optional
+framework-independent ElectricBorder renderer and SDK-state binding, alongside
+the `0.4.1` correctness fixes. The `./i18n` module and installation helpers
 (`@youge/assistant-sdk/installation`: `deriveInstallationState`,
 `resolveInstallationCopy`, `showPwaInstallDialog`, `hidePwaInstallDialog`,
-`triggerPwaInstall`, `readInstalledRelatedApps`); both are additive over `0.3.0`.
-Prepared `0.4.1` is additive over `0.4.0` and carries the Phase 1 correctness
-fixes (see the [changelog](../../CHANGELOG.md) and the SDK
-[README](../../packages/assistant-sdk/README.md)).
+`triggerPwaInstall`, `readInstalledRelatedApps`) remain available (see the
+[changelog](../../CHANGELOG.md) and SDK [README](../../packages/assistant-sdk/README.md)).
 
 Use `YouGeAssistant.create()` for an isolated instance and
 `YouGeAssistant.attach()` to share the page singleton with classic scripts.

@@ -53,6 +53,7 @@ const FILE_MAPPINGS = [
   ['public/browserconfig.xml', 'browserconfig.xml'],
   ['public/favicon.ico', 'favicon.ico'],
   ['public/manifest.webmanifest', 'manifest.webmanifest'],
+  ['public/licenses/electric-border.txt', 'licenses/electric-border.txt'],
 ];
 
 export function buildDist(targetDir = distDir) {

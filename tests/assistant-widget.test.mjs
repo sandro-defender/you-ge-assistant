@@ -738,7 +738,9 @@ test('widget renderer has no network, polling, SW registration, auto-open or hea
   assert.doesNotMatch(code, /\.register\s*\(/);
   assert.doesNotMatch(code, /setInterval\s*\(/);
   assert.doesNotMatch(code, /\bimport\s/);
-  assert.doesNotMatch(code, /ogl|gsap|three|WebGL/);
+  assert.doesNotMatch(code, /ogl|gsap|three/);
+  assert.match(code, /getContext\('webgl2'/, 'the electric renderer uses the browser WebGL API directly');
+  assert.match(code, /if \(!gl \|\| !program\)/, 'unsupported WebGL falls back without blocking the classic launcher');
   assert.doesNotMatch(code, /staff\.you\.ge/);
   assert.match(code, /api\.subscribe\(onState\)/);
   assert.match(code, /api\.subscribe\(onState\)/);

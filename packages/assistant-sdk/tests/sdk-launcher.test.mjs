@@ -4,11 +4,47 @@ import {
   BUNDLED_DEFAULTS,
   EVENT_NAMES,
   YouGeAssistant,
+  bindElectricBorder,
+  createElectricBorder,
   deriveLauncherAttention,
   normalizeLauncherConfig,
 } from '../src/index.js';
 
 const ACTIONABLE = (id, kind, priority = 4) => ({ id, kind, priority });
+
+test('framework-independent WebGL renderer is exported and safely returns null without DOM/WebGL2', () => {
+  assert.equal(createElectricBorder(null), null);
+  assert.equal(bindElectricBorder(null, { getState() {}, subscribe() {} }), null);
+  const children = [];
+  const canvas = {
+    className: '',
+    style: {},
+    setAttribute() {},
+    addEventListener() {},
+    getContext(type) { assert.equal(type, 'webgl2'); return null; },
+    parentNode: null,
+  };
+  const document = {
+    visibilityState: 'visible',
+    createElement(tag) {
+      assert.equal(tag, 'canvas');
+      return canvas;
+    },
+  };
+  const container = {
+    appendChild(node) { children.push(node); node.parentNode = this; },
+    removeChild(node) { children.splice(children.indexOf(node), 1); node.parentNode = null; },
+  };
+  assert.equal(createElectricBorder(container, { document, window: {} }), null);
+  assert.deepEqual(children, [], 'unsupported WebGL removes its inert canvas and leaves the host launcher usable');
+  let subscriptions = 0;
+  assert.equal(bindElectricBorder(container, {
+    getState() { return {}; },
+    subscribe() { subscriptions += 1; return () => {}; },
+  }, { document, window: {} }), null);
+  assert.equal(subscriptions, 0, 'a failed renderer mount does not leak a state subscription');
+  assert.deepEqual(children, []);
+});
 const NOTICE = (id, actionId, priority = 4) => ({ id, actionId, priority });
 
 function attentionState({ notifications = [], availableActions = [], viewed = [], dismissed = [], acknowledged = [], completed = [] } = {}) {

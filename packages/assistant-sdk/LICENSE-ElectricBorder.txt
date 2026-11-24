@@ -41,4 +41,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Upstream source: https://github.com/DavidHDev/react-bits/tree/main/src/content/Animations/ElectricBorder
-The project owner confirmed permission for this repository's integration and redistribution scope in this conversation. The source is otherwise retained from upstream; the Vite demo removes the Next.js-only `use client` directive and exposes a WebGL-ready data attribute so it can gracefully fall back to the classic widget outline when WebGL 2 is unavailable.
+The project owner confirmed permission for this repository's integration and redistribution scope in this conversation. The upstream WebGL shader, geometry, and arc-generation implementation are integrated into the dependency-free classic runtime and the framework-independent ESM SDK package. The classic lifecycle adapter uses centralized attention state and falls back to the classic outline if WebGL 2 is unavailable.

@@ -23,6 +23,7 @@ const sharedFiles = new Map([
   ['offline.js', 'src/offline/offline.js'],
   ['browserconfig.xml', 'public/browserconfig.xml'],
   ['favicon.ico', 'public/favicon.ico'],
+  ['licenses/electric-border.txt', 'public/licenses/electric-border.txt'],
 ]);
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -30,6 +31,7 @@ const mimeTypes = {
   '.ico': 'image/x-icon',
   '.js': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
+  '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
 };
 

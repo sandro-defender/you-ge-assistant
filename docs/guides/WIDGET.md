@@ -23,8 +23,8 @@ project HTML
             │        │        │
      PWA events  project events  browser events
             │        │        │
-            └── prioritized snapshot ──┬─ assistant-widget.js  (dependency-free DOM renderer)
-                                       └─ React renderer in examples/example/src/main.jsx (React Bits)
+            └── prioritized snapshot ──┬─ assistant-widget.js  (dependency-free DOM renderer + WebGL2 attention effect)
+                                       └─ React renderer in examples/example/src/main.jsx
 ```
 
 - **`assistant-state.js`** is the single source of truth. It owns project
@@ -53,8 +53,8 @@ project HTML
 | `assistant-state.js` | Classic browser state script synchronized deterministically from `packages/assistant-sdk/src/` via `npm run sync:sdk` (`window.YouGeAssistant`). |
 | `assistant-widget.js` | Dependency-free DOM renderer for any configured page. |
 | `assistant-widget.css` | Fixed placement, safe areas, responsive panel, badges, reduced motion. |
-| `examples/example/src/main.jsx` | React renderer using `useSyncExternalStore` and vendored React Bits. |
-| `examples/example/example.css` | React renderer styles and React Bits local adaptations. |
+| `examples/example/src/main.jsx` | React example renderer using the optional external-store adapter. |
+| `examples/example/example.css` | React example renderer styles and local design-system adaptations. |
 | `snippet.html` | Copy-paste integration block including SDK configuration. |
 | `examples/demo/index.html`, `examples/example/index.html`, `offline.html` | Participating pages. |
 | `tests/assistant-widget.test.mjs` | 58 behavioral/static tests for the widget contract (including the CD-1 capability matrix). |
@@ -151,15 +151,16 @@ detail has `{ actionId }`. Existing `dismiss()` / `acknowledge()` methods keep
 their original notification behavior. `stopWhenViewed: false` allows continued
 attention while the action remains available.
 
-The effect is a dependency-free CSS/SVG adaptation, not the original React Bits
-shader component. React Bits' current component uses React/WebGL/GLSL and its
-MIT + Commons Clause license restricts redistributing/porting that component.
-This SDK adaptation preserves an animated electric outline and configurable
-Plasma color/speed/intensity but has no cursor interaction or shader sparks.
-It is limited to the visible launcher, uses no canvas/WebGL, and does no work
-when off. Reduced motion substitutes a static border; the outline has no pointer
-events, while keyboard focus, the launcher's accessible name and the existing
-notification badge remain intact.
+The production launcher uses the original React Bits ElectricBorder WebGL2
+shader/geometry/arc renderer, ported with the project owner's explicit
+integration and redistribution permission. The framework-independent SDK also
+exports `createElectricBorder(element)`; React remains optional. The effect is
+limited to the launcher and follows centralized SDK attention state. It honors
+reduced motion, pauses while hidden/offscreen, responds to resize and context
+loss, cleans up listeners and GPU resources on destroy, and leaves the existing
+semantic button, focus treatment, badge and CSS fallback intact. The complete
+upstream license and attribution ship in `public/licenses/electric-border.txt`
+and the SDK package's `LICENSE-ElectricBorder.txt`.
 
 ---
 
@@ -414,12 +415,12 @@ sources are used again:
 | `SpotlightCard` | Connection-status card in the panel. | Pointer/focus-driven light, `ambient=false`, `flare=false`, reduced-motion override. |
 | `LatticeLoader` | Bounded "checking connection" feedback. | Only rendered while diagnostics are running; accessible status; stops under reduced motion. |
 
-The dependency-free DOM renderer uses equivalent CSS transitions rather than
-importing React, because a classic script cannot consume React components. No
-GSAP, Motion, HugeIcons, Tailwind, shaders, WebGL backgrounds or component
-collections were added. The React example's brand mark is now a static zoomed
-image (the former `ElectricLogo`/`ogl` animation was removed on request); no
-new WebGL effect is introduced by this widget.
+The dependency-free DOM renderer does not import React. It now includes the
+licensed, original ElectricBorder WebGL2 effect specifically on the launcher;
+there are no GSAP, Motion, HugeIcons, Tailwind or WebGL backgrounds. The effect
+uses the centralized attention state and gracefully falls back to the existing
+CSS ring when WebGL2 is unavailable. The React example remains an optional
+consumer of the same framework-independent SDK state.
 
 ### `ui-ux-pro-max-skill`
 

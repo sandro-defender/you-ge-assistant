@@ -314,4 +314,6 @@ export {
   isSafeCssValue,
 };
 
+export { bindElectricBorder, createElectricBorder } from './launcher/index.js';
+
 export default YouGeAssistant;

@@ -1,7 +1,7 @@
 # GitHub Pages example
 
 The GitHub Pages `/example/` route is the You.Ge Assistant product landing page
-and SDK 0.4.1 integration guide. It includes original CSS illustrations, an
+and SDK 0.5.0 integration guide. It includes original CSS illustrations, an
 accessible architecture diagram, typechecked code samples and a real SDK state
 panel connected to the optional DOM widget. No worker is registered by the page.
 
@@ -9,12 +9,11 @@ The preserved Staff Space sample is at `/example/workspace.html`. The interactiv
 SDK launcher studio is at `/example/launcher-demo.html` (local Vite route:
 `http://localhost:5173/launcher-demo.html`). It renders the actual classic
 `assistant-state.js` and `assistant-widget.js`, not the mock preview from the
-configuration playground. The reference ElectricBorder WebGL component is
-mounted as an effect layer over that real SDK button; the SDK still owns its
-state, launcher, panel, and action buttons. Its upstream component and license
-notice is shipped at `/example/ElectricBorder-LICENSE.md`; source files are
-retained under `src/react-bits/`. Open the floating launcher at the
-lower right to inspect the real panel and actions.
+configuration playground. The production classic widget renders the
+reference ElectricBorder WebGL effect directly on that SDK-owned button, using
+the SDK's centralized attention state. React is not required by the runtime.
+The upstream license notice is at `/licenses/electric-border.txt`. Open the
+floating launcher at the lower right to inspect the real panel and actions.
 
 The studio includes four scenario controls: **Idle** has no PWA install adapter
 or actionable notice; **Installation** attaches a host PWA adapter exposing the
@@ -84,5 +83,5 @@ only wires the live SDK panel, appearance selector and clipboard feedback.
 
 The example deliberately retains its local `file:` SDK dependency: CI builds
 it before root assembly, using buildless SDK exports. Public snippets were
-verified against the published npm 0.4.0 tarball and the prepared repository
-0.4.1 source; no SDK implementation is copied here.
+verified against the published npm 0.4.1 tarball and the prepared repository
+0.5.0 source; no SDK implementation is copied here.

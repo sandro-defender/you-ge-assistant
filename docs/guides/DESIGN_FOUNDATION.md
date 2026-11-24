@@ -587,32 +587,26 @@ python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py 
 The verified UX results advised honoring reduced motion, limiting the effect to
 one context-relevant element, retaining semantic button/focus behavior, and not
 relying on color alone. The effect is state-only and absent by default; when
-reduced motion is requested it becomes a static border. It has no hit testing,
-canvas, WebGL, hover dependency, or continuously running idle loop.
+The launcher attention effect is the original React Bits ElectricBorder
+WebGL2 shader/geometry/arc renderer, ported after the project owner explicitly
+authorized integration and redistribution. This supersedes the earlier
+CSS/SVG-only decision recorded below. It is integrated in the production classic
+widget and is also available to ESM consumers through the dependency-free SDK
+`createElectricBorder()` / `bindElectricBorder()` APIs; React remains optional.
 
-### React Bits compatibility decision
+The renderer is limited to the launcher perimeter and is driven by the SDK's
+centralized eligible notification/action state. Lifecycle handling covers
+visibility, offscreen observation, resizing, reduced motion, WebGL context loss
+and teardown; the existing CSS ring remains the fallback if WebGL2 is absent.
+The upstream license and attribution ship in `public/licenses/electric-border.txt`
+and `packages/assistant-sdk/LICENSE-ElectricBorder.txt`.
 
-Inspected the actual Electric Border page and current source at
-`src/content/Animations/ElectricBorder/ElectricBorder.jsx` and `.css` in
-`DavidHDev/react-bits` (source browser reported commit
-`ed33ebe4acfe29e60fb759bcccc70a138ce2dcef`, 2026-11-08). It is a React/WebGL
-GLSL fragment-shader implementation, uses a canvas, has no npm dependency but
-requires the React runtime, and exposes extensive shader parameters, including
-Plasma, sparks, cursor surges and interaction settings. The inspected upstream
-license is **MIT + Commons Clause v1.0**: its text expressly restricts
-redistribution and porting of the components. Copying it into this distributable
-SDK or shipping a port was therefore rejected. No React Bits code or runtime
-dependency was added.
+### React Bits compatibility decision — superseded
 
-The SDK owns an original, small CSS/SVG electric-outline treatment instead.
-It honors color, speed, intensity, launcher shape and action attention; the
-supported effect name is `electric-border`, and the supported color treatment
-is `plasma`. It deliberately omits shader noise, sparks, cursor interaction and
-intro animation. The renderer applies it only to the launcher perimeter so the
-brand mark remains centered and uncovered. It runs only while the shared state
-contains eligible notification/action pairs and stops on viewed, completed,
-dismissed/acknowledged, unavailable or expired items, unless another eligible
-item remains.
+The earlier assessment above predated project-owner authorization. The present
+implementation intentionally ports the original licensed component, not a
+visual approximation, and does not require React or add a runtime package.
+
 
 ### State/API and verification boundaries
 

@@ -1,18 +1,17 @@
-/* Interactive launcher demo. The classic SDK owns the real button, panel and
- * centralized action state; React Bits' licensed ElectricBorder component is
- * mounted only as the visual WebGL effect layer around that real launcher. */
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import ElectricBorder from './src/react-bits/ElectricBorder.jsx';
-
-function startLauncherDemo(api) {
+/* Interactive launcher demo. Rendering and action state come from the real SDK
+ * classic bundle and assistant-widget.js; this file only supplies host controls. */
+(function () {
   'use strict';
+
+  var api = window.YouGeAssistant;
+  if (!api || typeof api.configure !== 'function') {
+    document.getElementById('state-readout-detail').textContent = 'The SDK state runtime did not load. Check the example server/build.';
+    return;
+  }
+
   var scenario = 'idle';
   var scenarioSequence = 0;
   var pwa = window.__launcherDemoPwa;
-  var electricRoot = null;
-  var electricHost = null;
-  var electricObserver = null;
   var form = {
     enabled: document.getElementById('animation-enabled'),
     shape: document.getElementById('launcher-shape'),
@@ -88,42 +87,6 @@ function startLauncherDemo(api) {
     render(api.getState());
   }
 
-  function updateElectricBorder(state, active) {
-    var fab = document.querySelector('.youge-fab');
-    if (!fab) return;
-    if (!electricRoot) {
-      electricHost = document.createElement('span');
-      electricHost.className = 'launcher-electric-host';
-      electricHost.setAttribute('aria-hidden', 'true');
-      fab.appendChild(electricHost);
-      electricRoot = createRoot(electricHost);
-      electricObserver = new MutationObserver(function () {
-        fab.toggleAttribute('data-electric-webgl-ready', Boolean(electricHost.querySelector('[data-electric-webgl-ready]')));
-      });
-      electricObserver.observe(electricHost, { attributes: true, subtree: true, attributeFilter: ['data-electric-webgl-ready'] });
-    }
-
-    var launcher = state.appearance && state.appearance.launcher || {};
-    var animation = api.getConfig().launcher.animation || {};
-    var shape = launcher.appearance && launcher.appearance.shape || 'circle';
-    var diameter = Math.min(fab.clientWidth || 68, fab.clientHeight || 68);
-    var radius = shape === 'circle' ? diameter / 2 : (shape === 'rounded-square' ? diameter * 0.24 : diameter * 0.08);
-    var appearance = state.appearance || {};
-    electricRoot.render(React.createElement(ElectricBorder, {
-      active: Boolean(animation.enabled && active),
-      color: animation.color || '#9b79ff',
-      speed: Number(animation.speed) || 1,
-      intensity: Number.isFinite(Number(animation.intensity)) ? Number(animation.intensity) : 0.9,
-      arcs: 1,
-      borderRadius: radius,
-      intro: true,
-      interactive: true,
-      theme: appearance.theme === 'light' ? 'light' : 'dark',
-      className: 'launcher-electric-overlay',
-      style: { position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' },
-    }));
-  }
-
   function render(state) {
     if (!state) return;
     var attention = state.appearance && state.appearance.launcher && state.appearance.launcher.attention;
@@ -134,7 +97,6 @@ function startLauncherDemo(api) {
       return ids.some(function (id) { return eligible.indexOf(id) !== -1; });
     });
     var active = Boolean(attention && attention.active);
-    updateElectricBorder(state, active);
     var installLive = eligible.indexOf('install') !== -1;
     var networkLive = eligible.indexOf('diagnostics') !== -1 || eligible.indexOf('recovery') !== -1;
 
@@ -216,21 +178,4 @@ function startLauncherDemo(api) {
   api.setConnectivity(true);
   applyAppearance();
   render(api.getState());
-}
-
-var sdkWaits = 0;
-function bootLauncherDemo() {
-  var api = window.YouGeAssistant;
-  var widget = window.YouGeAssistantWidget;
-  if (!api || typeof api.configure !== 'function' || !widget || typeof widget.getRoot !== 'function' || !widget.getRoot()) {
-    if (sdkWaits++ < 100) {
-      window.setTimeout(bootLauncherDemo, 25);
-      return;
-    }
-    document.getElementById('state-readout-detail').textContent = 'The SDK state runtime did not load. Check the example server/build.';
-    return;
-  }
-  startLauncherDemo(api);
-}
-
-bootLauncherDemo();
+})();

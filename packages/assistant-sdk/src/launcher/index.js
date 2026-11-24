@@ -1,8 +1,8 @@
 /*!
  * @youge/assistant-sdk/launcher — validated launcher configuration + attention derivation
  * -----------------------------------------------------------------------------------
- * Framework-agnostic helpers. The visual effect is an original CSS/SVG treatment;
- * it does not include or port the React Bits WebGL component.
+ * Framework-agnostic configuration, attention and optional WebGL2 renderer.
+ * The renderer is dependency-free and degrades safely when WebGL2 is unavailable.
  */
 
 const SHAPES = Object.freeze(['circle', 'rounded-square', 'square']);
@@ -178,3 +178,5 @@ export const LAUNCHER_SHAPES = SHAPES;
 export const LAUNCHER_LOGO_FITS = LOGO_FITS;
 export const LAUNCHER_ANIMATION_TYPES = ANIMATION_TYPES;
 export const LAUNCHER_ACTION_CATEGORIES = CATEGORIES;
+
+export { bindElectricBorder, createElectricBorder } from './renderer.js';

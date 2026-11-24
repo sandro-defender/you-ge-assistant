@@ -5,7 +5,7 @@ retained as a subpath-safe `importScripts` compatibility shim — see
 [`../reference/COMPATIBILITY_CONTRACTS.md`](../reference/COMPATIBILITY_CONTRACTS.md)) caches the app shell,
 which precache assets are required and which are optional, how installed apps
 receive new code, what the `precache-integrity` gate enforces, and how kit
-`1.2.10` refreshes the precache generation safely.
+`1.2.11` refreshes the precache generation safely.
 
 Everything below was verified with deterministic Node tests against the real
 worker source. **No real-browser or live-deployment verification was performed.**
@@ -17,7 +17,7 @@ worker source. **No real-browser or live-deployment verification was performed.*
 | SDK sources → `assistant-state.js` | `npm run sync:sdk` (`scripts/sync-sdk-browser.mjs`) | The only generated precached file. `--check` (part of `npm run check`) fails when it is out of date. |
 | Precache manifest | `PRECACHE_ASSETS` in `you-ge-sw.js` | 14 scope-relative files, each declared `required: true` or `required: false` (§3). There is no separate manifest file: the worker is the single source, and the gate reads it by running the install handler. |
 | Never cached by the worker | `pwa.js`, `you-ge-sw.js`, `progressier.js` | Always fetched from the network (`fetch` handler returns early). |
-| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.10`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. The SDK package version (`0.4.1`) is a separate release line (§7); because the generated bundle mirrors it, an SDK release-version change regenerates `assistant-state.js` and therefore needs the owner-authorized synchronized kit bump (§13). |
+| Kit version | `VERSION` in `you-ge-sw.js`, `PWA.version` in `pwa.js`, `version` in root `package.json`, `KIT_COMPAT_VERSION` in `packages/assistant-sdk/src/core/constants.js` (mirrored into generated `assistant-state.js`) | All `1.2.11`. The gate requires the four source declarations to agree and verifies that `progressier.js` delegates to `you-ge-sw.js`; `validate-package.mjs` also ties `KIT_COMPAT_VERSION` to `package.json`, and the sync check ties the generated bundle to the SDK source. SDK package `0.5.0` is a separate release line; because the generated bundle mirrors its version, the SDK version change also regenerates `assistant-state.js` and accompanies the synchronized kit bump. |
 | Cache names | `you-ge-assistant:<host>:<scope>:static:v<VERSION>` and `…:pages:v<VERSION>` | Host- and scope-isolated. The **kit version is the only cache-invalidation key.** |
 | Deployment | `.github/workflows/pages.yml` | Every push to `main` publishes the runtime to GitHub Pages. |
 
@@ -568,3 +568,19 @@ SDK release, publication, tag, merge, or deployment is part of the change.
 - Pinned current-version expectations move to `1.2.10` in the identity,
   install-experience, example-theme, and SDK compatibility tests. The historical
   `1.2.9` entries above remain unchanged.
+
+## 17. SDK `0.5.0` / kit `1.2.11` — production ElectricBorder renderer
+
+Prepared on 2026-11-24. The SDK advances from `0.4.1` to `0.5.0` as an
+additive pre-1.0 minor release; the toolkit advances from `1.2.10` to `1.2.11`.
+The SDK now exposes the licensed ElectricBorder WebGL2 renderer and a helper
+that binds it to centralized Assistant attention state. The production classic
+widget uses the same state/config contract and preserves its CSS fallback. React
+is not required. The upstream license and attribution ship with both packages.
+
+The synchronized kit version is recorded in the worker, PWA runtime, root
+package metadata and SDK `KIT_COMPAT_VERSION`; `npm run sync:sdk` regenerated
+the browser state bundle for `SDK_VERSION = 0.5.0`. This preparation does not
+stage, publish, tag, merge or deploy. The registry was checked on 2026-11-24:
+`@youge/assistant-sdk@0.4.1` remains latest; `0.5.0` is not being published by
+this change.

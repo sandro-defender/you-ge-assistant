@@ -383,6 +383,7 @@
   object-position: var(--youge-logo-position, 50% 50%);
   transform: scale(var(--youge-logo-scale, 1));
 }
+.youge-fab[data-electric-webgl-ready] .youge-electric-border { display: none; }
 .youge-electric-border {
   position: absolute;
   z-index: 3;

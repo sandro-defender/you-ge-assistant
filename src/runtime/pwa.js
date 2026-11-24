@@ -4700,7 +4700,7 @@
   var PWA = {
     __pwaKit: true,
     __youGePwaKit: true,
-    version: '1.2.10',
+    version: '1.2.11',
     config: config,
 
     // install

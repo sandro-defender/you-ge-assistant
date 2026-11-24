@@ -1,8 +1,14 @@
-/* Copyright (c) 2026 David Haz. Used with permission; license notice ships at
- * /example/ElectricBorder-LICENSE.md. Original source: React Bits ElectricBorder. */
-import { useEffect, useRef, useState } from 'react';
-import './ElectricBorder.css';
-
+/*!
+ * @youge/assistant-sdk/launcher — ElectricBorder renderer
+ * --------------------------------------------------------
+ * Framework-independent WebGL2 port of React Bits ElectricBorder. Attribution
+ * and the upstream MIT + Commons Clause notice are in the package LICENSE.
+ */
+export function createElectricBorder(container, environment) {
+  const root = environment && environment.window || globalThis;
+  const doc = environment && environment.document || root.document;
+  if (!container || !doc || !doc.createElement) return null;
+  const createRenderer = (function () {
 const ARCS = 4;
 const PULSES = 3;
 const MARGIN = 64;
@@ -253,6 +259,7 @@ void main() {
   fragColor = vec4(clamp(color + grain, 0.0, alpha), alpha);
 }`;
 
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const parseColor = value => {
@@ -385,156 +392,130 @@ const nearestOn = (path, x, y) => {
   return y < 0 ? 4 * quarter - t : 2 * quarter + t;
 };
 
-const ElectricBorder = ({
-  children,
-  color = '#7df9ff',
-  glowColor,
-  speed = 1,
-  chaos = 0.5,
-  spread = 0.6,
-  thickness = 1.5,
-  strands = 3,
-  glow = 0.6,
-  intensity = 0.8,
-  arcs = 1,
-  flicker = 0.5,
-  borderRadius = 24,
-  offset = 0,
-  active = true,
-  intro = true,
-  interactive = true,
-  cursorRadius = 90,
-  theme = 'dark',
-  className = '',
-  style
-}) => {
-  const containerRef = useRef(null);
-  const canvasRef = useRef(null);
-  const wakeRef = useRef(null);
-  const [generation, setGeneration] = useState(0);
 
-  const base = parseColor(color);
-  const settings = {
-    core: base.map(channel => channel + (1 - channel) * 0.55),
-    glowColor: glowColor ? parseColor(glowColor) : base,
-    speed: Math.max(0, speed),
-    chaos: clamp(chaos, 0, 2),
-    spread: clamp(spread, 0, 2),
-    thickness: Math.max(0.25, thickness),
-    strands: clamp(Math.round(strands), 1, 6),
-    glow: clamp(glow, 0, 3),
-    intensity: Math.max(0, intensity),
-    arcs: Math.max(0, arcs),
-    flicker: clamp(flicker, 0, 1),
-    borderRadius: Math.max(0, borderRadius),
-    offset,
-    active,
-    intro,
-    interactive,
-    cursorRadius: Math.max(1, cursorRadius),
-    light: theme === 'light'
-  };
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
+  return function createElectricBorder(container) {
+    if (!container || !doc.createElement) return null;
+    var canvas = doc.createElement('canvas');
+    canvas.className = 'youge-electric-webgl';
+    canvas.setAttribute('aria-hidden', 'true');
+    canvas.setAttribute('focusable', 'false');
+    canvas.style.position = 'absolute';
+    canvas.style.zIndex = '3';
+    canvas.style.display = 'block';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.top = -MARGIN + 'px';
+    canvas.style.left = -MARGIN + 'px';
+    container.appendChild(canvas);
 
-  useEffect(() => {
-    wakeRef.current?.();
-  });
+    var gl = null;
+    try {
+      gl = canvas.getContext('webgl2', {
+        alpha: true,
+        premultipliedAlpha: true,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        powerPreference: 'default',
+      });
+    } catch (error) {
+      gl = null;
+    }
+    var program = gl && root.requestAnimationFrame ? link(gl) : null;
+    if (!gl || !program) {
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      return null;
+    }
 
-  useEffect(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
+    var reduced = false;
+    try { reduced = Boolean(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (error) { reduced = false; }
+    var vao = gl.createVertexArray();
+    if (!vao) {
+      gl.deleteProgram(program.program);
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      return null;
+    }
+    var arcEnds = new Float32Array(ARCS * 4);
+    var arcShape = new Float32Array(ARCS * 4);
+    var pulseData = new Float32Array(PULSES * 4);
+    var size = { width: 1, height: 1, ratio: 1 };
+    var pointer = { x: 0, y: 0, near: false };
+    var hover = { x: 0, y: 0, vx: 0, vy: 0, power: 0 };
+    var sparks = [];
+    var pulses = [];
+    var requestedActive = false;
+    var settings = {
+      color: '#7df9ff', speed: 1, intensity: 0.8, borderRadius: 24, shape: 'circle',
+      active: false, light: false, cursorRadius: 90, interactive: true,
+      chaos: 0.5, spread: 0.6, thickness: 1.5, strands: 3, glow: 0.6,
+      arcs: 1, flicker: 0.5,
+    };
+    var coreColor = [1, 1, 1];
+    var glowColor = [0.49, 0.98, 1];
+    var power = 0;
+    var reveal = 0;
+    var wasActive = false;
+    var ink = 0;
+    var path = pathOf(1, 1, 0, 0);
+    var time = Math.random() * 100;
+    var raf = 0;
+    var last = 0;
+    var visible = true;
+    var pageVisible = doc.visibilityState !== 'hidden';
+    var lost = false;
+    var destroyed = false;
+    var resizePending = false;
+    var resizeObserver = null;
+    var intersection = null;
 
-    const gl = canvas.getContext('webgl2', {
-      alpha: true,
-      premultipliedAlpha: true,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      powerPreference: 'default'
-    });
-    const program = gl ? link(gl) : null;
-    if (!gl || !program) return;
-    container.setAttribute('data-electric-webgl-ready', '');
-
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const vao = gl.createVertexArray();
-    const arcEnds = new Float32Array(ARCS * 4);
-    const arcShape = new Float32Array(ARCS * 4);
-    const pulseData = new Float32Array(PULSES * 4);
-    const size = { width: 1, height: 1, ratio: 1 };
-    const pointer = { x: 0, y: 0, over: false, near: false };
-    const hover = { x: 0, y: 0, vx: 0, vy: 0, power: 0 };
-    const sparks = [];
-    const pulses = [];
-    const first = settingsRef.current;
-    let power = first.active && !(first.intro && !reduced && generation === 0) ? 1 : 0;
-    let reveal = power;
-    let wasActive = first.active;
-    let ink = first.light ? 1 : 0;
-    let path = pathOf(1, 1, 0, 0);
-    let time = Math.random() * 100;
-    let raf = 0;
-    let last = 0;
-    let visible = true;
-    let pageVisible = document.visibilityState !== 'hidden';
-    let lost = false;
-
-    let resizePending = false;
-    const applyResize = () => {
-      const s = settingsRef.current;
-      const width = Math.max(1, container.offsetWidth);
-      const height = Math.max(1, container.offsetHeight);
-      const canvasWidth = width + MARGIN * 2;
-      const canvasHeight = height + MARGIN * 2;
-      const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(PIXEL_BUDGET / (canvasWidth * canvasHeight)));
-      const pixelWidth = Math.max(1, Math.round(canvasWidth * ratio));
-      const pixelHeight = Math.max(1, Math.round(canvasHeight * ratio));
+    function applyResize() {
+      var width = Math.max(1, container.offsetWidth || 1);
+      var height = Math.max(1, container.offsetHeight || 1);
+      var canvasWidth = width + MARGIN * 2;
+      var canvasHeight = height + MARGIN * 2;
+      var ratio = Math.min(root.devicePixelRatio || 1, 2, Math.sqrt(PIXEL_BUDGET / (canvasWidth * canvasHeight)));
+      var pixelWidth = Math.max(1, Math.round(canvasWidth * ratio));
+      var pixelHeight = Math.max(1, Math.round(canvasHeight * ratio));
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
         canvas.width = pixelWidth;
         canvas.height = pixelHeight;
       }
-      canvas.style.width = `${canvasWidth}px`;
-      canvas.style.height = `${canvasHeight}px`;
-      Object.assign(size, { width, height, ratio: pixelWidth / canvasWidth });
-      path = pathOf(width, height, s.borderRadius, s.offset);
-    };
+      canvas.style.width = canvasWidth + 'px';
+      canvas.style.height = canvasHeight + 'px';
+      size.width = width;
+      size.height = height;
+      size.ratio = pixelWidth / canvasWidth;
+      var diameter = Math.min(width, height);
+      var radius = settings.shape === 'circle' ? diameter / 2 : (settings.shape === 'rounded-square' ? diameter * 0.24 : diameter * 0.08);
+      settings.borderRadius = radius;
+      path = pathOf(width, height, radius, 0);
+    }
 
-    const resize = () => {
-      resizePending = true;
-      wake();
-    };
-
-    const spawnArc = (now, near) => {
-      const span = Math.min(path.perimeter * 0.3, 60 + Math.random() * 90);
-      const start = near ?? Math.random() * path.perimeter;
-      const from = start - span * (0.2 + Math.random() * 0.6);
-      const to = from + span;
-      const a = pointOn(path, from);
-      const b = pointOn(path, to);
-      const mid = pointOn(path, (from + to) / 2);
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const length = Math.hypot(dx, dy) || 1;
-      const side = (-dy / length) * mid.nx + (dx / length) * mid.ny;
-      const bow = Math.min(MARGIN - 30, length * (0.14 + Math.random() * 0.16) + 5);
+    function spawnArc(now, near) {
+      var span = Math.min(path.perimeter * 0.3, 60 + Math.random() * 90);
+      var start = near == null ? Math.random() * path.perimeter : near;
+      var from = start - span * (0.2 + Math.random() * 0.6);
+      var to = from + span;
+      var a = pointOn(path, from);
+      var b = pointOn(path, to);
+      var mid = pointOn(path, (from + to) / 2);
+      var dx = b.x - a.x;
+      var dy = b.y - a.y;
+      var length = Math.hypot(dx, dy) || 1;
+      var side = (-dy / length) * mid.nx + (dx / length) * mid.ny;
+      var bow = Math.min(MARGIN - 30, length * (0.14 + Math.random() * 0.16) + 5);
       return {
-        ax: a.x,
-        ay: a.y,
-        bx: b.x,
-        by: b.y,
+        ax: a.x, ay: a.y, bx: b.x, by: b.y,
         bow: side >= 0 ? bow : -bow,
         seed: 1 + Math.random() * 60,
         born: now,
-        life: 0.35 + Math.random() * 0.45
+        life: 0.35 + Math.random() * 0.45,
       };
-    };
+    }
 
-    const render = (s, heatPower) => {
-      const u = program.uniforms;
-      const width = size.width + MARGIN * 2;
-      const height = size.height + MARGIN * 2;
+    function render(heatPower) {
+      var u = program.uniforms;
+      var width = size.width + MARGIN * 2;
+      var height = size.height + MARGIN * 2;
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -547,92 +528,72 @@ const ElectricBorder = ({
       gl.uniform1f(u.uRadius, path.r);
       gl.uniform3f(u.uParam, path.ax, path.ay, path.vr);
       gl.uniform1f(u.uPerimeter, path.perimeter);
-      gl.uniform4f(
-        u.uCells,
+      gl.uniform4f(u.uCells,
         Math.max(1, Math.round(path.perimeter / 75)),
         Math.max(2, Math.round(path.perimeter / 25)),
         Math.max(3, Math.round(path.perimeter / 9)),
-        Math.max(4, Math.round(path.perimeter / 4))
-      );
-      gl.uniform2f(
-        u.uSoft,
+        Math.max(4, Math.round(path.perimeter / 4)));
+      gl.uniform2f(u.uSoft,
         Math.max(1, Math.round(path.perimeter / 150)),
-        Math.max(1, Math.round(path.perimeter / 50))
-      );
+        Math.max(1, Math.round(path.perimeter / 50)));
       gl.uniform1f(u.uTime, time);
       gl.uniform1f(u.uPower, power * power * (3 - 2 * power));
       gl.uniform1f(u.uReveal, reveal);
       gl.uniform3f(u.uHover, hover.x + MARGIN, hover.y + MARGIN, heatPower);
-      gl.uniform1f(u.uHoverRadius, s.cursorRadius);
+      gl.uniform1f(u.uHoverRadius, settings.cursorRadius);
       gl.uniform4fv(u.uPulses, pulseData);
-      gl.uniform3fv(u.uCore, s.core);
-      gl.uniform3fv(u.uGlowColor, s.glowColor);
-      gl.uniform1f(u.uIntensity, s.intensity);
-      gl.uniform1f(u.uGlow, s.glow);
-      gl.uniform1f(u.uThickness, s.thickness);
-      gl.uniform1f(u.uStrands, s.strands);
-      gl.uniform1f(u.uChaos, s.chaos);
-      gl.uniform1f(u.uSpread, s.spread);
-      gl.uniform1f(u.uFlicker, reduced ? 0 : s.flicker);
+      gl.uniform3fv(u.uCore, coreColor);
+      gl.uniform3fv(u.uGlowColor, glowColor);
+      gl.uniform1f(u.uIntensity, settings.intensity);
+      gl.uniform1f(u.uGlow, settings.glow);
+      gl.uniform1f(u.uThickness, settings.thickness);
+      gl.uniform1f(u.uStrands, settings.strands);
+      gl.uniform1f(u.uChaos, settings.chaos);
+      gl.uniform1f(u.uSpread, settings.spread);
+      gl.uniform1f(u.uFlicker, reduced ? 0 : settings.flicker);
       gl.uniform1f(u.uInk, ink);
       gl.uniform4fv(u.uArcEnds, arcEnds);
       gl.uniform4fv(u.uArcShape, arcShape);
       gl.bindVertexArray(vao);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-    };
+    }
 
-    const frame = now => {
+    function frame(now) {
       raf = 0;
       if (resizePending) {
         resizePending = false;
         applyResize();
       }
-      if (lost) return;
-      const s = settingsRef.current;
-      const dt = clamp((now - last) / 1000 || 0, 0, 0.05);
+      if (lost || destroyed) return;
+      var dt = clamp((now - last) / 1000 || 0, 0, 0.05);
       last = Math.max(last, now);
-      const motion = reduced ? 0.2 : 1;
-      time += dt * s.speed * motion;
-
-      if (s.active && !wasActive) reveal = 0;
-      wasActive = s.active;
-      power += ((s.active ? 1 : 0) - power) * (1 - Math.exp(-dt / (s.active ? 0.28 : 0.4)));
-      if (s.active) reveal = reduced ? 1 : Math.min(1, reveal + dt / 0.9);
-      ink += ((s.light ? 1 : 0) - ink) * (1 - Math.exp(-dt / 0.25));
-
-      const engaged = s.interactive && pointer.near && s.active;
+      time += dt * settings.speed * (reduced ? 0 : 1);
+      if (settings.active && !wasActive) reveal = 0;
+      wasActive = settings.active;
+      power += ((settings.active ? 1 : 0) - power) * (1 - Math.exp(-dt / (settings.active ? 0.28 : 0.4)));
+      if (settings.active) reveal = reduced ? 1 : Math.min(1, reveal + dt / 0.9);
+      ink += ((settings.light ? 1 : 0) - ink) * (1 - Math.exp(-dt / 0.25));
+      var engaged = settings.interactive && pointer.near && settings.active && !reduced;
       if (engaged && hover.power < 0.01) {
-        hover.x = pointer.x;
-        hover.y = pointer.y;
-        hover.vx = 0;
-        hover.vy = 0;
+        hover.x = pointer.x; hover.y = pointer.y; hover.vx = 0; hover.vy = 0;
       }
       hover.vx += ((pointer.x - hover.x) * 120 - hover.vx * 19) * dt;
       hover.vy += ((pointer.y - hover.y) * 120 - hover.vy * 19) * dt;
       hover.x += hover.vx * dt;
       hover.y += hover.vy * dt;
       hover.power += ((engaged ? 1 : 0) - hover.power) * (1 - Math.exp(-dt / (engaged ? 0.3 : 0.55)));
-
-      for (let index = sparks.length - 1; index >= 0; index--) {
-        if (time - sparks[index].born > sparks[index].life) sparks.splice(index, 1);
+      for (var i = sparks.length - 1; i >= 0; i--) if (time - sparks[i].born > sparks[i].life) sparks.splice(i, 1);
+      if (!reduced && settings.active && reveal >= 1 && settings.arcs > 0 && sparks.length < ARCS) {
+        var chance = dt * settings.speed * settings.arcs;
+        if (Math.random() < chance * 5 * hover.power) sparks.push(spawnArc(time, nearestOn(path, hover.x - size.width / 2, hover.y - size.height / 2)));
+        else if (Math.random() < chance * (0.6 + path.perimeter / 2400)) sparks.push(spawnArc(time, null));
       }
-      if (!reduced && s.active && reveal >= 1 && s.arcs > 0 && sparks.length < ARCS) {
-        const chance = dt * s.speed * s.arcs;
-        if (Math.random() < chance * 5 * hover.power) {
-          sparks.push(spawnArc(time, nearestOn(path, hover.x - size.width / 2, hover.y - size.height / 2)));
-        } else if (Math.random() < chance * (0.6 + path.perimeter / 2400)) {
-          sparks.push(spawnArc(time, null));
-        }
-      }
-      const fit = power * power * (3 - 2 * power);
-      for (let index = 0; index < ARCS; index++) {
-        const o = index * 4;
-        const spark = sparks[index];
-        if (!spark) {
-          arcShape[o + 1] = 0;
-          continue;
-        }
-        const k = clamp((time - spark.born) / spark.life, 0, 1);
+      var fit = power * power * (3 - 2 * power);
+      for (var index = 0; index < ARCS; index++) {
+        var o = index * 4;
+        var spark = sparks[index];
+        if (!spark) { arcShape[o + 1] = 0; continue; }
+        var k = clamp((time - spark.born) / spark.life, 0, 1);
         arcEnds[o] = spark.ax + size.width / 2 + MARGIN;
         arcEnds[o + 1] = spark.ay + size.height / 2 + MARGIN;
         arcEnds[o + 2] = spark.bx + size.width / 2 + MARGIN;
@@ -641,141 +602,146 @@ const ElectricBorder = ({
         arcShape[o + 1] = Math.sin(Math.PI * k) * fit;
         arcShape[o + 2] = spark.seed;
       }
-
-      for (let index = pulses.length - 1; index >= 0; index--) {
-        if (now - pulses[index].born > 2200) pulses.splice(index, 1);
+      for (var pulseIndex = pulses.length - 1; pulseIndex >= 0; pulseIndex--) if (now - pulses[pulseIndex].born > 2200) pulses.splice(pulseIndex, 1);
+      for (var p = 0; p < PULSES; p++) {
+        var po = p * 4;
+        var pulse = pulses[p];
+        if (!pulse) { pulseData[po + 2] = 0; continue; }
+        pulseData[po] = pulse.s;
+        pulseData[po + 1] = (now - pulse.born) / 1000;
+        pulseData[po + 2] = 1;
       }
-      for (let index = 0; index < PULSES; index++) {
-        const o = index * 4;
-        const pulse = pulses[index];
-        if (!pulse) {
-          pulseData[o + 2] = 0;
-          continue;
-        }
-        pulseData[o] = pulse.s;
-        pulseData[o + 1] = (now - pulse.born) / 1000;
-        pulseData[o + 2] = 1;
-      }
+      render(hover.power * (settings.interactive ? 1 : 0));
+      var busy = power > 0.002 || settings.active || sparks.length > 0;
+      if (busy && visible && pageVisible) raf = root.requestAnimationFrame(frame);
+    }
 
-      render(s, hover.power * (s.interactive ? 1 : 0));
+    function wake() {
+      if (raf || lost || destroyed || !visible || !pageVisible || !root.requestAnimationFrame) return;
+      last = root.performance && root.performance.now ? root.performance.now() : Date.now();
+      raf = root.requestAnimationFrame(frame);
+    }
 
-      const busy = power > 0.002 || s.active || sparks.length > 0;
-      if (busy && visible && pageVisible) raf = requestAnimationFrame(frame);
-    };
-
-    const wake = () => {
-      if (raf || lost || !visible || !pageVisible) return;
-      last = performance.now();
-      raf = requestAnimationFrame(frame);
-    };
-    wakeRef.current = () => {
-      resize();
-      wake();
-    };
-
-    const locate = event => {
-      const rect = container.getBoundingClientRect();
+    function resize() { resizePending = true; wake(); }
+    function locate(event) {
+      var rect = container.getBoundingClientRect();
       pointer.x = event.clientX - rect.left;
       pointer.y = event.clientY - rect.top;
-      pointer.over = pointer.x >= 0 && pointer.y >= 0 && pointer.x <= rect.width && pointer.y <= rect.height;
-      pointer.near =
-        pointer.x >= -MARGIN / 2 &&
-        pointer.y >= -MARGIN / 2 &&
-        pointer.x <= rect.width + MARGIN / 2 &&
-        pointer.y <= rect.height + MARGIN / 2;
-    };
-
-    const onPointerMove = event => {
+      pointer.near = pointer.x >= -MARGIN / 2 && pointer.y >= -MARGIN / 2 && pointer.x <= rect.width + MARGIN / 2 && pointer.y <= rect.height + MARGIN / 2;
+    }
+    function onPointerMove(event) { locate(event); if (pointer.near) wake(); }
+    function onPointerDown(event) {
       locate(event);
-      if (pointer.near) wake();
-    };
-
-    const onPointerDown = event => {
-      locate(event);
-      const s = settingsRef.current;
-      if (!pointer.over || !s.interactive || !s.active || reduced) return;
-      const along = nearestOn(path, pointer.x - size.width / 2, pointer.y - size.height / 2);
-      pulses.push({ s: along, born: performance.now() });
+      if (!pointer.near || !settings.interactive || !settings.active || reduced) return;
+      var along = nearestOn(path, pointer.x - size.width / 2, pointer.y - size.height / 2);
+      pulses.push({ s: along, born: root.performance && root.performance.now ? root.performance.now() : Date.now() });
       if (pulses.length > PULSES) pulses.shift();
       if (sparks.length < ARCS) sparks.push(spawnArc(time, along));
       wake();
-    };
-
-    const onLeave = () => {
-      pointer.over = false;
-      pointer.near = false;
-    };
-
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
-    window.addEventListener('pointerdown', onPointerDown, { passive: true });
-    document.documentElement.addEventListener('pointerleave', onLeave);
-
-    const onLost = event => {
-      event.preventDefault();
-      container.removeAttribute('data-electric-webgl-ready');
+    }
+    function onLeave() { pointer.near = false; }
+    function onLost(event) {
+      if (event && event.preventDefault) event.preventDefault();
       lost = true;
-      cancelAnimationFrame(raf);
+      if (raf) root.cancelAnimationFrame(raf);
       raf = 0;
-    };
-    const onRestored = () => setGeneration(value => value + 1);
+      container.removeAttribute('data-electric-webgl-ready');
+    }
+    function onRestored() {
+      lost = false;
+      program = link(gl);
+      vao = gl.createVertexArray();
+      if (!program || !vao) { onLost(); return; }
+      container.setAttribute('data-electric-webgl-ready', '');
+      resize(); wake();
+    }
+    function onVisibility() { pageVisible = doc.visibilityState !== 'hidden'; wake(); }
+    function onMotionChange(event) {
+      reduced = Boolean(event.matches);
+      settings.active = requestedActive && !reduced;
+      if (reduced) {
+        sparks.length = 0;
+        pulses.length = 0;
+        container.removeAttribute('data-electric-webgl-ready');
+      } else container.setAttribute('data-electric-webgl-ready', '');
+      wake();
+    }
+
+    var motionQuery = null;
+    try {
+      motionQuery = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)');
+      if (motionQuery && motionQuery.addEventListener) motionQuery.addEventListener('change', onMotionChange);
+      else if (motionQuery && motionQuery.addListener) motionQuery.addListener(onMotionChange);
+    } catch (error) { motionQuery = null; }
+    root.addEventListener('pointermove', onPointerMove, { passive: true });
+    root.addEventListener('pointerdown', onPointerDown, { passive: true });
+    if (doc.documentElement) doc.documentElement.addEventListener('pointerleave', onLeave);
+    doc.addEventListener('visibilitychange', onVisibility);
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
-
-    const resizeObserver = new ResizeObserver(() => {
-      resize();
-      wake();
-    });
-    resizeObserver.observe(container);
-
-    const intersection = new IntersectionObserver(entries => {
-      visible = entries.some(entry => entry.isIntersecting);
-      wake();
-    });
-    intersection.observe(container);
-
-    const onVisibility = () => {
-      pageVisible = document.visibilityState !== 'hidden';
-      wake();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
+    if (typeof root.ResizeObserver === 'function') {
+      resizeObserver = new root.ResizeObserver(function () { resize(); wake(); });
+      resizeObserver.observe(container);
+    } else root.addEventListener('resize', resize, { passive: true });
+    if (typeof root.IntersectionObserver === 'function') {
+      intersection = new root.IntersectionObserver(function (entries) {
+        visible = entries.some(function (entry) { return entry.isIntersecting; });
+        wake();
+      });
+      intersection.observe(container);
+    }
+    container.setAttribute('data-electric-webgl-ready', '');
     resize();
-    wake();
 
-    return () => {
-      cancelAnimationFrame(raf);
-      container.removeAttribute('data-electric-webgl-ready');
-      wakeRef.current = null;
-      resizeObserver.disconnect();
-      intersection.disconnect();
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerdown', onPointerDown);
-      document.documentElement.removeEventListener('pointerleave', onLeave);
-      document.removeEventListener('visibilitychange', onVisibility);
-      canvas.removeEventListener('webglcontextlost', onLost);
-      canvas.removeEventListener('webglcontextrestored', onRestored);
-      if (!gl.isContextLost()) {
-        gl.deleteVertexArray(vao);
-        gl.deleteProgram(program.program);
-      }
+    return {
+      update: function (next) {
+        next = next || {};
+        var wasEnabled = settings.active;
+        requestedActive = Boolean(next.active);
+        settings.active = requestedActive;
+        settings.color = typeof next.color === 'string' ? next.color : settings.color;
+        settings.speed = clamp(Number(next.speed) || 1, 0, 5);
+        settings.intensity = clamp(Number(next.intensity) || 0, 0, 3);
+        settings.shape = next.shape === 'rounded-square' || next.shape === 'square' ? next.shape : 'circle';
+        settings.borderRadius = Math.max(0, Number(next.borderRadius) || 0);
+        settings.light = next.light === true;
+        settings.interactive = next.interactive !== false;
+        settings.cursorRadius = Math.max(1, Number(next.cursorRadius) || 90);
+        var base = parseColor(settings.color);
+        coreColor = base.map(function (channel) { return channel + (1 - channel) * 0.55; });
+        glowColor = base;
+        if (reduced || next.reducedMotion) {
+          settings.active = false;
+          container.removeAttribute('data-electric-webgl-ready');
+        } else container.setAttribute('data-electric-webgl-ready', '');
+        if (settings.active && !wasEnabled) reveal = 0;
+        resizePending = true;
+        wake();
+      },
+      destroy: function () {
+        if (destroyed) return;
+        destroyed = true;
+        if (raf) root.cancelAnimationFrame(raf);
+        if (resizeObserver) resizeObserver.disconnect();
+        if (intersection) intersection.disconnect();
+        root.removeEventListener('pointermove', onPointerMove);
+        root.removeEventListener('pointerdown', onPointerDown);
+        root.removeEventListener('resize', resize);
+        if (doc.documentElement) doc.documentElement.removeEventListener('pointerleave', onLeave);
+        doc.removeEventListener('visibilitychange', onVisibility);
+        canvas.removeEventListener('webglcontextlost', onLost);
+        canvas.removeEventListener('webglcontextrestored', onRestored);
+        if (motionQuery && motionQuery.removeEventListener) motionQuery.removeEventListener('change', onMotionChange);
+        else if (motionQuery && motionQuery.removeListener) motionQuery.removeListener(onMotionChange);
+        container.removeAttribute('data-electric-webgl-ready');
+        if (gl && !gl.isContextLost()) {
+          if (vao) gl.deleteVertexArray(vao);
+          if (program) gl.deleteProgram(program.program);
+        }
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      },
     };
-  }, [generation]);
-
-  return (
-    <div
-      ref={containerRef}
-      className={`electric-border${className ? ` ${className}` : ''}`}
-      style={{ borderRadius, ...style }}
-    >
-      {children}
-      <canvas
-        ref={canvasRef}
-        className="electric-border__canvas"
-        style={{ top: -MARGIN, left: -MARGIN }}
-        aria-hidden="true"
-      />
-    </div>
-  );
-};
-
-export default ElectricBorder;
+  };
+})();
+  return createRenderer(container);
+}

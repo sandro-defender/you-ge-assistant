@@ -603,6 +603,26 @@ export declare const LAUNCHER_ANIMATION_TYPES: readonly ('electric-border')[];
 export declare const LAUNCHER_ACTION_CATEGORIES: readonly LauncherActionCategory[];
 export declare function normalizeLauncherConfig(raw?: LauncherConfigInput | null): LauncherConfig;
 export declare function launcherActionCategory(action: AssistantAction | null | undefined): LauncherActionCategory | null;
+export interface ElectricBorderOptions {
+  active?: boolean;
+  color?: string;
+  speed?: number;
+  intensity?: number;
+  shape?: LauncherShape;
+  borderRadius?: number;
+  light?: boolean;
+  interactive?: boolean;
+  cursorRadius?: number;
+  reducedMotion?: boolean;
+}
+export interface ElectricBorderRenderer {
+  update(options?: ElectricBorderOptions): void;
+  destroy(): void;
+}
+/** Mount the licensed, framework-independent WebGL2 ElectricBorder on an element. */
+export declare function createElectricBorder(container: HTMLElement, environment?: { window?: Window; document?: Document }): ElectricBorderRenderer | null;
+/** Mount the renderer and keep it synchronized with the Assistant's centralized attention state. */
+export declare function bindElectricBorder(container: HTMLElement, assistant: Pick<AssistantInstance, 'getState' | 'subscribe'>, environment?: { window?: Window; document?: Document }): (ElectricBorderRenderer & { renderer: ElectricBorderRenderer; update(): void }) | null;
 export declare function deriveLauncherAttention(state: Pick<AssistantState, 'notifications' | 'availableActions' | 'viewed' | 'dismissed' | 'acknowledged' | 'completed'>, launcher?: LauncherConfig | LauncherConfigInput): LauncherAttentionState;
 
 export declare const NOTIFICATION_LEVEL_MAP: Readonly<Record<string, NotificationLevel>>;

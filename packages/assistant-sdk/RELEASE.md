@@ -1,16 +1,14 @@
 # `@youge/assistant-sdk` — Release Preparation & Publishing Decision
 
-> **Repository preparation:** SDK `0.4.1`, kit `1.2.9`; no stage, publish,
-> tag or release has been performed.
+> **Repository preparation (2026-11-24):** SDK `0.5.0`, kit `1.2.11`; both
+> versions are synchronized and validation is green. No stage, publish, tag or
+> release has been performed for this preparation.
 >
-> **Last verified registry status (2026-11-22):** npm reports
-> `@youge/assistant-sdk@0.4.0` as `latest`, published 2026-11-19 — before the
-> Phase 1 correctness fixes, and its tarball contains none of them (checked
-> against the registry artifact on 2026-11-22). `0.4.1` exists only in this
-> repository. The detailed preparation and verification records below describe
-> earlier release work and are historical where they name older versions; they
-> do not describe the current registry state. No preparation task has ever
-> staged, published, released, or exported any credential. The repository's
+> **Registry status (verified 2026-11-24):** npm reports
+> `@youge/assistant-sdk@0.4.1` as `latest` (published 2026-11-23). The prepared
+> `0.5.0` contains the dependency-free ElectricBorder renderer and SDK-state
+> binding in addition to the additive `0.4.1` APIs/fixes. Earlier preparation
+> records below are historical where they name older versions. The repository's
 > release workflow remains manually authorized and gated; nothing is published
 > automatically on push, pull request, or merge.
 >
@@ -37,17 +35,17 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 
 | Item | Value | Notes |
 | --- | --- | --- |
-| Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); npm registry currently reports `0.2.0` (verified 2026-11-14) |
-| Version | `0.4.1` prepared in repository (not published) | Synced with `SDK_VERSION` in `src/core/constants.js`, `validate-package.mjs` and the `check.mjs` release-ready gate |
-| Visibility | published (`0.1.0`, `0.1.1`, `0.2.0`, `0.3.0`) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every future publish path stays gated ([§5](#5-publishing-remains-disabled)) |
+| Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); npm registry reports `0.4.1` as `latest` (verified 2026-11-24) |
+| Version | `0.5.0` prepared in repository (not published) | Additive pre-1.0 minor: SDK launcher renderer APIs; synced with `SDK_VERSION`, package metadata and check gates |
+| Visibility | published (`0.1.0`, `0.1.1`, `0.2.0`, `0.3.0`, `0.4.0`, `0.4.1`) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every future publish path stays gated ([§5](#5-publishing-remains-disabled)) |
 | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
 | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
-| TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./browser`, `./theme`, `./i18n`, `./react` |
+| TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./browser`, `./theme`, `./launcher`, `./i18n`, `./react` |
 | Export map | Explicit subpaths, no wildcards | Deep imports like `@youge/assistant-sdk/src/...` are **blocked** |
 | Runtime dependencies | **Zero** | `react >= 18` is an optional peer only (for `./react`) |
-| License | MIT ([`LICENSE`](LICENSE)) | Matches the repository license |
-| Packed size | 27 files, 120.1 kB tarball / 458.2 kB unpacked | `npm pack --dry-run` (2026-11-19, `0.4.0`; the 12-locale dictionary is the largest addition) |
-| Kit compatibility | `KIT_COMPAT_VERSION = 1.2.9` in the repository source | Matches the owner-authorized, synchronized You.Ge Assistant runtime version (`pwa.js` / `you-ge-sw.js` / root `package.json`). The published `0.3.0` tarball was built at kit `1.2.3` and reports `1.2.3`; the constant is informational and changes in a published package only with the next SDK release |
+| License | MIT ([`LICENSE`](LICENSE)) + upstream ElectricBorder notice ([`LICENSE-ElectricBorder.txt`](LICENSE-ElectricBorder.txt)) | The renderer's source license/attribution is also included in the classic distribution |
+| Packed size | 32 files, 140.6 kB tarball / 526.8 kB unpacked | `npm pack --dry-run` for `0.5.0` (2026-11-24); includes the launcher renderer and its required upstream notice |
+| Kit compatibility | `KIT_COMPAT_VERSION = 1.2.11` in the repository source | Matches `pwa.js`, `you-ge-sw.js`, root `package.json` and the generated classic state bundle |
 | Config schema | `SCHEMA_VERSION = 1` | Data-only `publishedConfig` pipeline, LKG fallback |
 | **Publishing auth** | **npm Trusted Publishing (OIDC) everywhere: the `stage` and `publish` jobs both carry `id-token: write`; no npm token reference exists anywhere in the workflows. First publication (0.1.0, 2026-11-06) used the temporary `NPM_STAGE_TOKEN` bootstrap — created, used and revoked** | Verify, stage and publish use no npm token at all; the bootstrap token was a temporary credential, not the future publishing method — [§4](#4-release-runbook-when-a-release-is-approved), [§6](#6-npm-trusted-publishing-oidc), [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important) |
 
