@@ -240,6 +240,10 @@ function AssistantFloatingWidget() {
   const activeLocale = resolveExampleLocale(state.locale);
   const dict = useMemo(() => getExampleDictionary(activeLocale), [activeLocale]);
   const appearance = state.appearance || fallbackState.appearance;
+  const launcher = appearance.launcher || fallbackState.appearance.launcher;
+  const launcherVisual = launcher.appearance || {};
+  const launcherAnimation = launcher.animation || {};
+  const launcherAttention = launcher.attention || { active: false };
   const resolvedTheme = useResolvedTheme(appearance);
   const widgetRef = useRef(null);
   const toggleRef = useRef(null);
@@ -259,6 +263,13 @@ function AssistantFloatingWidget() {
   useEffect(() => {
     applyWorkspaceStaticTranslations(activeLocale);
   }, [activeLocale]);
+
+  useEffect(() => {
+    if (!open || typeof YouGeAssistant.attach !== 'function') return;
+    const actionableIds = new Set((state.availableActions || []).map((action) => action.id));
+    const ids = notifications.filter((notice) => (Array.isArray(notice.actionIds) ? notice.actionIds : [notice.actionId]).some((id) => id && actionableIds.has(id))).map((notice) => notice.id);
+    if (ids.length) YouGeAssistant.attach().markViewed(ids);
+  }, [open, state.availableActions, notifications]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -303,6 +314,33 @@ function AssistantFloatingWidget() {
   }
 
   const fabOpenLabel = `${dict.openAssistantMenu}${badge.count ? `, ${tExample(activeLocale, 'alerts', { count: badge.count })}, ${badge.label}` : `, ${dict.noAlerts}`}`;
+  const launcherReducedMotion = typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+  const launcherAttentionMode = launcherAnimation.enabled && launcherAttention.active
+    ? (launcherReducedMotion ? 'static' : 'active')
+    : 'off';
+  const launcherSize = launcher.sizeConfigured ? launcher.size : 66;
+  const launcherRadius = launcherVisual.shape === 'circle' ? '50%' : (launcherVisual.shape === 'rounded-square' ? '24%' : '8%');
+  const launcherVars = {
+    '--assistant-electric-color': /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(launcherAnimation.color || '') ? launcherAnimation.color : '#c084fc',
+    '--assistant-electric-duration': `${3 / Math.max(0.25, Math.min(2.5, Number(launcherAnimation.speed) || 1))}s`,
+    '--assistant-electric-intensity': String(Math.max(0, Math.min(1, Number(launcherAnimation.intensity) || 0))),
+    '--assistant-launcher-radius': launcherRadius,
+    '--assistant-launcher-border-width': `${Math.max(0, Math.min(8, Number(launcherVisual.border?.width ?? 1)))}px`,
+    '--assistant-launcher-border-color': /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(launcherVisual.border?.color || '') ? launcherVisual.border.color : 'rgba(199, 187, 220, 0.42)',
+    '--assistant-launcher-border-style': ['solid', 'dashed', 'none'].includes(launcherVisual.border?.style) ? launcherVisual.border.style : 'solid',
+  };
+  const configuredLogoStyle = launcher.logo ? {
+    width: `${Math.max(30, Math.min(100, Number(launcherVisual.logoSize) || 72))}%`,
+    height: `${Math.max(30, Math.min(100, Number(launcherVisual.logoSize) || 72))}%`,
+    left: `${Math.max(0, Math.min(100, Number(launcherVisual.logoPosition?.x ?? 50)))}%`,
+    top: `${Math.max(0, Math.min(100, Number(launcherVisual.logoPosition?.y ?? 50)))}%`,
+    objectFit: ['contain', 'cover', 'fill'].includes(launcherVisual.logoFit) ? launcherVisual.logoFit : 'contain',
+    objectPosition: `${launcherVisual.logoPosition?.x ?? 50}% ${launcherVisual.logoPosition?.y ?? 50}%`,
+    borderRadius: launcherVisual.logoBorderRadius || '50%',
+    transform: `translate(-50%, -50%) scale(${Math.max(0.5, Math.min(2.5, Number(launcherVisual.logoScale) || 1))})`,
+  } : undefined;
 
   return (
     <div
@@ -476,10 +514,10 @@ function AssistantFloatingWidget() {
 
       <GlareHover
         className="assistant-fab-glare"
-        width="66px"
-        height="66px"
+        width={`${launcherSize}px`}
+        height={`${launcherSize}px`}
         background="transparent"
-        borderRadius="50%"
+        borderRadius={launcherRadius}
         borderColor="transparent"
         glareColor={actionable ? '#f6ccc6' : '#ffffff'}
         glareOpacity={0.08}
@@ -497,11 +535,20 @@ function AssistantFloatingWidget() {
           aria-haspopup="dialog"
           title="You.Ge Assistant"
           data-tone={badge.tone}
+          data-shape={launcherVisual.shape || 'circle'}
+          data-attention={launcherAttentionMode}
+          style={{ ...launcherVars, ...(launcher.sizeConfigured ? { width: `${launcher.size}px`, height: `${launcher.size}px` } : {}) }}
           onClick={() => setOpen((wasOpen) => !wasOpen)}
         >
           <span className="assistant-fab-stage" aria-hidden="true">
-            <img className="assistant-mark-image" src={assistantMark} alt="" />
+            <img className="assistant-mark-image" src={launcher.logo || assistantMark} alt="" style={configuredLogoStyle} />
           </span>
+          <svg className="assistant-electric-border" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <path className="assistant-electric-halo" d="M50 4 A46 46 0 1 1 49.99 4" />
+            <path className="assistant-electric-circle" d="M50 4 A46 46 0 1 1 49.99 4" />
+            <path className="assistant-electric-rounded" d="M24 4 H76 Q96 4 96 24 V76 Q96 96 76 96 H24 Q4 96 4 76 V24 Q4 4 24 4 Z" />
+            <path className="assistant-electric-square" d="M4 4 H96 V96 H4 Z" />
+          </svg>
           {badge.count > 0 ? (
             <span className="assistant-badge" data-tone={badge.tone} aria-hidden="true">
               {badge.count > 9 ? '9+' : badge.count}

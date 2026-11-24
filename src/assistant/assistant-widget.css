@@ -1,7 +1,7 @@
 /*!
  * assistant-widget.css — You.Ge Assistant floating widget
  * Dependency-free, token-based, responsive and reduced-motion aware.
- * No continuous animation, no WebGL, no external font or image requests.
+ * Action-only outline motion, no idle loop, WebGL, font or image requests.
  *
  * ------------------------------------------------------------------
  * Isolation strategy (see ADAPTIVE_THEME_AUDIT.md §4)
@@ -310,6 +310,10 @@
  * ------------------------------------------------------------------ */
 
 .youge-fab {
+  --youge-fab-border-width: 1px;
+  --youge-fab-border-color: var(--youge-fab-ring);
+  --youge-fab-border-style: solid;
+  --youge-launcher-radius: 50%;
   position: fixed !important;
   display: inline-flex !important;
   align-items: center;
@@ -317,10 +321,9 @@
   width: var(--youge-fab-size);
   height: var(--youge-fab-size);
   padding: 0;
-  border: 1px solid var(--youge-fab-ring);
-  /* A true circle at every size and every position — border-radius: 50% on a
-     square box, so the 54px small-viewport variant stays circular too. */
-  border-radius: 50%;
+  border: var(--youge-fab-border-width) var(--youge-fab-border-style) var(--youge-fab-border-color);
+  /* Per-instance shape defaults to a true circle for existing consumers. */
+  border-radius: var(--youge-launcher-radius);
   background: var(--youge-fab-bg);
   color: var(--youge-fab-ink);
   box-shadow: var(--youge-fab-shadow);
@@ -342,7 +345,7 @@
 .youge-fab::before {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
+  border-radius: var(--youge-launcher-radius);
   background: radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 62%);
   content: '';
   pointer-events: none;
@@ -357,7 +360,67 @@
 
 .youge-fab .youge-icon { position: relative; z-index: 1; }
 .youge-fab .youge-icon svg { width: var(--youge-fab-glyph, 26px); height: var(--youge-fab-glyph, 26px); display: block; }
-
+.youge-fab[data-logo="true"] .youge-icon { display: none; }
+.youge-fab-logo-stage {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: var(--youge-logo-size, 72%);
+  height: var(--youge-logo-size, 72%);
+  overflow: hidden;
+  border-radius: var(--youge-logo-radius, 50%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.youge-fab-logo-stage img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: var(--youge-logo-fit, contain);
+  object-position: var(--youge-logo-position, 50% 50%);
+  transform: scale(var(--youge-logo-scale, 1));
+}
+.youge-electric-border {
+  position: absolute;
+  z-index: 3;
+  inset: -5px;
+  width: calc(100% + 10px);
+  height: calc(100% + 10px);
+  overflow: visible;
+  opacity: 0;
+  color: var(--youge-electric-color, #c084fc);
+  pointer-events: none;
+}
+.youge-electric-border path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2.5;
+  stroke-dasharray: 13 6 2 6;
+  filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor);
+  opacity: var(--youge-electric-intensity, 0.8);
+}
+.youge-electric-border .youge-electric-halo {
+  stroke-width: 5;
+  opacity: 0.24;
+  filter: blur(2px);
+}
+.youge-fab[data-attention="active"] .youge-electric-border,
+.youge-fab[data-attention="static"] .youge-electric-border { opacity: 1; }
+.youge-fab[data-attention="active"] .youge-electric-border path { animation: youge-electric-flow var(--youge-electric-duration, 3s) linear infinite; }
+.youge-fab[data-attention="static"] .youge-electric-border path { stroke-dasharray: none; }
+.youge-fab[data-shape="circle"] { --youge-launcher-radius: 50%; }
+.youge-fab[data-shape="rounded-square"] { --youge-launcher-radius: 24%; }
+.youge-fab[data-shape="square"] { --youge-launcher-radius: 8%; }
+@keyframes youge-electric-flow { to { stroke-dashoffset: -54; } }
+/* Coarse-pointer/mobile launchers keep the attention cue but skip continuous
+   path/filter work; the animated desktop treatment is not worth battery/GPU cost. */
+@media (hover: none) and (pointer: coarse) {
+  .youge-fab[data-attention="active"] .youge-electric-border path { animation: none; stroke-dasharray: none; filter: none; }
+  .youge-electric-border .youge-electric-halo { filter: none; }
+}
 /* Red means "there is something to act on". The button does not decide that on
    its own: data-tone is the SDK badge tone, i.e. the tone of the highest-priority
    notice the user has not dismissed or acknowledged. So critical (connection, DNS,
@@ -743,6 +806,7 @@
      switches immediately and the button never lifts or scales. */
   .youge-fab:hover, .youge-fab:active, .youge-btn:hover, .youge-btn:active { transform: none !important; }
   .youge-fab::before { transition: none; }
+  .youge-fab[data-attention="active"] .youge-electric-border path { animation: none; stroke-dasharray: none; }
 }
 
 /* -------------------------------------------------------------------------- *

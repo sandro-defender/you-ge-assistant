@@ -22,6 +22,7 @@ const CORE_LOCALES = ['en', 'ka', 'ru', 'fr', 'it', 'de', 'sv', 'nl', 'no', 'da'
 
 const i18n = await import('@youge/assistant-sdk/i18n');
 const installation = await import('@youge/assistant-sdk/installation');
+const launcher = await import('@youge/assistant-sdk/launcher');
 const root = await import('@youge/assistant-sdk');
 
 test('the 0.4.0 export map publishes the localization and installation entries without wildcards', () => {
@@ -33,6 +34,7 @@ test('the 0.4.0 export map publishes the localization and installation entries w
     './domain',
     './i18n',
     './installation',
+    './launcher',
     './package.json',
     './react',
     './theme',
@@ -42,7 +44,7 @@ test('the 0.4.0 export map publishes the localization and installation entries w
     [],
     'no wildcard subpath export may expose internal source files',
   );
-  for (const subpath of ['./i18n', './installation']) {
+  for (const subpath of ['./i18n', './installation', './launcher']) {
     assert.ok(pkg.exports[subpath].types.endsWith('.d.ts'), `${subpath} ships paired declarations`);
     assert.ok(pkg.exports[subpath].default.endsWith('.js'), `${subpath} resolves to a runtime module`);
   }

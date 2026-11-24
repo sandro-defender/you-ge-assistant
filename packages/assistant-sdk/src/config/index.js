@@ -29,6 +29,9 @@ import {
   safeText,
 } from '../core/sanitize.js';
 import { normalizeTheme } from '../theme/index.js';
+import { LAUNCHER_DEFAULTS, normalizeLauncherConfig } from '../launcher/index.js';
+
+export { LAUNCHER_DEFAULTS, normalizeLauncherConfig };
 
 export { INSTALL_EXPERIENCE_DEFAULTS, normalizeInstallExperience };
 
@@ -82,6 +85,7 @@ export const BUNDLED_DEFAULTS = {
     variables: {},
   },
   themeMode: 'auto',
+  launcher: normalizeLauncherConfig(),
 };
 
 export function normalizeActions(raw) {
@@ -239,6 +243,7 @@ function extractLayerOverrides(raw) {
     };
     out.themeMode = theme.mode;
   }
+  if (source.launcher !== undefined) out.launcher = normalizeLauncherConfig(source.launcher);
   if (source.domainRegistry && typeof source.domainRegistry === 'object' && !Array.isArray(source.domainRegistry)) {
     out.domainRegistry = sanitizePlainData(source.domainRegistry);
   }
@@ -282,6 +287,7 @@ function applyLayer(base, layer) {
     base.themeMode = layer.theme.mode || 'auto';
   }
   if (layer.themeMode) base.themeMode = layer.themeMode;
+  if (layer.launcher) base.launcher = clone(layer.launcher);
   if (layer.domainRegistry) base.domainRegistry = clone(layer.domainRegistry);
   return base;
 }

@@ -568,3 +568,69 @@ light-first navy/violet identity, system fonts and no third-party font request.
 The shared `product.css`/`product.js` chrome and the existing SVG symbol were
 reused instead of introducing a new component library or emoji icons. No skill
 data or generated catalog was added to the repository.
+
+## 17. Configurable launcher attention (2026-11-24)
+
+The `ui-ux-pro-max-skill` was actively used again for the launcher UI: the
+official upstream checkout outside the repository was read, including its UX
+search workflow, the accessibility/motion rules in `references/quick-reference.md`,
+and the pre-delivery guidance in `references/pro-rules.md`. Targeted queries:
+
+```bash
+python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py \
+  "actionable attention animation reduced motion accessible launcher touch target" \
+  --domain ux --max-results 5
+python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py \
+  "CSS animated launcher focus button performance" --stack react --max-results 5
+```
+
+The verified UX results advised honoring reduced motion, limiting the effect to
+one context-relevant element, retaining semantic button/focus behavior, and not
+relying on color alone. The effect is state-only and absent by default; when
+reduced motion is requested it becomes a static border. It has no hit testing,
+canvas, WebGL, hover dependency, or continuously running idle loop.
+
+### React Bits compatibility decision
+
+Inspected the actual Electric Border page and current source at
+`src/content/Animations/ElectricBorder/ElectricBorder.jsx` and `.css` in
+`DavidHDev/react-bits` (source browser reported commit
+`ed33ebe4acfe29e60fb759bcccc70a138ce2dcef`, 2026-11-08). It is a React/WebGL
+GLSL fragment-shader implementation, uses a canvas, has no npm dependency but
+requires the React runtime, and exposes extensive shader parameters, including
+Plasma, sparks, cursor surges and interaction settings. The inspected upstream
+license is **MIT + Commons Clause v1.0**: its text expressly restricts
+redistribution and porting of the components. Copying it into this distributable
+SDK or shipping a port was therefore rejected. No React Bits code or runtime
+dependency was added.
+
+The SDK owns an original, small CSS/SVG electric-outline treatment instead.
+It honors color, speed, intensity, launcher shape and action attention; the
+supported effect name is `electric-border`, and the supported color treatment
+is `plasma`. It deliberately omits shader noise, sparks, cursor interaction and
+intro animation. The renderer applies it only to the launcher perimeter so the
+brand mark remains centered and uncovered. It runs only while the shared state
+contains eligible notification/action pairs and stops on viewed, completed,
+dismissed/acknowledged, unavailable or expired items, unless another eligible
+item remains.
+
+### State/API and verification boundaries
+
+The SDK already supplied centralized notices/actions, but not a viewed lifecycle
+or a completion signal for host-owned actions. The extension is deliberately
+small: `markViewed()` records currently actionable notifications separately
+from acknowledgement; `completeAction()` (also the
+`youge:action:complete` event) records completed action-linked notices. The
+existing state engine still owns installation/network availability and action
+priority; renderers contain no duplicate detectors. Per-project notice storage
+remains backward-compatible and reads older records without `viewed` or
+`completed` keys.
+
+Tests cover normalized configuration, defaults, all shapes/fits, invalid-value
+fallbacks, opt-in Plasma styling, real installation/network state, category
+filtering, repeated/viewed/completed/dismissed action state, multi-action
+priority, static reduced-motion behavior, pointer transparency, semantic
+controls and backwards-compatible state configuration. The prior §8 static-only
+launcher description is historical: the idle launcher is still unchanged, with
+this new optional attention layer activated only for actionable state. No skill
+data was committed.

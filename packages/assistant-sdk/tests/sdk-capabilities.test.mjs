@@ -132,6 +132,8 @@ test('modules.diagnostics: false removes every diagnostics action and notice lin
     const notice = state.notifications.find((n) => n.id === id);
     assert.ok(notice, `${id} still reports the real condition`);
     assert.equal(notice.actionId, undefined, `${id} exposes no diagnostics action`);
+    assert.ok(!notice.actionIds.includes('diagnostics'), `${id} does not leak a capability-gated alternate action`);
+    assert.ok(notice.actionIds.includes('recovery'), `${id} retains the real recovery alternative`);
   }
   assistant.destroy();
 });
@@ -143,6 +145,9 @@ test('modules.recovery: false removes recovery guidance and keeps the other capa
   assert.equal(actionIds(state).includes('recovery'), false);
   assert.ok(actionIds(state).includes('diagnostics'), 'diagnostics is independent');
   assert.ok(actionIds(state).includes('backup-status'), 'failover is independent');
+  for (const notice of state.notifications.filter((entry) => ['network:offline', 'dns:failure', 'api:primary-failed'].includes(entry.id))) {
+    assert.ok(!notice.actionIds.includes('recovery'), 'no gated recovery action is linked');
+  }
   assistant.destroy();
 });
 

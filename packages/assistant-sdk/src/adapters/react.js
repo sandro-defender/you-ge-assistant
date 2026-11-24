@@ -84,9 +84,27 @@ export const FALLBACK_ASSISTANT_STATE = Object.freeze({
     theme: 'auto',
     themeConfig: Object.freeze({ mode: 'auto', inheritHost: false, tokens: Object.freeze({}), host: Object.freeze({}), variables: Object.freeze({}), warnings: Object.freeze([]) }),
     themeColor: '#155eef',
+    launcher: Object.freeze({
+      size: 56,
+      sizeConfigured: false,
+      logo: '',
+      appearance: Object.freeze({
+        shape: 'circle', logoFit: 'contain', logoScale: 1,
+        logoPosition: Object.freeze({ x: 50, y: 50 }), logoBorderRadius: '50%', logoSize: 72,
+        border: Object.freeze({ width: 1, color: '#334155', style: 'solid' }),
+      }),
+      animation: Object.freeze({
+        enabled: false, type: 'electric-border', color: '#c084fc', preset: 'plasma',
+        speed: 1, intensity: 0.8, trigger: 'action-available',
+        triggerCategories: Object.freeze(['installation', 'connectivity', 'recovery']), stopWhenViewed: true,
+      }),
+      attention: Object.freeze({ active: false, eligibleActionIds: Object.freeze([]), priority: null }),
+    }),
   }),
   dismissed: Object.freeze([]),
   acknowledged: Object.freeze([]),
+  viewed: Object.freeze([]),
+  completed: Object.freeze([]),
 });
 
 export function getExternalStoreBindings(assistantOrGetter, selector, fallbackState) {

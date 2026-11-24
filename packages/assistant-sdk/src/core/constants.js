@@ -32,6 +32,7 @@ Object.freeze(ICONS);
 export const EVENT_NAMES = {
   state: 'youge:state',
   action: 'youge:action',
+  actionCompleted: 'youge:action:complete',
   localeChange: 'youge:locale-change',
   endpointStatus: 'youge:endpoint-status',
   sessionStatus: 'youge:session-status',

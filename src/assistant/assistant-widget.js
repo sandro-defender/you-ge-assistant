@@ -193,6 +193,7 @@
 
   var mount = null;
   var fab = null;
+  var fabLogo = null;
   var badge = null;
   var live = null;
   var panel = null;
@@ -322,11 +323,15 @@
   function applyFabAdjust() {
     if (!fab || !mount) return;
     var hasSize = manualAdjust && manualAdjust.size != null;
-    if (hasSize) {
-      var size = manualAdjust.size + 'px';
+    var launcher = null;
+    try { launcher = api && api.getState && api.getState().appearance.launcher; } catch (error) { launcher = null; }
+    var configuredSize = Boolean(launcher && launcher.sizeConfigured);
+    if (hasSize || configuredSize) {
+      var targetSize = hasSize ? manualAdjust.size : launcher.size;
+      var size = targetSize + 'px';
       fab.style.width = size;
       fab.style.height = size;
-      var glyph = Math.max(18, Math.round(manualAdjust.size * 0.46)) + 'px';
+      var glyph = Math.max(18, Math.round(targetSize * 0.46)) + 'px';
       fab.style.setProperty('--youge-fab-glyph', glyph);
       mount.style.setProperty('--youge-fab-size', size);
     } else {
@@ -525,6 +530,40 @@
     var themed = themeApplied && Object.prototype.hasOwnProperty.call(themeApplied, '--youge-brand');
     if (!themed && HEX_COLOR.test(String(appearance.themeColor || ''))) {
       mount.style.setProperty('--youge-brand', appearance.themeColor);
+    }
+    var launcher = appearance.launcher || {};
+    var visual = launcher.appearance || {};
+    var animation = launcher.animation || {};
+    var attention = launcher.attention || {};
+    if (fab) {
+      var shape = ['circle', 'rounded-square', 'square'].indexOf(visual.shape) !== -1 ? visual.shape : 'circle';
+      fab.setAttribute('data-shape', shape);
+      if (fab.querySelectorAll) Array.prototype.forEach.call(fab.querySelectorAll('.youge-electric-border path'), function (path) {
+        var d = path.getAttribute('data-' + shape);
+        if (d && path.getAttribute('d') !== d) path.setAttribute('d', d);
+      });
+      fab.setAttribute('data-logo', launcher.logo ? 'true' : 'false');
+      var attentionMode = animation.enabled && attention.active ? (reducedMotion() ? 'static' : 'active') : 'off';
+      fab.setAttribute('data-attention', attentionMode);
+      var border = visual.border || {};
+      fab.style.setProperty('--youge-fab-border-width', (Number(border.width) >= 0 && Number(border.width) <= 8 ? Number(border.width) : 1) + 'px');
+      fab.style.setProperty('--youge-fab-border-color', HEX_COLOR.test(String(border.color || '')) ? border.color : 'var(--youge-fab-ring)');
+      fab.style.setProperty('--youge-fab-border-style', ['solid', 'dashed', 'none'].indexOf(border.style) !== -1 ? border.style : 'solid');
+      fab.style.setProperty('--youge-logo-size', (Number(visual.logoSize) >= 30 && Number(visual.logoSize) <= 100 ? Number(visual.logoSize) : 72) + '%');
+      fab.style.setProperty('--youge-logo-scale', (Number(visual.logoScale) >= 0.5 && Number(visual.logoScale) <= 2.5 ? Number(visual.logoScale) : 1));
+      fab.style.setProperty('--youge-logo-fit', ['contain', 'cover', 'fill'].indexOf(visual.logoFit) !== -1 ? visual.logoFit : 'contain');
+      var logoPosition = visual.logoPosition || {};
+      var logoX = Number(logoPosition.x), logoY = Number(logoPosition.y);
+      fab.style.setProperty('--youge-logo-position', (Number.isFinite(logoX) ? Math.max(0, Math.min(100, logoX)) : 50) + '% ' + (Number.isFinite(logoY) ? Math.max(0, Math.min(100, logoY)) : 50) + '%');
+      fab.style.setProperty('--youge-logo-radius', typeof visual.logoBorderRadius === 'string' && /^(?:\d+(?:\.\d+)?)(?:px|%)$/.test(visual.logoBorderRadius) ? visual.logoBorderRadius : '50%');
+      fab.style.setProperty('--youge-electric-color', HEX_COLOR.test(String(animation.color || '')) ? animation.color : '#c084fc');
+      fab.style.setProperty('--youge-electric-duration', (3 / Math.max(0.25, Math.min(2.5, Number(animation.speed) || 1))) + 's');
+      fab.style.setProperty('--youge-electric-intensity', String(Math.max(0, Math.min(1, Number(animation.intensity) || 0))));
+      if (fabLogo) {
+        if (launcher.logo) fabLogo.setAttribute('src', launcher.logo);
+        else fabLogo.removeAttribute('src');
+      }
+      applyFabAdjust();
     }
     mount.hidden = state.enabled === false;
   }
@@ -1117,6 +1156,12 @@
   function openPanel() {
     if (isOpen || !panel) return;
     isOpen = true;
+    try {
+      var current = api.getState();
+      var actionIds = new Set((current.availableActions || []).map(function (action) { return action.id; }));
+      var viewedIds = (current.notifications || []).filter(function (notice) { var linked = Array.isArray(notice.actionIds) ? notice.actionIds : [notice.actionId]; return linked.some(function (id) { return id && actionIds.has(id); }); }).map(function (notice) { return notice.id; });
+      if (viewedIds.length && typeof api.markViewed === 'function') api.markViewed(viewedIds);
+    } catch (error) { /* attention remains state-driven; viewing is best effort */ }
     if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
     panel.hidden = false;
     fab.setAttribute('aria-expanded', 'true');
@@ -1252,6 +1297,32 @@
     var initState = typeof api.getState === 'function' ? api.getState() : null;
     fab.setAttribute('aria-label', t(initState, 'noAlertsFabLabel'));
     fab.appendChild(icon('assistant'));
+    var logoStage = el('span', 'youge-fab-logo-stage');
+    logoStage.setAttribute('aria-hidden', 'true');
+    fabLogo = el('img');
+    fabLogo.alt = '';
+    logoStage.appendChild(fabLogo);
+    fab.appendChild(logoStage);
+    var createSvgElement = typeof doc.createElementNS === 'function'
+      ? function (tag) { return doc.createElementNS('http://www.w3.org/2000/svg', tag); }
+      : function (tag) { return doc.createElement(tag); };
+    var electric = createSvgElement('svg');
+    electric.setAttribute('class', 'youge-electric-border');
+    electric.setAttribute('viewBox', '0 0 100 100');
+    electric.setAttribute('preserveAspectRatio', 'none');
+    electric.setAttribute('aria-hidden', 'true');
+    electric.setAttribute('focusable', 'false');
+    var glowPath = createSvgElement('path');
+    glowPath.setAttribute('class', 'youge-electric-halo');
+    var corePath = createSvgElement('path');
+    [glowPath, corePath].forEach(function (path) {
+      path.setAttribute('data-circle', 'M50 4 A46 46 0 1 1 49.99 4');
+      path.setAttribute('data-rounded-square', 'M24 4 H76 Q96 4 96 24 V76 Q96 96 76 96 H24 Q4 96 4 76 V24 Q4 4 24 4 Z');
+      path.setAttribute('data-square', 'M4 4 H96 V96 H4 Z');
+      path.setAttribute('d', path.getAttribute('data-circle'));
+      electric.appendChild(path);
+    });
+    fab.appendChild(electric);
     badge = el('span', 'youge-badge');
     badge.setAttribute('aria-hidden', 'true');
     badge.hidden = true;

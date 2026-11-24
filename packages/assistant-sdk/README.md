@@ -69,6 +69,7 @@ Inside another package in this repository or a sibling local project:
 | `@youge/assistant-sdk/installation` | `window.PWA` state reader, installation state/copy derivation, native prompt, `<pwa-install>` dialog open/hide, related-app lookup, and service-worker update delegation |
 | `@youge/assistant-sdk/browser` | Android in-app browser detection and best-effort Chrome handoff (`detectInAppBrowser`, `buildChromeIntentUrl`, `createChromeHandoff`) |
 | `@youge/assistant-sdk/theme` | Adaptive theme normalization/resolution, WCAG contrast helpers, `--youge-*` CSS variables, and notification-level taxonomy |
+| `@youge/assistant-sdk/launcher` | Launcher configuration normalization and shared action-attention derivation (`deriveLauncherAttention`) |
 | `@youge/assistant-sdk/i18n` | Unified 12-locale dictionary (`en`, `ka`, `ru`, `fr`, `it`, `de`, `sv`, `nl`, `no`, `da`, `et`, `es`), BCP-47 locale resolver, translation + plural helpers, RTL detection, DNS localization, and Chrome handoff labels |
 | `@youge/assistant-sdk/react` | Optional React 18/19 `useSyncExternalStore` adapter (zero runtime `react` import in SDK) |
 
@@ -199,6 +200,80 @@ const assistant = YouGeAssistant.create({
 console.log(assistant.getConfig().meta);
 // { schemaVersion: 1, source: 'published', revision: '2026-11-06.1', usedLastKnownGood: false, warnings: [] }
 ```
+
+### Launcher appearance and action-triggered attention
+
+Launcher appearance is optional, per-instance configuration. Existing consumers
+keep their current 56px responsive launcher and visual mark unless they opt in.
+The `launcher` block is validated, clamped, included in `getConfig()` and
+published in `state.appearance.launcher` for renderers:
+
+```ts
+const assistant = YouGeAssistant.create({
+  projectId: 'portal-prod',
+  launcher: {
+    size: 68,
+    logo: '/brand/assistant-mark.svg', // same-origin, relative path only
+    appearance: {
+      shape: 'circle', // circle | rounded-square | square
+      logoFit: 'cover', // contain | cover | fill
+      logoSize: 78, // percent of launcher diameter
+      logoScale: 1.18, // clamped 0.5–2.5
+      logoPosition: { x: 50, y: 50 }, // object-position percentages, each 0–100
+      logoBorderRadius: '50%',
+      border: { width: 1, color: '#334155', style: 'solid' },
+    },
+    animation: {
+      enabled: true,
+      type: 'electric-border',
+      preset: 'plasma',
+      color: '#c084fc',
+      speed: 1,
+      intensity: 0.8,
+      trigger: 'action-available',
+      triggerCategories: ['installation', 'connectivity', 'recovery'],
+      stopWhenViewed: true,
+    },
+  },
+});
+```
+
+Defaults: `size: 56`, circle, contain, scale `1`, center position, logo size
+`72%`, 1px solid border, and animation disabled. Shape, logo and border settings
+are independent of the animation. Invalid values fall back field-by-field;
+size, zoom, position, radius, speed, intensity and border width are bounded.
+Logo paths must be relative/same-origin. Supported effect preset: **Plasma**.
+
+Attention is derived centrally from the actual `notifications` and
+`availableActions` snapshot. A notice must link to an action that is currently
+available and its category must be selected; a permanent shortcut or an
+informational message alone never starts attention. Existing action kinds map
+to categories: `install` → `installation`, `diagnostics` → `connectivity`,
+`recovery` → `recovery`, `backup` → `backup`, `update` → `update`, `help` →
+`help`, and project actions → `custom`. Multiple eligible notices share one
+launcher animation, with priority reported from the existing action priority.
+
+The shipped renderers call `markViewed()` when the user opens the Assistant;
+viewing stops attention by default without hiding or dismissing the notices.
+A custom renderer should do the same. `dismiss()` and `acknowledge()` retain
+their existing behavior. A host-owned action can report success through
+`assistant.completeAction('my-action')` or dispatch
+`youge:action:complete` with `{ actionId: 'my-action' }`; that retires attention
+for notices linked to that action without changing the host's business logic.
+Expired/cleared conditions remove their notifications and are recalculated
+immediately. When `stopWhenViewed` is `false`, an available action may continue
+to attract attention after it is viewed.
+
+The launcher outline is an SDK-owned CSS/SVG effect inspired by an electric
+current, not a bundled or ported React Bits component. The inspected React Bits
+implementation is React + WebGL/GLSL, and its MIT + Commons Clause terms prohibit
+redistribution/porting of the component; the SDK therefore avoids that license
+and WebGL/GPU/dependency cost. This adaptation supports the Plasma color family,
+speed and intensity but intentionally omits the original shader's cursor
+interaction, sparks and other advanced controls. It animates only while eligible
+action attention is active. `prefers-reduced-motion` replaces motion with a
+static border; the ring is decorative, pointer-transparent, and launcher
+semantics, focus treatment, labels and notification badge remain available.
 
 ### Configuration Security Rules
 

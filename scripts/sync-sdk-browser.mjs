@@ -30,6 +30,7 @@ const SOURCE_MODULES = [
   'core/capabilities.js',
   'core/sanitize.js',
   'theme/index.js',
+  'launcher/index.js',
   'domain/index.js',
   'config/index.js',
   'diagnostics/index.js',

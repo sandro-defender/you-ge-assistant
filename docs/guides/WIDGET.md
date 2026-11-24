@@ -123,6 +123,44 @@ health. It never probes the primary API in the background, never replays writes,
 and never treats hostname detection as authentication. DNS classifications are
 cautious: a DoH result is not proof of an ISP problem.
 
+### Launcher appearance and attention
+
+Each instance may configure `launcher.size`, `launcher.logo`, and
+`launcher.appearance` (`shape`, `logoFit`, `logoSize`, `logoScale`,
+`logoPosition`, `logoBorderRadius`, and `border`). Defaults retain the existing
+responsive dimensions/mark. Shape options are `circle`, `rounded-square`, and
+`square`; logo fit is `contain`, `cover`, or `fill`. Logo URLs are relative,
+same-origin paths. Values are normalized and clamped before entering the state
+snapshot; bad values fall back independently.
+
+`launcher.animation.enabled` defaults to `false`. When enabled, the supported
+`electric-border` / `plasma` outline is still **off** unless the centralized
+state finds an unviewed notification with an action ID that exists in
+`availableActions` and belongs to one of `triggerCategories`. Default categories
+are installation, connectivity, and recovery. A static shortcut by itself and
+informational notices cannot animate it. The shared model resolves multiple
+eligible actions into one outline and keeps it active until no eligible item
+remains.
+
+Opening the built-in widget marks currently actionable notices viewed. This
+stops attention without dismissing or hiding those notices. Custom renderers can
+call `assistant.markViewed(notificationIds)` when they display the actions.
+A host-owned action reports completion with
+`assistant.completeAction(actionId)` or a `youge:action:complete` event whose
+detail has `{ actionId }`. Existing `dismiss()` / `acknowledge()` methods keep
+their original notification behavior. `stopWhenViewed: false` allows continued
+attention while the action remains available.
+
+The effect is a dependency-free CSS/SVG adaptation, not the original React Bits
+shader component. React Bits' current component uses React/WebGL/GLSL and its
+MIT + Commons Clause license restricts redistributing/porting that component.
+This SDK adaptation preserves an animated electric outline and configurable
+Plasma color/speed/intensity but has no cursor interaction or shader sparks.
+It is limited to the visible launcher, uses no canvas/WebGL, and does no work
+when off. Reduced motion substitutes a static border; the outline has no pointer
+events, while keyboard focus, the launcher's accessible name and the existing
+notification badge remain intact.
+
 ---
 
 ## 3. Event-driven lifecycle
@@ -167,6 +205,19 @@ window.YOU_GE_ASSISTANT_CONFIG = {
   //          tokens: { primary, radius, … }, host: { … }, variables: { … } },
   modules: { installation, diagnostics, recovery, failover, help, updates, chromeHandoff },
   notifications: { dismissible, suppressRepeats, criticalPersistent },
+  launcher: {
+    size: 68, logo: '/brand/mark.svg',
+    appearance: {
+      shape: 'circle', logoFit: 'cover', logoSize: 78, logoScale: 1.18,
+      logoPosition: { x: 50, y: 50 }, logoBorderRadius: '50%',
+      border: { width: 1, color: '#334155', style: 'solid' },
+    },
+    animation: {
+      enabled: true, type: 'electric-border', preset: 'plasma', color: '#c084fc',
+      speed: 1, intensity: 0.8, trigger: 'action-available',
+      triggerCategories: ['installation', 'connectivity', 'recovery'], stopWhenViewed: true,
+    },
+  },
   actions: [{ id, label, icon, priority, kind, message }],
   features: [{ id, label, message }],
   // optional local-only service:
@@ -187,6 +238,8 @@ Public API:
 | `runDiagnostics()` | On-demand, single-flight check. |
 | `requestInstall()` | Delegate to `PWA.promptInstall()` when available. |
 | `dismiss(id)` / `acknowledge(id)` | Suppression controls. |
+| `markViewed(notificationIds)` | Records that currently actionable notices were shown; does not hide them. |
+| `completeAction(actionId)` | Host-owned action lifecycle signal; stops attention for linked notices. Equivalent event: `youge:action:complete` with `{ actionId }`. |
 | `destroy()` | Cleanup. |
 
 `isCapabilityEnabled(name)` reports the live capabilities below.
