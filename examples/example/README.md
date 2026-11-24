@@ -9,8 +9,12 @@ The preserved Staff Space sample is at `/example/workspace.html`. The interactiv
 SDK launcher studio is at `/example/launcher-demo.html` (local Vite route:
 `http://localhost:5173/launcher-demo.html`). It renders the actual classic
 `assistant-state.js` and `assistant-widget.js`, not the mock preview from the
-configuration playground. Open the floating launcher at the lower right to see
-the real panel and action buttons.
+configuration playground. The reference ElectricBorder WebGL component is
+mounted as an effect layer over that real SDK button; the SDK still owns its
+state, launcher, panel, and action buttons. Its upstream component and license
+notice is shipped at `/example/ElectricBorder-LICENSE.md`; source files are
+retained under `src/react-bits/`. Open the floating launcher at the
+lower right to inspect the real panel and actions.
 
 The studio includes four scenario controls: **Idle** has no PWA install adapter
 or actionable notice; **Installation** attaches a host PWA adapter exposing the

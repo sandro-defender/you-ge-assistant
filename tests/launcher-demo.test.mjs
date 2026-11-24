@@ -4,19 +4,33 @@ import test from 'node:test';
 import { createAssistant } from '../packages/assistant-sdk/src/index.js';
 
 const html = readFileSync(new URL('../examples/example/launcher-demo.html', import.meta.url), 'utf8');
-const controls = readFileSync(new URL('../examples/example/public/launcher-demo.js', import.meta.url), 'utf8');
+const controls = readFileSync(new URL('../examples/example/launcher-demo.js', import.meta.url), 'utf8');
+const electricBorder = readFileSync(new URL('../examples/example/src/react-bits/ElectricBorder.jsx', import.meta.url), 'utf8');
+const electricLicense = readFileSync(new URL('../examples/example/public/ElectricBorder-LICENSE.md', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../examples/example/launcher-demo.css', import.meta.url), 'utf8');
 const vite = readFileSync(new URL('../examples/example/vite.config.js', import.meta.url), 'utf8');
 
 test('launcher demo loads the actual SDK state bundle and classic launcher renderer in order', () => {
   const state = html.indexOf('src="assistant-state.js"');
   const widget = html.indexOf('src="assistant-widget.js"');
-  const demo = html.indexOf('src="launcher-demo.js"');
+  const demo = html.indexOf('src="./launcher-demo.js"');
   assert.ok(state >= 0 && state < widget && widget < demo, 'SDK, widget, then host controls load in sequence');
   assert.match(html, /<main id="main" class="demo-shell">/);
   assert.match(html, /Northstar Workspace/);
   assert.match(html, /launcher-demo-logo\.svg/);
   assert.match(vite, /launcherDemo: path\.join\(exampleRoot, 'launcher-demo\.html'\)/);
+});
+
+test('launcher demo mounts the licensed ElectricBorder effect over the real SDK button from centralized attention state', () => {
+  assert.match(controls, /import ElectricBorder from '\.\/src\/react-bits\/ElectricBorder\.jsx'/);
+  assert.match(controls, /createRoot\(electricHost\)/);
+  assert.match(controls, /active: Boolean\(animation\.enabled && active\)/);
+  assert.match(controls, /fab\.appendChild\(electricHost\)/);
+  assert.match(electricBorder, /const FRAGMENT = `#version 300 es/);
+  assert.match(electricBorder, /const spawnArc = \(now, near\)/, 'the original WebGL renderer creates outward electric arcs');
+  assert.match(electricBorder, /getContext\('webgl2'/);
+  assert.match(electricLicense, /Copyright \(c\) 2026 David Haz/);
+  assert.match(electricLicense, /Commons Clause/);
 });
 
 test('scenario controls use SDK-backed installability, connectivity and action lifecycle state', () => {

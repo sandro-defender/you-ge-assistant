@@ -108,6 +108,8 @@ body.launcher-demo-page {
 .range-control > span { display: flex; justify-content: space-between; }
 .range-control input { display: block; margin: 8px 0 0; }
 .color-control input { width: 34px; height: 26px; padding: 2px; border: 1px solid #e7e3ed; border-radius: 7px; background: white; cursor: pointer; }
+.launcher-electric-host { position: absolute; z-index: 3; inset: 0; overflow: visible; pointer-events: none; }
+.youge-fab[data-electric-webgl-ready] .youge-electric-border { display: none; }
 .demo-code-note { display: flex; gap: 9px; margin-top: 15px; padding: 11px; border: 1px solid #eeeaf6; border-radius: 10px; background: #fbfaff; }
 .demo-code-note > span { display: grid; width: 27px; height: 22px; place-items: center; border-radius: 6px; background: #ede8fa; color: #594a91; font-size: 8px; font-weight: 800; }
 .demo-code-note p { margin: 0; color: #7d7789; font-size: 9px; line-height: 1.6; }
