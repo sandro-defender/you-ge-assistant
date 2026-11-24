@@ -17,11 +17,14 @@ test('built-in renderers consume the shared launcher appearance and preserve sha
   }
 });
 
-test('electric outline stays pointer-transparent, outside the logo, and only renders for active or static attention', () => {
+test('electric outline extends beyond the launcher without clipping and only renders for active or static attention', () => {
+  assert.match(classicCss, /\.youge-fab\s*\{[^}]*overflow:\s*visible/);
+  assert.match(classicCss, /\.youge-electric-border\s*\{[^}]*inset:\s*-10px;[^}]*width:\s*calc\(100% \+ 20px\);[^}]*overflow:\s*visible/);
   assert.match(classicCss, /\.youge-electric-border[\s\S]*?pointer-events:\s*none/);
   assert.match(classicCss, /data-attention="active"[\s\S]*?youge-electric-border/);
+  assert.match(reactCss, /\.assistant-electric-border\s*\{[^}]*inset:\s*-10px;[^}]*width:\s*calc\(100% \+ 20px\);[^}]*overflow:\s*visible/);
   assert.match(reactCss, /\.assistant-electric-border[\s\S]*?pointer-events:\s*none/);
-  assert.match(reactCss, /data-attention="active"[\s\S]*?assistant-electric-border/);
+  assert.match(reactCss, /\.assistant-fab\s*\{[^}]*overflow:\s*visible/);
   assert.match(react, /assistant-electric-border/);
 });
 

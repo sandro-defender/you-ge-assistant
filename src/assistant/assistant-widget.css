@@ -324,6 +324,7 @@
   border: var(--youge-fab-border-width) var(--youge-fab-border-style) var(--youge-fab-border-color);
   /* Per-instance shape defaults to a true circle for existing consumers. */
   border-radius: var(--youge-launcher-radius);
+  overflow: visible;
   background: var(--youge-fab-bg);
   color: var(--youge-fab-ink);
   box-shadow: var(--youge-fab-shadow);
@@ -385,9 +386,11 @@
 .youge-electric-border {
   position: absolute;
   z-index: 3;
-  inset: -5px;
-  width: calc(100% + 10px);
-  height: calc(100% + 10px);
+  /* Give the animated trace a clear gutter outside the launcher. The button
+     and SVG both keep overflow visible so the halo is not clipped to its disc. */
+  inset: -10px;
+  width: calc(100% + 20px);
+  height: calc(100% + 20px);
   overflow: visible;
   opacity: 0;
   color: var(--youge-electric-color, #c084fc);

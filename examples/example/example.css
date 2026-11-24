@@ -193,7 +193,7 @@ a { color: inherit; }
   pointer-events: none;
 }
 .assistant-fab[data-logo="true"] .assistant-fab-stage { border-radius: var(--assistant-launcher-radius, 50%); }
-.assistant-electric-border { position: absolute; z-index: 3; inset: -5px; width: calc(100% + 10px); height: calc(100% + 10px); overflow: visible; opacity: 0; color: var(--assistant-electric-color, #c084fc); pointer-events: none; }
+.assistant-electric-border { position: absolute; z-index: 3; inset: -10px; width: calc(100% + 20px); height: calc(100% + 20px); overflow: visible; opacity: 0; color: var(--assistant-electric-color, #c084fc); pointer-events: none; }
 .assistant-electric-border path { display: none; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2.5; stroke-dasharray: 13 6 2 6; filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 5px currentColor); opacity: var(--assistant-electric-intensity, .8); }
 .assistant-electric-border .assistant-electric-halo { stroke-width: 5; opacity: .22; filter: blur(2px); }
 .assistant-fab[data-attention="active"] .assistant-electric-border, .assistant-fab[data-attention="static"] .assistant-electric-border { opacity: 1; }
